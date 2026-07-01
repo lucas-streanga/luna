@@ -1,6 +1,6 @@
 # The Luna Programming Language
 
-Luna is a general-purpose hybrid scripting and ahead-of-time compiled programming language. Luna is data-focused, with an emphasis on a compositional approach to programming. It is heavily inspired by Raku, PHP, and Go.
+Luna is a general-purpose hybrid scripting and ahead-of-time compiled programming language. Luna is data-focused, with an emphasis on a compositional approach to programming. It is heavily inspired by Raku, Lua, PHP, and Go.
 
 At the time of writing, no Luna implementation exists. The intention is to eventually provide a `luna` binary, which will act as the full suite of tooling for Luna, including a runner, compiler, formatter, LSP, and even static library for embedding.
 
@@ -10,6 +10,7 @@ The plan is for Luna to use a goland backend. Meaning, the compiler will compile
 - Go is a well-performing language.
 - Utilizing Go grants us a high-performance garbage collector for free.
 - Utilizing Go grants us multiple target platforms for free.
+- Utilizing Go grants us some compiler backend optimizations for free.
 - The Go compiler is very fast, enabling the creation of Luna as a scripting language.
 
 # Proposed compiler usage
@@ -25,4 +26,4 @@ Additional run and compile flags: `-d`, `--debug`. Runs the compiler in debug mo
 
 `$ luna -f myprogram.luna` or `$ luna --format myprogram.luna`
 
-The above will run the built-in Luna formatter on the provided program, including recursively through all it's imported modules.
+The above will run the built-in Luna formatter on the provided program, including recursively through all its imported modules.
