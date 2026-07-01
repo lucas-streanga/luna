@@ -21,6 +21,13 @@ numbers = null; // throws IncompatibleTypesError: null cannot be assigned to var
 ```
 
 ```
+var myFile = openFile('myfile.txt', File.modeRead);
+println(@myFile.typeName); // prints "File"
+myFile = myFile.lines();
+println(@myFile.typeName); // prints "stream"
+```
+
+```
 let numbers = 0..100;
 numbers = 0..50; // throws ReassigmentError: cannot reassign a variable declared with "let"
 ```
@@ -45,7 +52,12 @@ println(@myTable['element'].typeName); // prints "null"
 
 ```
 foreach (0..10 as num) {
-  let i = num; // OK: variables are lexigraphy scoped
+  let i = num; // OK: variables are lexigraphically scoped
 }
 println(i); // Compile-time error: i is undefined in this scope
 ```
+
+# Important notes
+- variables are lexigraphically scoped, as is typical in modern programming languages. But, this differs from PHP, where variables are function-scoped.
+- Optional variables declared with `let` which are initially assigned `null` may be reassigned exactly once, and never again.
+- The `@` operator is the "type of" operator, and will return the underlying `type` of any variable. Please see the "types" section for more info.
