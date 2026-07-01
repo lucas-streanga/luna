@@ -10,23 +10,6 @@ myTable['lastName'] = 'Streanga';
 ```
 
 ```
-var myTable = [];
-myTable.name = 'Lucas';
-myTable.close();
-myTable.lastName = 'Streanga'; // throws OpenViolationError: cannot add new elements to a closed table.
-myTable.open();
-myTable.lastName = 'Streanga'; // OK
-myTable.neverOpen();
-myTable.age = 0 // Throws OpenViolationError: cannot add new elements to a closed table.
-myTable.open() // Throws InvalidOpenError: cannot open a table which has been set as "never open"
-myTable.setGet('lastName'); // OK: no change, 'lastName' was already readable
-myTable.noSet('lastName');
-myTable['lastName'] = 'new'; // Throws TableMutationViolationError: 'lastName' is not mutable
-myTable.noGet('lastName');
-println(myTable.lastName); // Throws TableReadViolationError: 'lastName' is not readable
-```
-
-```
 var numbers: stream|table = 0..100;
 io.println(@numbers.typeName); // prints "stream"
 numbers.map(fn (number: int) => number * 2);
@@ -123,3 +106,32 @@ println(myNewStream x 5); // prints 56789
 myNewStream = (copy myStream).reset();
 println(myNewStream x 5); // prints 01234
 ```
+
+# Notes: internal representation
+All variables in Luna are stored internally by the `lval` struct, which is always 16 bytes. 
+
+```
+struct lval {
+  uint64_t typeAndFlags;
+  void * dataPtr;
+}
+```
+
+The `typeAndFlags` member contains information about both the type of variable and various flags. The lower 16 bits are reserved for flags, such as:
+
+- isNull
+- isNullable
+- isVar
+- isError
+
+The upper 48 bits is the `typeid`. All types, including complex types, have their own unique `typeid`. This means the type `string|int` has a unique id, different from `int` and `string`. The types are stored in the global typetable, where is an array in which all elements are `typeinfo` structs. The `typeinfo` struct determines how to interpret the `dataPtr` in an `lval`. Nullable types are not seperate `typeinfo` structs; they contain their nullability as a flag, and their current null state as a flag. Attributes, too, are tied to the type and are stored in the `typeinfo` struct of a variable, if said variable has attributes. This means each unique combination of types and attributes has their own `typeinfo` struct. 
+
+The typetable is not static. New types can be created at runtime, particularly because functions can throw. When that occurs, a new type is appended to the typetable describing the union of the previous type and whatever specific error was thrown. This has to be done because, while Luna has checked errors, the exact error subtype is not known at compile time. 
+
+Some simple types like `int`, `double` and `bool` will not have their own `dataPtr` pointing to a place in memory. Instead, the value will be stored in-line inside the 8 bytes of the `dataPtr`.
+
+Copying variables around then merely necessitates copying the 16 byte `lval` struct. When COW activates, then the data pointed to by the `dataPtr` is copied. 
+
+For the typeof operator `@`, this merely returns the associated `typeinfo`. This is provided as a virtual table, as the underlying implementation is a struct. But, to the Luna programmer, the `type` type functions as a table.
+
+Variables are automatically collected by the Go garbage collector. Individual types may manage their own internal memory: for example, `stream`, `table` and `string`. When they are about to be collected, they will need to free their internal allocations.
