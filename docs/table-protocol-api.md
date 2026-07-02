@@ -1,9 +1,18 @@
-## 9. Protocol API
+# Table Protocol API
+
+This is the operation catalogue for Luna tables. The concepts these operations rely
+on are defined in **tables.md**: copy-on-write value semantics and `&`-write-back
+(tables.md §4), the growth and mutation seals (tables.md §5), element permissions
+(tables.md §6), and flag propagation (tables.md §7).
+
+---
+
+## 1. Protocol API
 
 Each entry gives the signature, its time complexity, and a description. `X?` marks
 an optional parameter.
 
-### 9.1 Introspection
+### 1.1 Introspection
 
 #### empty()
 ```
@@ -21,7 +30,7 @@ fn count(tab: table): int
 ```
 fn isList(tab: table): bool
 ```
-**O(1).** True iff the table is a list — incrementing `int` keys from 0.
+**O(1).** True iff the table is a list, incrementing `int` keys from 0.
 
 #### isContiguousMemory()
 ```
@@ -45,10 +54,11 @@ fn canSet(tab: table, key: any): bool
 missing key or a protocol `noGet` key. `canSet` is false for a missing key, a
 protocol `noSet` key, or any key while the table is frozen.
 
-### 9.2 Table-level seals
+### 1.2 Table-level seals
 
 Each returns the modified table (COW); use `&tab.method(...)` to apply in place.
-Per-key get/set permissions are not set here — they are declared by protocols (§6).
+Per-key get/set permissions are not set here, they are declared by protocols
+(tables.md §6).
 
 #### open() · close() · neverOpen()
 ```
@@ -68,7 +78,7 @@ fn neverThaw(tab: table): table
 **O(1).** Set the mutation axis: unfrozen, frozen (revocable), or permanently
 frozen. `thaw()` on a `neverThaw` table raises `InvalidThawError`.
 
-### 9.3 Endpoints
+### 1.3 Endpoints
 
 #### first() · last()
 ```
@@ -84,11 +94,11 @@ fn keyLast(tab: table): any
 ```
 **O(1).** First / last key. `undefined` if empty.
 
-### 9.4 Search & predicates
+### 1.4 Search & predicates
 
 #### find()
 ```
-fn find(tab: table, value: any = null, key: any = null, compareFn?: fn,
+fn find(tab: table, value: any = null, key: any = null, compareFn?,
         mode: enum {values, keys, both, either} = {values},
         onNoGet: enum {throw, skip} = {throw}): any
 ```
@@ -98,7 +108,7 @@ is set.
 
 #### keyOf()
 ```
-fn keyOf(tab: table, value: any, compareFn?: fn,
+fn keyOf(tab: table, value: any, compareFn?,
          all: bool = false, onNoGet: enum {throw, skip} = {throw}): any
 ```
 **O(n).** The first key whose value matches `value`; `undefined` if none. With
@@ -107,7 +117,7 @@ fn keyOf(tab: table, value: any, compareFn?: fn,
 
 #### exists()
 ```
-fn exists(tab: table, value: any = null, key: any = null, compareFn?: fn,
+fn exists(tab: table, value: any = null, key: any = null, compareFn?,
           mode: enum {values, keys, both, either} = {values},
           onNoGet: enum {throw, skip} = {throw}): bool
 ```
@@ -117,17 +127,17 @@ tests.
 
 #### some() · every()
 ```
-fn some(tab: table, predicateFn?: fn mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
-fn every(tab: table, predicateFn?: fn mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
+fn some(tab: table, predicateFn?, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
+fn every(tab: table, predicateFn?, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
 ```
 **O(n).** Whether any / all elements satisfy `predicateFn` (`fn(x): bool`). With
 `predicateFn` omitted, tests truthiness. Both short-circuit.
 
-### 9.5 Transform
+### 1.5 Transform
 
 #### map()
 ```
-fn map(tab: table, transformFn?: fn mode: enum {values, keys, both} = {values},
+fn map(tab: table, transformFn?, mode: enum {values, keys, both} = {values},
        onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n).** Transforms each value via `transformFn` (`fn(value): any`). In `{keys}`
@@ -136,7 +146,7 @@ mode keys are passed; in `{both}`, `fn(value, key): [key, value]`. In `{keys}` /
 
 #### filter()
 ```
-fn filter(tab: table, predicateFn?: fn mode: enum {values, keys, both} = {values},
+fn filter(tab: table, predicateFn?, mode: enum {values, keys, both} = {values},
           onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n).** Keeps elements where `predicateFn` (`fn(value): bool`) returns true.
@@ -144,7 +154,7 @@ fn filter(tab: table, predicateFn?: fn mode: enum {values, keys, both} = {values
 
 #### mapLeaves()
 ```
-fn mapLeaves(tab: table, transformFn?: fn mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): table
+fn mapLeaves(tab: table, transformFn?, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): table
 ```
 **O(n).** Recursively descends to every leaf and applies `transformFn`.
 
@@ -157,10 +167,10 @@ fn each(tab: table, callbackFn: fn, mode: enum {values, keys, both} = {values}, 
 
 #### reduce()
 ```
-fn reduce(tab: table, reductionFn?: fn initial: any = null, onNoGet: enum {throw, skip} = {throw}): any
+fn reduce(tab: table, reductionFn?, initial: any = null, onNoGet: enum {throw, skip} = {throw}): any
 ```
 **O(n).** Folds the table via `reductionFn` (`fn(carry, item): any`), starting from
-`initial`. Returns the accumulated value — commonly a scalar.
+`initial`. Returns the accumulated value, commonly a scalar.
 
 #### keyCase()
 ```
@@ -168,7 +178,7 @@ fn keyCase(tab: table, uppercase: bool, asStream = false): table | stream
 ```
 **O(n).** Upper- or lower-cases every key.
 
-### 9.6 Reshape
+### 1.6 Reshape
 
 #### values() · keys()
 ```
@@ -211,7 +221,7 @@ fn chunk(tab: table, length: int, preserveKeys: bool = true,
 
 #### groupBy()
 ```
-fn groupBy(tab: table, keyFn?: fn mode: enum {values, keys, both} = {values},
+fn groupBy(tab: table, keyFn?, mode: enum {values, keys, both} = {values},
            preserveKeys: bool = true,
            onNoGet: enum {throw, skip} = {throw}): table
 ```
@@ -235,7 +245,7 @@ fn flatten(tab: table, depth: int = -1, preserveKeys: bool = false,
 **O(n).** Flattens nested tables. `depth = -1` flattens fully. Reindexes by default,
 since keys collide across levels.
 
-### 9.7 Combine & compare
+### 1.7 Combine & compare
 
 #### merge()
 ```
@@ -250,7 +260,7 @@ recursively.
 #### diff()
 ```
 fn diff(tab: table, ...tabs: table,
-        *, compareFn?: fn, mode: enum {values, keys, both} = {both},
+        *, compareFn?, mode: enum {values, keys, both} = {both},
         onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n²).** Keeps elements of `tab` **not present in all** of `tabs`. Keys preserved.
@@ -259,15 +269,15 @@ Uses `==` unless `compareFn` (`fn(a, b): bool`) is set.
 #### intersect()
 ```
 fn intersect(tab: table, ...tabs: table,
-             *, compareFn?: fn, mode: enum {values, keys, both} = {values},
+             *, compareFn?, mode: enum {values, keys, both} = {values},
              onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n²).** Keeps elements of `tab` present in **all** of `tabs`.
 
 #### distinct() · unique()
 ```
-fn distinct(tab: table, compareFn?: fn, onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
-fn unique(tab: table, compareFn?: fn, onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
+fn distinct(tab: table, compareFn?, onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
+fn unique(tab: table, compareFn?, onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n).** Both drop duplicate values, first occurrence winning, using `==` unless
 `compareFn` is set. They differ only in keying: `distinct` reindexes the result from
@@ -286,23 +296,23 @@ fn replace(tab: table, ...replacements: table,
 fn fill(tab: table, keys: table|stream, value: any,
         onNoSet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
-**O(n).** Sets `value` for each key in `keys` — only the *values* of `keys` are
+**O(n).** Sets `value` for each key in `keys`, only the *values* of `keys` are
 used, so `keys` may be a stream such as `0..10`. Under `&`-write-back, overwriting
 existing keys answers to freeze-state and any protocol `noSet` (via `onNoSet`); new
-keys answer to open-state.
+keys answer to open-state (tables.md §5).
 
-### 9.8 Order
+### 1.8 Order
 
 #### sort()
 ```
 fn sort(tab: table,
         mode: enum {values, keys, keyThenValue, valueThenKey} = {values},
         order: enum {ascending, descending} = {ascending},
-        compareFn?: fn, combineFn?): table
+        compareFn?, combineFn?): table
 ```
 **O(n·log n).** Quicksort. `mode` selects the sort operand; `keyThenValue` /
 `valueThenKey` combine key and value via `combineFn`, or `+` if unset. `compareFn`
-(`fn(a, b): int` — negative, zero, or positive) overrides the default comparison.
+(`fn(a, b): int`, negative, zero, or positive) overrides the default comparison.
 
 #### reverse()
 ```
@@ -318,11 +328,11 @@ fn shuffle(tab: table, randFn?): table
 
 #### random()
 ```
-fn random(tab: table, num: int = 1, randFn?: fn preserveKeys: bool = true): table
+fn random(tab: table, num: int = 1, randFn?, preserveKeys: bool = true): table
 ```
 **O(n).** Picks `num` random elements. `preserveKeys = false` reindexes from 0.
 
-### 9.9 Segment
+### 1.9 Segment
 
 #### slice()
 ```
@@ -338,12 +348,12 @@ fn splice(tab: table, offset: any, length: int = 0, replacement: table = [],
           onNoSet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n).** Removes a section and substitutes `replacement`. Under `&`-write-back, new
-keys answer to open-state and overwritten values to freeze-state.
+keys answer to open-state and overwritten values to freeze-state (tables.md §5).
 
-### 9.10 Grow
+### 1.10 Grow
 
 Each grow operation is legal in pure form (it builds a new, open table) and answers
-to open-state only under `&`-write-back onto a sealed target.
+to open-state (tables.md §5) only under `&`-write-back onto a sealed target.
 
 #### prepend() · append()
 ```
@@ -367,10 +377,10 @@ fn pad(tab: table, size: int, value: any): table
 **O(n).** Grows the table to `size` elements with `value`. Negative `size` pads the
 front.
 
-### 9.11 Shrink
+### 1.11 Shrink
 
 Removal is always legal, even on `closed` / `neverOpen` tables, since it introduces
-no key. Each returns the shortened table (§4.1).
+no key. Each returns the shortened table (tables.md §4.1).
 
 #### pop() · shift()
 ```
@@ -390,7 +400,7 @@ reindex.
 
 #### remove()
 ```
-fn remove(tab: table, value: any = null, key: any = null, compareFn?: fn,
+fn remove(tab: table, value: any = null, key: any = null, compareFn?,
           mode: enum {values, keys, both, either} = {values},
           all: bool = false, onNoGet: enum {throw, skip} = {throw}): table
 ```
@@ -403,7 +413,7 @@ fn clear(tab: table): table
 ```
 **O(1).** Empties the table.
 
-### 9.12 Aggregate
+### 1.12 Aggregate
 
 The numeric aggregates ignore values that are not `int` or `double`.
 
@@ -417,15 +427,15 @@ fn product(tab: table, onNoGet: enum {throw, skip} = {throw}): int | double
 
 #### min() · max()
 ```
-fn min(tab: table, compareFn?: fn, onNoGet: enum {throw, skip} = {throw}): any
-fn max(tab: table, compareFn?: fn, onNoGet: enum {throw, skip} = {throw}): any
+fn min(tab: table, compareFn?, onNoGet: enum {throw, skip} = {throw}): any
+fn max(tab: table, compareFn?, onNoGet: enum {throw, skip} = {throw}): any
 ```
 **O(n).** Least / greatest value by standard comparison, or by `compareFn`
 (`fn(a, b): int`). `undefined` if empty.
 
 #### mode()
 ```
-fn mode(tab: table, compareFn?: fn, onNoGet: enum {throw, skip} = {throw}): any
+fn mode(tab: table, compareFn?, onNoGet: enum {throw, skip} = {throw}): any
 ```
 **O(n).** The most frequent value; ties resolve to the first occurrence.
 
@@ -437,3 +447,21 @@ fn join(tab: table, glue: string = '', finalGlue?: string = null,
 **O(n).** Concatenates values into a string separated by `glue`. `finalGlue` sets a
 distinct separator before the last element (e.g. `"a, b and c"`). Non-strings are
 coerced.
+
+---
+
+## 2. Error summary
+
+| Error | Raised when |
+|-|-|
+| `OpenViolationError` | Adding a new key to a `closed` or `neverOpen` table. |
+| `InvalidOpenError` | Calling `open()` on a `neverOpen` table. |
+| `FreezeViolationError` | Writing an existing key on a `frozen` or `neverThaw` table. |
+| `InvalidThawError` | Calling `thaw()` on a `neverThaw` table. |
+| `TableReadViolationError` | Reading a protocol `noGet` key, including bulk reads under `onNoGet = throw`. |
+| `TableMutationViolationError` | Writing a protocol `noSet` key, including bulk writes under `onNoSet = throw`. |
+
+Absence is **not** an error: reading a missing key yields `undefined`. The seal and
+permission concepts above are defined in **tables.md** (§5, §6); see the *Optional
+Access & Coalescing* reference for how `?.`, `??`, and `???` navigate absence,
+`null`, and denial.
