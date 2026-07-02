@@ -52,7 +52,9 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
 - **`error`** is the root and union of all error types; specific errors (`commandError`,
   `UserError`, `Panic`) are members, related by single inheritance.
 - **`capability`** is the union of all capabilities; a specific capability (`reveal`, `io`) is
-  a member. Capabilities are zero-data, nocopy, and reached only through `use`.
+  a member. Capabilities are zero-data, nocopy, and reached only through `use`. They live in
+  the `caps` module (`caps.reveal`), and a capability may be marked `implicit` to opt into
+  silent inference (capabilities spec).
 
 So `reveal <: capability`, `commandError <: error`, and `stringBuilder <: proto`, each a
 specific type inside its form's union supertype, the same is-a relationship in all three.
@@ -77,9 +79,12 @@ Not types, but how types are reached and tested:
 - **`@x`** , the current type of a value (`@someError` is its specific error type, `@proto`
   is a protocol's wearer type). value-representation, views.
 - **`@@x`** , protocol reflection over a table or view. views.
-- **`x as T`** , explicit checked coercion (e.g. `"s" as secret`). (the `as` operator,
-  partly deferred)
-- **`x is T`** , subtype test / narrowing (e.g. `e is commandError`). errors, value-representation.
+- **`x as T`** , checked **narrowing** (union to member, supertype to subtype), runtime-checked
+  with a `TypeError` (panic) on mismatch; never transforms a value and never needs `!`. Value
+  *conversion* (parsing, formatting) is a function (`parseInt`, `toString`), not `as`. See the
+  `as` spec.
+- **`x is T`** , subtype test / narrowing (e.g. `e is commandError`), the boolean, non-panicking
+  counterpart to `as`. errors, value-representation.
 
 ---
 

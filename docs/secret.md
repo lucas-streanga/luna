@@ -109,16 +109,16 @@ The underlying value is obtained only through `reveal` (for a secret string) or 
 (for a secret bytes):
 
 ```
-fn reveal(s: secret) use (reveal): string        // the underlying string; compile error on a secret-bytes
-fn revealBytes(s: secret) use (reveal): bytes     // the underlying bytes;  compile error on a secret-string (deferred)
+fn reveal(s: secret) use (caps.reveal): string        // the underlying string; compile error on a secret-bytes
+fn revealBytes(s: secret) use (caps.reveal): bytes     // the underlying bytes;  compile error on a secret-string (deferred)
 ```
 
-- **`reveal` requires the `reveal` capability** (`use (reveal)`, capabilities spec). This is
-  what makes non-revelation a *guarantee*, not a hope: a function without `use (reveal)` in
+- **`reveal` requires the `reveal` capability** (`use (caps.reveal)`, capabilities spec). This is
+  what makes non-revelation a *guarantee*, not a hope: a function without `use (caps.reveal)` in
   its signature **cannot** reveal a secret it holds, so "this code does not expose secrets"
   is read off the type (the absence of the capability), not trusted. A secret can be threaded
   through capability-free functions and provably never read; only functions that declare
-  `use (reveal)` can expose it, and those are the audit surface (grep for `use (reveal)`).
+  `use (caps.reveal)` can expose it, and those are the audit surface (grep for `use (caps.reveal)`).
 - **`reveal` / `revealBytes` are the only way** to get a payload out. They are named loudly,
   so every exposure of a secret is a visible `reveal` in the source. Getting a secret's value
   is always a deliberate act, never incidental. Reached by call or UFCS: `reveal(token)` or
