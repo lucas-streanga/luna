@@ -382,6 +382,94 @@ case the target's contract wins.
 
 ---
 
+## Amendment A: representation of `const` tables (implementation note)
+
+This is an **implementation concern, not a semantic one**. The representation described
+here is chosen by the compiler and is **unobservable**: a `const` table has exactly the
+same semantics as any other table (same `.` / `[]` reads, same `foreach`, same `@` and
+`@@`, same protocol behavior, same absence rules). Only its performance and memory layout
+differ. The programmer writes and uses a `const` table identically to any table and cannot
+tell which representation was chosen.
+
+### A.1 What `const` licenses
+
+A `const` table is deep-frozen (`neverOpen` + `neverThaw`, §5, variables spec): its key
+set can never change, and its contents never mutate. Two facts follow, and they are the
+basis of the representation:
+
+- **The structure is frozen**, so none of the machinery that supports mutation is needed:
+  no hashmap growth or rehashing, no tombstones, no load-factor slack, no copy-on-write
+  bookkeeping.
+- **When the table is built at compile time** (the common case, a `comptime`-constructed
+  lookup table, functions spec §5), its **shape is statically known**: the exact key set,
+  and each value's type, are known to the compiler.
+
+### A.2 The representation
+
+A `const` table is represented as **contiguous frozen storage plus a compile-time perfect
+hash** over its keys, never as a live hashmap:
+
+- **Contiguous storage:** the values are packed in a contiguous block, exactly sized (no
+  empty slots), cache-friendly for access and iteration. Heterogeneous value types are
+  fine; the block is a struct of mixed fields at fixed offsets.
+- **Perfect hash index:** a collision-free compile-time hash from key to (offset, type),
+  which also fixes an iteration order. Because the key set is fixed, the hash is *perfect*:
+  one probe, no chaining, no collisions, which a runtime hashmap (whose keys change) cannot
+  achieve.
+- **Keys retained as runtime data:** the keys are kept as real runtime values in the
+  index, not compiled away. They must be, because iteration and dynamic access need them
+  (§A.4).
+
+### A.3 Access paths
+
+The `.` / `[]` split (§3.2) tells the compiler, per access site, which path to take:
+
+- **`constTab.name` (static key):** the key is a compile-time literal, so the compiler
+  shortcuts directly to the field's offset, `load [base + offset]`, skipping the hash
+  entirely. This is the "virtual table" fast path: struct-field performance from table
+  syntax, available only for static `.` access.
+- **`constTab[expr]` (dynamic read):** the key is a runtime value, so it resolves through
+  one perfect-hash probe to an offset, then loads. Reading a `const` lookup table with a
+  runtime key (the primary reason such tables exist) is fully supported and fast, one
+  collision-free probe into contiguous storage.
+- **Writes** (`constTab.x = v`, `constTab[x] = v`): already impossible on a frozen table
+  (§5); no representation concern.
+
+Reading via `[]` is therefore **not** disallowed on a `const` table; it is a core use case.
+Only mutation is forbidden, and that is the seal, not a representation rule. As a bonus,
+where a dynamic-looking read uses a compile-time-literal key the compiler knows is absent
+from the fixed key set (`constTab[42]` with `42` not a key), it can report this at compile
+time rather than deferring to the runtime absence (`undefined`) result.
+
+### A.4 Why the keys and hash are always present
+
+The direct-offset path alone would let the compiler erase keys to bare field offsets, but
+it cannot, because a `const` table is still used **as data**, not only as named fields:
+
+- **`foreach (constTab as k => v)`** must yield real (key, value) pairs.
+- **`keys()`, `values()`, `count()`, serialization (`toJson`), reflection**, and any
+  protocol meta that walks entries, all need the keys as runtime values.
+
+So the perfect-hash-plus-retained-keys structure is the **baseline** representation, and
+the direct-offset shortcut for static `.` keys is an optimization layered **on top** of it,
+not a replacement for it. The keys can never be fully compiled away.
+
+### A.5 Scope
+
+- **Every `const` table** gets the frozen benefits (exactly-sized, perfectly-hashed, no
+  mutation machinery, no COW, shared by pointer).
+- **Compile-time-shaped `const` tables** (the `comptime`-constructed case) additionally get
+  the contiguous-struct layout with direct-offset static access, because only there is the
+  shape statically known.
+- A table frozen at *runtime* (built mutably, then sealed) gets the frozen benefits but not
+  the compile-time struct layout, since the compiler did not know its shape.
+
+The whole representation is opaque: chosen by the compiler, licensed by the `const` seal
+and the static-key rule (§3.2), and invisible to the programmer, who sees only ordinary
+table semantics running faster.
+
+---
+
 *See also:* **table-protocol-api.md** for the complete operation catalogue and the
 error summary, **protocols** and **views** for how tables wear protocols and how `->`
 reaches their behavior, and the *Optional Access & Coalescing* reference for `?.`, `??`,
