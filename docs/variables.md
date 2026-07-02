@@ -108,30 +108,118 @@ println(myNewStream x 5); // prints 01234
 ```
 
 # Notes: internal representation
-All variables in Luna are stored internally by the `lval` struct, which is always 16 bytes. 
+
+How Luna stores variables at runtime: the `lval`, the `typetable`, and where each
+piece of per-value, per-type, and per-binding state lives.
+
+---
+
+## 1. The `lval`
+
+Every variable is an `lval` — always exactly 16 bytes.
 
 ```
 struct lval {
-  uint64_t typeAndFlags;
-  void * dataPtr;
-}
+  uint64_t typeAndFlags;   // 8 flag bits + 56 typeid bits
+  void*    dataPtr;        // pointer to payload, or the payload itself (inline)
+};
 ```
 
-The `typeAndFlags` member contains information about both the type of variable and various flags. The lower 16 bits are reserved for flags, such as:
+- **`typeAndFlags`** packs a small set of per-value flags (low 8 bits) with the
+  `typeid` (high 56 bits).
+- **`dataPtr`** either points to the payload or, for small scalars, *is* the
+  payload. `int`, `double`, and `bool` are stored inline in the 8 bytes — no
+  allocation, no indirection. Larger or managed types (`string`, `table`, `stream`)
+  point to their own memory.
 
-- isNull
-- isNullable
-- isVar
-- isError
+Copying a variable copies the 16-byte `lval` and nothing else. The payload is
+duplicated only when copy-on-write is triggered by a mutation.
 
-The upper 48 bits is the `typeid`. All types, including complex types, have their own unique `typeid`. This means the type `string|int` has a unique id, different from `int` and `string`. The types are stored in the global typetable, where is an array in which all elements are `typeinfo` structs. The `typeinfo` struct determines how to interpret the `dataPtr` in an `lval`. Nullable types are not seperate `typeinfo` structs; they contain their nullability as a flag, and their current null state as a flag. Attributes, too, are tied to the type and are stored in the `typeinfo` struct of a variable, if said variable has attributes. This means each unique combination of types and attributes has their own `typeinfo` struct. 
+---
 
-The typetable is not static. New types can be created at runtime, particularly because functions can throw. When that occurs, a new type is appended to the typetable describing the union of the previous type and whatever specific error was thrown. This has to be done because, while Luna has checked errors, the exact error subtype is not known at compile time. 
+## 2. Flags (low 8 bits)
 
-Some simple types like `int`, `double` and `bool` will not have their own `dataPtr` pointing to a place in memory. Instead, the value will be stored in-line inside the 8 bytes of the `dataPtr`.
+The flag byte holds **only per-value dynamic state** — properties that can differ
+between two `lval`s of the same type, and that change over a value's lifetime:
 
-Copying variables around then merely necessitates copying the 16 byte `lval` struct. When COW activates, then the data pointed to by the `dataPtr` is copied. 
+| Flag | Meaning |
+|-|-|
+| `isNull` | This value is currently null. |
+| `isUndefined` | This slot currently holds `undefined` (absent). |
 
-For the typeof operator `@`, this merely returns the associated `typeinfo`. This is provided as a virtual table, as the underlying implementation is a struct. But, to the Luna programmer, the `type` type functions as a table.
+`isNull`, `isUndefined`, and "holds a real value" are mutually exclusive — together
+they are a 3-state condition, so they cost far less than the byte allotted. The
+remaining bits are reserved for future per-value state.
 
-Variables are automatically collected by the Go garbage collector. Individual types may manage their own internal memory: for example, `stream`, `table` and `string`. When they are about to be collected, they will need to free their internal allocations.
+### 2.1 What deliberately is *not* a flag
+
+Three properties that look flag-like belong elsewhere, because they are not
+per-value:
+
+- **Nullability** (declared `T?`) is a property of the **declared type**, identical
+  for every value of that type. It lives in `typeinfo` (§4), not the `lval`. Keeping
+  it in the flag byte would let it drift out of sync with the type.
+- **Mutability** (`var` vs. a fixed binding) is a property of the **binding**, not
+  the value. It lives in the symbol/slot. If it rode in the `lval`, copying a value
+  by value would wrongly carry mutability across into a fixed slot.
+- **Error-ness** is **derivable** from the `typeid`: a value is an error iff its
+  current type descends from the error type. Storing it as a flag denormalizes that
+  and invites disagreement with the id.
+
+This keeps the flag byte to genuinely dynamic, non-derivable, per-value bits, which
+is a small and slow-growing set.
+
+---
+
+## 3. The `typeid` (high 56 bits)
+
+Every type has a unique `typeid`, including complex types: `string | int` has its
+own id, distinct from `string` and from `int`. The id indexes the global
+`typetable`.
+
+> The internal layout of these 56 bits — whether they hold a single id or are split
+> to carry a value's declared and current type together — is decided separately (see
+> the variable-typing discussion). This document describes everything that is
+> independent of that choice.
+
+---
+
+## 4. The `typetable` and `typeinfo`
+
+The `typetable` is a global array of `typeinfo` structs. A `typeinfo` says how to
+interpret the `dataPtr` of any `lval` bearing its id, and carries the type-level
+properties:
+
+- **Nullability.** Whether the declared type admits null. (The *current* null state
+  is the `lval`'s `isNull` flag; the *capacity* to be null is here.)
+- **Attributes.** Attributes are tied to the type. Each distinct combination of base
+  type and attributes is its own `typeinfo`, and therefore its own id.
+
+### 4.1 Runtime growth
+
+The `typetable` is **not static** — entries are appended at runtime. The main driver
+is checked errors: Luna knows *that* a call may throw, but not the exact error
+subtype at compile time. When a call throws through a site whose value has type `T`,
+a new entry describing `T | E` (the union with the thrown error) is appended.
+
+New-type creation must **intern**: the same structural type maps to the same id
+every time, or the table would grow without bound. `T | E` resolves to one id, not a
+fresh id per throw.
+
+---
+
+## 5. The `type` type and `@`
+
+The typeof operator `@` returns the `typeinfo` associated with a value. The
+underlying implementation is a struct, but it is exposed through a virtual table so
+that, to the Luna programmer, a `type` behaves like an ordinary `table`.
+
+---
+
+## 6. Memory management
+
+`lval`s are collected by the Go garbage collector. Types that own internal
+allocations — `string`, `table`, `stream` — free those allocations when collected.
+Because ordinary copies only duplicate the 16-byte `lval`, and payloads are shared
+until COW, a value's managed memory has a single owner responsible for release at
+collection time.
