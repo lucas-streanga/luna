@@ -163,6 +163,33 @@ This is a deliberate omission, not a gap: adding an as-pattern would overload `a
 narrowing operator, not a binder) for a rare case the body already handles. It is additive if
 demand ever appears.
 
+### 4.3 Match patterns vs destructuring: same syntax, one deliberate difference
+
+Match shape patterns and destructuring (destructuring spec) share syntax and mostly share
+behavior, because a match pattern *is* a destructuring pattern with literals and type tests
+added. They agree on:
+
+- **Keyed is partial** in both (unmentioned keys ignored).
+- **Positional is exact** in both (`_` skips, `...rest` captures, `..._` discards).
+- **`_` means discard** in both (match nothing, bind nothing).
+
+They differ in **exactly one place**, and it is deliberate: **an absent named key.**
+
+| | Absent named key `['x' => x]` where `'x'` is missing |
+|-|-|
+| **Destructuring** (`let [...] = tab`) | binds `x = undefined`, and **succeeds** |
+| **Match pattern** (`match { [...] => }`) | the pattern **does not match**; falls to the next arm |
+
+The reason is their different purposes: **destructuring extracts what is there** (a missing key
+yields the absence value, `undefined`), while a **match pattern tests that the shape fits** (a
+missing key means the shape does not fit, so the arm does not apply). Both are correct for their
+context.
+
+The one hazard to be aware of: because the syntax is shared, a reader who knows destructuring
+may expect `['x' => x]` in a match to bind `undefined` for a missing `'x'`, when it actually
+skips the arm. So the shared syntax has **context-dependent absent-key behavior**, extract-with-
+undefined in a binding, require-presence in a match. This is noted in both specs.
+
 ---
 
 ## 5. Range and alternation patterns
@@ -288,6 +315,48 @@ prove coverage. And claiming exhaustiveness is one explicit line: add `_` (which
 panic or return a fallback if you believe it truly unreachable). Stating totality with `_` in the
 source is clearer than having the compiler infer it silently, and it is robust to refactors that
 widen the scrutinee. So: **`_` present means exhaustive; `_` absent means `| undefined`.**
+
+### 9.2 `match!`: strict match, panic on fall-through
+
+`match!` is the **strict** form: identical to `match` in every way except that a fall-through
+(no arm matches) **panics** (a `Panic`) instead of yielding `undefined`.
+
+```
+let v = match! (state) {       // v : the union of arm bodies, with NO | undefined
+  "idle"    => 0,
+  "running" => 1,
+  "done"    => 2,
+};                             // panics if state is none of these
+```
+
+- **Result type has no `undefined`.** Because fall-through panics rather than producing a value,
+  `match!`'s result type is exactly the union of its arm bodies (§10), with no `| undefined`
+  arm. So `match!` also gives the cleaner result type when you believe the match is total.
+- **No new compiler analysis.** `match!` needs **no** coverage proving; it is the same "is there
+  a `_`" machinery (§9.1) with the fall-through case emitting a panic instead of `undefined`.
+  This keeps it consistent with the no-coverage-analysis rule, the strictness is a **runtime**
+  guarantee (a loud failure on an unhandled case), not a compile-time exhaustiveness proof.
+- **The `!` is the ordinary fail-loud `!`.** As elsewhere, `!` marks the form that fails loudly
+  (functions §4, errorability). `match!` reads as "match, and fail loudly if nothing matches,"
+  consistent with the rest of the language. (The panic is a `Panic`, so `match!` does not by
+  itself make the enclosing function `fn!`; a fall-through is a programming error, like any
+  panic.)
+
+**When to use which.** Plain `match` and strict `match!` fit different situations, and neither
+dominates, so users do not simply always reach for one:
+
+- **`match!` fits a closed, known case set:** a state enum, an error hierarchy, a fixed set of
+  message tags, where a missing case is a **bug** and should fail loudly (and, on refactor, where
+  a newly added case *should* surface as a panic at the unhandled site rather than silently
+  returning `undefined`).
+- **Plain `match` fits an open or partial case set:** matching a few interesting values out of an
+  unbounded space (a handful of ints), tag dispatch where "anything else, ignore" is the honest
+  intent, or quick lookups where a miss is a normal absent value to coalesce. Here `match!` would
+  panic on cases you never meant to handle, so it is the wrong choice, which is why users do not
+  default to strict everywhere.
+
+So `match` is lenient (miss yields `undefined`, softly handled) and `match!` is strict (miss
+panics, loudly caught), chosen per use by whether an unhandled case is normal or a bug.
 
 ---
 
