@@ -182,11 +182,15 @@ fn keyCase(tab: table, uppercase: bool, asStream = false): table | stream
 
 #### values() · keys()
 ```
-fn values(tab: table, onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
-fn keys(tab: table, asStream = false): table | stream
+fn values(tab: table, onNoGet: enum {throw, skip} = {throw}, asStream = false): list | stream
+fn keys(tab: table, asStream = false): list | stream
 ```
-**O(n).** Values-only / keys-only, reindexed sequentially from 0. `keys` reads no
-values and so takes no `onNoGet`.
+**O(n).** Values-only / keys-only, reindexed sequentially from 0. Because the result is
+reindexed contiguously from 0, it is a **`list`** (tables §2.1), typed as such so callers get
+the list guarantee statically; with `asStream = true` the result is a `stream` instead.
+`keys` reads no values and so takes no `onNoGet`. `values()` is also the explicit
+re-compaction operation, turning a gapped or keyed table into a fresh contiguous list
+(tables §2.3).
 
 #### column()
 ```

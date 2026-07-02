@@ -47,6 +47,64 @@ Two O(1) predicates report internal shape (both defined in
 - `isContiguousMemory()`, true iff stored contiguously. All lists are
   contiguous; some non-list tables are too. **Any string key ⇒ never contiguous.**
 
+### 2.1 `list` is a type: a refinement of `table`
+
+`list` is a **type**, usable in annotations and signatures, not merely an internal shape.
+It is a **refinement (subtype) of `table`**: a `list` is exactly a table whose keys are
+`{0, 1, ..., n-1}` and nothing else. So:
+
+```
+list <: table          // every list is a table; not every table is a list
+```
+
+This is the same is-a relationship `IOError` has to `error` or `reveal` to `capability`. A
+`list` is usable **anywhere a `table` is expected** with no ceremony (widening is implicit,
+`as` spec); the reverse, treating a `table` as a `list`, is a narrowing (§2.3).
+
+The empty table `[]` is the empty list (zero keys vacuously satisfies "keys are `0..n-1`"),
+so `let xs: list = []` is statically a list. A table literal whose shape is visibly a list
+(`[1, 2, 3]`) is statically `list`; one with a string key (`['x' => 1]`) is not, and
+assigning it to a `list` binding is a compile error.
+
+### 2.2 List-ness is a maintained, O(1) property
+
+A table's list-ness is **maintained**, not recomputed: the table carries it as a cheap
+derived property, so `isList()` is O(1), never an O(n) key scan. Operations preserve or
+break it predictably:
+
+- **Append at the next index** (setting key `n` on an `n`-element list): stays a list.
+- **Update an existing in-range integer key** (value change): stays a list.
+- **Set an integer key beyond the next index** (creating a gap), or **set/merge any string
+  key**: becomes a general table (no longer a list).
+- **Remove a key** (§4.1): becomes a general table if the removal leaves a gap. Removing the
+  last element keeps it a list; removing a middle key leaves a gap, so the table is no
+  longer a list. **Removal does not silently reindex.**
+
+Because list-ness is maintained, spread (spread spec) and the const-table representation
+(Amendment A) can rely on it cheaply.
+
+### 2.3 Narrowing a `table` to a `list`, and re-compacting
+
+A value typed `table` is narrowed to `list` by the checked operators (`as` / `is` specs):
+
+- **`tab as list`**: asserts the table is currently a list; a `TypeError` (panic) if it is
+  not (has a gap or a string key).
+- **`tab is list`**: the boolean test that also narrows `tab` to `list` in the taken branch.
+
+Removal leaves gaps rather than reindexing (§2.2), so a table with gaps is genuinely not a
+list. To **re-compact** a gapped or keyed table into a fresh contiguous list, call
+`values()` (table-protocol-api), which reindexes the values to `0..m-1` and returns a
+`list`. So `values()` is the explicit "make this a list again" operation; nothing reindexes
+silently.
+
+### 2.4 `list` in signatures
+
+Operations that are guaranteed to produce a contiguous-from-zero result are typed to return
+`list`, not `table`, so callers get the list guarantee statically (and can index `0..n-1`,
+pass to list-requiring functions, and destructure positionally without a runtime check). A
+`const` list additionally takes the tightest representation (a pure contiguous array with no
+stored keys, since the keys are implicitly `0..n-1`; Amendment A).
+
 ---
 
 ## 3. Keys and access

@@ -147,7 +147,7 @@ Number of non-overlapping occurrences of `needle`. O(n).
 ```
 fn matches(str: string, pattern: regex): bool
 fn find(str: string, pattern: regex): table | null
-fn findAll(str: string, pattern: regex, asStream: bool = false): table | stream
+fn findAll(str: string, pattern: regex, asStream: bool = false): list | stream
 ```
 `regex` is its own type (a compiled pattern, kept separate so a pattern is compiled
 once and reused, rather than recompiled from a string on every call). `matches` tests
@@ -252,7 +252,7 @@ Unicode normalization. Needed so that visually identical strings built different
 
 #### split()
 ```
-fn split(str: string, sep: string | int, limit: int = 0, asStream: bool = false): table | stream
+fn split(str: string, sep: string | int, limit: int = 0, asStream: bool = false): list | stream
 ```
 Split on a `string` separator, or into fixed-width chunks of `int` bytes (the union
 replaces an overload). `limit > 0` caps the number of pieces, the last holding the
@@ -284,21 +284,21 @@ element per unit. None allocate per element for ASCII input.
 
 #### bytes()
 ```
-fn bytes(str: string, asStream: bool = false): table | stream    // elements are int (0..255)
+fn bytes(str: string, asStream: bool = false): list | stream    // elements are int (0..255)
 ```
 The raw UTF-8 bytes as integers. For I/O, hashing, and low-level work.
 
 #### codepoints()
 ```
-fn codepoints(str: string, asStream: bool = false): table | stream   // elements are string
+fn codepoints(str: string, asStream: bool = false): list | stream   // elements are string
 ```
 One element per Unicode scalar value. The safe technical unit; no Unicode-version
 dependence.
 
 #### graphemes() / characters()
 ```
-fn graphemes(str: string, asStream: bool = false): table | stream    // elements are string
-fn characters(str: string, asStream: bool = false): table | stream   // alias of graphemes
+fn graphemes(str: string, asStream: bool = false): list | stream    // elements are string
+fn characters(str: string, asStream: bool = false): list | stream   // alias of graphemes
 ```
 One element per grapheme cluster, what a person points at as a character. This is the
 correct default for user-facing iteration; `characters` is the friendly alias and
