@@ -138,8 +138,23 @@ error (use `toString`), and `string as int` is a compile error (use `parseInt`).
   never-failing coercion (any string is a valid secret), so it is `as`, not a function. (Its
   asymmetry: `secret` back to `string` is *not* `as`, it is `reveal`, a capability-gated
   extraction.)
-- **`tab as list`** (tables): narrowing a `table` to a `list`, checked (`TypeError` if the
-  table is not contiguous-from-zero). `list as table` is the safe widening.
+- **`tab as list`** (tables §2.1, §2.3): narrowing a `table` to a `list`, checked. It
+  **asserts** the table is *already* a list and raises a `TypeError` (panic) if it is not
+  (has a gap or a string key). It does not reshape the table; if it passes, the same value is
+  simply re-typed. Contrast `tab.values()`, which **produces** a fresh list by reindexing and
+  therefore *always* succeeds regardless of the table's shape:
+
+  ```
+  someFn(tab)              // COMPILE ERROR: table is not implicitly a list
+  someFn(tab as list)      // legal; asserts tab is currently a list, TypeError panic if not
+  someFn(tab.values())     // always legal; builds a fresh list from tab's values (reindexes)
+  ```
+
+  So `as list` and `values()` are not interchangeable: `{5=>'a', 9=>'b'} as list` panics
+  (not contiguous), while `{5=>'a', 9=>'b'}.values()` returns `['a', 'b']`. Use `as list`
+  when a non-list is a bug you want caught (assert current type); use `values()` when you
+  want a list out of any table (transform). This is the general split (§3): `as` asserts a
+  type, a function transforms a value.
 - **`e as commandError`** (errors, exec): narrowing a caught base `error` to a specific error
   type, checked. The `is` form (`e is commandError`) is the boolean-plus-narrowing counterpart.
 

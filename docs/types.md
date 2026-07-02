@@ -17,7 +17,6 @@ overview, not a definition; each type's spec is authoritative.
 | `command` | Structured, inert program/pipeline (own type, backtick literal) | command |
 | `secret` | Sensitive `string`/`bytes` payload, redacts everywhere, `reveal` to extract | secret |
 | `bytes` | Raw byte sequence | (deferred, not yet specified) |
-| `stream` | Lazily-produced sequence | (deferred, not yet specified) |
 
 `undefined` is the absence sentinel (a missing key), distinct from `null` (a present
 nothing); it is unstorable and is covered in value-representation and coalescing.
@@ -29,8 +28,10 @@ nothing); it is unstorable and is covered in value-representation and coalescing
 | Type | What it is | Spec |
 |-|-|-|
 | `table` | The general keyed/ordered structure; lists are tables | tables |
+| `list` | A `table` whose keys are exactly `0..n-1` (a refinement of `table`, `list <: table`) | tables §2.1 |
 | `view` | A table seen through one applied protocol (single surface type) | views |
 | `fn` | A function value (`fn` cannot throw; `fn!` may throw a `UserError`) | functions |
+| `stream` | A lazy, single-pass sequence (generator producer, `foreach` consumer) | stream |
 | `stringBuilder` | A table wearing the `stringBuilder` protocol (the builder) | string-builder |
 
 ---
@@ -91,5 +92,4 @@ Not types, but how types are reached and tested:
 ## Deferred types
 
 Referenced by existing specs but not yet defined: `bytes` (raw bytes, needed by the string
-builder and `secret`), `stream` (lazy sequences, needed by `exec` output, `appendAll`,
-`findAll`). Their specs will slot in here when written.
+builder, `secret`, and stream decoding). Its spec will slot in here when written.

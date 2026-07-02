@@ -97,6 +97,26 @@ list. To **re-compact** a gapped or keyed table into a fresh contiguous list, ca
 `list`. So `values()` is the explicit "make this a list again" operation; nothing reindexes
 silently.
 
+**`as list` asserts; `values()` produces.** These are not interchangeable, they answer
+different questions:
+
+- **`tab as list`** *asserts* the table is **already** a list. It runs a check and raises a
+  `TypeError` (panic) if `tab` has a gap or a string key; on success the same value is
+  re-typed, unchanged. Use it when a non-list is a bug you want caught.
+- **`tab.values()`** *produces* a fresh list by reindexing, so it **always** succeeds
+  whatever `tab`'s shape. Use it when you want a list out of any table.
+
+They even differ in result: `{5=>'a', 9=>'b'} as list` **panics** (not contiguous), while
+`{5=>'a', 9=>'b'}.values()` returns `['a', 'b']` (drops the keys, reindexes the values). And
+because narrowing is never implicit, passing a bare `table` where a `list` is required is a
+compile error; you choose `as list` (assert) or `values()` (produce) explicitly:
+
+```
+someFn(tab)             // COMPILE ERROR: table is not implicitly a list
+someFn(tab as list)     // asserts tab is currently a list; TypeError panic if not
+someFn(tab.values())    // always legal; builds a fresh list from tab's values
+```
+
 ### 2.4 `list` in signatures
 
 Operations that are guaranteed to produce a contiguous-from-zero result are typed to return
