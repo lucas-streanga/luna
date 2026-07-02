@@ -1,4 +1,4 @@
-# String
+# String API
 
 The string type as the Luna programmer sees it. This is the public surface; the
 internal layout (inline vs. descriptor, borrowed slices, UTF-8 validity) is in
@@ -153,9 +153,24 @@ fn findAll(str: string, pattern: regex, asStream: bool = false): table | stream
 once and reused, rather than recompiled from a string on every call). `matches` tests
 for any match; `find` returns the first match as a table of capture groups (or `null`
 if none); `findAll` yields one such table per match. A `replace` variant that takes a
-`regex` target rides on the union already in §7. The `regex` type, its literal syntax,
-and its own method surface are specified separately; this section only fixes how
-strings consume one.
+`regex` target rides on the union already in §7. The `regex` type, its `/.../ ` literal,
+flags, engine guarantees (linear-time by default, opt-in backtracking under `/b`), and
+runtime construction are specified in **regex** (its own document); this section only
+fixes how strings consume one.
+
+#### regexEscape()
+```
+const regexEscape = regex.escape;    // string-side alias of regex.escape
+```
+Escapes all regex metacharacters in a string so it can be matched as literal text. This is
+a **delegating alias**, not a separate implementation: because functions are values and the
+`regex` module exports `escape`, the string module binds it to a new name with an ordinary
+`const`, so `regexEscape(s)` and, under UFCS, `s.regexEscape()` both call the one canonical
+`regex.escape` (regex spec §7). The metacharacter rules live in exactly one place; this is
+only a name in string-land for discoverability (`userInput.regexEscape()` reads naturally).
+It makes the string module depend on the `regex` module, which is fine, both are built-in
+and always present, so the dependency carries no version or availability cost, and the
+direction is correct (string consumes regex, which defines what a metacharacter is).
 
 ---
 
@@ -425,5 +440,5 @@ hidden O(n^2) cost.
 - **`cString()` return type:** it returns a `string` (bytes plus an appended NUL);
   confirm the FFI actually consumes a `string` here rather than a distinct pointer or
   `bytes` handle once the FFI is designed.
-- **Interpolation and `regex`:** whether regex literals interpolate, and under which
-  quoting, once the `regex` type is specified.
+- **Interpolation and `regex`:** whether regex literals interpolate is tracked in the
+  **regex** spec (its open questions), now that `regex` is specified there.
