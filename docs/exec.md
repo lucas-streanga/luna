@@ -27,6 +27,13 @@ injection surface, no memory or type unsafety. It is a bounded, structured effec
 so it does not carry the `unsafe-` prefix (functions §5.6). (The genuinely unsafe
 shell-string path is separate; §5.)
 
+A command argument that is a `secret` (secret spec) is `reveal`ed **internally by `exec`**,
+at the point the argument is handed to the spawned process, and nowhere else. `exec` is the
+canonical infrastructure boundary where a raw secret legitimately crosses out of the program:
+user code wraps a credential with `secret(...)`, passes the command around (redacted in every
+log and error), and `exec` reveals it once, at the syscall, so the raw value never appears in
+user-visible output.
+
 ```
 const countLines = fn (path: string) use (exec): !int => {
   let out = try exec.run(`wc -l ${path}`);

@@ -159,7 +159,79 @@ pipe, so, as with a single command, no shell parsing occurs at any stage.
 
 ---
 
-## 5. What a command is not
+## 5. Introspection
+
+Introspection reads a command's structure. It is **structural, never textual**: you may read
+the program, arguments, and pipeline stages as structured values, but there is **no**
+function that renders a command back to an executable shell string, because that string is
+the injectable form the type exists to avoid (§2.1). Structure-in, structure-out preserves
+the argument boundaries that make a command safe; a rendered shell string would collapse
+them.
+
+Introspection is **pure**, no effect, no capability, so it lives with the command type (the
+`command` module), not in `exec` (which is execution, an effect requiring a capability). It
+is reached module-qualified (`command.args(c)`) or by UFCS (`c.args()`).
+
+### 5.1 Structural introspection
+
+Reading structure preserves argument boundaries, so it is always safe:
+
+```
+fn isPipeline(c: command): bool      // whether c has more than one stage
+fn stageCount(c: command): int       // number of stages (1 for a single command)
+fn stages(c: command): table         // the stages, as a list of commands ([c] for a single command)
+fn program(c: command): string       // the program name of a single-stage command
+fn args(c: command): table           // the argument list of a single-stage command
+```
+
+- `args` returns the arguments as **separate elements**, so a dangerous-looking argument
+  stays isolated as one element (`["my file; rm -rf /"]`), never merged into a string where
+  its boundary could be lost. This is the safety property (§3) preserved in the read path.
+- `program` and `args` describe a single command. For a pipeline, decompose with `stages`
+  first and read each stage; each stage is itself a `command`.
+
+### 5.2 Diagnostic rendering: `debugJson`
+
+For logging and debugging, a command renders to **structured JSON**, not a shell string:
+
+```
+fn debugJson(c: command): string
+```
+
+`debugJson` emits the command as structured data, the program and arguments as a JSON array,
+and a pipeline as an array of such stages, so **every argument is a distinct JSON string with
+its boundary explicit**:
+
+```
+`rm ${userFile}`.debugJson()
+// {"program":"rm","args":["my file; rm -rf /"]}
+```
+
+Because the arguments stay separate in the output, the interpolation boundaries (the "holes"
+where values were substituted) are explicit in the rendering: you see one argument per slot,
+not a concatenated line. This is deliberately **not** a shell string and **not**
+round-trippable to execution; it is for display, and its structure makes clear "this is one
+argument," rather than a concatenated line that could be re-parsed or re-run. It is the safe
+way to record what a command is.
+
+An argument that is a `secret` (secret spec) renders as `<redacted>` here, not its value, so
+`debugJson` never leaks a credential passed as an argument. Sensitivity travels with the
+value, so no redaction flag on `debugJson` is needed; a secret argument redacts itself.
+
+### 5.3 No executable shell string here
+
+There is intentionally **no** function on the command surface that renders a command to an
+executable shell string. Producing that string is exactly the injectable artifact the
+structured design avoids (§2.1), so it does not belong in ordinary introspection. The one
+place that conversion legitimately lives is behind the `unsafe-` marking:
+**`unsafe-system.commandToString`** (deferred, part of the not-yet-specified `unsafe-system`
+module) will render a command to a shell string, its `unsafe-` prefix and name signalling
+that using the result reopens injection. Ordinary code introspects structurally (§5.1) or
+diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
+
+---
+
+## 6. What a command is not
 
 - **Not a string.** A command is structured; it never round-trips through a shell string. A
   string is not a command and is not accepted where a `command` is required.
@@ -171,7 +243,7 @@ pipe, so, as with a single command, no shell parsing occurs at any stage.
 
 ---
 
-## 6. Open questions
+## 7. Open questions
 
 - **Spread syntax:** the exact form for spreading a list into multiple arguments
   (`${...flags}` above) depends on the destructuring / spread grammar, still to be
@@ -183,3 +255,8 @@ pipe, so, as with a single command, no shell parsing occurs at any stage.
   (feeding stdin without a pipeline predecessor), pending the exec spec.
 - **Redirection:** whether output redirection to a file is a structural method on the
   command, or purely an exec-time concern.
+- **`debugJson` and secret arguments:** a `secret` argument (secret spec) redacts to
+  `<redacted>` in `debugJson` automatically. What remains open is whether *non*-secret
+  arguments should ever be maskable for logging (a value not marked `secret` but still
+  sensitive in context), or whether the rule is simply "mark it `secret` and it redacts
+  everywhere," which is the current, preferred answer.
