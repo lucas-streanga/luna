@@ -16,7 +16,8 @@ overview, not a definition; each type's spec is authoritative.
 | `regex` | Compiled regular expression (own type, `/.../ ` literal) | regex |
 | `command` | Structured, inert program/pipeline (own type, backtick literal) | command |
 | `secret` | Sensitive `string`/`bytes` payload, redacts everywhere, `reveal` to extract | secret |
-| `bytes` | Raw byte sequence | (deferred, not yet specified) |
+| `bytes` | Packed, mutable, growable byte buffer (own type, not a table) | bytes |
+| `byte` | An `int` constrained to `0..255` (the element of `bytes`); a constraint instance | constraints, bytes |
 
 `undefined` is the absence sentinel (a missing key), distinct from `null` (a present
 nothing); it is unstorable and is covered in value-representation and coalescing.
@@ -57,6 +58,12 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
   the `caps` module (`caps.reveal`), and a capability may be marked `implicit` to opt into
   silent inference (capabilities spec).
 
+A related declaration form is **`constraint`**, which refines a base type by a pure predicate
+(`byte = constraint { int as i where i >= 0 && i <= 255 }`). A constrained type is a subtype of
+its base (`byte <: int`), widens to the base implicitly, and narrows from it via `as`
+(runtime-checked). Constraints are refinement types, checked at runtime, never solved
+(constraints spec); `byte` and `list` are instances.
+
 So `reveal <: capability`, `commandError <: error`, and `stringBuilder <: proto`, each a
 specific type inside its form's union supertype, the same is-a relationship in all three.
 
@@ -91,5 +98,7 @@ Not types, but how types are reached and tested:
 
 ## Deferred types
 
-Referenced by existing specs but not yet defined: `bytes` (raw bytes, needed by the string
-builder, `secret`, and stream decoding). Its spec will slot in here when written.
+The core type inventory is now specified. Remaining work is in the module system, control
+flow and grammar (loops as stream consumers, destructuring in binding positions, spread into
+call arguments, operator precedence), and later API surfaces (typed multi-byte reads on
+`bytes`, a stream decoder), rather than new foundational types.

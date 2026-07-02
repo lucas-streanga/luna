@@ -284,9 +284,13 @@ element per unit. None allocate per element for ASCII input.
 
 #### bytes()
 ```
-fn bytes(str: string, asStream: bool = false): list | stream    // elements are int (0..255)
+fn bytes(str: string, asStream: bool = false): bytes | stream    // packed bytes; stream yields byte (int 0..255)
 ```
-The raw UTF-8 bytes as integers. For I/O, hashing, and low-level work.
+The raw UTF-8 bytes of the string. Returns a packed **`bytes`** value (bytes spec), the
+natural representation for I/O, hashing, and low-level work, rather than a boxed list of
+integers. With `asStream = true` it yields a `stream` of `byte` (int `0..255`) instead. This
+is the inverse of `string.fromBytes(b): string!` (bytes spec §5), which validates bytes back
+into a string.
 
 #### codepoints()
 ```
