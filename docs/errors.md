@@ -45,6 +45,8 @@ error                     (root: catchable; the target of `!`; "catch everything
 │   ├── OutOfMemory
 │   ├── TypeError
 │   ├── ArityError
+│   ├── OverflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
+│   ├── DivisionByZero    (int division or remainder by zero; int spec)
 │   └── ... (runtime-defined)
 └── UserError             (user-extensible; declarable)
     ├── ApplyError
