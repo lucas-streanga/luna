@@ -80,9 +80,38 @@ fn isFinite(x: double): bool       // true iff x is neither NaN nor Infinity
 ```
 
 `isNan` is the correct way to test for NaN, because `x == NaN` and even `x == x` do not work
-(the latter is a NaN detector only by accident and reads as a bug). Sorting a collection of
-doubles that may contain NaN needs a total-order comparison (a library function), since IEEE
-ordering is partial.
+(the latter is a NaN detector only by accident and reads as a bug). Sorting and pattern matching
+do not use IEEE `==` or IEEE ordering (both partial); they use the **total order** of §2.2.
+
+### 2.2 The total order (for `sort` and `match`)
+
+IEEE `==` and IEEE ordering are not well-behaved (§2), so anything that needs a well-behaved
+relation over doubles, **sorting** and **`match` value-patterns** (match spec), uses a **total
+order** instead, defined over every double including the infinities and NaN:
+
+```
+-Infinity  <  negative finite  <  0.0  <  positive finite  <  +Infinity  <  NaN
+```
+
+with two deliberate rules:
+
+- **`-0.0` and `+0.0` are equal** under the total order (merged into one value). They are
+  semantically the same number to a human, so they sort together and match together: `match
+  (-0.0) { 0.0 => ... }` matches. (This merges the two zeros, a humane deviation from strict
+  IEEE `totalOrder`, which distinguishes them.)
+- **NaN is the single greatest value**, greater than `+Infinity`. **All NaNs are equal** to each
+  other (NaN payloads are not ordered), forming one equivalence class at the top. So NaN sorts
+  to the end of an ascending sort, and `match (x) { NaN => ... }` catches any NaN.
+
+The total order and `==` differ in **exactly one way**: under the total order NaN is a normal,
+greatest, self-equal value, while under `==` NaN equals nothing (not even itself). They agree on
+everything else (both treat the two zeros as equal). So the rule to remember is: **`==` is
+IEEE semantic equality (NaN unequal to all); the total order makes NaN a well-behaved greatest
+value.** `sort` and `match` use the total order (so NaN is sortable and matchable); explicit
+`==` keeps IEEE semantics (so arithmetic code sees the standard NaN behavior).
+
+A total-order comparison function is provided for explicit use (sorting with a custom
+comparator, placing NaN deliberately); `sort` uses it by default for doubles.
 
 ---
 
@@ -187,11 +216,10 @@ leading point is allowed) is specified with the literal grammar.
 
 ## 9. Open questions
 
-- **Total-order comparison:** the library function for a total order over doubles (placing NaN
-  definitely, distinguishing `-0.0` from `+0.0`) for sorting, since IEEE ordering is partial.
-- **`==` and `match` on doubles:** whether `==` is raw IEEE equality (with the NaN and signed-
-  zero surprises) or whether a stricter total equality is offered alongside, and how `match`
-  handles a NaN scrutinee.
+- **`==` and `match` on doubles:** `==` is raw IEEE equality (§2) and `match` value-patterns use
+  the total order (§2.2, so NaN matches NaN); what remains open is whether a stricter total
+  equality is *also* offered as an explicit operator alongside IEEE `==`, and any further `match`
+  NaN-scrutinee subtleties (match spec).
 - **`float` semantics:** the full 32-bit `float` spec (§6), and the exact double/float
   conversion functions.
 - **Fused and rounding operations:** whether fused multiply-add, explicit rounding modes, and
