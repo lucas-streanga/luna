@@ -117,9 +117,24 @@ are erased by the time Go source exists.
 The optimized IR is lowered to **Go source**, per module, **fully parallel** (§2): once every
 module is analyzed and optimized, each module's emission is independent. Emission maps the IR onto
 Go constructs (§7): the `lval` onto a Go struct, the `typetable` onto emitted Go data, green
-threads onto goroutines, Luna's error model onto Go panic/recover and returned error values,
-`defer` onto scoped cleanup (defer spec). Source-position information is carried through so runtime
-diagnostics map back to Luna source.
+threads onto goroutines, Luna's error model onto Go panic/recover and returned lvals, `defer` onto
+scoped cleanup (defer spec).
+
+**Valid IR implies valid Go, so a Go compile failure is always a compiler bug.** By the time
+emission runs, the IR has passed semantic analysis (§1.4) and is well-typed by construction. So
+every user error, lexical, syntactic, semantic, has already been reported *before* emission, and
+the emitted Go is guaranteed to compile. This fixes a clean error-domain split:
+
+- **All user errors live before emission** (lex, parse, analyze). Users never see a Go compile
+  error.
+- **A Go compile failure is an internal compiler error (ICE)**, never surfaced as if the user did
+  something wrong. If valid IR produces Go that Go rejects, the emitter is wrong, and it is
+  reported as a compiler bug.
+
+A consequence is that user-facing **source mapping is only needed for runtime positions**, not
+compile-time ones (§9): there are no user-visible Go compile errors to map back, only runtime
+panics, which arise in valid emitted Go and are mapped to Luna source with Go `//line` directives
+so stack traces report Luna file and line.
 
 ### 1.8 Assemble and build
 
@@ -304,9 +319,12 @@ comparisons of the interval check.
   only the mapping.)
 - **Error model.** Luna panics (errors §9) map to Go panic/recover: a panic propagates ambiently
   and `try` recovers it at the boundary, converting it to a value. Errorable results (`!`,
-  value-representation §3.1) map to a returned-value-or-error representation, so `try` on an
-  errorable call is an ordinary check, while a panic is a recover. The concrete encoding of `!`
-  results is a backend detail constrained by the two-integer subtype check for error-ness.
+  value-representation §3.1) need **no special calling convention**: an errorable value is just an
+  `lval` with its **error bit** set and its **`typeid`** giving the concrete error subtype. Errors
+  are lvals like every other value, so an errorable return is returned as an ordinary `lval`, and
+  `try` is a check of the error bit (with the subtype read from the `typeid`). There is no tagged
+  tuple, interface, or side channel; the representation is the same 16-byte `lval` used
+  everywhere.
 - **`defer` to scoped cleanup.** Luna's `defer` is **block-scoped** (defer spec §1), whereas Go's
   `defer` is function-scoped, so Luna `defer` cannot map one-to-one onto Go `defer`. It lowers to
   explicit scoped cleanup: the block's deferred statements run at every exit edge of that block
@@ -353,27 +371,100 @@ scheduling.
 
 ---
 
-## 9. Open questions
+## 9. Incremental and cached compilation
+
+The compiler caches **per-module compiled binary artifacts** in a home-directory cache, so an
+unchanged module is not recompiled and only **linking** remains. The design turns on the cache key,
+which must be correct (never serve a stale artifact) and cheap (avoid `open()` on the hot path).
+
+### 9.1 The cache key is transitive over import signatures
+
+A module's artifact depends on its own source **and** on the **public signatures of everything it
+imports**: if an imported module changes a function's result type, a dependent's artifact is stale
+even though the dependent's own file is untouched. So the key is:
+
+```
+key(M) = own_key(M) + { signature_hash(I) : I in imports(M) }
+```
+
+where `signature_hash(I)` is a stable hash of `I`'s public surface (the types of its exported
+bindings, the signature the dependents were compiled against). Keying only on a module's own file
+would silently miscompile when a dependency's signature changes, the worst failure (wrong output
+that looks correct), so the transitive-signature key is mandatory, not an optimization. Because the
+module graph is a DAG (modules spec §2), the signature hashes propagate cleanly along topological
+order.
+
+### 9.2 `stat()`-first, hash-on-change
+
+`own_key(M)` uses the filesystem cheaply on the common path and hashes only when something changed:
+
+- **Fast path (no `open()`):** if `(mtime, size)` **matches** the cached entry, the module is
+  unchanged, reuse its artifact. This is a `stat()` only, no file read, for the overwhelming
+  common case of "nothing changed."
+- **Change path (hash to confirm):** if `(mtime, size)` **differs** from the cached entry, the
+  module is *possibly* changed, so **read and content-hash** it. This costs an `open()`, but only
+  when the module was going to be recompiled anyway, so the hash is nearly free. Hashing on this
+  path closes the two silent-miscompile holes that pure `stat()` leaves:
+  - a **size-preserving edit** (`<` to `>`, `+` to `-`) that `size` cannot see, and
+  - a **preserved or coarse `mtime`** (`cp -p`, `rsync --times`, `tar`, `git checkout`, coarse-
+    granularity filesystems) that makes a changed file look unchanged or an unchanged file look
+    changed.
+
+  If the content hash matches the cached entry despite the differing `(mtime, size)`, the artifact
+  is reused (and the entry's `(mtime, size)` refreshed), so a `touch` or a no-op checkout does not
+  force a recompile. If the hash differs, the module is recompiled.
+
+So `stat()` decides "unchanged" on the hot path with no file read, and a content hash decides on the
+cold path (where a read is already implied). This pays neither the silent-miscompile risk of
+pure-`stat()` nor the always-`open()` cost of always-hashing.
+
+### 9.3 The cache is namespaced by compiler version
+
+Cache entries are stored under a **compiler-version-stamped** namespace, because a new compiler may
+emit different Go or different artifacts for identical source. Namespacing by version prevents an
+upgraded compiler from serving artifacts built by the old one. Comptime results are deterministic
+(§6, §8), so they cache cleanly under the same keying, an unchanged comptime-eligible module
+reuses its computed constants.
+
+---
+
+## 10. Distribution: no exposed IR
+
+The Luna IR (§4) is an **internal, unstable implementation detail and is never a public
+artifact.** It is deliberately *not* exposed as a compilation or distribution target, because
+doing so would make the IR a permanent compatibility surface: distributed IR artifacts would have
+to keep working across compiler versions, which would ossify the IR and prevent the optimizer and
+lowering from evolving. That is the same trap that freezes bytecode formats and their VMs, and
+the language avoids it by keeping the IR private.
+
+So distribution has exactly two supported forms:
+
+- **Source distribution (now).** A library is distributed as Luna **source**, which the consuming
+  build compiles (and caches, §9) like any other module. This keeps the IR entirely internal.
+- **Opaque compiled binaries / dynamic module loading (later).** A future mechanism may distribute
+  **compiled binary artifacts** (opaque, compiler-version-stamped, §9.3) or load compiled modules
+  dynamically. These distribute *compiled output*, not IR, so the IR stays private and free to
+  change; the versioned binary is the compatibility unit, not the IR.
+
+The rule to hold: the IR is never a distribution or interchange format. Source is the portable
+form today; opaque versioned binaries are the portable form later. Neither exposes the IR.
+
+---
+
+## 11. Open questions
 
 - **The `lval` under Go's precise GC (§7.1).** The central backend design task: how to represent a
   word that is sometimes a managed pointer and sometimes inline payload, given Go's precise,
   pointer-aware GC. The chosen encoding affects every value operation and needs its own design.
-- **The `!` (errorable) result encoding.** How an errorable return is represented in emitted Go (a
-  tagged value, a two-word return, an interface), consistent with error-ness being a `typeid`
-  subtype check rather than a flag (value-representation §3.1).
 - **Block-scoped `defer` lowering (§7.3).** The concrete emission for block-scoped, panic-composing
   LIFO cleanup on top of Go's function-scoped `defer`, including the interaction with recover on
   the panic path.
 - **Green-thread mapping and copying (§7.3).** How enforced-copying at task boundaries is realized
   in emitted Go, and how cancellation unwinds and runs deferred cleanup, pending the concurrency
   model.
-- **Incremental and cached compilation.** Whether per-module analysis and emission results are
-  cached (keyed on the module and its imports' signatures) so an unchanged module is not
-  recompiled, and how comptime's deterministic results are cached, a natural fit given the DAG and
-  deterministic comptime, pending design.
-- **Source mapping.** The precise mechanism for mapping runtime diagnostics in emitted Go back to
-  Luna source positions (line directives, side tables), so panics and stack traces report Luna
-  locations.
-- **Separate compilation and distribution.** Whether modules compile to reusable artifacts (Go
-  packages or compiled Luna interfaces) for library distribution, tied to the packaging questions
-  left open in the modules spec.
+- **Signature-hash stability (§9.1).** The precise definition of a module's public
+  `signature_hash`, what is included (exported names, their types, constraint and protocol
+  surfaces) and what is deliberately excluded (private bodies, comment text), so that a change that
+  cannot affect dependents does not needlessly invalidate their cache.
+- **Cache eviction and sharing.** The cache's size management (eviction policy) and whether the
+  home-directory cache is safely shared across concurrent builds, pending design.
