@@ -29,24 +29,30 @@ string at all.
 
 ---
 
-## 2. Representation: a type-determining flag in the `lval`
+## 2. Representation: secretness is in the `typeid`, like error-ness
 
-Secretness is stored as a **flag in the `lval`** (value-representation), so "is this value
-secret?" is a cheap bit check, like `isNull`. But unlike `isNull`, the secret flag is
-**type-determining**: it contributes to the value's type identity, so a secret string's type
-is `secret`, not `string`.
+Secretness is **type-determining**: a secret string's type is `secret`, not `string`. Because
+it is type-determining, it lives in the value's **`typeid`**, not in an `lval` flag, exactly
+the treatment error-ness gets (value-representation §2.1, §3.1). This is deliberate and follows
+the value-representation discipline: **type-determining properties belong in the `typeid`, never
+in the flag byte**, because a flag could drift out of sync with the type it is supposed to
+determine. `secret` is a genuine type, so "is this value secret?" is a **subtype check**
+(`currentType <: secret`), an O(1) `typeinfo` lookup (value-representation §4.2), not a bit
+test.
 
-This is the same treatment error-ness gets, not the treatment nullability gets
-(value-representation §2.1, §3.1):
+Contrast the two axes value-representation already distinguishes:
 
-- **`isNull`** is a flag that does **not** change the type: a null string is still a
-  `string`. Nullability is a dynamic state on an unchanged type.
-- **Secretness**, like error-ness, **does** change the type: a secret string is a `secret`,
-  a genuinely different type, not a string wearing a flag. The bit is physically in the
-  `lval` for a fast check, but the type system reads it as type-determining.
+- **`isNull`** is a genuine per-value **flag** that does **not** change the type: a null string
+  is still a `string`. Nullability is a dynamic state on an unchanged type, so it rides in the
+  flag byte.
+- **Secretness**, like error-ness, **does** change the type: a secret string is a `secret`, a
+  distinct type. So, like error-ness, it is read from the `typeid` (a subtype test), not stored
+  as a flag. Storing it as a flag would denormalize the type and invite the flag disagreeing
+  with the id, the exact problem value-representation §2.1 avoids.
 
-So secret gets the cheap bit-check you want for `isSecret` **and** the type-level distinction
-that makes it un-leakable. The bit is the representation; the distinct type is the semantics.
+So `isSecret` is the O(1) subtype test `currentType <: secret`, and the type-level distinction
+is what makes a secret un-leakable: the type system refuses to treat a `secret` as a `string`
+(§1), and that refusal is carried in the type, not in a mutable bit.
 
 ---
 
@@ -164,7 +170,7 @@ confines exposure to controlled, reviewable points.
   at compile time, which is why revealing needs no coercion.
 - **Sensitive compound data is modeled as secret *fields*, not a secret container.** A
   credentials object is an ordinary table whose sensitive leaf values are secret
-  (`{host => "db.example", password => pw as secret}`), so the non-sensitive structure stays
+  (`['host' => "db.example", 'password' => pw as secret]`), so the non-sensitive structure stays
   readable and secrecy is localized to the actual sensitive values.
 
 ### 6.1 A secret cannot be a table key

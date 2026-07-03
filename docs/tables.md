@@ -19,8 +19,8 @@ minimal overhead versus a raw array.
 ```
 var myTable = [];                 // empty table, always []
 myTable = [
-  name => 'Lucas',
-  lastName => 'Streanga',
+  'name' => 'Lucas',
+  'lastName' => 'Streanga',
 ];                                // record / object style
 myTable = [0, 1, 2, 3, 4];        // array / list style
 ```
@@ -106,8 +106,8 @@ different questions:
 - **`tab.values()`** *produces* a fresh list by reindexing, so it **always** succeeds
   whatever `tab`'s shape. Use it when you want a list out of any table.
 
-They even differ in result: `{5=>'a', 9=>'b'} as list` **panics** (not contiguous), while
-`{5=>'a', 9=>'b'}.values()` returns `['a', 'b']` (drops the keys, reindexes the values). And
+They even differ in result: `[5=>'a', 9=>'b'] as list` **panics** (not contiguous), while
+`[5=>'a', 9=>'b'].values()` returns `['a', 'b']` (drops the keys, reindexes the values). And
 because narrowing is never implicit, passing a bare `table` where a `list` is required is a
 compile error; you choose `as list` (assert) or `values()` (produce) explicitly:
 
@@ -125,21 +125,54 @@ pass to list-requiring functions, and destructure positionally without a runtime
 `const` list additionally takes the tightest representation (a pure contiguous array with no
 stored keys, since the keys are implicitly `0..n-1`; Amendment A).
 
+### 2.5 Slicing a list: the `:` syntax
+
+A list is sliced with the **`:` syntax**, which is **half-open** (the end index is excluded),
+the Python and Rust convention. A slice returns a new **`list`** (reindexed from 0):
+
+```
+let mid  = xs[1:3];      // elements at indices 1 and 2 (end excluded): a 2-element list
+let tail = xs[2:];       // from index 2 to the end
+let head = xs[:3];       // from the start to index 2 (indices 0, 1, 2)
+let copy = xs[:];        // a full shallow copy
+```
+
+- **Half-open**: `xs[a:b]` is indices `a` through `b - 1`, so `xs[0:len]` is the whole list and
+  adjacent slices compose without overlap (`xs[0:k]` and `xs[k:n]` partition it). Reading a
+  single index `xs[i]` returns the element; slicing with `:` returns a `list`.
+- **Open-ended forms**: `xs[a:]` (to the end), `xs[:b]` (from the start), `xs[:]` (full copy).
+- **Slicing is deliberately `:`, not the inclusive `..` range syntax** (range spec §2.1): slices
+  are half-open (natural for indexing), ranges are inclusive (natural for iteration), so each
+  keeps its own convention and `..` and `:` never conflict.
+
+Slicing applies to lists (contiguous integer keys); slicing a non-list table is not defined
+(there is no positional order to slice), so slice a table's `values()` if a positional slice of
+its values is wanted.
+
 ---
 
 ## 3. Keys and access
 
 ### 3.1 Key types
 
-Permitted key types:
+A key is **`int` or `string`, and nothing else.** There is **no implicit key coercion**:
+a `double`, `bool`, `table`, or any other type is **not** a valid key and is **not** silently
+converted into one. This matches the language's no-implicit-coercion stance everywhere else
+(no truthiness, no implicit numeric coercion, conversions are explicit functions): a key of
+another type is a compile error (statically) or a `TypeError` (dynamically), not a quiet
+normalization.
 
-| Key type | Handling |
+| Key type | Allowed? |
 |-|-|
-| `int` | Native. |
-| `string` | Native. |
-| `double` | Converted to `string`. |
-| `bool` | Converted to `int` (`false` → 0, `true` → 1). |
-| `table` | Must be stringified first, typically via `toJson()`. |
+| `int` | Yes, native. |
+| `string` | Yes, native. |
+| any other type (`double`, `bool`, `table`, ...) | No, convert explicitly first |
+
+To key by a value of another type, convert it **explicitly** to an `int` or `string` first,
+using the ordinary conversion functions (conversion spec): `tab[d.toString()]` for a `double`,
+`tab[b.toInt()]` for a `bool`, `tab[t.toJson()]` for a table used as a composite key. The
+conversion is visible in the source, so what a key actually is is never hidden behind an
+implicit rule.
 
 ### 3.2 Static keys (`.`) vs. dynamic keys (`[]`)
 
@@ -199,6 +232,17 @@ protocol in the first place.
 
 **Tables are copy-on-write value types.** Assignment shares storage until a write
 forces a split; logically, every table is an independent value.
+
+**One exception: a `stream` held as a table value is shared by reference, not copied.**
+A stream is a reference value that cannot be copied at all (a single-pass stream cannot
+be forked or replayed without buffering everything; stream spec §4, §6.1). So when a
+table is copied, a stream *element* is **shared**, not duplicated: if `a` holds a stream
+and `var b = a;`, then `a` and `b` refer to the **same** stream, and consuming it through
+either consumes it for both. This is the ordinary single-pass stream discipline (stream
+spec §2), not a table-specific rule; it just means a table is not fully independent of its
+copies with respect to a contained stream. To get independent sequences, materialize the
+stream into retained data first (stream spec §5.1). Every non-stream value follows the
+normal copy-on-write independence.
 
 Consequently **the protocol never mutates its receiver in place.** Every operation
 returns a *new* table (COW), and the caller decides whether to keep it or write it
@@ -290,7 +334,7 @@ than the *key-set*.
 | `neverThaw` | no → `FreezeViolationError` | `neverThaw()` | **no, permanently** |
 
 ```
-var config = [host => 'localhost', port => 8080];
+var config = ['host' => 'localhost', 'port' => 8080];
 &config.freeze();
 config.port = 9090;               // FreezeViolationError: table is frozen
 &config.thaw();
@@ -524,7 +568,7 @@ time rather than deferring to the runtime absence (`undefined`) result.
 The direct-offset path alone would let the compiler erase keys to bare field offsets, but
 it cannot, because a `const` table is still used **as data**, not only as named fields:
 
-- **`foreach (constTab as k => v)`** must yield real (key, value) pairs.
+- **`foreach (k => v in constTab)`** must yield real (key, value) pairs.
 - **`keys()`, `values()`, `count()`, serialization (`toJson`), reflection**, and any
   protocol meta that walks entries, all need the keys as runtime values.
 

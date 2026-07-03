@@ -43,10 +43,11 @@ against it.
 var numbers: stream|table = 0..100;
 println(@numbers.typeName);        // "stream"
 &numbers.map(fn (number: int) => number * 2);
-println("$num, ") foreach (numbers as num);   // 0, 2, 4, 6, 8 ...
-println(numbers.consumed());       // "true"
-numbers = 0..50 as table;
-println(@numbers.typeName);        // "table"
+println("$num, ") foreach (num in numbers);   // 0, 2, 4, 6, 8 ...
+println(numbers.isConsumed());     // "true"
+numbers = (0..50).values();        // materialize the range into a list (a table);
+                                   // a conversion function, not `as` (`as` never transforms)
+println(@numbers.typeName);        // "list"
 numbers = null;                    // compile error IncompatibleTypeError:
                                    // null is not a member of stream|table
 ```
@@ -127,7 +128,7 @@ cannot be consumed. Any mutation attempt raises the corresponding table-protocol
 error.
 
 ```
-const config = [db => [host => 'localhost']];
+const config = ['db' => ['host' => 'localhost']];
 config.db.host = 'remote';         // FreezeViolationError: const is deep
 config.timeout = 30;               // OpenViolationError: const seals growth too
 ```
@@ -137,7 +138,7 @@ elsewhere. Const-binding a value that is currently shared conceptually copies it
 the new binding and seals the copy, leaving the original untouched:
 
 ```
-var original = [count => 0];
+var original = ['count' => 0];
 const snapshot = original;         // snapshot is a deep, sealed copy
 original.count = 1;                // OK: original is an ordinary var
 snapshot.count = 1;                // FreezeViolationError: snapshot is const
@@ -180,7 +181,7 @@ Variables are **lexically (block) scoped**, as is typical in modern languages, a
 unlike PHP, where variables are function-scoped.
 
 ```
-foreach (0..10 as num) {
+foreach (num in 0..10) {
   let i = num;                     // scoped to the loop body
 }
 println(i);                        // compile error: i is undefined in this scope
@@ -204,12 +205,12 @@ A function that mutates its argument in place takes (or is given) a reference:
 var myTable = [];
 var fillTable = fn (&myTable: table) => myTable['element'] = 1;   // & on the callee
 fillTable(myTable);
-println(myTable);                  // [element => 1]
+println(myTable);                  // ['element' => 1]
 
 fillTable = fn (myTable: table) => myTable['element'] = 1;        // & on the caller
 myTable = [];
 fillTable(&myTable);
-println(myTable);                  // [element => 1]
+println(myTable);                  // ['element' => 1]
 ```
 
 **`&` requires a `var`.** Applying it to a `let` or `const` binding is a compile
@@ -230,8 +231,8 @@ the caller, and consuming the stream in the callee consumes it for everyone:
 ```
 let myStream = 0..10;
 &myStream.map(fn (num: int) => num * 2);
-println(myStream.consumed());      // "true"
-println(num) foreach (myStream as num);   // nothing: the stream is consumed
+println(myStream.isConsumed());      // "true"
+println(num) foreach (num in myStream);   // nothing: the stream is consumed
 ```
 
 ### 5.2 The `copy` operator
@@ -252,12 +253,15 @@ moment of the copy, not the stream's origin:
 
 ```
 let myStream = 0..10;
-println(myStream x 5);             // 01234
-var myNewStream = copy myStream;
-println(myNewStream x 5);          // 56789: copy starts where myStream left off
+foreach (v in myStream.take(5)) { print(v); }     // 01234; consumes 5 elements of myStream
+var myNewStream = copy myStream;                   // copy captures the current cursor (now at 5)
+foreach (v in myNewStream.take(5)) { print(v); }   // 56789: copy starts where myStream left off
 myNewStream = (copy myStream).reset();
-println(myNewStream x 5);          // 01234: reset rewinds the copy
+foreach (v in myNewStream.take(5)) { print(v); }   // 01234: reset rewinds the copy
 ```
+
+(`take(n)` yields a stream of the next `n` elements; consuming it advances the source
+cursor by `n`, stream-api. There is no dedicated repetition operator.)
 
 ---
 

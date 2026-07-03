@@ -9,7 +9,7 @@ the whole sequence at once.
 
 ```
 let f = openFile('data.log', {read});
-foreach (f.lines() as lineNumber => line) {
+foreach (lineNumber => line in f.lines()) {
   // `lines()` is a stream: one line in memory at a time, not the whole file
 }
 ```
@@ -29,14 +29,14 @@ it returns a stream; the return type is `stream`:
 ```
 const naturals = fn (): stream {
   var n = 0;
-  loop {
+  while (true) {
     yield n;              // values-only: yields a value
     n = n + 1;
   }
 };
 
 const entries = fn (t: table): stream {
-  foreach (t as k => v) {
+  foreach (k => v in t) {
     yield k => v;          // key-value: yields a key and a value
   }
 };
@@ -74,8 +74,8 @@ consumes nothing until the pipeline itself is consumed.
 A stream is consumed by iterating it, normally with `foreach`:
 
 ```
-foreach (s as v) { ... }         // values-only stream
-foreach (s as k => v) { ... }    // key-value stream
+foreach (v in s) { ... }         // values-only stream
+foreach (k => v in s) { ... }    // key-value stream
 ```
 
 Consumption is **single-pass**: each element is produced once, seen once, and not retained.
@@ -177,6 +177,29 @@ under green threads with enforced copying, each task holds its own. Its element 
 the source (typed for a typed source, `any` for an untyped one, the same rules as table
 elements, tables and protocols specs).
 
+### 6.1 A stream is always by reference, including inside a table
+
+A stream is a **reference value**: it is passed by reference (variables spec §5), never copied
+by assignment, because copying a single-pass stream is impossible without either forking it
+(which single-pass forbids) or buffering everything (which defeats the point, §4). This
+by-reference nature holds **even when a stream is a value inside a table**, and it is the one
+exception to a table being an independent value:
+
+- Tables are copy-on-write **value** types: copying a table yields a logically independent
+  table (tables spec §4). But a **stream held as a table value is shared by reference**, not
+  deep-copied, when the table is copied, because a stream cannot be copied at all.
+- So if a table `a` holds a stream and you write `var b = a;`, both `a` and `b` refer to the
+  **same** stream. Consuming that stream through `a` (or `b`) consumes it for **both**, exactly
+  as consuming any shared stream reference consumes it everywhere (§2, §7.3).
+
+This is the ordinary single-pass discipline (§2), not a new rule: a stream is a shared,
+single-pass reference wherever it lives, so aliasing one through a containing table is the same
+"don't consume a stream twice" situation as aliasing one directly. A table holding a stream is
+therefore **not** fully independent of its copies with respect to that stream element; the
+stream is shared, and first consumption wins. To give two tables genuinely independent
+sequences, materialize the stream into retained data first (§5.1), or produce a fresh stream
+per table (§4).
+
 ---
 
 ## 7. The pipeline operator `|>`
@@ -184,7 +207,9 @@ elements, tables and protocols specs).
 `|>` connects a dataflow pipeline. It is **not** general function application, Luna already
 has that through UFCS (`x.f().g()`), so a general pipe operator would be redundant. `|>` exists
 only where "pipeline" is a genuine domain concept: **streams and commands**. Seeing `|>`
-therefore always means "a dataflow pipeline," never merely "call a function."
+therefore always means "a dataflow pipeline," never merely "call a function." This section
+covers stream pipelines; the operator's unified semantics across both kinds are in the
+**pipeline** spec.
 
 ### 7.1 Closed over kind
 
@@ -244,6 +269,9 @@ independent use is not a compile error, it just yields consumed elements.
   despite the single-owner intent, pending the concurrency model.
 - **`asStream` element typing:** whether a `stream` carries its element type as precisely as a
   typed table does, pending how far element typing is carried through transformers.
-- **Early termination and cleanup:** how a stream releases a resource (closes the file) when a
-  pipeline short-circuits (`take(10)` stops before the file ends) or is abandoned before
-  exhaustion.
+- **Early termination and cleanup:** the general mechanism for releasing a resource on any exit
+  path is **`defer`** (defer spec): `let f = open(...); defer f.close();` closes the file when
+  the owning block exits, whether the pipeline is fully consumed, short-circuits (`take(10)`
+  stops early), or is abandoned. What remains open is whether a stream *also* offers its own
+  scoped-cleanup convenience (an automatic close when a stream tied to a resource is dropped or
+  fully consumed), on top of `defer`, pending the stream resource model.
