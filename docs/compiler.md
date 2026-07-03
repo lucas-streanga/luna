@@ -377,22 +377,107 @@ The compiler caches **per-module compiled binary artifacts** in a home-directory
 unchanged module is not recompiled and only **linking** remains. The design turns on the cache key,
 which must be correct (never serve a stale artifact) and cheap (avoid `open()` on the hot path).
 
-### 9.1 The cache key is transitive over import signatures
+### 9.1 The cache key is transitive over the module interface
 
-A module's artifact depends on its own source **and** on the **public signatures of everything it
+A module's artifact depends on its own source **and** on the **public interface of everything it
 imports**: if an imported module changes a function's result type, a dependent's artifact is stale
 even though the dependent's own file is untouched. So the key is:
 
 ```
-key(M) = own_key(M) + { signature_hash(I) : I in imports(M) }
+key(M) = own_key(M) + { interface_hash(I) : I in imports(M) }
 ```
 
-where `signature_hash(I)` is a stable hash of `I`'s public surface (the types of its exported
-bindings, the signature the dependents were compiled against). Keying only on a module's own file
-would silently miscompile when a dependency's signature changes, the worst failure (wrong output
-that looks correct), so the transitive-signature key is mandatory, not an optimization. Because the
-module graph is a DAG (modules spec §2), the signature hashes propagate cleanly along topological
-order.
+where `interface_hash(I)` fingerprints `I`'s **public interface**, the surface a dependent compiles
+against. Keying only on a module's own file would silently miscompile when a dependency's interface
+changes (wrong output that looks correct), so the transitive key is mandatory, not an optimization.
+Because the module graph is a DAG (modules spec §2), interface hashes propagate cleanly along
+topological order.
+
+#### The primitive is interface extraction, not a checksum
+
+The compiler extracts each module's **public interface** as a structured artifact, and
+`interface_hash` is a deterministic fingerprint of that artifact. This is deliberately **not** a
+whole-file checksum (comments stripped or not), and the difference is the whole point of the
+scheme.
+
+A checksum answers "did the file change?" The interface hash answers the narrower question "did the
+public *interface* change?", and only the second enables the **recompile-versus-relink** split that
+makes compilation actually incremental:
+
+- If an imported module's **interface hash is unchanged** (only bodies changed), its dependents'
+  keys are unchanged, so they **do not recompile**; they **relink** against the module's new
+  artifact. Their emitted code is still valid because the interface they compiled against did not
+  move.
+- If the **interface hash changed**, dependents **recompile** (re-analyze and re-emit against the
+  new interface).
+
+A checksum cannot make this distinction: any body-only edit changes the checksum, so every
+dependent recompiles. Editing one function body in a widely-imported module would then recompile
+its entire dependency cone, the "change one file, rebuild the world" cascade, even though every
+dependent's generated code is identical. The interface hash cuts the cascade at every module whose
+interface did not change, so a body-only edit recompiles just that module and relinks the rest.
+Body-only edits are the most common kind of change, so this is where the savings concentrate. A
+checksum is *correct* (it over-invalidates, which is safe) but pessimal; the interface hash is what
+makes incremental builds incremental.
+
+#### What the public interface includes
+
+The interface is what a dependent could compile differently against, reached transitively:
+
+- **Every exported binding and its full type**, functions (all of the signature: parameters,
+  result, errorability, and comptime-eligibility, since all four are type identity, functions spec
+  §3), consts and their types, enums, constraints, protocols, capabilities.
+- **The full structural content of each exported type**, not just its name: an enum's complete
+  variant set and payload types (dependents' `match` exhaustiveness and destructuring depend on
+  them, match spec §9), a constraint's **predicate** (dependents' `as` checks and check-elision
+  depend on it, constraints spec §10), a protocol's full meta-function surface and element
+  contract. Two definitions that share a name but differ in content must hash differently.
+- **Transitively-reachable types, even private ones exposed through a public signature.** If an
+  exported `fn f(): Internal` returns a non-exported `Internal`, then `Internal`'s structure is
+  observable through `f` (a dependent can `match` and destructure the result), so `Internal`'s
+  structure is in the interface even though it is not itself exported. Missing this silently
+  miscompiles dependents when a "private" type that leaks through a public API changes.
+- **The bodies of comptime-eligible exported functions.** Comptime (functions spec §5) can execute
+  an imported function at compile time, so a dependent's compile-time result depends on that
+  function's **body**, not just its signature. For a comptime-eligible exported function the body
+  is therefore part of the observable interface and is included. (An ordinary exported function's
+  body is not, §below.)
+
+#### What the interface excludes (the payoff)
+
+Everything a dependent cannot observe is excluded, which is exactly what a whole-file checksum
+cannot exclude and what makes the interface hash worth having:
+
+- **Ordinary (non-comptime) function bodies.** Changing an exported function's implementation
+  without changing its type does not change its interface, so dependents relink rather than
+  recompile.
+- **Private definitions not reachable from any exported type**, a helper used only internally is
+  not in the interface; changing it recompiles the module itself (via `own_key`, §9.2) but does not
+  cascade to dependents.
+- **Comments, formatting, and private names**, unobservable, excluded.
+
+So the interface is a true **interface fingerprint**: it changes only when a dependent could
+compile differently, and implementation churn (the common case) does not cascade.
+
+#### One primitive, several consumers
+
+Interface extraction is a single primitive with more than one consumer, so it is not cost
+attributable to the cache alone:
+
+- **The incremental cache** uses `interface_hash` for change detection and the recompile-versus-
+  relink split (above).
+- **The in-compiler tooling** (formatter, linter, LSP, all to be specified later) must compute a
+  module's public interface regardless, navigation, hover types, find-references, and "what does
+  this module export" all need it. So the tooling builds interface extraction anyway, which makes
+  the cache's hash a near-free fingerprint of an artifact that already exists, and guarantees the
+  cache and the tooling agree on what a module's interface is (they read the same extraction).
+- **Future binary distribution** (§10) can reuse the same fingerprint as a compatibility check: an
+  opaque compiled artifact carries its interface hash, and a consumer verifies it matches what they
+  linked against.
+
+Because the tooling requires interface extraction independently, using a checksum for the cache
+would be a false economy: it would forgo the recompile-versus-relink savings *and* maintain a
+second, weaker notion of "what changed" beside the interface the tooling already computes.
 
 ### 9.2 `stat()`-first, hash-on-change
 
@@ -417,6 +502,13 @@ order.
 So `stat()` decides "unchanged" on the hot path with no file read, and a content hash decides on the
 cold path (where a read is already implied). This pays neither the silent-miscompile risk of
 pure-`stat()` nor the always-`open()` cost of always-hashing.
+
+One residual blind spot is accepted and documented, not engineered against: a size-preserving edit
+whose `mtime` is restored to the *exact* value the cache recorded (which needs a timestamp-pinning
+tool, not normal editing or a `git` checkout, both of which move `mtime` forward) matches
+`(mtime, size)` on the fast path and is not detected. This is effectively unreachable through
+ordinary editor-and-git workflows; when a workflow does normalize or restore timestamps in place,
+the remedy is a manual full rebuild (`--clean`), which the cache cannot infer on its own.
 
 ### 9.3 The cache is namespaced by compiler version
 
@@ -444,7 +536,10 @@ So distribution has exactly two supported forms:
 - **Opaque compiled binaries / dynamic module loading (later).** A future mechanism may distribute
   **compiled binary artifacts** (opaque, compiler-version-stamped, §9.3) or load compiled modules
   dynamically. These distribute *compiled output*, not IR, so the IR stays private and free to
-  change; the versioned binary is the compatibility unit, not the IR.
+  change; the versioned binary is the compatibility unit, not the IR. Such an artifact can carry
+  its **interface hash** (§9.1) as a compatibility fingerprint, so a consumer verifies the binary's
+  interface matches what they compiled against, the same extracted interface the cache and tooling
+  already use.
 
 The rule to hold: the IR is never a distribution or interchange format. Source is the portable
 form today; opaque versioned binaries are the portable form later. Neither exposes the IR.
@@ -462,9 +557,12 @@ form today; opaque versioned binaries are the portable form later. Neither expos
 - **Green-thread mapping and copying (§7.3).** How enforced-copying at task boundaries is realized
   in emitted Go, and how cancellation unwinds and runs deferred cleanup, pending the concurrency
   model.
-- **Signature-hash stability (§9.1).** The precise definition of a module's public
-  `signature_hash`, what is included (exported names, their types, constraint and protocol
-  surfaces) and what is deliberately excluded (private bodies, comment text), so that a change that
-  cannot affect dependents does not needlessly invalidate their cache.
+- **Canonical interface serialization (§9.1).** The precise, deterministic serialization of a
+  module's extracted public interface that the hash fingerprints, in particular the canonical form
+  and ordering (so semantically-equal interfaces serialize identically), and the exact inclusion
+  boundary already fixed in §9.1 (full exported types, transitively-reachable private types exposed
+  through public signatures, and comptime-eligible bodies; excluding ordinary bodies,
+  unexposed-private definitions, comments, and formatting). This is shared with the tooling that
+  extracts the same interface.
 - **Cache eviction and sharing.** The cache's size management (eviction policy) and whether the
   home-directory cache is safely shared across concurrent builds, pending design.
