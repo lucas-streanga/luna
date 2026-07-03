@@ -518,6 +518,74 @@ upgraded compiler from serving artifacts built by the old one. Comptime results 
 (§6, §8), so they cache cleanly under the same keying, an unchanged comptime-eligible module
 reuses its computed constants.
 
+### 9.4 Eviction and sharing
+
+**The cache is private and per-user, not shared across users or projects.** Cross-project artifact
+sharing is deliberately not done: an artifact is a compiled binary specialized to *its* build
+context (comptime results, constraint-elision decisions, const-table specialization), so the same
+module source built in a different context may need a different artifact; a shared cache is also a
+code-injection trust boundary; and the cross-project hit rate is low. (Path relativity is *not* the
+reason, the cache key is content-and-interface derived, §9.1, so it is already path-independent.)
+Cross-project reuse, if ever wanted, belongs at the package layer (a package manager caching
+packages), not at the compiler's module-artifact layer.
+
+#### Two locks: builds share, eviction excludes
+
+Liveness (an artifact must not be deleted while a build needs it) is protected by a **build lock**,
+not by a timestamp heuristic. Reading a recent `mtime` as "probably in use" is too frail for a
+delete decision, so liveness is a fact, not a guess:
+
+- **The build lock is a shared (reader) lock.** Many concurrent builds hold it at once; it does not
+  serialize builds. While any build holds it, the evictor must not delete artifacts those builds
+  are using.
+- **The eviction lock is exclusive (writer).** The evictor takes it to evict. So builds are
+  readers and the evictor is the writer of a readers-writer lock: builds run in parallel, and
+  eviction excludes (and is excluded by) active builds.
+
+This separates concerns cleanly: `mtime` is used **only** as the last-used / age signal for LRU and
+the age threshold (below), never as a liveness signal. The build lock alone decides what is in use.
+
+#### Age-based eviction, with a size-cap backstop
+
+Each artifact's **`mtime` is its last-used time**, bumped on every cache hit (an `utimes` call, no
+file read), and read via the `stat()` the cache already performs (§9.2). Eviction is:
+
+- **By age (default):** an artifact unused for more than **30 days** is evictable. Thirty days is
+  chosen so a program run even occasionally, a script invoked every week or two, still finds its
+  cache warm; a shorter window (a day, a week) would cold-cache occasional and script-style users,
+  who are exactly the ones a cross-run cache should serve. Anything untouched for a month is
+  genuinely stale (abandoned project, deleted branch, replaced dependency).
+- **By size (backstop):** if the cache still exceeds a size cap after age eviction, evict
+  least-recently-used entries (oldest `mtime`) until under the cap, so high-volume users cannot
+  grow the cache without bound within the 30-day window.
+
+Both the age threshold and the size cap are configurable; the defaults are 30 days and a sensible
+size limit.
+
+#### The background evictor: throttled, crash-safe, parallel
+
+Eviction runs in a **detached background worker** so it never blocks a build, and its scheduling is
+governed by the eviction lock:
+
+- **Throttled to at most once per day, across all programs.** A build spawns an evictor only if the
+  last eviction ran more than **1 day** ago (read from the eviction lock's timestamp via `stat()`).
+  So the overwhelming majority of builds spawn nothing. This 1-day **throttle** (how often eviction
+  runs, machine-wide) is a distinct number from the 30-day **artifact age** (how long a specific
+  program's artifacts survive unused): the sweep runs daily; artifacts live for a month.
+- **At most one evictor at a time.** The exclusive eviction lock is the mutex: a second would-be
+  evictor that cannot take the lock simply does not run.
+- **Crash-safe via steal-on-stale.** The eviction lock records the evictor's **PID and start
+  time**. A would-be evictor that finds a lock whose PID is dead, or whose start time is older than
+  any sane eviction run, **steals** it (deletes and re-acquires). So a crashed or killed evictor
+  never disables eviction permanently, which a naive create-on-start / delete-on-finish lock would.
+- **Parallel deletion within the lock holder.** Once it holds the exclusive lock, the evictor
+  deletes provably-stale entries (old `mtime`, not held by any build) concurrently. Holding the
+  lock plus the age threshold makes each deletion safe.
+
+The single unifying signal is `mtime`: bumped on every use, it serves as last-used time (LRU),
+age (the 30-day threshold), and nothing else, liveness is the build lock's job, so no delete
+decision ever rests on a frail timestamp guess.
+
 ---
 
 ## 10. Distribution: no exposed IR
@@ -564,5 +632,3 @@ form today; opaque versioned binaries are the portable form later. Neither expos
   through public signatures, and comptime-eligible bodies; excluding ordinary bodies,
   unexposed-private definitions, comments, and formatting). This is shared with the tooling that
   extracts the same interface.
-- **Cache eviction and sharing.** The cache's size management (eviction policy) and whether the
-  home-directory cache is safely shared across concurrent builds, pending design.
