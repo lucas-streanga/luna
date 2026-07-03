@@ -145,6 +145,33 @@ println(original.count);           // 1
 println(snapshot.count);           // 0
 ```
 
+### 3.1 `let` and `const` coincide when there is no mutable interior
+
+The only thing separating `let` from `const` is **interior mutation** (§2): both fix
+the name, and `const` additionally freezes the value's contents. So `let` and `const`
+differ **only for values that have a mutable interior to protect**, tables, `bytes`
+buffers, string builders, and the like. For a value with **no** interior-mutable
+contents reachable through the binding, there is nothing for `const` to freeze that
+`let` leaves open, so the two are **equivalent**:
+
+- **Scalars and immutable values**, `int`, `double`, `bool`, an immutable `string`, have
+  no interior to mutate, so `let x = 5` and `const x = 5` mean the same thing.
+- **Functions**, a `fn` value has no interior state reachable through its binding: you
+  never mutate a closure's contents through the name that holds it. (Its only mutable
+  state is whatever it captured by reference with `use`, and that is mutated through the
+  *captured* binding, not through the function binding.) So `let f = fn ...` and `const f
+  = fn ...` are equivalent.
+
+This is not a special case for any of these types; it falls out of the general rule that
+`let`-versus-`const` is exactly the presence or absence of interior freezing, which is
+vacuous when there is no interior. Both spellings are therefore permitted for such
+values, and mean the same thing.
+
+**Convention**: for functions specifically, prefer `const` (a function is normally a
+fixed definition, functions spec §1). `let f` is allowed and identical in meaning, but
+`const f` reads as the intended "this name is a fixed function." The choice is stylistic,
+not semantic.
+
 ---
 
 ## 4. Scoping

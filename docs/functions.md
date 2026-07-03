@@ -116,7 +116,53 @@ closure is created, not a parameter the caller supplies. What the caller sees of
 is its *consequence*: whether the function is comptime-eligible (§5), which is derived
 partly from the `use` clause.
 
-### 3.1 Arity
+### 3.1 Bare `fn` is any callable; a signature opts into checking
+
+A bare **`fn`** (no signature) is the type "any function," the top of the function types,
+the callable analogue of `any`. It records no parameters or result, so nothing about a
+value's signature is statically checked through a bare-`fn` slot:
+
+```
+fn f(cb: fn): ...            // cb is any callable; its signature is unchecked here
+fn g(cb: fn (int): string)   // cb's parameters and result ARE checked (§3, §3.2)
+```
+
+So **writing a signature opts into checking; bare `fn` opts out.** A field or parameter
+typed `fn (int): string` is checked at assignment and call; one typed bare `fn` accepts any
+function and forfeits signature safety for that slot (the deliberate trade for
+callable-flexibility, mitigated by arity panics, §3.3, and by `fn` still distinguishing a
+callable from a non-callable). Choose per use: `fn (A): R` where you want the check, bare
+`fn` where you want to accept anything callable.
+
+Specific function types are **subtypes of bare `fn`** (`fn (A): R <: fn`), so the narrowing
+asymmetry is the usual one:
+
+- **`fn (int): string` into `fn`** , implicit (a specific function *is* a function).
+- **`fn` into `fn (int): string`** , not implicit; requires `as` (the erased signature is
+  not statically known, so asserting it is a checked narrowing, `as` spec).
+
+### 3.2 Compatibility is per-position assignability, not a variance system
+
+When a signature *is* checked, one function type is compatible with an expected function
+type by **ordinary per-position assignability**, reusing union subtyping and `as`, with no
+separate variance calculus:
+
+- **Result**: the callee's result must be usable as the expected result, which is ordinary
+  union widening (a callee returning `int` fits a slot expecting `int | string`, because
+  `int <: int | string`). This gives result covariance for free from the union subtype
+  relation (value-representation).
+- **Parameters**: each expected argument must be acceptable to the callee's corresponding
+  parameter, an ordinary "does this parameter accept this argument type" check (a wider
+  parameter, `int | string`, accepts a narrower argument, `int`). This gives parameter
+  flexibility from the same assignability rule.
+
+The checker does **only** this per-position assignability; it never infers deeper variance.
+Where the automatic check is too strict but you know a function is compatible, **`as`**
+asserts it (runtime-checked), the same escape hatch as everywhere. So function-type
+compatibility is unions plus `as`, consistent with the language's "no solver, runtime checks
+over static cleverness" stance, and there is no variance system to reason about.
+
+### 3.3 Arity
 
 Argument count and parameter count need not match, and the mismatch is directional:
 
@@ -133,9 +179,27 @@ Argument count and parameter count need not match, and the mismatch is direction
   higher-order function `fn!`.
 
 So a callback may declare *fewer* parameters than the caller supplies (ignore the rest),
-never *more* than the caller supplies (it cannot invent them). This directional rule is
-what makes partial application (§6) a distinct, explicit operation rather than something
-that could be confused with under-calling.
+never *more required* parameters than the caller supplies (it cannot invent them). This
+directional rule is what makes partial application (§6) a distinct, explicit operation rather
+than something that could be confused with under-calling.
+
+### 3.3.1 Default parameters
+
+A parameter may declare a **default value**, in which case it is **not required**, and
+omitting it is not a deficit (§3.3): the default is supplied.
+
+```
+fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
+normalize(s)            // form defaults to {nfc}; not a deficit
+```
+
+Defaults are the case where a function that declares *more* parameters than the caller
+supplies is still acceptable: the extra parameters must **all have defaults** (so they are
+optional, and calling without them supplies the defaults). A callback typed against `fn (A):
+R` is therefore acceptable if it can be called with `A`, its parameters beyond `A` must all
+be defaulted. Extra *required* parameters remain a deficit error; only defaulted extras are
+tolerated. (This is the precise sense in which "more parameters" can be fine, it is defaults,
+not an exception to the deficit rule.)
 
 ---
 
@@ -374,7 +438,7 @@ errorability and eligibility). Multiple placeholders open multiple parameters:
 `f(_, 5, _)` is `fn (a, c) => f(a, 5, c)`.
 
 This is possible, and unambiguous, only because calling a function with **fewer** arguments
-than it declares is an error, not implicit currying (§3.1). Under-supplying is a mistake;
+than it declares is an error, not implicit currying (§3.3). Under-supplying is a mistake;
 partial application is a deliberate, explicitly-marked operation (`_`), so the two never
 collide. The full semantics of `_` across all its contexts are in the **wildcard operator**
 spec; here it is simply the partial-application sugar.
@@ -405,11 +469,22 @@ were hidden in per-value flags.
 
 ---
 
-## 8. Open questions
+## 8. Resolved notes
 
-- **`use` and the type:** whether a function's capture surface is entirely invisible to
-  callers (only its comptime-consequence shows) or whether some capability-typed captures
-  (like `io`) should surface in the type for capability tracking beyond comptime.
-- **`use` of a `let` vs `const`:** whether a reference capture of a reassignable `let`
-  captures the binding (sees later reassignments) or the slot; interacts with the
-  reference rules in the variables spec.
+- **`use` and the type:** a function's capture surface stays a **compiler-internal** concern
+  and is not surfaced in the externally-visible type. Only its comptime-consequence (§5) leaks
+  to callers, which is already handled; surfacing capability-typed captures in the type was
+  considered and rejected as needless complexity.
+- **`let` vs `const` for a function binding:** they **coincide**. A function has no
+  interior-mutable state reachable through its binding, so the interior-freezing that
+  distinguishes `const` from `let` has nothing to act on (variables spec §3.1). Both are
+  permitted and mean the same thing; **`const` is the convention** for a fixed function
+  definition (§1). This is not function-specific: `let` and `const` coincide for every value
+  without a mutable interior (scalars, immutable strings, functions).
+
+## 9. Open questions
+
+- **`use` of a reassignable `let`:** when a function reference-captures a `let` binding that is
+  later reassigned within its write-once or ordinary rules (variables spec), whether the capture
+  sees the **binding** (later values) or the **slot** at capture time. Interacts with the
+  reference rules in the variables spec, pending their alignment.

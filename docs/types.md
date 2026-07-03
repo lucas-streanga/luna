@@ -9,7 +9,9 @@ overview, not a definition; each type's spec is authoritative.
 
 | Type | What it is | Spec |
 |-|-|-|
-| `int` | Integer number | value-representation |
+| `int` | 64-bit signed integer, inline; overflow panics | int |
+| `double` | 64-bit IEEE 754 float, inline; IEEE semantics (Inf/NaN, no throw); never a key | double |
+| `float` | 32-bit IEEE 754 float (separate primitive, lower precision) | double §6 (own spec deferred) |
 | `string` | Immutable, valid-UTF-8 text | string-representation, string-api |
 | `bool` | Boolean | value-representation |
 | `null` | The explicit "present nothing" value | value-representation, coalescing |
@@ -64,6 +66,15 @@ its base (`byte <: int`), widens to the base implicitly, and narrows from it via
 (runtime-checked). Constraints are refinement types, checked at runtime, never solved
 (constraints spec); `byte` and `list` are instances.
 
+Another declaration form is **`enum`**, a discriminated union (tagged sum): `Shape = enum {
+circle ['radius' => int], point, ... }`. A value is exactly one variant at a time, each carrying
+at most one payload value (a table for structured data, or any other type). Named enums are
+**nominal** (distinct by name); an anonymous enum written inline (`enum {a, b}`) is
+**structural** (same variant set, order-independent, is the same type). Constructed with braces
+(`{circle ['radius' => 5]}`, target-typed), discriminated with `match` (`{circle ['radius' =>
+r]} => ...`); `@` yields the enum type (name if named, structure if anonymous), never erased
+(enum spec).
+
 So `reveal <: capability`, `commandError <: error`, and `stringBuilder <: proto`, each a
 specific type inside its form's union supertype, the same is-a relationship in all three.
 
@@ -84,15 +95,42 @@ specific type inside its form's union supertype, the same is-a relationship in a
 
 Not types, but how types are reached and tested:
 
-- **`@x`** , the current type of a value (`@someError` is its specific error type, `@proto`
-  is a protocol's wearer type). value-representation, views.
-- **`@@x`** , protocol reflection over a table or view. views.
+- **`@x`** , derives a **type** from something that is not already one. A type position takes a
+  type, and there are two kinds of thing you write there:
+  - **Already a type , written bare, no `@`:** `int`, `string`, an enum name, a constraint name
+    (`byte`), a function type (`fn (int): string`), and bare `fn` (any callable). These *are*
+    types, so they need no operator.
+  - **Not a type , `@` derives one:** `@P` gives a protocol's **wearer type** (a protocol is a
+    shape-predicate, not a value-set, so `@` yields "the type of tables wearing it"); `@value`
+    gives a **value's type** (reflection), so `@someError` is its specific error type and `@f` is
+    a function value's full type (`fn (int): string`, since function types are not erased,
+    functions spec §3).
+
+  So `@` means "derive the type from this non-type." Applying `@` to something **already a type**
+  (`@int`, `@someEnum`, `@(fn (int): string)`) is an **error**: there is no meta-type, and `@`
+  has nothing to derive. This is the rule that makes `someEnum` (a type, bare) and `@someProto`
+  (a protocol, needs `@`) consistent rather than arbitrary. value-representation, protocols,
+  views.
+- **`@@x`** , protocol reflection over a table or view (distinct from `@`; not used for enum
+  variants or function signatures). views.
 - **`x as T`** , checked **narrowing** (union to member, supertype to subtype), runtime-checked
   with a `TypeError` (panic) on mismatch; never transforms a value and never needs `!`. Value
   *conversion* (parsing, formatting) is a function (`parseInt`, `toString`), not `as`. See the
   `as` spec.
 - **`x is T`** , subtype test / narrowing (e.g. `e is commandError`), the boolean, non-panicking
   counterpart to `as`. errors, value-representation.
+- **`match`** , expression-operator selecting by pattern (value / `@type` / guard) over a
+  scrutinee, or a guard chain with no scrutinee; value patterns use the total order (double
+  §2.2), non-exhaustive matches yield `| undefined`. The strict form **`match!`** panics on
+  fall-through instead (no `| undefined`), for closed case sets. match.
+- **`lo..hi`** , a **range**: inclusive integer sequence, a `stream` in value position, a
+  membership test in `match`; `lo..<hi` excludes the top. Not a type. range.
+- **`list[a:b]`** , a **slice**: half-open, returns a new `list` (or `bytes`); `[a:]`, `[:b]`,
+  `[:]` open-ended forms. Distinct from `..` (slices half-open, ranges inclusive). tables §2.5,
+  bytes §4.
+- **`moduleof name`** , a unary compile-time prefix operator giving the module a binding is
+  defined in, as a `table` (path, etc.); operand is one identifier, not a member access or
+  expression. modules §7.1.
 
 ---
 
