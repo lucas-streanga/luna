@@ -87,6 +87,37 @@ it, which is what makes it unlaunderable: there is no value-level copy to smuggl
 `use` scope. Aliasing a capability-using function does not escape its requirement either, the
 requirement rides in the function's type, so a renamed alias still requires the capability.
 
+### 3.1 `use` is the sole channel: capabilities never enter a value slot
+
+For the `use`-clause to be a **complete** manifest of a function's authority (§4), and for the
+comptime sandbox (§8) to hold, a capability must reach a scope **only** through `use`, and never
+through any value-carrying channel. It does not, because it is nocopy (and always `const`, §1):
+
+- **Not a parameter.** `fn (c: reveal) { ... }` is illegal: passing an argument copies it into
+  the parameter slot, and a capability cannot be copied. So a capability cannot be smuggled in
+  as a function argument (the hole this closes: otherwise a function could reveal without
+  declaring `use (reveal)`, voiding the absence guarantee).
+- **Not a binding.** `let c = reveal` is illegal (nocopy). **Aliasing** an existing capability to
+  a new name is likewise **not permitted**: it would copy a nocopy value, and there is no use for
+  the alias anyway, since a `use` clause names the capability's declared type, not an alias.
+  (Declaring a capability, `const reveal = capability`, §1, is a different thing and is how
+  capabilities come into being; it is not aliasing an existing one.)
+- **Not a field, element, or return value.** A capability cannot be stored in a table or list or
+  returned, all are value slots a nocopy value cannot enter.
+- **Not an `&` reference.** `&reveal` is illegal because `&` requires a **`var`** binding
+  (variables spec) and a capability is always `const`. So a capability cannot be taken by
+  reference outside `use`; the const-ness already blocks `&`, and no separate "no-reference"
+  mechanism is needed (a blanket one would wrongly block `use` itself, which *is* a referential
+  capture).
+
+The one open channel is **`use`**, which is a referential capture, not a copy. A capability
+acquired through `use` is **not itself a value**: it cannot be assigned, passed, stored, or
+returned. It only authorizes the capability's operations and **propagates to callees through
+their own `use` clauses** (§5), again by reference, never as an argument. So a capability is
+canonical and always-there, reachable only by naming it in `use`, and it never becomes a
+manipulable value at any point. This is what makes `use (X)` the complete and only account of a
+function's authority.
+
 ---
 
 ## 4. `use` and the `caps` namespace
