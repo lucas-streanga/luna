@@ -1,0 +1,379 @@
+# Compiler implementation
+
+This document specifies the high-level structure of the Luna compiler: its phase pipeline, where
+work parallelizes, the typed intermediate representation (the **Luna IR**), the optimization
+passes that run on it, how compile-time evaluation (comptime) fits, and how the IR is lowered to
+**Go source** for the Go toolchain to build. It is an implementation blueprint, not a
+user-facing language spec; it refers throughout to the language specs that fix the semantics it
+implements.
+
+The two load-bearing choices:
+
+- **Generate Go, not VM bytecode.** Luna's runtime *is* Go: garbage collection is Go's GC
+  (value-representation §6), and green threads are goroutines. A custom bytecode VM would discard
+  the reason Go was chosen. So the backend emits Go source and hands it to the Go toolchain,
+  inheriting Go's register allocation, machine-code generation, GC, and scheduler.
+- **Keep a typed IR between analysis and Go.** The compiler does **not** emit Go straight from the
+  AST. It lowers the typed AST to a **Luna IR** (a typed, lowered tree, not a linear instruction
+  stream), runs Luna-semantic optimization passes there, and emits Go from the optimized IR. This
+  is where the language specs' optimizations live (constraint-check elision, const-table
+  specialization, protocol devirtualization) and where **comptime** is evaluated, none of which
+  Go's compiler can do, because by the time it sees Go source the Luna semantics are gone.
+
+---
+
+## 1. The phase pipeline
+
+```
+source
+  -> lex                 (tokens)
+  -> module resolution   (DAG)
+  -> parse               (untyped AST)          [parallel per module]
+  -> semantic analysis   (typed AST)            [parallel by DAG layer]
+  -> lower to Luna IR    (typed IR)
+  -> optimize IR         (comptime, elision, specialization, devirtualization)
+  -> emit Go             (Go source per module) [parallel per module]
+  -> assemble + build    (Go program -> Go toolchain -> binary)
+```
+
+Each phase is described below. The parallelism structure (§2) and the error model (§3) cut across
+all of them.
+
+### 1.1 Lex
+
+Tokenizes each source file. Invalid tokens are **collected**, not aborted on individually (§3):
+the lexer scans the whole file, accumulates every lexical error, and the compile aborts at the
+phase boundary if any occurred. Output is a token stream per file.
+
+### 1.2 Module resolution
+
+Builds the module dependency graph from imports (modules spec). The graph must be a **DAG**;
+a cycle, or an unresolved import, aborts the compile (modules spec §2). Resolution fixes each
+module's identity by its path relative to the root (empty path for the root, modules spec §3) and
+produces a topological order. **This phase is the gate for all downstream parallelism**: once the
+DAG exists, per-module work can proceed concurrently within the ordering the DAG imposes (§2).
+
+### 1.3 Parse
+
+A pure **context-free** pass: tokens to an **untyped AST**, per module, with no type knowledge
+and no name resolution. Parsing is **fully parallel** across modules (§2), each module's tokens
+are independent once resolution has run. Parse errors are accumulated per module and aborted at
+the phase boundary (§3). The result is one untyped AST per module.
+
+Parsing is *only* syntax. It does not consult imports, resolve names, or assign types; those are
+semantic analysis (§1.4). Keeping parse free of semantics is what lets it run before any
+cross-module information is available, and what keeps the grammar context-free.
+
+### 1.4 Semantic analysis
+
+Turns the untyped AST into a **typed AST** by **name resolution** followed by **type checking**.
+This is the one phase with a cross-module ordering constraint: a module needs its imports' **public
+signatures** (the types of the names it imports) before it can resolve and check its own uses of
+them. So analysis proceeds **in DAG order, parallel within each topological layer** (§2).
+
+Two sub-steps, per module:
+
+- **Name resolution.** Bind every identifier to its declaration: locals to their block scope
+  (variables spec §4), imported names to the exporting module's bindings (modules spec), builtins
+  to the ambient set, `std` names to the reserved virtual root (modules spec §10). Collision and
+  unresolved-name errors are raised here.
+- **Type checking.** Assign each expression its type (a `typeid`, value-representation §3), check
+  every assignment against its location's declared type (variables spec §1), check `as`/`is`
+  narrowings (as spec), constraint entry points (constraints spec §7), protocol application and
+  member contracts (protocols spec), function compatibility (functions spec §3), match
+  exhaustiveness (match spec §9), enum payload shapes (enum spec §3.1), capability `use` clauses
+  and comptime-eligibility (functions spec §2, §5). No warnings are ever produced; every
+  diagnostic is an error (§3).
+
+To widen parallelism, analysis may run a lighter **signature-extraction** sub-pass first (resolve
+and type only the *exported* surface of each module), so dependents can begin on signatures before
+their dependencies' *bodies* finish checking. Signature extraction is itself DAG-ordered but
+cheaper, so it unblocks more modules sooner.
+
+The output is a **typed AST**: every node annotated with its resolved type, every name bound to a
+declaration, every dispatch site classified (element vs meta, static vs dynamic key, tables spec
+§3.2).
+
+### 1.5 Lower to Luna IR
+
+The typed AST is lowered to the **Luna IR** (§4): a typed, explicit, lowered tree. Lowering makes
+implicit semantics explicit, coalescing operators become branches, `match` becomes decision
+logic, ranges-as-streams become stream constructors (range spec), string interpolation becomes
+builder calls (string-builder spec), UFCS calls are resolved to their targets, `.`/`[]`/`->`
+become concrete access operations. After lowering, the IR contains no syntactic sugar and no
+unresolved dispatch: every operation is a concrete, typed node.
+
+### 1.6 Optimize IR
+
+The Luna-semantic optimization passes (§5) run on the IR: **comptime evaluation** (§6),
+**constraint-check elision**, **const-table specialization**, **protocol-dispatch
+devirtualization**, and ordinary constant folding and dead-code elimination where Luna semantics
+make them safe. These are the optimizations Go cannot perform because they depend on Luna-level
+invariants (a constraint predicate, a frozen table's shape, a statically-known protocol set) that
+are erased by the time Go source exists.
+
+### 1.7 Emit Go
+
+The optimized IR is lowered to **Go source**, per module, **fully parallel** (§2): once every
+module is analyzed and optimized, each module's emission is independent. Emission maps the IR onto
+Go constructs (§7): the `lval` onto a Go struct, the `typetable` onto emitted Go data, green
+threads onto goroutines, Luna's error model onto Go panic/recover and returned error values,
+`defer` onto scoped cleanup (defer spec). Source-position information is carried through so runtime
+diagnostics map back to Luna source.
+
+### 1.8 Assemble and build
+
+The emitted Go modules are assembled into a Go program: the **deterministic module-init order**
+(modules spec §2) is emitted as an explicit ordered init sequence (not left to Go's package-init
+order, §7.4), the **builtin runtime** is included, and **only the opted-in `std` modules** that
+the program actually references are linked (tree-shaken, modules spec §10). The Go toolchain then
+compiles and links the program to a binary. Linking of the native code is the Go toolchain's job;
+the compiler's job is to emit a correct, self-contained Go program with the right init order and
+the right std subset.
+
+---
+
+## 2. Parallelism model
+
+The module DAG (modules spec §2) is what makes the compiler parallel, and the parallel structure
+is **not** uniform across phases. It is:
+
+- **Parse: unordered parallel.** Every module parses independently and simultaneously right after
+  resolution. No cross-module dependency exists at the syntax level.
+- **Semantic analysis: DAG-layered parallel.** A module analyzes only after its imports'
+  signatures are available, so modules at the same topological depth analyze in parallel, and the
+  layers proceed in dependency order. Signature extraction (§1.4) widens this by unblocking
+  dependents on signatures before bodies complete.
+- **Emit Go: unordered parallel.** Once all modules are analyzed and the IR optimized, emission is
+  independent per module again.
+
+So the shape is **free / layered / free**: parse and codegen are embarrassingly parallel, and the
+one ordering constraint lives in analysis, where cross-module types must flow along the DAG. This
+is the concrete payoff of the no-cycles rule (modules spec §2): a cyclic module graph would defeat
+the topological layering and force whole-program analysis; the acyclic graph gives clean parallel
+layers and deterministic ordering.
+
+---
+
+## 3. Error model: accumulate within a phase, abort at the boundary
+
+Each phase **accumulates** all the errors it finds and aborts at the **phase boundary**, rather
+than stopping at the first error. Lexing reports every bad token, parsing every syntax error,
+analysis every type error, before aborting. This is a deliberate developer-experience choice:
+one-error-at-a-time compilation is painful, so each phase surfaces as many independent errors as
+it safely can.
+
+- **No warnings, ever.** Every diagnostic is an error (a firm language-project rule): there is no
+  warning severity to ignore. A condition is either an error that stops the build or it is not
+  reported.
+- **Abort at boundaries, not mid-phase.** A phase runs to completion collecting diagnostics; if it
+  produced any, the compile stops before the next phase (a phase cannot meaningfully consume the
+  broken output of the previous one). Within a phase, error recovery is best-effort to find more
+  independent errors (e.g. resynchronizing the parser at statement boundaries).
+- **Compile errors carry codes** (variables spec §7 and elsewhere), so diagnostics are stable and
+  referenceable.
+
+---
+
+## 4. The Luna IR
+
+The Luna IR is a **typed, lowered tree**, not a VM bytecode and not a linear SSA instruction
+stream. It is the AST after lowering (§1.5), with all sugar removed and every node carrying full
+type and representation information. It exists to (a) hold Luna-semantic optimizations (§5), (b) be
+the thing comptime evaluates (§6), and (c) be a clean lowering target for Go emission (§7).
+
+What every IR node carries and makes explicit:
+
+- **A resolved type**, the node's `typeid` (value-representation §3), so representation decisions
+  (§7.1) and type-directed lowering are local.
+- **A representation classification**, whether a value is an inline scalar (`int`, `double`,
+  `bool`), an inline short string, or a pointer-to-managed payload (`table`, `stream`, long
+  `string`, error), following the `lval` layout (value-representation §1). This lets emission
+  choose the Go representation without re-deriving it.
+- **Explicit dispatch sites.** Element access (`.` static-key, `[]` dynamic-key) and meta dispatch
+  (`->`) are distinct node kinds (tables spec §3.2, §3.3), and protocol-method calls carry their
+  resolved protocol and, where statically known, their concrete target (enabling
+  devirtualization, §5).
+- **Explicit constraint boundaries.** Every point where a value *enters* a constrained type
+  (construction, assignment to a constrained slot, `as`, constraints spec §7) is a marked node
+  carrying the predicate, so the optimizer can elide the check where it is provably satisfied
+  (§5) or emit it otherwise.
+- **Comptime-eligibility marks.** Subtrees that are comptime-eligible (functions spec §5) are
+  marked so the comptime evaluator (§6) knows what it may evaluate.
+- **Explicit control and cleanup.** `match` is lowered to decision logic (match spec), coalescing
+  to branches (coalescing spec), loops to their consuming form over streams/ranges (control-flow
+  spec), and `defer` registrations to explicit scoped-cleanup nodes (defer spec, §7.3).
+- **Capability threading.** `use` clauses and the resulting reference captures (functions spec §2)
+  are explicit, so emission can thread captured references and so the comptime sandbox can verify
+  the absence of capability use (§6).
+
+The IR is **not** a place where new *types* appear: the type universe is fixed at compile time
+(value-representation §4.1), so the IR references the already-interned `typetable` entries and
+never mints a type. Lowering and optimization only rewrite *expressions and operations*, never the
+type set.
+
+---
+
+## 5. Optimization passes on the IR
+
+These run on the Luna IR (§1.6). Each depends on a Luna-level invariant that Go's compiler cannot
+see, which is the reason the IR must exist.
+
+- **Comptime evaluation** (§6). Evaluate comptime-eligible subtrees and replace them with their
+  computed constants (folded values, fully-built `const` tables). This is both an optimization and
+  a language feature (functions spec §5).
+- **Constraint-check elision** (constraints spec §10). At a constraint boundary (§4), if the
+  compiler can trivially prove the value already satisfies the predicate, a literal in range, a
+  value freshly produced as that constrained type, drop the runtime predicate call. This never
+  changes meaning (it removes a check that would always pass); it is distinct from the rejected
+  static-verification model, which would *replace* runtime checking with proof obligations.
+- **Const-table specialization** (tables spec Amendment A). A `const` table gets frozen-storage
+  benefits; a *compile-time-shaped* `const` table (built via comptime) additionally gets the
+  contiguous-struct layout with a perfect hash, and static `.` accesses on it lower to direct
+  offset loads rather than hash probes. This pass chooses the representation and rewrites the
+  access nodes.
+- **Protocol-dispatch devirtualization** (protocols, views specs). Where the protocol set a table
+  wears is statically known at a `->` site, resolve the meta-function to a direct call instead of
+  a runtime view lookup. Where it is not known, emit the dynamic dispatch.
+- **Ordinary folding and dead-code elimination**, applied where Luna semantics make them sound
+  (pure expressions, unreachable arms). Go repeats much of this on the emitted code, but doing the
+  Luna-level cases here is what enables the passes above (e.g. folding a constant key so a const
+  table access can specialize).
+
+Representation selection (inline vs pointer, §7.1) is driven off the type annotations the IR
+already carries and is applied during or just before emission.
+
+---
+
+## 6. Comptime evaluation
+
+Comptime (functions spec §5) runs Luna code **at compile time**, over the Luna IR, inside the
+capability sandbox. The compiler includes an **IR evaluator** (an interpreter over the typed IR)
+that executes comptime-eligible subtrees and substitutes their results back into the IR as
+constants.
+
+- **It evaluates the IR, not generated Go.** Because comptime runs *during* compilation, it is far
+  cleaner to interpret the IR than to generate-and-run Go mid-compile. This is an independent
+  reason the IR must exist: comptime needs something evaluable before any Go is emitted.
+- **The capability sandbox is enforced statically and dynamically.** Comptime forbids `use`
+  (functions spec §5.5): a comptime-eligible subtree provably reaches no capability (checked in
+  analysis), so it can touch no outside world. The evaluator additionally runs under the liveness
+  guards, deterministic execution budget (fuel, not wall-clock), stack-depth limit, and allocation
+  ceiling (functions spec §5.5), each aborting with a compile error rather than hanging the build.
+- **It is deterministic.** The budget is a step counter, not wall-clock time, so comptime results
+  are reproducible and cacheable across machines (functions spec §5.5). Determinism here is what
+  keeps builds reproducible.
+- **Its main product is `const` data.** Comptime-built `const` tables become the
+  compile-time-shaped tables that get the perfect-hash struct layout (§5, tables Amendment A), so
+  comptime and const-table specialization compose: comptime builds the table, specialization lays
+  it out.
+
+---
+
+## 7. The Go backend
+
+Emission maps the optimized IR onto Go source. The mapping is direct because the language was
+designed against a Go runtime.
+
+### 7.1 The `lval`
+
+The 16-byte `lval` (value-representation §1) maps to a Go struct: a `uint64` for the packed flags,
+string-inline field, and `typeid`, plus a data word for the payload-or-pointer. The **precise-GC
+constraint is the sharp implementation point**: Go's garbage collector is precise, so a single
+field that is *sometimes* a pointer (managed payload) and *sometimes* inline bytes (an inline
+scalar or short string) cannot be type-punned freely, Go must know statically whether a word holds
+a pointer. Resolving this, whether via a representation that keeps the pointer word always a valid
+pointer or nil, a split representation, or a carefully-managed unsafe encoding, is the central
+backend design task (§9). The IR's per-node representation classification (§4) is what tells
+emission which case each value is.
+
+### 7.2 The `typetable`
+
+The `typetable` (value-representation §4) is emitted as **static Go data**: a global array of
+`typeinfo` values built at compile time, holding nullability, attributes, error ancestry with the
+preorder `enter`/`size` interval numbering (value-representation §4.2), and protocol metadata.
+Because the type universe is closed at compile time (value-representation §4.1), this table is
+fully known during emission and never grows at runtime, subtype tests compile to the two integer
+comparisons of the interval check.
+
+### 7.3 Control, errors, and cleanup
+
+- **Green threads to goroutines.** Luna's green threads map to goroutines; the enforced-copying
+  discipline (value-representation, functions specs) is realized by the IR inserting copies at task
+  boundaries, so tasks share no mutable state. (The full concurrency model is pending; this fixes
+  only the mapping.)
+- **Error model.** Luna panics (errors §9) map to Go panic/recover: a panic propagates ambiently
+  and `try` recovers it at the boundary, converting it to a value. Errorable results (`!`,
+  value-representation §3.1) map to a returned-value-or-error representation, so `try` on an
+  errorable call is an ordinary check, while a panic is a recover. The concrete encoding of `!`
+  results is a backend detail constrained by the two-integer subtype check for error-ness.
+- **`defer` to scoped cleanup.** Luna's `defer` is **block-scoped** (defer spec §1), whereas Go's
+  `defer` is function-scoped, so Luna `defer` cannot map one-to-one onto Go `defer`. It lowers to
+  explicit scoped cleanup: the block's deferred statements run at every exit edge of that block
+  (normal, `return`, `break`/`continue`, and panic unwinding), in LIFO order, which emission
+  realizes with per-block cleanup code (or a scoped closure carrying a Go `defer`). Operands
+  captured by value at registration (defer spec §4) are snapshotted into the cleanup at the
+  registration point.
+
+### 7.4 Module initialization
+
+Module init order is **deterministic** (modules spec §2) and is **not** left to Go's package-init
+ordering (which does not match Luna's DAG-derived order). The compiler emits an explicit,
+topologically-ordered init sequence that runs each module's top-level initialization exactly once,
+in dependency order, so a module's imports are initialized before it.
+
+### 7.5 Builtins, std, and capabilities
+
+- **Builtins** are ambient (modules spec §10) and compiled into the runtime the emitted program
+  links against.
+- **`std`** modules live under the reserved virtual root (modules spec §10); only those the program
+  references are included in the emitted program (tree-shaken), so unused std costs nothing.
+- **Capabilities** are zero-data and reached only through `use` (capabilities spec); at runtime
+  they carry no payload, so they erase to nothing (or a zero-size token). Their entire force is
+  compile-time: the type system checks that only `use`-ing functions reach them, and the comptime
+  sandbox that comptime reaches none. The backend emits no runtime capability representation beyond
+  what threading a reference requires.
+
+---
+
+## 8. Determinism
+
+Two determinism guarantees run through the pipeline and must be preserved by emission:
+
+- **Deterministic module initialization** (§7.4, modules spec §2), the same program initializes
+  its modules in the same order every run.
+- **Deterministic comptime** (§6, functions spec §5.5), comptime uses a step budget, not
+  wall-clock time, so compile-time evaluation produces identical results and identical
+  pass/fail outcomes on any machine, which is what makes builds reproducible and comptime results
+  cacheable.
+
+Parallelism (§2) must not perturb either: parallel analysis and emission may interleave freely,
+but the *emitted* init order and comptime results are fixed by the DAG and the step budget, not by
+scheduling.
+
+---
+
+## 9. Open questions
+
+- **The `lval` under Go's precise GC (§7.1).** The central backend design task: how to represent a
+  word that is sometimes a managed pointer and sometimes inline payload, given Go's precise,
+  pointer-aware GC. The chosen encoding affects every value operation and needs its own design.
+- **The `!` (errorable) result encoding.** How an errorable return is represented in emitted Go (a
+  tagged value, a two-word return, an interface), consistent with error-ness being a `typeid`
+  subtype check rather than a flag (value-representation §3.1).
+- **Block-scoped `defer` lowering (§7.3).** The concrete emission for block-scoped, panic-composing
+  LIFO cleanup on top of Go's function-scoped `defer`, including the interaction with recover on
+  the panic path.
+- **Green-thread mapping and copying (§7.3).** How enforced-copying at task boundaries is realized
+  in emitted Go, and how cancellation unwinds and runs deferred cleanup, pending the concurrency
+  model.
+- **Incremental and cached compilation.** Whether per-module analysis and emission results are
+  cached (keyed on the module and its imports' signatures) so an unchanged module is not
+  recompiled, and how comptime's deterministic results are cached, a natural fit given the DAG and
+  deterministic comptime, pending design.
+- **Source mapping.** The precise mechanism for mapping runtime diagnostics in emitted Go back to
+  Luna source positions (line directives, side tables), so panics and stack traces report Luna
+  locations.
+- **Separate compilation and distribution.** Whether modules compile to reusable artifacts (Go
+  packages or compiled Luna interfaces) for library distribution, tied to the packaging questions
+  left open in the modules spec.
