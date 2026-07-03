@@ -72,6 +72,29 @@ This mirrors the argument-passing rule (value by default, reference is explicit)
 principle governs both boundaries a value crosses, a call and a closure: **crossing by
 value is implicit and safe; crossing by reference is declared and effectful.**
 
+#### When `use` is required: value-capture cannot serve
+
+`use` (reference capture) is needed exactly when **value capture cannot serve**, and there
+are two such cases, for opposite reasons:
+
+- **A `var` you intend to mutate outward.** You reference-capture it so writes inside the
+  function escape. Reference capture here requires a **`var`**: a `let` or `const` binding
+  cannot be reference-captured (as with `&`, variables spec §5), because reference-capturing
+  a fixed binding would imply mutating through it, which `let`/`const` forbid.
+- **A `nocopy` value (§2.3), which cannot be copied at all**, so there is no snapshot to
+  value-capture. This includes every **capability**. Such a value **must** be `use`d
+  regardless of whether its binding is `let` or `const`, not because it is mutable (a
+  capability is `const` and zero-data), but because it is uncopyable.
+
+So the two triggers are distinct: a `var` is `use`d because it is *mutable-through*, a
+capability is `use`d because it is *uncopyable*. The `let`/`const`-versus-`var` distinction is
+the wrong lens for capabilities: a capability is reference-captured because it is `nocopy`, not
+because of its binding mode. An ordinary, copyable value with no outward mutation is
+value-captured (a snapshot) and never `use`d; a `let` or `const` holding such a value cannot be
+reference-captured. The rule is uniform at the use site, `use (x)` always means "reference
+capture x," whichever trigger applies, so nothing about the writing or reading of `use` differs
+between the two.
+
 ### 2.3 Capturing a `nocopy` value
 
 A `nocopy` type (protocols spec) opts out of value semantics: it cannot be copied. It
@@ -482,9 +505,20 @@ were hidden in per-value flags.
   definition (§1). This is not function-specific: `let` and `const` coincide for every value
   without a mutable interior (scalars, immutable strings, functions).
 
-## 9. Open questions
+## 9. Resolved: capturing a `let`
 
-- **`use` of a reassignable `let`:** when a function reference-captures a `let` binding that is
-  later reassigned within its write-once or ordinary rules (variables spec), whether the capture
-  sees the **binding** (later values) or the **slot** at capture time. Interacts with the
-  reference rules in the variables spec, pending their alignment.
+A `let` binding is only ever **value-captured** (a snapshot at capture time), so there is no
+binding-versus-slot ambiguity for it. This follows from two facts:
+
+- **`use` cannot reference-capture a `let`** (§2.2): reference capture requires a `var` (to
+  mutate outward) or a `nocopy` value (which a `let`-bound ordinary value is not). So a `let`
+  holding an ordinary value is captured by value only.
+- **A `let` is not repeatedly reassignable** (variables spec §1.1, §1.2): an ordinary `let`
+  cannot be rebound at all, and a write-once optional `let` makes at most one `null`-to-value
+  transition before freezing. So there is no stream of later values for a capture to "see."
+
+Together: a value-captured `let` snapshots its value at capture time and is unaffected by the
+single write-once transition; and there is no way to reference-capture a `let` to begin with. So
+"binding or slot" simply does not arise for a `let`. The only reference-captured bindings are
+`var`s (which see the live value through the reference, ordinary reference semantics) and
+`nocopy` capabilities (which are immutable, so "later values" is moot).
