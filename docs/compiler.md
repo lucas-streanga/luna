@@ -28,16 +28,22 @@ The two load-bearing choices:
 source
   -> lex                 (tokens)
   -> module resolution   (DAG)
-  -> parse               (untyped AST)          [parallel per module]
-  -> semantic analysis   (typed AST)            [parallel by DAG layer]
+  -> parse               (lossless CST -> AST)     [parallel per module]
+  -> semantic analysis   (typed AST)               [parallel by DAG layer]
   -> lower to Luna IR    (typed IR)
   -> optimize IR         (comptime, elision, specialization, devirtualization)
-  -> emit Go             (Go source per module) [parallel per module]
+  -> emit Go             (Go source per module)    [parallel per module]
   -> assemble + build    (Go program -> Go toolchain -> binary)
 ```
 
 Each phase is described below. The parallelism structure (§2) and the error model (§3) cut across
 all of them.
+
+The compiler is structured as a **library of reusable passes**, not a monolith, because the
+developer tools (formatter, LSP, debugger) are provided by the compiler itself and each is a driver
+that calls the passes it needs (tooling spec §1). This, the **lossless, error-tolerant** frontend
+(§1.3, §3), and the **unoptimized debug build** mode (§7.1.1, tooling spec §5) are foundational
+choices made from the start because they shape the whole frontend and cannot be retrofitted cheaply.
 
 ### 1.1 Lex
 
@@ -55,10 +61,18 @@ DAG exists, per-module work can proceed concurrently within the ordering the DAG
 
 ### 1.3 Parse
 
-A pure **context-free** pass: tokens to an **untyped AST**, per module, with no type knowledge
-and no name resolution. Parsing is **fully parallel** across modules (§2), each module's tokens
-are independent once resolution has run. Parse errors are accumulated per module and aborted at
-the phase boundary (§3). The result is one untyped AST per module.
+A pure **context-free** pass: tokens to a syntax tree, per module, with no type knowledge and no
+name resolution. Parsing is **fully parallel** across modules (§2), each module's tokens are
+independent once resolution has run. Parse errors are accumulated per module; the batch driver
+aborts at the phase boundary (§3), but the parser itself is **error-tolerant** and produces a
+best-effort partial tree, which the tooling drivers consume (tooling spec §3).
+
+The parser produces a **lossless concrete syntax tree (CST)**: full-fidelity, retaining all trivia
+(comments, whitespace, original spelling) so the exact source is reconstructable. The compiler
+ignores trivia and works from the AST view of this tree; the **tools** (formatter, LSP) require the
+trivia, so the lossless CST is the shared root (tooling spec §2). Producing a lossless,
+error-tolerant tree is a frontend property fixed from the start because it cannot be retrofitted
+cheaply.
 
 Parsing is *only* syntax. It does not consult imports, resolve names, or assign types; those are
 semantic analysis (§1.4). Keeping parse free of semantics is what lets it run before any
@@ -187,6 +201,12 @@ it safely can.
   independent errors (e.g. resynchronizing the parser at statement boundaries).
 - **Compile errors carry codes** (variables spec §7 and elsewhere), so diagnostics are stable and
   referenceable.
+- **Tolerance is a pass property; aborting is a driver policy.** The passes recover from errors and
+  produce a best-effort partial result (a partial CST, a partial typed AST); the **batch driver**
+  chooses to discard that partial result and abort at the boundary, but the **tooling drivers** (the
+  LSP especially) consume it and never abort (tooling spec §3). So the same error-tolerant frontend
+  serves both: a binary is never built from broken input, yet the LSP still gives types and
+  completions for the valid parts of half-edited code.
 
 ---
 
@@ -332,6 +352,13 @@ back to a Go primitive) happens where an `any` is narrowed to a concrete type. B
 system is precise (most hot code is monomorphic, not `any`), the three-word `lval` is off the hot
 path, and its byte count is not the lever that matters. This is why the physical size is accepted
 rather than optimized: the win is avoiding the `lval` on typed paths, not shrinking it.
+
+**Debug builds disable static unboxing** (and the other representation-destroying optimizations,
+constraint elision, comptime folding), so that **every Luna value is a real, findable `lval`** in
+the frame and matches the exported `typeinfo` the debugger reads (tooling spec §5). The emitted Go
+is likewise built unoptimized in debug mode, so Go's DWARF faithfully maps Go to native. Debug
+builds trade this performance for a frame that exactly matches the Luna source; release builds unbox
+freely.
 
 ### 7.2 The `typetable`
 
