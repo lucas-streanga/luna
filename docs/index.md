@@ -1,29 +1,60 @@
 # The Luna Programming Language
 
-Luna is a general-purpose hybrid scripting and ahead-of-time compiled programming language. Luna is data-focused, with an emphasis on a compositional approach to programming. It is heavily inspired by Raku, Lua, PHP, and Go.
+Luna is a data-focused language that closes whole classes of bugs by construction, not by
+discipline. It pairs the immediacy of a scripting language with the guarantees of an ahead-of-time
+compiled one: run a file directly like a script, or compile it to a self-contained native binary,
+from the same source, with the same semantics. Its wager is that most of what makes robust programs
+hard, silent coercions, data races, hidden control flow, wraparound, null confusion, uninspectable
+values, comes from operators and types quietly doing more than they say. Luna makes them do exactly
+what they say: strict equality, explicit conversion, panics instead of silent wrong values,
+concurrency with no shared mutable state, and a small surface where keywords are reused rather than
+multiplied. It is heavily inspired by Raku, Lua, PHP, and Go.
 
-At the time of writing, no Luna implementation exists. The intention is to eventually provide a `luna` binary, which will act as the full suite of tooling for Luna, including a runner, compiler, formatter, LSP, and even static library for embedding.
+The intended distribution is a single `luna` binary that is the whole toolchain, runner, compiler,
+formatter, and language server, and a static library for embedding. No implementation exists yet;
+this repository is the language's design.
 
-The plan is for Luna to use a goland backend. Meaning, the compiler will compile Luna code to Go, which will then be compiled to native binaries for the platform. The reason Go is preliminarily chosen as the compiler backend is:
+## Backend
 
-- The semantics of Go are close enough to Luna that there is not a large dissonance.
-- Go is a well-performing language.
-- Utilizing Go grants us a high-performance garbage collector for free.
-- Utilizing Go grants us multiple target platforms for free.
-- Utilizing Go grants us some compiler backend optimizations for free.
-- The Go compiler is very fast, enabling the creation of Luna as a scripting language.
+Luna compiles to **Go source**, which the Go toolchain then compiles to a native binary. Go is the
+chosen backend because:
 
-# Proposed compiler usage
-`$ luna myprogam.luna`
+- Its semantics are close enough to Luna's that little is lost in translation.
+- It is a well-performing language with a high-quality garbage collector, which Luna uses directly.
+- It provides multiple target platforms and backend optimizations for free.
+- Its compiler is fast, which is what lets Luna also be a scripting language.
 
-The above will run the provided program. Imports are filesystem based, so this one file may import many luna modules. The artifacts of the build will be cached at `$HOME/.lunalang/`, so on subsequent runs there is no start-up cost. In addition, incremental rebuilds will be supported, for faster start-up times.
+The tradeoff Go imposes, that Luna values holding heap pointers cannot share a machine word with
+scalars under Go's precise GC, is met in the value representation (see the internal-representation
+specs); it does not leak into the language.
 
-`$ luna -c myprogram.luna` or `$ luna --compile myprogram.luna`
+## Using the compiler
 
-The above will compile the provided program, and provide a completely self-contained platform binary. There will be no dynamic dependence on libc or the Go runtime; both will be statically linked and self-contained. This method will use the same binary caching logic as above, along with incremental rebuilds.
+```
+$ luna myprogram.luna
+```
 
-Additional run and compile flags: `-d`, `--debug`. Runs the compiler in debug mode, emitting debug symbols. The default build method is release mode.
+Runs the program. Imports are filesystem-based, so one file may pull in many Luna modules. Build
+artifacts are cached under `$HOME/.lunalang/`, and rebuilds are incremental, so after the first run
+there is no start-up cost, which is what keeps direct execution scripting-fast.
 
-`$ luna -f myprogram.luna` or `$ luna --format myprogram.luna`
+```
+$ luna -c myprogram.luna        # or --compile
+```
 
-The above will run the built-in Luna formatter on the provided program, including recursively through all its imported modules.
+Compiles the program to a **self-contained** native binary, with no dynamic dependence on libc or
+the Go runtime (both statically linked). Same caching and incremental rebuilds.
+
+```
+$ luna -d myprogram.luna        # or --debug
+```
+
+Builds in debug mode, emitting debug symbols; release mode is the default. Debug builds are
+unoptimized at both the Luna and Go levels so a debugger can map native frames back to Luna source
+(see the tooling and compiler specs).
+
+```
+$ luna -f myprogram.luna        # or --format
+```
+
+Runs the built-in formatter over the program and, recursively, its imported modules.

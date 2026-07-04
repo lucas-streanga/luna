@@ -1,97 +1,138 @@
-# High-level Overview of Luna
+# High-level overview
 
-Luna is a data-focused language. This means that de-emphasizes type programming (although Luna does have an expressive type system) and instead emphasizes the shape of data. Luna is structurally-typed mostly, and it is also statically-typed, although the type system allows both union and intersection (called "complex") types. In this way, Luna can be highly-dynamic, but only explicitly.
+Luna is a **data-focused**, statically-typed language. "Data-focused" means it emphasizes the
+**shape of data** over type-level programming: the type system is expressive (unions, intersections,
+refinements, protocols) but exists to describe and constrain data, not to be programmed in for its
+own sake. Luna is **structurally typed** by default, so a value fits a type when its shape fits, and
+it is **dynamic only where you ask for it**: the `any` type and runtime dispatch are available but
+always explicit, never a silent fallback.
 
-One major design goal of Luna is keeping the language surface area small. Keywords are often reused in different contexts, and Luna purposefully does not feature a large amount of built-in types. 
+Two commitments shape everything else:
 
-Luna is garbage collected, and does not offer an unsafe API. This means that the programmer need never worry about memory allocation. Although, the documentation will thoroughly explain the memory layout and characteristics of Luna. 
+- **Small surface area.** Keywords are reused across contexts rather than multiplied, and the set of
+  built-in types is kept deliberately small. New needs are met by composing existing pieces before
+  adding new ones.
+- **Safe by construction.** Luna is garbage collected (via the Go backend's collector) and offers no
+  unsafe API, so memory is never the programmer's concern for correctness. Beyond memory: equality is
+  strict, numeric conversions are explicit, integer overflow panics rather than wrapping, and
+  concurrency shares no mutable state, so data races, silent coercions, and wraparound are closed off
+  by the design, not by discipline. The memory model is fully documented even though it is never
+  something you must manage.
 
-# Syntax overview
+## A taste
 
 ```
-main = fn (table argv) use (&io): int => {
-  die ('No files given') if argv.empty();
-  files = argv.map(fn (filename: string) => openFile(filename, File.modeRead));
-  foreach (files as file) {
-    io.println("File size: ${file.byteSize}");
-    foreach (file.lines() as lineNumber => line) {
-      io.println("$lineNumber: $line");
+const main = fn (argv: list) use (&io): int => {
+  fail('no files given') if argv.empty();
+
+  const files = argv.map(fn (name: string): file => openFile(name, File.modeRead));
+
+  foreach (file in files) {
+    io->println("file size: ${file.byteSize}");
+    foreach (lineNumber => line in file.lines()) {
+      io->println("${lineNumber}: ${line}");
     }
+    file.close();
   }
-  file.close() foreach (files as file);
-  return ExitCodes.exitSuccess;
-}
+
+  return ExitCodes.success;
+};
 ```
 
-# Types
+Note the shapes on display: functions are values bound to names; effects on the outside world
+(`io`) are reached only through an explicit `use` clause; iteration binds with `in`; and a statement
+can carry a trailing `if` guard.
 
-Luna features the following types:
+## The type set
 
-| Type | Keyword | Can be user-defined? |
-|-------|-|-|
-| Function | fn | Yes |
-| Stream | stream | Yes |
-| Table | table | Yes |
-| Protocol | proto | Yes |
-| Enum | enum | Yes |
-| Attribute | attribute | Yes |
-| Error | error | Yes |
-| Test | test | Yes |
-| Type | type | Yes |
-| Int | int | No |
-| Double | double | No |
-| String | string | No |
-| Boolean | bool | No |
-| Null | null | No |
-| Undefined | undefined | No |
-| Never | never | No |
-| Any | any | No |
+Luna's types divide into value types, structured types, and declaration forms. This is a summary;
+the types spec is the authoritative index, and each type has its own spec.
 
-## Complex types
-*Complex types* are types which are composed of combinations of the types listed above. Any variable may be a complex type. We can use the *Type Union Operator* `|` and the *Type Intersection Operator* `&` to define complex types. For example:
+**Value types** (mostly primitive; several are their own type rather than a table):
 
-`let streamOrFn: stream|fn = fn () => null;`
+| Type | What it is |
+|-|-|
+| `int` | 64-bit signed integer; overflow panics |
+| `double` | 64-bit IEEE 754 float; Inf/NaN, never panics |
+| `string` | immutable, valid-UTF-8 text |
+| `bool` | `true`/`false`; no truthiness |
+| `null` | the explicit "present nothing" |
+| `bytes` | packed, mutable byte buffer |
+| `byte` | an `int` constrained to `0..255` |
+| `regex` | a compiled regular expression |
+| `command` | a structured, inert program/pipeline |
+| `secret` | a redacting sensitive payload (`reveal` to read) |
+| `type` | a type as a first-class, comparable value |
 
-`let proto1AndProto2: proto1&proto2 = [];`
+`undefined` is the **absence** sentinel (a missing key), distinct from `null` (a present nothing) and
+unstorable. The wider numeric set (`u64`, `float`, `f16`, sized-integer constraints, and the built-in
+`decimal`/`rational`/`complex`) is committed but deferred (numeric-tower spec).
 
-`let proto1AndProto2OrNull: (proto1&proto2)|null = [];`
+**Structured types:**
 
-## Type deduction
-Luna will try to automatically deduce types. Here's some examples:
-`let myTable = [];`
+| Type | What it is |
+|-|-|
+| `table` | the general keyed, ordered structure; lists are tables |
+| `list` | a `table` keyed exactly `0..n-1` (`list <: table`) |
+| `fn` | a function value (`fn` cannot throw; `fn!` may) |
+| `stream` | a lazy, single-pass sequence |
+| `promise` | a future value from a spawned task; `await` collapses it |
+| `view` | a table seen through one applied protocol |
 
-`let myDouble = 0.0;`
+**Declaration forms** introduce user-defined types: `proto` (a protocol), `enum` (a discriminated
+union), `error` (an error type), `attribute` (compile-time declaration metadata), and `capability`
+(a permission to reach an effect). Each is its own spec.
 
-`let myInt = 0;`
+## Composing types: unions and intersections
 
-`let myString = '';`
-
-```
-let myPerson = [
-  firstName => 'Lucas',
-  lastName => 'Streanga',
-  age: int => 0,
-]; // myPerson is of type table
-```
-
-## Optional types
-Variables postfixed with `?` are optional. Optional types are equivilant to writing `|null` at the top level of the type declaration.
-
-`let name?: string = null; // name is of type string|null`
-
-## Error types
-Variables postfixed with `!` can bind to any `error` type. This may be combined with optional types.
-
-`let myResult!?: table = null; // myResult is of type table|null|error1|error2...`
-
-## The any type
-The `any` type will bind to any type, with no restrictions
-
-`let myAny: any = [];`
-
-## The never type
-The `never` type may not be assigned to a variable. It may only be used as a function return value, to indicate the function will never return, e.g. it throws an error or exits.
+Types combine with the **union** operator `|` ("one of") and the **intersection** operator `&`
+("all of"):
 
 ```
-myNever = fn (): never => throw Error('We will never return from this function.');
+var x: stream | fn = fn (): null => null;      // a stream or a function
+var y: @proto1 & @proto2 = [] apply proto1, proto2;   // a table wearing both protocols
+var z: (@proto1 & @proto2) | null = null;
 ```
+
+Union and intersection are structural and canonical: `int | double` and `double | int` are the same
+type. Intersections apply to protocol-wearer refinements (`@P & @Q`, a table wearing both), which is
+how a table composes capabilities.
+
+## Type inference
+
+Types are inferred where they are obvious, and written where they add clarity or constraint:
+
+```
+var t = [];        // table
+var d = 0.0;       // double
+var n = 0;         // int
+var s = '';        // string
+
+const person = [
+  'firstName' => 'Lucas',
+  'lastName'  => 'Streanga',
+  'age'       => 0,
+];                 // a table; keys are quoted string literals
+```
+
+## Optionality and errorability, as type suffixes
+
+- **`?` (optional)** adds `null` to a type: `var name?: string` is `string | null`.
+- **`!` (errorable)** adds the error types a value may carry: a `fn!` may raise a `UserError`, and a
+  binding written `x!` may hold an error alongside its value. `?` and `!` compose.
+
+These are not special forms; they are shorthands over the same union machinery (`?` is `| null`),
+which is the recurring pattern in Luna: new syntax tends to be sugar over one existing mechanism
+rather than a new mechanism.
+
+## `any`
+
+`any` is the top type: it accepts any value, and it is the one place the type is not statically
+known. Reaching into an `any` (its fields, its specific type) requires an explicit narrowing (`as`,
+`is`, or `match`), so dynamism is available but never silent. Runtime reflection still works on an
+`any` (you can ask its type name and kind), so `any` is inspectable rather than a dead end.
+
+---
+
+This overview is a map, not a definition. For any type or feature named here, its own spec is
+authoritative; the types spec is the full index.
