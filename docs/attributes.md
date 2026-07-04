@@ -164,11 +164,12 @@ An attribute is fixed at the declaration and can never be added, removed, or com
 ## 4. Comptime reads attributes; generation is the use
 
 Attributes exist to be consumed by **comptime** (functions spec §5). At compile time, comptime
-introspection (treated here as a special comptime capability over `typeinfo`, the fuller reflection
-surface is specified with `typeinfo`) can, for a **statically-known** type:
+reflection (reflection spec: `comptime fn` queries over a statically-known `type`) can, for a
+**statically-known** type:
 
-- **Enumerate the type's fields**, and
-- **Read each field's attributes** (and read a binding's attributes).
+- **Enumerate the type's fields** (`fields(t)`, reflection spec §3.2), and
+- **Read each field's attributes** (each field's `attributes` table, and `attributes(t)` for a
+  binding, reflection spec §3.2).
 
 From these, a comptime function **generates specialized code**. The canonical example is JSON
 serialization: a comptime generator walks a type's fields, reads each `jsonTag`, and emits a
@@ -224,10 +225,10 @@ the value, nor its type, nor its assignability, nor anything at runtime.
 
 ## 6. Open questions
 
-- **Comptime introspection surface.** The exact API by which comptime enumerates a type's fields
-  and reads their attributes (and a binding's attributes) is specified with `typeinfo` and the
-  fuller comptime-reflection design; this spec fixes only that attributes are comptime-readable via
-  that surface and readable nowhere else.
+- **Comptime introspection surface.** The API by which comptime reads attributes, `fields(t)` (each
+  field carrying its `attributes` table) and `attributes(t)` for a binding, is specified in the
+  reflection spec (§3.2). Attributes are comptime-readable through those `comptime fn` queries and
+  readable nowhere else.
 - **Attribute targets and validation.** Whether an attribute declaration may restrict what it can
   be applied to (only fields, only functions, only bindings), and whether misapplication or
   duplicate application of the same attribute on one declaration is an error, pending use.

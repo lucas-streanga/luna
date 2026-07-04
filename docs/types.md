@@ -13,13 +13,14 @@ overview, not a definition; each type's spec is authoritative.
 | `double` | 64-bit IEEE 754 float, inline; IEEE semantics (Inf/NaN, no throw); never a key | double |
 | `float` | 32-bit IEEE 754 float (separate primitive, lower precision) | double §6 (own spec deferred) |
 | `string` | Immutable, valid-UTF-8 text | string-representation, string-api |
-| `bool` | Boolean | value-representation |
+| `bool` | `true` or `false`, inline; no truthiness; conversions are functions | bool |
 | `null` | The explicit "present nothing" value | value-representation, coalescing |
 | `regex` | Compiled regular expression (own type, `/.../ ` literal) | regex |
 | `command` | Structured, inert program/pipeline (own type, backtick literal) | command |
 | `secret` | Sensitive `string`/`bytes` payload, redacts everywhere, `reveal` to extract | secret |
 | `bytes` | Packed, mutable, growable byte buffer (own type, not a table) | bytes |
 | `byte` | An `int` constrained to `0..255` (the element of `bytes`); a constraint instance | constraints, bytes |
+| `type` | A type as a first-class value (inline `typeid`; comparable, const; `@` yields one) | type |
 
 `undefined` is the absence sentinel (a missing key), distinct from `null` (a present
 nothing); it is unstorable and is covered in value-representation and coalescing.
@@ -35,6 +36,7 @@ nothing); it is unstorable and is covered in value-representation and coalescing
 | `view` | A table seen through one applied protocol (single surface type) | views |
 | `fn` | A function value (`fn` cannot throw; `fn!` may throw a `UserError`) | functions |
 | `stream` | A lazy, single-pass sequence (generator producer, `foreach` consumer) | stream |
+| `promise` | A single future value from a spawned green thread; `await` collapses it to `T!` | concurrency |
 | `stringBuilder` | A table wearing the `stringBuilder` protocol (the builder) | string-builder |
 
 ---
@@ -74,6 +76,14 @@ at most one payload value (a table for structured data, or any other type). Name
 (`{circle ['radius' => 5]}`, target-typed), discriminated with `match` (`{circle ['radius' =>
 r]} => ...`); `@` yields the enum type (name if named, structure if anonymous), never erased
 (enum spec).
+
+A final declaration form is **`attribute`**, a static, compile-time-only data tag applied to a
+declaration: `jsonTag = attribute ['tag' => string = '']`, applied with `#[jsonTag('user_name')]`
+on a binding or a table-literal field. Unlike the forms above, an attribute is **not a type** and
+does **not** appear in the type system: it has no runtime presence, is absent from what `@`
+returns (so attributes never affect `@a == @b`), is transparent to assignability, and is readable
+**only by comptime** (which consumes attributes to generate code, such as serializers). It is a
+declaration-metadata sidecar, not a member of any type universe (attributes spec).
 
 So `reveal <: capability`, `commandError <: error`, and `stringBuilder <: proto`, each a
 specific type inside its form's union supertype, the same is-a relationship in all three.

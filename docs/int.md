@@ -173,22 +173,20 @@ inline in the `lval` like `int`, so it is representationally cheap; the cost is 
 arithmetic surface. `u64` is provided as a primitive because there is genuinely no other way to
 reach its range. (Its own spec is deferred.)
 
-### 6.3 `int128` and larger are library types
+### 6.3 Integers wider than 64 bits
 
-Integers **wider than 64 bits** (`int128`, and arbitrary-precision) need something neither
-constraints nor `bytes` can provide: **multi-word arithmetic**. A constraint refines which
-values are valid but does not implement arithmetic; `bytes` can *store* a 128-bit value (16
-octets) but has no meaningful `+`. Wide arithmetic is *code*, a 128-bit add is two 64-bit adds
-with carry propagation, a multiply is several 64-bit multiplies combined, so a wide integer is
-a **library type** carrying a hand-written multi-word arithmetic implementation, not a primitive
-and not a constraint.
+Integers **wider than 64 bits** need **multi-word arithmetic**, which neither constraints nor `bytes`
+provide: a constraint refines which values are valid but does not implement arithmetic; `bytes` can
+*store* a 128-bit value but has no meaningful `+`. Wide arithmetic is *code* (a 128-bit add is two
+64-bit adds with carry propagation).
 
-So `int128` (and a general arbitrary-precision `bigint`) are **library types**. Their
-operations are **functions** (or operators over a library type), not the primitive `+`, and
-that friction is acceptable and even appropriate: a user reaching for wide integers should know
-they are paying for multi-word arithmetic and should be explicit about it. The library layer is
-where the carry-propagation lives; the language provides `int` and `u64` as the native words
-those libraries are built from. (These library types are specified separately, not here.)
+Luna does **not** provide an arbitrary-precision integer (`bigint`). The concrete need for exactness
+beyond 64-bit integers, currency and exact decimals, is met by the built-in **`decimal`** type
+(numeric-tower spec §1.4), which has a sharp motivation; a general arbitrary-precision integer does
+not, and 64-bit `int` and `u64` cover ordinary integer work. A **fixed** wide integer (`int128`) is a
+*possible future library type* (method syntax, since operators are built-in only, operators spec §1),
+not committed and not built-in. The language provides `int` and `u64` as the native words such a
+library type would be built from.
 
 ### 6.4 Summary
 
@@ -197,7 +195,10 @@ those libraries are built from. (These library types are specified separately, n
 | `int` (i64) | primitive | the native word; inline; panic on overflow |
 | `u8`, `i8`, `u16`, `i16`, `u32`, `i32` | constraint on `int` | fit in signed 64-bit; range-checked, panic out of range |
 | `u64` | separate primitive | needs the full 0..2^64 - 1 range signed-64 cannot hold |
-| `int128`, `bigint` | library type | need multi-word arithmetic, which is code, not a predicate or a byte layout |
+| `int128` | library (if ever) | fixed 128-bit; rarely needed; `decimal` covers exactness, `int`/`u64` cover ordinary work |
+
+There is no arbitrary-precision integer (`bigint`); the built-in **`decimal`** covers exact,
+unbounded numeric needs like currency (numeric-tower spec §1.4).
 
 ---
 
@@ -213,17 +214,17 @@ just an int literal used in a `byte` context (bytes spec).
 
 ## 8. Open questions
 
-- **`int` and `float`:** the numeric tower, whether `float` exists as a sibling primitive, how
-  mixed arithmetic and conversions work, and whether any implicit int-to-float widening occurs
-  (leaning no implicit widening, consistent with explicit conversion elsewhere). Pending a
-  `float` spec.
+- **`int` and `float`:** the overall numeric tower, the type set, families, and widening and
+  conversion rules, is specified in the numeric-tower spec (`float <: double` lossless implicit
+  widening; no implicit int-to-float crossing, explicit conversion). The `float` type's own IEEE
+  detail is pending a `float` spec.
 - **Bit operations:** bitwise and, or, xor, not, and shifts, their behavior on the signed
   representation (arithmetic vs logical shift), and shift-amount edge cases.
 - **`u64` primitive surface:** the concrete operations and conversions for the `u64` primitive
   (§6.2), and how it interconverts with `int` (a narrowing both ways, since neither range
   contains the other), pending its own spec.
-- **`bigint` / `int128` library:** the concrete library type(s) for wide integers (§6.3):
-  fixed `int128` versus arbitrary-precision `bigint`, the operator surface, and literals large
-  enough to need them.
+- **Wide integers:** whether a fixed `int128` library type is provided (§6.3); there is no
+  arbitrary-precision integer (`bigint`), with `decimal` covering exact unbounded needs
+  (numeric-tower spec). Pending the wide-integer decision if one is ever wanted.
 - **Digit separators and literal grammar:** the exact literal syntax (`_` separators, `0x`,
   `0b`, leading-zero rules), with the literal grammar.

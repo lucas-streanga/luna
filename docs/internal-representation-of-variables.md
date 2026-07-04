@@ -301,9 +301,15 @@ a multiple-inheritance DAG would require ancestor sets or a pairwise table inste
 
 ## 5. The `type` type and `@`
 
-The typeof operator `@` returns the `typeinfo` associated with a value. The
-underlying implementation is a struct, but it is exposed through a virtual table so
-that, to the Luna programmer, a `type` behaves like an ordinary `table`.
+The typeof operator `@` returns the **type of a value** as a `type` value. A `type` is its own
+**primitive**: an inline value that *is* a `typeid` (§3), carried in the scalar word, not a table.
+So `@a == @b` is a single integer compare on the `typeid`, and a `type` is inherently const (the
+type universe is closed, §4.1). The runtime facts a `type` exposes (name, kind, subtype tests,
+nullability, union members) are reads of the statically-emitted `typetable` (§4) indexed by that
+`typeid`; deeper structural reflection (fields, attributes, enum variants) is comptime-only. The
+full model, declaration (`const number: type = int | double`), the `super` companion (a binding's
+declared type), structural type equality, and protocol matching via view types, is in the type
+spec.
 
 ---
 

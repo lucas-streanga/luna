@@ -66,6 +66,12 @@ The block contains:
   or requires in element space, with optional type and permission annotations (§5).
 - **Meta members** (`meta buffer: bytes`), protocol-private state (§3.3).
 - **Meta functions** (`name = meta fn (...) => ...`), the behavior (§3).
+- **`identityEquality`** (optional), a declaration that tables wearing this protocol compare by
+  **identity** rather than structure (equality spec §4.4). Its meaningful state is typically
+  protocol-private (a meta member), which is not part of structural equality, so structural
+  comparison would be wrong; identity is the correct relation. This is how `stringBuilder` (and any
+  user builder) compares by identity. A table wearing any `identityEquality` protocol is
+  identity-equal.
 
 A protocol that needs to run code at attach time, logging, initializing a meta member,
 validating the table, installing dynamic members, adds an **`apply`** meta function (§4).
