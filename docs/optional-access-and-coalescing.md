@@ -10,7 +10,7 @@ Luna keeps `null` and `undefined` genuinely distinct, and this distinction is wh
 - **`null`, present-but-null.** `null` *is* a storable value, and with optional types it is common. A key holding `null` exists; someone put it there on purpose. `null` means "explicitly nothing," which is distinct from "no entry."
 - **value, a real, present value.**
 
-These three are the *value* axis. There is a second, independent **access** axis: a key that exists may be marked `noGet`. Reading it is a permission question, not a value question, so it raises `TableReadViolationError`, it does **not** collapse into `undefined`. Absence and denial are different failures and stay different everywhere below.
+These three are the *value* axis. There is a second, independent **access** axis: a key the wearing protocol does not grant `get` cannot be read, so reading it raises `TableReadViolationError`, it does **not** collapse into `undefined`. Absence and denial are different failures and stay different everywhere below.
 
 > Because `undefined` is unstorable, **existence ⟺ not-`undefined`**. A present key always holds `null` or a real value, never `undefined`. This equivalence is what lets `?.`, `??`, and existence checks compose without ambiguity.
 
@@ -69,12 +69,12 @@ This funnel is the reason `?.` yields `undefined` and not `null` on a broken cha
 
 ## Write side
 
-Compound assignment inherits the coalescers' laziness and adds one distinction the read side doesn't have: **firing on an absent key is an *add* (governed by open/close); firing on a present `null` is an *overwrite* (governed by `freeze`, then `noSet`).**
+Compound assignment inherits the coalescers' laziness and adds one distinction the read side doesn't have: **firing on an absent key is an *add* (governed by open/close); firing on a present `null` is an *overwrite* (governed by the key's `set` grant).**
 
 One principle drives both forms:
 
-- **`??=` asks only "does the key exist?"**, an existence check, never a value read. It needs neither `get` nor `set` to *decide*, and when it fires it is *always* an add. Its only possible failure is `OpenViolationError`, `freeze` never applies, because adding is not overwriting.
-- **`???=` asks "is the value null?"**, which requires *reading* the value, so it needs `get` to decide. It can fire as an add (absent → open-state) or an overwrite (null → `freeze`, then `noSet`).
+- **`??=` asks only "does the key exist?"**, an existence check, never a value read. It needs neither `get` nor `set` to *decide*, and when it fires it is *always* an add. Its only possible failure is `OpenViolationError`.
+- **`???=` asks "is the value null?"**, which requires *reading* the value, so it needs `get` to decide. It can fire as an add (absent → open-state) or an overwrite (null → the key's `set` grant).
 
 ### `a.k ??= b`, fires only when `k` is absent
 
@@ -84,10 +84,10 @@ One principle drives both forms:
 | absent, closed / neverOpen | yes (attempts) | no | add | **`OpenViolationError`** |
 | present = `null` | no | no |, | no-op, `null` kept |
 | present = value | no | no |, | no-op |
-| present, `noGet` | no | no |, | no-op, **no throw** |
-| present, `noSet` | no | no |, | no-op |
+| present, no `get` grant | no | no |, | no-op, **no throw** |
+| present, no `set` grant | no | no |, | no-op |
 
-`??=` decides by existence alone: a `noGet` key never throws (it doesn't read) and a `noSet` key never throws (it doesn't write). Freeze is equally irrelevant, `??=` only ever *adds*, so a frozen-but-open table still accepts a new key. The operator can raise **only** `OpenViolationError`, and only when growing a sealed table.
+`??=` decides by existence alone: a key without `get` never throws (it doesn't read) and a key without `set` never throws (it doesn't write). The operator can raise **only** `OpenViolationError`, and only when growing a `closed` / `neverOpen` table.
 
 ### `a.k ???= b`, fires when `k` is absent *or* null
 
@@ -95,23 +95,21 @@ One principle drives both forms:
 |-|-|-|-|-|
 | absent, table open | no (existence) | yes | add | assigns `b` |
 | absent, closed / neverOpen | no | yes (attempts) | add | **`OpenViolationError`** |
-| present = `null`, unfrozen, settable | yes | yes | overwrite | assigns `b` |
-| present = `null`, frozen / neverThaw | yes | yes (attempts) | overwrite | **`FreezeViolationError`** |
-| present = `null`, unfrozen, `noSet` | yes | yes (attempts) | overwrite | **`TableMutationViolationError`** |
-| present = `null`, `noGet` | can't |, |, | **`TableReadViolationError`** |
-| present = value, settable | yes | no |, | no-op |
-| present = value, `noGet` | can't |, |, | **`TableReadViolationError`** |
-| present = value, `noSet` / frozen | yes | no |, | no-op |
+| present = `null`, has `set` | yes | yes | overwrite | assigns `b` |
+| present = `null`, no `set` grant | yes | yes (attempts) | overwrite | **`TableMutationViolationError`** |
+| present = `null`, no `get` grant | can't |, |, | **`TableReadViolationError`** |
+| present = value, has `set` | yes | no |, | no-op |
+| present = value, no `get` grant | can't |, |, | **`TableReadViolationError`** |
+| present = value, no `set` grant | yes | no |, | no-op |
 
 Two subtleties:
 
-- **`noGet` throws even in the value case.** `???=` must read to classify null-vs-value; a present-but-`noGet` key raises `TableReadViolationError` even where it ultimately wouldn't have written, because it cannot know that without reading.
-- **`noSet` bites only on `null`.** A `noSet` key holding a real value is a clean no-op, reading is allowed, and no write is attempted. The same holds for a frozen key: no fire, no write, no error.
-- **Freeze is checked before `noSet`.** The overwrite path applies the table-level `freeze` gate first, then the per-key `noSet`. A frozen key that is *also* `noSet` therefore reports `FreezeViolationError`, the broader seal wins.
+- **A missing `get` grant throws even in the value case.** `???=` must read to classify null-vs-value; a present key without `get` raises `TableReadViolationError` even where it ultimately wouldn't have written, because it cannot know that without reading.
+- **A missing `set` grant bites only on `null`.** A no-`set` key holding a real value is a clean no-op, reading is allowed, and no write is attempted.
 
 ### Sealed tables and the caller's responsibility
 
-Adding to a `closed` or `neverOpen` table throws `OpenViolationError`; overwriting an existing value on a `frozen` or `neverThaw` table throws `FreezeViolationError`. It is the caller's job to `open()` or `thaw()` first. The irrevocable seals (`neverOpen`, `neverThaw`) can never be lifted, so the corresponding write throws *permanently*, the point of each seal, not a gap. The two axes are independent: an `??=` add succeeds on a frozen-but-open table, and a `???=` overwrite succeeds on a closed-but-unfrozen one.
+Adding to a `closed` or `neverOpen` table throws `OpenViolationError`; it is the caller's job to `open()` first. The irrevocable seal (`neverOpen`) can never be lifted, so the corresponding add throws *permanently*, the point of the seal, not a gap. Overwriting a present value is governed by the key's protocol `set` grant (a missing grant raises `TableMutationViolationError`); the growth and access concerns are independent, an `??=` add succeeds regardless of `set` grants, and a `???=` overwrite succeeds on a `closed`-but-settable key.
 
 ---
 

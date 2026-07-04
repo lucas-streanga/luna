@@ -292,13 +292,16 @@ For **dynamic** members, safety comes from the install semantics of `[expr]` wri
 the write itself fails on an existing key, so a forgetful author still cannot clobber;
 the worst case is a failed `apply`, not a silent overwrite.
 
-### 5.3 `noSet` on element members
+### 5.3 `get` / `set` on element members
 
-`noSet` (element-permissions, tables document) is a per-key **write** contract on an
-element member: it governs whether that key, once it exists, may be overwritten. It is
-unrelated to protocol collision, which is a *definition*-time question handled by §5.1.
-A protocol may declare an element member `noSet` to make it read-only after
-installation. This is distinct from meta-member privacy (§3.3), which needs no `noSet`.
+Access to a protocol's element members is **granted, not revoked**: a protocol-declared key defaults
+to **no access**, and the protocol opts specific keys into `get` (readable) and/or `set` (writable)
+as part of its contract (element-permissions, tables document §6). This is unrelated to protocol
+collision, which is a *definition*-time question handled by §5.1. Declaring a member with `get` but
+not `set` makes it **read-only** after installation; declaring neither makes it **private**. This is
+distinct from meta-member privacy (§3.3), which is governed by the meta/element split rather than by
+element access grants. (Bare tables outside any protocol are fully accessible to their holder; the
+default-no rule is the protocol's encapsulation of its declared keys.)
 
 ### 5.4 Declared element types are enforced, and give typed access
 
@@ -566,7 +569,7 @@ document's concern.
 
 Every table always wears one protocol implicitly: the **built-in protocol**, whose meta
 functions are the table operation catalogue (`map`, `filter`, `reduce`, `count`, `pop`,
-`sort`, and the rest, specified in the table-protocol-api document). It is not special
+`sort`, and the rest, specified in the table-api.md document). It is not special
 machinery; it is simply the protocol that is always applied and that has **no name**.
 
 Its namelessness is why the built-in is reached by bare `->`:

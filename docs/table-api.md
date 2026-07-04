@@ -1,18 +1,82 @@
-# Table Protocol API
+# Table API
 
-This is the operation catalogue for Luna tables. The concepts these operations rely
-on are defined in **tables.md**: copy-on-write value semantics and `&`-write-back
-(tables.md §4), the growth and mutation seals (tables.md §5), element permissions
-(tables.md §6), and flag propagation (tables.md §7).
+This is the operation catalogue for Luna tables: the built-in protocol every table
+exposes, with signatures, time complexity, and a short description for each method.
+
+The **concepts** these operations rely on are defined in **tables.md**, and that
+document is authoritative for behavior: copy-on-write value semantics and
+`&`-write-back (tables.md §4), table-level growth sealing (tables.md §5), element
+`get` / `set` permissions declared by protocols (tables.md §6), and flag and access
+propagation through transformers (tables.md §7). This document is the reference; read
+tables.md to understand *why* tables behave as they do, and read this to look up *what*
+a given operation does.
 
 ---
 
-## 1. Protocol API
+## 1. The built-in protocol
+
+Every table exposes a built-in protocol of the operations below. Internally it is
+represented **virtually**, in a memory-efficient manner; to the programmer it
+behaves like any other protocol. All protocol members are readable and callable but
+cannot be reassigned, you may call `tab.map(...)`, but not overwrite `tab.map`.
+
+### 1.1 Reading the signatures
+
+- **Receiver first.** Signatures begin `fn name(tab: table, …)`. The one
+  constructor-style exception, `combine`, is noted at its entry.
+- **Parameter order:** `tab`, required operands, function hooks
+  (`transformFn` / `predicateFn` / `compareFn` / `keyFn`), `mode`, result-shaping
+  flags (`preserveKeys`, `all`, `recursive`, `depth`), permission enums
+  (`onNoGet` / `onNoSet`), then `asStream` last.
+- **Keyword-only tail.** Where a method takes a `...tabs` variadic, the variadic is
+  terminal and any options following it are keyword-only, written after a `*,`
+  marker.
+- **`asStream`** is present only on methods that can emit their first output element
+  before consuming all input. Methods that must see everything first, or that return
+  a scalar, return `table` or a scalar and never a `stream`.
+- **Notation.** `name?` marks an optional parameter (default `null` unless shown).
+  Hook parameters are of type `fn`. Every enum parameter is written out in full, 
+  its complete member set followed by its default, so each synopsis stands alone.
+
+### 1.2 The canonical `mode` enum
+
+The base enum has three members with a uniform meaning, `values` puts values in
+play, `keys` puts keys in play, `both` puts both in play:
+
+```
+mode: enum {values, keys, both} = {values}
+```
+
+Only two families extend the base set, each for a specific reason:
+
+| Family | Members | `both` means |
+|-|-|-|
+| **Callback-transform**: `map`, `filter`, `each`, `every`, `some`, `partition`, `mapLeaves`, `groupBy` | `{values, keys, both}` | callback receives both operands: `fn(value, key)` |
+| **Matcher**: `find`, `exists`, `remove` | `{values, keys, both, either}` | value **and** key must match |
+| **Set-operation**: `diff`, `intersect`, `distinct`, `unique` | `{values, keys, both}` | equal iff key **and** value equal |
+| **Sort**: `sort` | `{values, keys, keyThenValue, valueThenKey}` | *disallowed* |
+
+- **`either`** belongs to the matcher family only: "match if value **or** key
+  matches." It is coherent only for membership tests, so transforms and set-ops
+  exclude it.
+- **`keyThenValue` / `valueThenKey`** belong to `sort` only and stand in place of
+  `both`. Sorting needs a primary key and a tiebreak; an unordered pair is undefined
+  for it, so `both` is not offered.
+- In the callback family, `both` always passes `(value, key)` in that order. The
+  callback's *input* shape is constant across the family; only its *return*
+  interpretation varies (`map` returns a `[key, value]` pair; predicate transforms
+  return `bool`; `groupBy` returns the group key).
+- `keyOf` is intentionally mode-less (fixed value → key); `find` in `{keys}` mode
+  already covers key → value.
+
+---
+
+## 2. Protocol API
 
 Each entry gives the signature, its time complexity, and a description. `X?` marks
 an optional parameter.
 
-### 1.1 Introspection
+### 2.1 Introspection
 
 #### empty()
 ```
@@ -51,14 +115,13 @@ fn canGet(tab: table, key: any): bool
 fn canSet(tab: table, key: any): bool
 ```
 **O(1).** Whether `key` may currently be read / written. `canGet` is false for a
-missing key or a protocol `noGet` key. `canSet` is false for a missing key, a
-protocol `noSet` key, or any key while the table is frozen.
+missing key or a key the wearing protocol does not grant `get`. `canSet` is false for
+a missing key or a key the wearing protocol does not grant `set`.
 
-### 1.2 Table-level seals
+### 2.2 Table-level growth seal
 
 Each returns the modified table (COW); use `&tab.method(...)` to apply in place.
-Per-key get/set permissions are not set here, they are declared by protocols
-(tables.md §6).
+Per-key `get` / `set` access is not set here, it is declared by protocols (tables.md §6).
 
 #### open() · close() · neverOpen()
 ```
@@ -69,16 +132,11 @@ fn neverOpen(tab: table): table
 **O(1).** Set the growth axis: open, closed (revocable), or permanently
 non-growable. `open()` on a `neverOpen` table raises `InvalidOpenError`.
 
-#### thaw() · freeze() · neverThaw()
-```
-fn thaw(tab: table): table
-fn freeze(tab: table): table
-fn neverThaw(tab: table): table
-```
-**O(1).** Set the mutation axis: unfrozen, frozen (revocable), or permanently
-frozen. `thaw()` on a `neverThaw` table raises `InvalidThawError`.
+(The mutation-seal methods `freeze` / `thaw` / `neverThaw` are **removed**, tables spec §5.2:
+tables are value types, so value-sealing protected nothing. Immutability is `const` or a future
+deferred `toImmutable()`.)
 
-### 1.3 Endpoints
+### 2.3 Endpoints
 
 #### first() · last()
 ```
@@ -94,7 +152,7 @@ fn keyLast(tab: table): any
 ```
 **O(1).** First / last key. `undefined` if empty.
 
-### 1.4 Search & predicates
+### 2.4 Search & predicates
 
 #### find()
 ```
@@ -133,7 +191,7 @@ fn every(tab: table, predicateFn?, mode: enum {values, keys, both} = {values}, o
 **O(n).** Whether any / all elements satisfy `predicateFn` (`fn(x): bool`). With
 `predicateFn` omitted, tests truthiness. Both short-circuit.
 
-### 1.5 Transform
+### 2.5 Transform
 
 #### map()
 ```
@@ -178,19 +236,15 @@ fn keyCase(tab: table, uppercase: bool, asStream = false): table | stream
 ```
 **O(n).** Upper- or lower-cases every key.
 
-### 1.6 Reshape
+### 2.6 Reshape
 
 #### values() · keys()
 ```
-fn values(tab: table, onNoGet: enum {throw, skip} = {throw}, asStream = false): list | stream
-fn keys(tab: table, asStream = false): list | stream
+fn values(tab: table, onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
+fn keys(tab: table, asStream = false): table | stream
 ```
-**O(n).** Values-only / keys-only, reindexed sequentially from 0. Because the result is
-reindexed contiguously from 0, it is a **`list`** (tables §2.1), typed as such so callers get
-the list guarantee statically; with `asStream = true` the result is a `stream` instead.
-`keys` reads no values and so takes no `onNoGet`. `values()` is also the explicit
-re-compaction operation, turning a gapped or keyed table into a fresh contiguous list
-(tables §2.3).
+**O(n).** Values-only / keys-only, reindexed sequentially from 0. `keys` reads no
+values and so takes no `onNoGet`.
 
 #### column()
 ```
@@ -249,7 +303,7 @@ fn flatten(tab: table, depth: int = -1, preserveKeys: bool = false,
 **O(n).** Flattens nested tables. `depth = -1` flattens fully. Reindexes by default,
 since keys collide across levels.
 
-### 1.7 Combine & compare
+### 2.7 Combine & compare
 
 #### merge()
 ```
@@ -302,10 +356,10 @@ fn fill(tab: table, keys: table|stream, value: any,
 ```
 **O(n).** Sets `value` for each key in `keys`, only the *values* of `keys` are
 used, so `keys` may be a stream such as `0..10`. Under `&`-write-back, overwriting
-existing keys answers to freeze-state and any protocol `noSet` (via `onNoSet`); new
-keys answer to open-state (tables.md §5).
+existing keys answers to the key's protocol `set` grant (via `onNoSet`); new
+keys answer to open-state.
 
-### 1.8 Order
+### 2.8 Order
 
 #### sort()
 ```
@@ -336,7 +390,7 @@ fn random(tab: table, num: int = 1, randFn?, preserveKeys: bool = true): table
 ```
 **O(n).** Picks `num` random elements. `preserveKeys = false` reindexes from 0.
 
-### 1.9 Segment
+### 2.9 Segment
 
 #### slice()
 ```
@@ -352,12 +406,12 @@ fn splice(tab: table, offset: any, length: int = 0, replacement: table = [],
           onNoSet: enum {throw, skip} = {throw}, asStream = false): table | stream
 ```
 **O(n).** Removes a section and substitutes `replacement`. Under `&`-write-back, new
-keys answer to open-state and overwritten values to freeze-state (tables.md §5).
+keys answer to open-state and overwritten values to the key's protocol `set` grant.
 
-### 1.10 Grow
+### 2.10 Grow
 
 Each grow operation is legal in pure form (it builds a new, open table) and answers
-to open-state (tables.md §5) only under `&`-write-back onto a sealed target.
+to open-state only under `&`-write-back onto a sealed target.
 
 #### prepend() · append()
 ```
@@ -381,10 +435,11 @@ fn pad(tab: table, size: int, value: any): table
 **O(n).** Grows the table to `size` elements with `value`. Negative `size` pads the
 front.
 
-### 1.11 Shrink
+### 2.11 Shrink
 
 Removal is always legal, even on `closed` / `neverOpen` tables, since it introduces
-no key. Each returns the shortened table (tables.md §4.1).
+no key. Each returns the shortened table (removers return the shortened table,
+tables.md §4.1).
 
 #### pop() · shift()
 ```
@@ -417,7 +472,7 @@ fn clear(tab: table): table
 ```
 **O(1).** Empties the table.
 
-### 1.12 Aggregate
+### 2.12 Aggregate
 
 The numeric aggregates ignore values that are not `int` or `double`.
 
@@ -454,18 +509,15 @@ coerced.
 
 ---
 
-## 2. Error summary
+## 3. Error summary
 
 | Error | Raised when |
 |-|-|
 | `OpenViolationError` | Adding a new key to a `closed` or `neverOpen` table. |
 | `InvalidOpenError` | Calling `open()` on a `neverOpen` table. |
-| `FreezeViolationError` | Writing an existing key on a `frozen` or `neverThaw` table. |
-| `InvalidThawError` | Calling `thaw()` on a `neverThaw` table. |
-| `TableReadViolationError` | Reading a protocol `noGet` key, including bulk reads under `onNoGet = throw`. |
-| `TableMutationViolationError` | Writing a protocol `noSet` key, including bulk writes under `onNoSet = throw`. |
+| `TableReadViolationError` | Reading a key the wearing protocol does not grant `get`, including bulk reads under `onNoGet = throw`. |
+| `TableMutationViolationError` | Writing a key the wearing protocol does not grant `set`, including bulk writes under `onNoSet = throw`. |
 
-Absence is **not** an error: reading a missing key yields `undefined`. The seal and
-permission concepts above are defined in **tables.md** (§5, §6); see the *Optional
-Access & Coalescing* reference for how `?.`, `??`, and `???` navigate absence,
-`null`, and denial.
+Absence is **not** an error: reading a missing key yields `undefined`. See the
+*Optional Access & Coalescing* reference for how `?.`, `??`, and `???` navigate
+absence, `null`, and denial.

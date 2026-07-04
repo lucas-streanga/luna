@@ -151,16 +151,24 @@ result, the binding must be a `var`.
 
 ## 3. `const`
 
-`const` is `let` plus deep immutability. On a table it applies the table protocol's
-seals, `neverOpen` (no new keys) and `neverThaw` (no overwrites), **recursively**,
-so nested tables are sealed too. On a stream it freezes the cursor: a `const` stream
-cannot be consumed. Any mutation attempt raises the corresponding table-protocol
-error.
+`const` is `let` plus **deep immutability**, a compile-time property of the binding: through a
+`const` binding, neither the value nor anything reachable from it may be changed, **recursively**, so
+nested tables are immutable too, no key may be added and no value overwritten. On a stream it fixes
+the cursor: a `const` stream cannot be consumed. Any mutation attempt through a `const` binding is a
+compile error where the target is statically known, and otherwise raises a table-protocol violation
+at runtime.
+
+This immutability is `const`'s own compile-time guarantee; it is **not** a runtime seal applied to
+the value (the former runtime `freeze` / `close` seal machinery is either removed, for mutation
+sealing, or a separate table-level growth concern; tables spec §5). Because a `const` table is known
+immutable at compile time, the compiler can specialize it (perfect-hashing, inlining; compiler spec),
+and, as concurrency relies on, it can be shared by reference across tasks without copying, since it
+can never change.
 
 ```
 const config = ['db' => ['host' => 'localhost']];
-config.db.host = 'remote';         // FreezeViolationError: const is deep
-config.timeout = 30;               // OpenViolationError: const seals growth too
+config.db.host = 'remote';         // error: const is deeply immutable
+config.timeout = 30;               // error: const admits no new keys either
 ```
 
 `const` binds an **independent** value; it never seals a value still in use
@@ -169,9 +177,9 @@ the new binding and seals the copy, leaving the original untouched:
 
 ```
 var original = ['count' => 0];
-const snapshot = original;         // snapshot is a deep, sealed copy
+const snapshot = original;         // snapshot is a deep, immutable copy
 original.count = 1;                // OK: original is an ordinary var
-snapshot.count = 1;                // FreezeViolationError: snapshot is const
+snapshot.count = 1;                // error: snapshot is const (deeply immutable)
 println(original.count);           // 1
 println(snapshot.count);           // 0
 ```
@@ -320,8 +328,7 @@ See the types spec for the full `type` surface.
 | `ReassignmentError` | Rebinding a `let` / `const`; assigning a spent write-once optional | compile (runtime when branch-dependent) |
 | `WriteOnceViolationError` | Second write to a write-once optional on a runtime path | runtime |
 | `IncompatibleTypeError` | Assigning a value outside the binding's declared type | compile |
-| `OpenViolationError` | Adding a key to a `const` (or otherwise sealed) table | see table spec |
-| `FreezeViolationError` | Overwriting a value in a `const` (or frozen) table | see table spec |
+| (const immutability) | Adding a key to, or overwriting a value in, a `const` (deeply immutable) table | compile where the target is static; otherwise a table-protocol violation at runtime (table spec) |
 
 (Reference-of-`let` and out-of-scope use are compile errors without dedicated names
 here.)

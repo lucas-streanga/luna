@@ -340,8 +340,8 @@ shared across tasks (concurrency spec §2):
 
 - A spawned task receives a **deep copy** of its mutable table arguments and captures, so each
   task's mutable tables (and their sharing counts) are its own.
-- A **`const`** table is shared by reference, but it is deep-frozen and never split, so it
-  carries **no** sharing count to contend on (COW never triggers on a frozen table). Const
+- A **`const`** table is shared by reference, but it is deeply immutable and never split, so it
+  carries **no** sharing count to contend on (COW never triggers on a `const` table). Const
   sharing therefore does not reintroduce a shared mutable count.
 - A task's result **transfers** to its awaiter as a clean single-owner handoff (concurrency
   spec §2.2, §6): ownership passes from one task to another, never held live by both.
