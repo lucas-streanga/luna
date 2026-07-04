@@ -1,14 +1,142 @@
-# Numeric operators
+# Operators
 
-This spec covers the **arithmetic operators** (`+`, `-`, `*`, `/`, `%`, and unary `-`) and the
-foundational rule that governs *all* operators: **operators are built-in only; there is no operator
-overloading.** Equality (`==`) and ordering are specified separately (equality spec); this document
-is the numeric-operator surface and the operators-are-primitive principle.
+This is the comprehensive reference for **every operator in Luna**: the master catalogue (§0) is a
+single table listing each one with its **kind** (arithmetic, comparison, logical, and so on), name,
+function, and governing spec. The rest of this document specifies the **arithmetic** operators in
+detail and the foundational rule that governs *all* operators: **operators are built-in only; there
+is no operator overloading.** Equality (`==`) and ordering are specified separately (equality spec);
+each operator's full semantics live in the spec named in the catalogue.
 
-The per-type arithmetic details, integer overflow, division, wrapping and saturating variants
-(int spec); IEEE infinity and NaN (double spec), live in each type's own spec. This document is the
-**unifying layer**: which operators exist, that they are primitive and never user-defined, and how
-they behave across the numeric types.
+---
+
+## 0. The master catalogue
+
+This is **every operator in Luna**, in one table. The **Kind** column groups them by role
+(arithmetic, comparison, logical, access, coalescing, type, reference, assignment, control flow,
+concurrency, bitwise). Several tokens have **more than one meaning, disambiguated by grammatical
+position** (prefix vs. infix vs. postfix, or value-position vs. type-position), the same way C's `*`
+is both multiplication and pointer-deref; this is a static parsing fact, not overloading (§1).
+Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, marked by position.
+
+| Operator | Kind | Name | Function | Spec |
+|-|-|-|-|-|
+| `a + b` | arithmetic | add | numeric addition (never concatenation, never merge) | operators §2, int, double |
+| `a - b` | arithmetic | subtract | numeric subtraction | operators §2 |
+| `a * b` | arithmetic | multiply | numeric multiplication | operators §2 |
+| `a / b` | arithmetic | divide | numeric division (integer div-by-zero panics; float yields IEEE) | operators §2, int, double |
+| `a % b` | arithmetic | modulo | remainder | operators §2, int |
+| `-a` | arithmetic | negate | unary minus, the additive inverse (uniform across the numeric tower); there is no unary `+` (§2.0) | operators §2.0 |
+| `a == b` | comparison | equal | semantic equality (strict, typeid-first; IEEE for doubles) | equality |
+| `a != b` | comparison | not equal | negation of `==` | equality |
+| `a < b`, `a > b`, `a <= b`, `a >= b` | comparison | ordering | relational comparison (numbers; strings lexicographic by the total order). Precise cross-type behavior is under review | equality (total order) |
+| `a && b` | logical | and | short-circuiting logical and (both operands `bool`) | bool |
+| `a \|\| b` | logical | or | short-circuiting logical or (both operands `bool`) | bool |
+| `!a` | logical | not | logical negation (**prefix**; distinct from postfix `!` errorable) | bool |
+| `x.key` | access | static key | compile-checked element access on a table (**infix, right operand an identifier**) | tables §3.2 |
+| `x[k]` | access | dynamic key | runtime element access (miss yields `undefined`) | tables §3.2 |
+| `x->name` | access | meta | protocol / meta-space navigation and method call | tables §3.3, views |
+| `x?.y` | access | optional access | guarded access: a `null`/`undefined` receiver short-circuits to `undefined` | coalescing |
+| `a ?? b` | coalescing | absent-coalesce | `b` if `a` is `undefined`, else `a` (preserves a stored `null`) | coalescing |
+| `a ??? b` | coalescing | null-coalesce | `b` if `a` is `undefined` **or** `null`, else `a` | coalescing |
+| `a ??= b` | coalescing | absent-assign | assign `b` to `a` only if the key is absent | coalescing |
+| `a ???= b` | coalescing | null-assign | assign `b` to `a` if absent or `null` | coalescing |
+| `x is T` | type | type test | total **boolean** test: does value `x` have type `T`? never panics, never narrows | is |
+| `x as T` | type | checked narrow | narrow `x` to `T`, or panic (`TypeError`); yields a value of `T`, never transforms | as |
+| `A \| B` | type | union | type union ("one of"; **type position**) | types |
+| `@P & @Q` | type | intersection | protocol-wearer intersection ("all of"; **infix, type position**; distinct from prefix `&` reference) | types, protocols |
+| `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |
+| `T!` | type | errorable | adds the error arm to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
+| `@x` | type | type-of | value position: the value's `type`; type position: wearer-refinement `@P` | type §1.1 |
+| `@@x` | type | protocol-reflect | reflect the protocols a table/view wears | reflection, views |
+| `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
+| `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
+| `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
+| `...x` | reference | spread / rest | spread a table/stream into elements, or collect rest | spread, destructuring |
+| `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |
+| `a .. b` | control flow | range | lazy range stream from `a` to `b` | range |
+| `.. by n` | control flow | step | range step | range |
+| `x in xs` | control flow | iterate-binding | binds iteration elements in `foreach` | control-flow |
+| `pattern where guard` | control flow | guard | boolean guard on a match arm / comprehension | match |
+| `match` / `match!` | control flow | match | pattern selection (total `match`, panicking `match!`) | match |
+| `defer stmt` | control flow | defer | run `stmt` on scope exit | defer |
+| `a \|> b` | control flow | pipeline | pipe left into right (command pipelines and stream stages) | pipeline, command §4 |
+| `tab apply proto` | control flow | apply | apply a protocol to a table | protocols |
+| `spawn f()` | concurrency | spawn | start a green thread, yielding a `promise` | concurrency |
+| `await p` | concurrency | await | resolve a `promise` to `T!` | concurrency |
+
+**Two things deliberately absent from the table**, each because the language provides the capability
+another way rather than as an operator:
+
+- **No string-concatenation operator.** Joining strings is **interpolation** (`"$a$b"` is `a`
+  followed by `b`; `"$name is $age"`, string-api §13), with `join` and the string builder for
+  accumulation. A concat operator would want the `.` token, which is already table key access, and
+  that overload is undecidable on a union like `table | string`; interpolation removes the need, so
+  `.` keeps its single meaning (§0.1).
+- **No bitwise operators yet.** Bitwise and / or / xor / not and shifts are **deferred** (int §8).
+  The natural tokens `&` and `|` are already taken (reference / intersection, and union), so the
+  bitwise surface will need different tokens or a method form; this is an open decision (§0.4), not
+  silently assigned.
+
+
+
+### 0.1 `.` has one meaning: table key access
+
+The `.` token means **only** static key access on a table (`tab.key`, tables §3.2). It is **not**
+string concatenation, Luna has no concat operator (joining is interpolation, `"$a$b"`; string-api).
+
+This is deliberate. A concat operator would naturally want `.` (the PHP/Perl lineage), but `.` is
+already key access, and the two cannot be disambiguated by the left operand's type on a **union**: for
+`x: table | string`, `x.foo` would be key-access-or-concat with no way to decide statically (the type
+is genuinely both), and deciding by the runtime type would give `.` a runtime-dependent meaning, which
+is unacceptable. So concat does not get `.` (or any operator); interpolation covers it, and `.` keeps
+its single, unambiguous meaning.
+
+### 0.2 `&` reference vs. intersection is decided by position and fixity
+
+The `&` token has two roles, and they are distinguished **at parse time** by two independent facts,
+so the overload is decidable and never ambiguous:
+
+- **`&x`**, prefix, in **expression/value position**, is a **reference** (by-ref argument,
+  write-back; variables §5.1).
+- **`@P & @Q`**, infix, in **type position**, is protocol-wearer **intersection** (types, protocols).
+
+Value position vs. type position is the same grammatical distinction that decides `@` (type-of vs.
+wearer-refinement) and `!` (logical-not vs. errorable), Luna always knows syntactically whether it is
+parsing a type (after `:`, `as`, `is`, in a declared type) or an expression. On top of that, fixity
+differs (prefix `&x` vs. infix `A & B`), so the two are distinguished twice over. Because types and
+expressions are syntactically separated in Luna, there is no context where both could parse, so the
+overload is genuinely parse-time decidable. Keeping `&` for intersection preserves the set-theory
+pairing with `|` (union), which is the conventional and expected notation.
+
+### 0.3 Assignment produces the assigned value
+
+`a = b` is an **expression**: it performs the assignment and **evaluates to the assigned value**.
+This enables capture-and-use in one step and assignment chaining:
+
+```
+foreach (line in (buffer = file.lines())) { ... }   // capture the stream, then iterate it
+a = b = c;                                            // chains: c assigned to b, then to a
+```
+
+This is safe in Luna specifically because there is **no truthiness** (bool spec): the classic
+assignment-in-condition footgun `if (x = 5)` is a **compile error** (a condition must be a `bool`,
+and `5` is not), so assignment-as-expression cannot be mistaken for an equality test in a condition.
+The only residual case, `if (x = true)`, is not a footgun: it assigns `true` and the expression *is*
+`true`, so it does exactly what it says (surprising perhaps, but well-defined). A condition is a
+`bool` or it does not compile.
+
+### 0.4 What some tokens deliberately do NOT do
+
+- **`+` on tables is a type error, not `merge`.** Combining tables is done with **spread**
+  (`[...tab1, ...tab2]`, spread spec), which already expresses merge (and concatenation, and
+  insertion) precisely, so no `+`-as-merge and no dedicated merge operator is needed. Keeping `+`
+  numeric-only upholds the no-overloading rule (§1): `+` has exactly one meaning. Pervasive numeric
+  ops get operators; combining structures is spread.
+- **There is no string-concatenation operator.** Joining is interpolation (`"$a$b"`); `.` is table
+  key access only (§0.1).
+- **Bitwise `&` / `|` have no token yet.** `&` is reference (prefix) and intersection (type
+  position); `|` is union (type position). Bit operations are deferred (int §8); when they land they
+  need tokens that do not collide, resolved with the bitwise spec, not assumed here.
 
 ---
 
@@ -67,6 +195,31 @@ The binary arithmetic operators are `+` (add), `-` (subtract), `*` (multiply), `
 type is the operand type**: `int + int` is `int`, `double * double` is `double`. There is **no
 implicit cross-type arithmetic**, `int + double` does not silently promote (§3.1); operands must be
 the same numeric type, obtained by explicit conversion where needed.
+
+### 2.0 Unary minus is the additive inverse; there is no unary plus
+
+Unary `-` (`-x`) is **negation**: it produces the **additive inverse** of its operand. This is a
+single, uniform operation defined identically across the **entire numeric tower**, present and
+future: `int`, `double` (including the IEEE signed zeros and infinities), and the built-in exact
+types `decimal`, `rational`, and `complex` (numeric-tower spec) each have a well-defined additive
+inverse (`-(a/b)` is `(-a)/b`; `-(a+bi)` is `-a-bi`). So unary minus is **monomorphic**, the same
+operation everywhere, not an overload that means different things on different types, and it does
+**not** conflict with the future numeric types: those types *need* it (a `complex` literal like
+`-3-4i` relies on negation, since there is no negative-literal syntax). Keeping it upholds the
+no-overloading rule (§1) because there is exactly one meaning.
+
+There is **no unary plus** (`+x`): it would be a pure no-op (`+x` equals `x`), so it is removed as
+carrying no meaning.
+
+Lexically, **`-5` is unary minus applied to the literal `5`**, not a negative literal: number
+literals are non-negative and the sign is the operator, so `-5`, `-x`, `-(a+b)`, and `-someExpr`
+all parse as one construct (unary minus on an operand). The one corner is `int`'s asymmetric range
+(the most-negative value `-2^63` is representable while `+2^63` is not): the literal `9223372036854775808`
+overflows `int` on its own, so `-9223372036854775808` cannot be lexed as negate-applied-to-a-literal
+in the naive way. The compiler special-cases this at the boundary, recognizing the most-negative
+literal form and otherwise raising an overflow error, so the general rule (sign is an operator, no
+negative literals) holds everywhere else. The exact form is a lexer detail deferred to the literal
+grammar, and does not affect the operator.
 
 The **behavior on violation** is uniform across the integer types and follows the language's
 panic-on-violation stance:
