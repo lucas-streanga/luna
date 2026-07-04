@@ -7,7 +7,8 @@ piece of per-value, per-type, and per-binding state lives.
 
 ## 1. The `lval`
 
-Every variable is an `lval`, always exactly 16 bytes.
+Every variable is an `lval`, logically 16 bytes (the physical Go-hosted layout is 24 bytes,
+§1.1).
 
 ```
 struct lval {
@@ -26,6 +27,52 @@ struct lval {
 
 Copying a variable copies the 16-byte `lval` and nothing else. The payload is
 duplicated only when copy-on-write is triggered by a mutation.
+
+### 1.1 Logical model vs. physical layout under Go's GC
+
+The struct above is the **logical** model: a 16-byte value whose second word is a
+*discriminated union*, either an inline scalar or a pointer, chosen by the `typeid`. This is
+the right way to think about the value semantically, and it is how a runtime with its **own**
+garbage collector (one that could be taught to read the `typeid`) would physically lay it out.
+
+The reference implementation, however, **hosts values on Go's garbage collector** (compiler
+spec: generate Go, reuse Go's GC and goroutines). Go's GC is **precise**: for every word of
+every heap object it must decide "is this a pointer to trace?", and it decides this from a
+**static, per-type pointer bitmap** fixed at compile time, **without running any of our code and
+without ever reading our `typeid`**. That single fact forbids the 16-byte layout, and it is
+worth recording precisely so it is not re-attempted:
+
+- The union's second word would have to be **one Go field** that is *sometimes* a scalar
+  (`int` bits) and *sometimes* a pointer (`*Table`). A Go field has exactly one static
+  pointer-ness. Declared as a traced pointer, the GC follows an integer as an address
+  (corruption); declared as an untraced scalar, the GC fails to trace a live pointer
+  (use-after-free) and cannot relocate it. There is no third choice.
+- The **`typeid` cannot rescue this**, because the GC never consults it. Our tag tells *our*
+  code how to read the word; the GC decides tracing from the static layout at a moment of its
+  choosing, concurrently, with our code not running. A tag helps whoever reads it, and the GC
+  does not read it. (This is exactly why NaN-boxing / pointer-tagging works only in a runtime
+  that owns its GC and can teach the collector to read the tag.)
+- The tag also **cannot be hidden inside a payload word**: the scalar word is fully used by
+  64-bit `int`/`double` values (no spare bits), and the pointer word is traced (so stuffing tag
+  bits into it produces a non-canonical pointer the GC mis-follows).
+
+Therefore the **physical Go layout is three separate 8-byte words** (24 bytes): the
+`typeAndFlags`/`typeid` word, an always-scalar (untraced) word for inline payloads, and an
+always-pointer (traced) word for managed payloads. Go may overlap *scalar-with-scalar* and
+*pointer-with-pointer* (the `typeid` disambiguates `int` vs `double`, or `*Table` vs `*Stream`,
+within a word, safely, since the GC treats each class uniformly), but it may **not** overlap
+*scalar-with-pointer*, which is the one union this value fundamentally is. Shrinking the tag
+does not help: each of the three words is independently forced, and Go rounds struct size up to
+an 8-byte multiple regardless.
+
+The 24-byte physical size does not change any semantics in this document (the flags, the
+string-inline field, the `typeid`, copy-on-write, all hold identically); it changes only the
+byte count of the hosted representation. Performance is recovered not by shrinking the value but
+by **static unboxing** (compiler spec): where a value's type is statically known, the compiler
+emits a raw Go primitive (`int64`, `*Table`) and never materializes an `lval` at all, so the
+three-word value appears only at genuinely dynamic sites (`any`, heterogeneous table elements,
+un-narrowed unions). A move to a self-hosted GC (compiler spec, the native-runtime alternative)
+would restore the 16-byte single-word union, at the cost of writing and owning a collector.
 
 ---
 
@@ -135,7 +182,7 @@ freely and order-independently: `string?!` and `string!?` both denote
 `string | null | error`.
 
 The concrete error subtype is stored the way any current type is, **as the value's
-current `typeid`** in the high 56 bits. The location declares the coarse
+current `typeid`** in the high 48 bits. The location declares the coarse
 `string | error`; the value carries the precise subtype (`IOError`, …). Because every
 type is statically declared, that subtype id already exists in the `typetable`; a
 throw introduces no new type (§4.1).
@@ -267,5 +314,38 @@ allocations, `string`, `table`, `stream`, free those allocations when collected.
 An error is likewise a reference value: `dataPtr` points to a heap-allocated error
 instance (its own layout, not a table), traced by the GC like any other, with any
 managed-type fields it holds released through their own collection. Because ordinary
-copies only duplicate the 16-byte `lval`, and payloads are shared until COW, a
+copies only duplicate the `lval`, and payloads are shared until COW, a
 value's managed memory has a single owner responsible for release at collection time.
+
+### 6.1 Copy-on-write sharing bookkeeping is non-atomic
+
+Copy-on-write needs to know, at each mutation, whether a table's storage is currently
+**shared** (so a write must split it) or **sole-owned** (so a write may proceed in place).
+This is tracked with the runtime's own per-table sharing bookkeeping (a reference count or
+shared flag maintained on alias, copy, and drop), **separate from** Go's GC, which is a
+tracing collector and exposes no such count.
+
+**This bookkeeping is non-atomic**, ordinary integer increments and decrements, no locks, no
+atomic operations, because the concurrency copy discipline guarantees a mutable table is never
+shared across tasks (concurrency spec §2):
+
+- A spawned task receives a **deep copy** of its mutable table arguments and captures, so each
+  task's mutable tables (and their sharing counts) are its own.
+- A **`const`** table is shared by reference, but it is deep-frozen and never split, so it
+  carries **no** sharing count to contend on (COW never triggers on a frozen table). Const
+  sharing therefore does not reintroduce a shared mutable count.
+- A task's result **transfers** to its awaiter as a clean single-owner handoff (concurrency
+  spec §2.2, §6): ownership passes from one task to another, never held live by both.
+
+So every mutable table is **sole-owned by exactly one task at every instant**, and its sharing
+count is only ever touched by that one task, single-threaded, so plain non-atomic arithmetic is
+correct. The only synchronization in the whole table / COW / sharing-count machinery lives at
+the spawn-copy-in and result-move-out **boundaries** (handled by the concurrency layer), and it
+is on the **ownership handoff**, not on the count. The runtime interiors, refcounting, COW
+splits, list-ness tracking, table representation switching, are ordinary single-threaded code.
+
+**The contract that preserves this**: the spawn-boundary copy must be **transitively deep for
+mutable data**, a shallow copy that left a nested *mutable* sub-table aliased across the
+boundary would create a cross-task shared count and reintroduce the need for atomics. Const
+sub-tables may stay shared (they carry no count); mutable sub-tables must be copied. Given that,
+no sharing count is ever reachable from two tasks, and COW stays lock-free and atomic-free.
