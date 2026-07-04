@@ -284,6 +284,52 @@ value back", with no method whose return value is something other than a table.
 `pop`, `shift`, `unset`, `remove`, and `clear` all return tables. To learn how many
 elements `remove` deleted, diff `count()` around the call (both O(1)).
 
+#### 4.1.1 Deletion is dynamic-only: there is no static `.key` delete form
+
+Reads and writes come in two forms, static (`tab.key`, compiler-checked against the table's
+shape) and dynamic (`tab['key']`, a runtime key). Deletion has **only** the dynamic form:
+`remove('key')` / `unset('key')` take a **runtime key**, and there is deliberately no
+`delete tab.key` static form. This asymmetry is intentional, and it is forced by two facts that
+together leave no coherent static-delete to build:
+
+- **An unconditional static delete is redundant with editing the source.** If both the table's
+  shape and the key are known at compile time, then so is the result (the table without that key),
+  so `delete t.key1` on a statically-known `t` is equivalent to just writing the smaller literal.
+  The operation exists only to *not be written*:
+
+  ```
+  let t = ['key1' => 'value1'];
+  delete t.key1;                 // pointless: identical to `let t = [];`
+  ```
+
+- **A conditional static delete is impossible without control-flow analysis Luna does not do.**
+  The moment a static delete is conditional, the table's resulting shape becomes runtime-dependent,
+  and any later static `.key` access can no longer be checked, the compiler would have to track
+  "is this key still present on this path?", which is exactly the control-flow analysis Luna
+  refuses (the same reason a `never` exit is not statically verified, never spec):
+
+  ```
+  delete t.key1 if (condition);  // would require CFA: is t.key1 present afterward? unknowable
+  t.key1;                        // could no longer be compiler-checked
+  ```
+
+  A conditional static delete injects runtime-dependence into static key space, whose entire
+  purpose is a compile-time-known shape, so the two cannot coexist without the analysis Luna does
+  not perform.
+
+So static delete is either **pointless** (unconditional, redundant with the source) or
+**unsupportable** (conditional, would need control-flow analysis), with no version that is both
+meaningful and implementable. Deletion is therefore **dynamic-only**, and `remove` / `unset` taking
+a runtime key is the correct and complete design: deletion carries information only when the key is
+dynamic (a variable, a computed string, a loop key), which is precisely the case those operations
+serve, and a conditional dynamic delete (`remove(k) if cond`) is fine, because dynamic key space is
+already runtime-shaped and has no static shape-knowledge to destroy.
+
+(A table's growth and mutation seals, §5, govern whether keys may be added or changed at all; a
+`neverOpen` table whose shape callers rely on being fixed, for instance, is not a place where
+removal should silently change the cached shape. The interaction of removal with the seals and with
+statically-declared shape is governed there.)
+
 ### 4.2 `&`-write-back is a flag-respecting structural update
 
 Write-back is **not** a blind rebind. It applies the result to the target while
