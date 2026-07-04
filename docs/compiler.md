@@ -290,17 +290,48 @@ constants.
 Emission maps the optimized IR onto Go source. The mapping is direct because the language was
 designed against a Go runtime.
 
-### 7.1 The `lval`
+### 7.1 The `lval`: a three-word Go struct, with static unboxing
 
-The 16-byte `lval` (value-representation §1) maps to a Go struct: a `uint64` for the packed flags,
-string-inline field, and `typeid`, plus a data word for the payload-or-pointer. The **precise-GC
-constraint is the sharp implementation point**: Go's garbage collector is precise, so a single
-field that is *sometimes* a pointer (managed payload) and *sometimes* inline bytes (an inline
-scalar or short string) cannot be type-punned freely, Go must know statically whether a word holds
-a pointer. Resolving this, whether via a representation that keeps the pointer word always a valid
-pointer or nil, a split representation, or a carefully-managed unsafe encoding, is the central
-backend design task (§11). The IR's per-node representation classification (§4) is what tells
-emission which case each value is.
+The `lval` (value-representation §1) maps to a Go struct. Its logical form is a 16-byte
+discriminated union (a `typeid`/flags word plus a second word that is *either* an inline scalar
+*or* a pointer), but **Go's precise GC forbids the single punned word**, so the physical layout is
+**three separate 8-byte words** (24 bytes):
+
+```go
+type lval struct {
+    tagAndType uint64          // flags + string-inline field + typeid (scalar, never traced)
+    scalar     uint64          // inline payloads: int, double bits, bool, short string (never traced)
+    ptr        unsafe.Pointer  // managed payloads: *table, *string, *stream (always traced); nil for scalars
+}
+```
+
+The pointer and scalar payloads must be **separate fields** because Go's GC decides "trace this
+word?" from the static field type at scan time and **never reads our `typeid`** to defer that
+decision (value-representation §1.1 records the full rationale). So `ptr` is always a real pointer
+or nil (safe to trace) and `scalar` is always non-pointer bits (safe to skip); the `typeid` then
+disambiguates *within* each word (`int` vs `double` in `scalar`, `*table` vs `*stream` in `ptr`),
+which is a same-GC-class overlap Go permits. This is a settled layout, not an open task: the
+single-word 16-byte form is available only under a self-hosted GC (§11, the native alternative),
+not on Go's collector.
+
+The 24-byte value appears only where a value is **genuinely dynamic**; where its type is
+statically known, emission does **not** materialize an `lval` at all (§7.1.1).
+
+### 7.1.1 Static unboxing
+
+The primary value-performance mechanism is **static unboxing**: wherever the IR's per-node type
+(§4) is a concrete type rather than `any`, emission produces the **raw Go representation** and no
+`lval`, an `int` becomes a Go `int64`, a `double` a `float64`, a `bool` a `bool`, a table an
+`*Table`. Arithmetic, comparisons, and calls on statically-typed values are then ordinary Go
+operations on Go primitives, with no tag checks and no three-word value.
+
+The `lval` is materialized only at **dynamic sites**: `any`-typed values, heterogeneous table
+elements (element type `any`), and union values before narrowing (`as`/`is`). Boxing (scalar into
+an `lval`) happens at the boundary where a typed value flows into an `any` slot; unboxing (`lval`
+back to a Go primitive) happens where an `any` is narrowed to a concrete type. Because the type
+system is precise (most hot code is monomorphic, not `any`), the three-word `lval` is off the hot
+path, and its byte count is not the lever that matters. This is why the physical size is accepted
+rather than optimized: the win is avoiding the `lval` on typed paths, not shrinking it.
 
 ### 7.2 The `typetable`
 
@@ -410,17 +441,34 @@ form today; opaque versioned binaries are the portable form later. Neither expos
 
 ---
 
-## 11. Open questions
+## 11. Resolved and open
 
-- **The `lval` under Go's precise GC (§7.1).** The central backend design task: how to represent a
-  word that is sometimes a managed pointer and sometimes inline payload, given Go's precise,
-  pointer-aware GC. The chosen encoding affects every value operation and needs its own design.
+**Resolved: the `lval` under Go's precise GC (§7.1).** The value is a **three-word (24-byte) Go
+struct** with the scalar payload and the pointer payload in **separate fields** (one never traced,
+one always traced), because Go's precise GC resolves tracing from static field layout and never
+reads the `typeid` (value-representation §1.1). The single-word 16-byte union is not achievable on
+Go's collector; it is available only under the **native-runtime alternative** below. Value
+performance comes from **static unboxing** (§7.1.1), not from shrinking the struct.
+
+**The native-runtime alternative (not chosen).** Generating native code (via LLVM or C) instead of
+Go, with a self-owned garbage collector (for example MMTk, or a bespoke collector), would allow the
+16-byte single-word tagged value (the GC could be taught to read the `typeid`) and remove the
+precise-GC constraint. It is not chosen because it discards the reasons Go was targeted, its GC and
+its goroutine scheduler (green threads), turning both into work the project would own. The Go-hosted
+path with a 24-byte `lval` and static unboxing is the committed design; this alternative is recorded
+only as the escape hatch if the value representation ever becomes a decisive bottleneck.
+
+Open:
+
 - **Block-scoped `defer` lowering (§7.3).** The concrete emission for block-scoped, panic-composing
   LIFO cleanup on top of Go's function-scoped `defer`, including the interaction with recover on
   the panic path.
 - **Green-thread mapping and copying (§7.3).** How enforced-copying at task boundaries is realized
   in emitted Go, and how cancellation unwinds and runs deferred cleanup, pending the concurrency
   model.
+- **Static-unboxing boundaries (§7.1.1).** The precise rules for where boxing and unboxing occur
+  (the `any` boundary, table-element access, union narrowing), and how to minimize box/unbox churn
+  across those boundaries, pending implementation measurement.
 
 (Open questions specific to the build cache, canonical interface serialization and eviction tuning,
 are in the incremental-compilation spec.)
