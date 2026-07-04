@@ -341,41 +341,107 @@ a protocol's `apply` carries when it can throw (protocols §7.5).
 
 ## 8. Catching
 
-There are two ways to handle a thrown error, matching value-representation §3.1.
+There are two ways to handle a thrown error, and they split along the two error categories, which is
+the central design point of the whole error model:
 
-### 8.1 The `try` expression
+- The **`try` expression** (§8.1) catches **`UserError` only**, expected failures, collapsing them
+  to a value inline. Panics unwind through it.
+- The **`try`/`catch` block** (§8.2) catches **everything**, both `UserError` and `Panic`, the
+  deliberate boundary where you stop even the exceptional.
 
-`try expr` runs `expr` and, if it throws, yields the error as a value instead of
+The distinction is visible at a glance (a block has a `catch`, an expression does not) and it maps
+exactly onto the `UserError`/`Panic` split: routine, inline handling of expected errors versus a
+boundary that catches all. This is what keeps the model safe *and* ergonomic: expected errors are
+handled where they arise, invariant violations propagate to a real boundary, and the syntax for the
+first can never silently absorb the second.
+
+### 8.1 The `try` expression catches `UserError` only
+
+`try expr` runs `expr` and, if it throws a **`UserError`**, yields that error as a value instead of
 unwinding:
 
 ```
-let v!: string = try someFunc();        // v : string | error
-let w:  string | error = try someFunc(); // identical; ! is sugar for | error
+let v!: string = try someFunc();          // v : string | UserError
+let w:  string | error = try someFunc();  // identical; ! is sugar for the UserError arm
 ```
 
-`try` is **total**: it converts *every* throw into the value, from either subtree. The
-error arm is therefore always the **base `error`**, never a specific subtype:
-`let v: string | IOError = try someFunc()` is a compile error, because `try` cannot know
-the thrown subtype, so it pins the arm to exactly `| error` (present, since the error must
-be handled, and no narrower). The precise subtype is recovered by narrowing (§8.3).
+The `try` **expression** catches the **`UserError`** subtree only. A **`Panic`** is **not** caught
+by a `try` expression: it **unwinds through** it, propagating up to a `try`/`catch` block (§8.2) or,
+if none, to the task or program boundary. This is deliberate and is the heart of the two-category
+design:
 
-Binding the result of `try` into a type that cannot hold an error (no `!`, no `| error`)
-is a compile error, exactly as assigning `null` to a non-`?` type is: the error must be
-handled.
+- A `UserError` is an **expected** outcome, part of a function's normal control-flow contract (it is
+  what `!` declares). Handling it inline with `try` is routine, so `try` collapses it to a value.
+- A `Panic` is an **invariant violation**, a bug or exhausted resource, not an expected outcome
+  (which is exactly why it is undeclared, §9). It must **not** be silently absorbable by the syntax
+  used to handle expected errors: a programmer writing `_ = try cleanup()` to ignore an *expected*
+  failure must not thereby swallow an overflow or out-of-memory. So a panic ignores `try` entirely
+  and keeps unwinding to a real boundary, where a supervisor can decide to crash, restart, or fail
+  the unit of work.
 
-### 8.2 The `try` / `catch` statement
+Letting `try` catch panics would defeat the reason `Panic` exists: a panic's job is to propagate a
+violated invariant to a level that can act on it (or to crash loudly), which is what makes
+"assume-no-overflow" safe in the first place (§9). Absorbing it at an unrelated `try` site would make
+the bug invisible, the smuggled-error failure mode, at the panic layer. So the `try` expression
+respects the category split: expected errors in, invariant violations through.
+
+Because the expression catches only `UserError`, its error arm is the **base `UserError`**, not the
+root `error` (a panic never lands here). Binding the result into a type that cannot hold the error
+(no `!`, no `| UserError`/`| error`) is a compile error, exactly as assigning `null` to a non-`?`
+type is: the error must be handled. The result is a union (`string | UserError`), so the value cannot
+be used as a plain `string` until the error arm is narrowed away (§8.3), which is what makes
+swallowing type-impossible: you cannot proceed as if the call succeeded without first dealing with
+the error case.
+
+Discarding the result entirely still requires the explicit no-discard form `_ = try someFunc()`
+(variables spec: a return value may not be silently dropped). That discard is visible and greppable,
+and it discards only the `UserError` (a panic would still unwind through), so it is an honest,
+deliberate, bounded act, never a silent or accidental swallow.
+
+A **void** call is the one exception to the no-discard rule, and it connects to how absence works
+across the language. Luna has no `void`: a function that returns no meaningful value returns
+**`undefined`** (undefined spec), the absence sentinel, not `null`. Because there is genuinely
+nothing to discard, a void call needs no `_ =` (`log("hi");` is fine), and the compiler proves this
+statically from the `undefined` return type. This is the same `undefined` that a missing key
+produces: storable but panics on use, so *using* a void function's result (`const l = log("hi");
+use(l)`) panics, which is correct, there was no result to use. The through-line with the error model:
+absence (`undefined`) and failure (`error`) are separate channels, just as `null` (a chosen value)
+and `undefined` (a reported absence) are separate, and none of them is allowed to masquerade as
+another.
+
+### 8.2 The `try` / `catch` block catches everything
 
 ```
 try {
   ...
 } catch e {
-  // e is the caught error, typed base `error`
+  // e is the caught error, typed root `error`; may be UserError or Panic
 }
 ```
 
-A bare `catch e` catches the **root `error`**, so it catches **everything**, both
-`UserError` and `Panic`. This is the complete catch, and it is the intuitive one: there
-is no second top type to miss.
+The `try`/`catch` **block** is the **catch-all**: a bare `catch e` catches the **root `error`**, so
+it catches **both** `UserError` and `Panic`. This is the intended boundary form, and it honors the
+universal intuition that a `try`/`catch` block catches everything. The two catch forms therefore
+split cleanly by the two error categories, and the split is visible at a glance (one has a `catch`
+block, one does not):
+
+- **`try expr`** (expression, no block), catches **`UserError` only**; panics unwind through. The
+  ergonomic, inline handling of expected failures (§8.1).
+- **`try { } catch { }`** (block), catches **everything** (UserError and Panic). The deliberate
+  **boundary**: you opened a `catch`, so you are declaring "I stop errors here," and that includes
+  the exceptional ones.
+
+You reach for the block form precisely when you want to catch more, so its catching panics is *why*
+you used it, not a surprise. This is the supervisor pattern: a `main`, a request loop, or a task
+boundary wraps its work in `try`/`catch` and catches everything, then decides (log, crash, restart,
+fail the one unit) based on what it got. A single mechanism catches all errors at the boundary, so
+there is no need for two separate constructs to "catch everything in `main`"; the block form already
+does.
+
+Because the block catches both categories and they share the `error` root, a boundary that wants to
+treat them differently distinguishes by type in the `catch` (§8.3): catch `UserError` and `panic`
+separately, or catch the root and `match` on which subtree it is. So the block is a genuine
+catch-all safety net without conflating the categories, it can see both and still tell them apart.
 
 ### 8.3 Narrowing a catch
 
@@ -401,8 +467,8 @@ try {
 Each `catch` selects a subtree by the O(1) subtype test; an error is caught by the first
 clause whose type is an ancestor of it. A narrow catch that does not match lets the error
 continue unwinding. Narrowing after a `try` expression uses the same subtype machinery
-(`is SomeType`, or a following `catch`), recovering the concrete subtype the base-`error`
-arm erased.
+(`is SomeType`, or a following `catch`), recovering the concrete subtype the base-`UserError`
+arm erased (a `try` expression's error arm is `UserError`, since panics are not caught there, §8.1).
 
 ---
 
@@ -414,8 +480,10 @@ preventable:
 - Membership includes `OutOfMemory`, `TypeError` (a runtime type violation), `ArityError`
   (calling a function with fewer arguments than it declares, when not statically caught,
   functions spec), division by zero, failed runtime invariants, and similar.
-- Panics are **catchable**: they are `error` values under the root, so `catch error`,
-  `catch panic`, and a `try` expression all capture them.
+- Panics are **catchable**: they are `error` values under the root, so the `try`/`catch` **block**
+  (`catch error` or `catch panic`, §8.2) captures them. The `try` **expression** does **not**: a
+  panic unwinds through it (§8.1). Catching a panic is a deliberate, block-level, boundary act, never
+  an incidental effect of an inline `try`.
 - Panics are **undeclarable**: a function that can only panic is still `fn`, not `fn!`
   (§7). This is why `!` stays meaningful, ambient failures do not infect every signature.
 - The `Panic` subtree is **sealed against user inheritance**: `error : Panic` (or
@@ -424,14 +492,18 @@ preventable:
 
 The design goal is the two-axis separation: **catchability and declarability are
 independent.** A panic is catchable (it is an `error`) yet undeclarable (it is not a
-`UserError`). This lets `catch error` be the honest catch-all while `!` tracks only the
-failures a caller can meaningfully be required to handle.
+`UserError`). This lets the `try`/`catch` block be the honest catch-all while `!` tracks only the
+failures a caller can meaningfully be required to handle. And the two *catch* forms respect the
+split: the `try` **expression** catches only the declarable `UserError` (so panics cannot be
+absorbed by inline expected-error handling), while the `try`/`catch` **block** catches everything (so
+a boundary can stop even the exceptional).
 
 The practical consequence for higher-order code: a function like a callback runner that
 can raise an `ArityError` on a bad callback does **not** thereby become `fn!`, because
 `ArityError` is a `Panic`. It stays `fn`, and a caller who wants to guard the panic wraps
-the call in `try` and catches `panic`, rather than being forced to handle a declared error
-that was never really the contract.
+the call in a `try`/`catch` **block** and catches `panic` (not a `try` expression, which would let
+the panic through), rather than being forced to handle a declared error that was never really the
+contract.
 
 ---
 
