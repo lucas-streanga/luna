@@ -320,7 +320,46 @@ fixes the variant while allowing payload mutation; `const` freezes everything.
 
 ---
 
-## 8. Open questions
+## 8. Representation (implementation)
+
+An enum needs no new runtime construct. The **`lval` is already a tagged union** (a `typeid`
+discriminant plus payload words, value-representation §1), which is exactly an enum's shape (a
+tag plus a payload), so an enum value **is** an ordinary `lval`. This matters because the host
+runtime (Go) has no discriminated-union type; the language does not need one, because the value
+representation it already defines is the tagged union, and enums are one use of it.
+
+- **The variant is a refinement `typeid`.** Each `(enum, variant)` pair is its own `typeid`, a
+  **subtype of the enum type**: `Shape.circle <: Shape`, `Shape.square <: Shape`, and so on. So
+  "which variant is this?" is a **subtype test** on the `typeid`, the same interval check
+  (value-representation §4.2) that answers "is this error a `commandError`?" A variant is to its
+  enum exactly what an error subtype is to `error`: a refinement `typeid`, assignment-compatible
+  with the base, distinguished by the concrete id. `@value` yields the enum type (§6); the
+  variant is recovered from the concrete `typeid`. The type universe stays finite (variants are
+  written in source, bounded, value-representation §4.1), so one `typeid` per variant is cheap
+  (ids are indices).
+- **The payload rides in the `lval` payload word.** A no-payload variant carries nothing; a
+  scalar payload sits inline in the scalar word; a table payload is behind the pointer word, an
+  ordinary heap `lval`. So constructing `{circle ['radius' => 5]}` sets the variant `typeid` and
+  points the payload at the `['radius' => 5]` table.
+- **`match` compiles to a `switch` on the variant tag.** Each arm is a case on the variant
+  `typeid`; the arm's payload pattern (`['radius' => r]`) lowers to ordinary table-field access
+  on the payload. Exhaustiveness is checked by the compiler (§4.1, match spec §9), not by the
+  host `switch`; `match!` emits a `default` that panics, and a non-exhaustive `match` yields the
+  `| undefined` result.
+- **Recursive enums need nothing extra.** A recursive payload (`node ['left' => Tree, 'right'
+  => Tree]`) is a table holding `lval`s that are themselves enum values, ordinary heap pointers,
+  traced by the garbage collector like any other managed payload. So a tree of enums is a tree
+  of heap `lval`s, and recursion falls out of "payloads are tables, tables hold `lval`s,
+  `lval`s can be enums" (§2.2).
+
+So the whole enum feature lowers onto machinery that already exists: the `lval` tagged union for
+the value, refinement `typeid`s (the error-subtype mechanism) for the variant, and a host
+`switch` for `match`. The host language's lack of sum types is irrelevant, because the value
+representation is the sum type, built once, and enums are an instance of it.
+
+---
+
+## 9. Open questions
 
 - **Parameterized enums.** An enum parameterized by a type (an `Option` over any element type
   rather than a fixed payload type) reads as generics, which the language does not have, so this
