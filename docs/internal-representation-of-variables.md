@@ -210,12 +210,15 @@ into a non-errorable type is a compile error, since the error must be handled, a
 may not be *narrower*, since the thrown subtype cannot be known. Neither less nor more
 specific than base `error`.
 
-There is no `void`. Every function returns a value; a function with no `return`, or
-one that specifies no return type, returns `null`. A throwing function whose success
-carries nothing therefore has success type `null`, and `try f()` on it is simply
-`null | error`, no unit type, no bare error arm, nothing new to define. This keeps a
-single answer to "what did this give back?" (always a real value) and one absence
-sentinel overall: `undefined` for a missing key, `null` for an explicit nothing.
+There is no `void`. Every function returns a value; a function with no `return`, or one that
+specifies no return type, returns **`undefined`** (undefined spec §4), the absence sentinel, because
+a void function has no meaningful result and using a result that does not exist is a bug (which
+`undefined` reports by panicking on use). A void call needs no `_ =` discard, since there is nothing
+to drop, and the compiler knows this statically from the `undefined` return type (undefined spec
+§4.1). A throwing function whose success carries nothing therefore has success type `undefined`, and
+`try f()` on it collapses the `UserError` arm as usual. This keeps a single answer to "what did this
+give back?" and two distinct absences: **`undefined` for a structural absence (missing key, void
+return), `null` for an explicit, chosen nothing.**
 
 ---
 

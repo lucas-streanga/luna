@@ -22,8 +22,9 @@ overview, not a definition; each type's spec is authoritative.
 | `byte` | An `int` constrained to `0..255` (the element of `bytes`); a constraint instance | constraints, bytes |
 | `type` | A type as a first-class value (inline `typeid`; comparable, const; `@` yields one) | type |
 
-`undefined` is the absence sentinel (a missing key), distinct from `null` (a present
-nothing); it is unstorable and is covered in value-representation and coalescing.
+`undefined` is the absence sentinel (a missing key or a void return), distinct from `null` (a present
+nothing); it is language-produced (never written), storable but panics on use, and unstorable *in a
+table*. See the undefined spec (and value-representation, coalescing).
 
 ---
 
@@ -90,14 +91,18 @@ specific type inside its form's union supertype, the same is-a relationship in a
 
 ---
 
-## The top type
+## The top and bottom types
 
 | Type | What it is | Spec |
 |-|-|-|
-| `any` | The union of all types; every value is an `any` | value-representation |
+| `any` | The top type: the union of all types; every value is an `any` | value-representation |
+| `never` | The bottom type: no values; `never <: T` for all `T`; identity for `\|` | never |
 
 `any` is to all types what each union supertype above is to its form's members: the natural
-"any of them." A specific type is always a member of `any`.
+"any of them." A specific type is always a member of `any`. `never` is its dual: the empty type,
+the result of a function that does not return a value, `fn (): never` (exits or diverges,
+runtime-guarded) or `fn (): never!` (always throws, checked as ordinary errorability). Because
+`T | never` is `T`, non-returning branches drop out of union types cleanly (never spec).
 
 ---
 
