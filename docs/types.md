@@ -132,8 +132,9 @@ Not types, but how types are reached and tested:
   with a `TypeError` (panic) on mismatch; never transforms a value and never needs `!`. Value
   *conversion* (parsing, formatting) is a function (`parseInt`, `toString`), not `as`. See the
   `as` spec.
-- **`x is T`** , subtype test / narrowing (e.g. `e is commandError`), the boolean, non-panicking
-  counterpart to `as`. errors, value-representation.
+- **`x is T`** , the **total boolean type test** (e.g. `e is commandError`): always a `bool`, never
+  panics, never transforms, and does **not** narrow the tested binding. The non-asserting counterpart
+  to `as` (which panics and yields the narrowed value). See the `is` spec.
 - **`match`** , expression-operator selecting by pattern (value / `@type` / guard) over a
   scrutinee, or a guard chain with no scrutinee; value patterns use the total order (double
   §2.2), non-exhaustive matches yield `| undefined`. The strict form **`match!`** panics on
