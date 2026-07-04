@@ -217,10 +217,10 @@ integer; a fixed `int128` is a possible future library type only (§1.4).
 The current specced primitives are `int`, `double`, and the `byte` constraint. The rest of this tower,
 `u64` and the signed and unsigned small-width constraints, `float` and `f16`, and the
 arbitrary-precision and exact built-ins `decimal`/`rational`/`complex`, is **committed** but
-**deferred past the alpha surface** (operators spec §4): int and double cover the majority of code, and
-the remaining types slot into mechanisms fixed now (the built-in-only operator rule, the
-constraint-subtype widening, explicit cross-family conversion), so adding them later is **new typeids
-under existing rules**, not new machinery.
+**deferred past the alpha surface** (§6): int and double cover the majority of code, and
+the remaining types slot into mechanisms fixed now (the built-in-only operator rule of operators §1,
+the constraint-subtype widening, explicit cross-family conversion), so adding them later is **new
+typeids under existing rules**, not new machinery.
 
 Adding a built-in numeric type is a **breaking change** (it expands the closed type universe and
 claims operator behavior), so these all land **before the 1.0 stability commitment**, even though they
