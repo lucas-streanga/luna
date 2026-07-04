@@ -108,6 +108,50 @@ The output is a **typed AST**: every node annotated with its resolved type, ever
 declaration, every dispatch site classified (element vs meta, static vs dynamic key, tables spec
 §3.2).
 
+#### 1.4.1 No control-flow analysis (a hard implementation guarantee)
+
+Luna's compiler performs **no control-flow analysis**. No pass tracks facts along execution paths
+within a function, and no pass tracks facts across function boundaries beyond reading declared
+signatures. This is a firm implementation guarantee, not an aspiration, and it is what keeps the
+compiler free of whole-program and borrow-checker-class analysis. Concretely, none of the following
+is performed:
+
+- **No definite-assignment analysis.** "Is this variable assigned before use?" is never asked,
+  because an uninitialized binding cannot exist: every declaration must be initialized (variables
+  spec §1.3), and "not set yet" is an explicit optional `null`, not an uninitialized slot. There is
+  no unassigned state to track.
+- **No flow-narrowing.** A binding's type is fixed at its declaration and never changes based on the
+  branch it is in. `is` is a boolean test that does **not** narrow the tested binding (as spec §7);
+  narrowing happens only by producing a **new binding** via `as` or a `match` arm. So a narrowed type
+  is always a property of a fresh binding at its declaration, never a path-dependent fact about an
+  existing one.
+- **No definite-return analysis.** "Does every path return a value?" is not checked; a function that
+  falls off the end returns `undefined` (undefined spec), and using that result where a real value is
+  required fails at the use site (a compile error if statically `undefined`, a panic otherwise), so
+  the missing return surfaces without path analysis.
+- **No reachability or divergence analysis.** A `fn (): never` that actually returns is not caught
+  statically (that would be the halting problem in general); it panics at runtime (never spec).
+- **No move, linearity, or use-after-consume analysis.** Single-pass stream consumption, builder
+  transfer, and promise use are **runtime** properties: an exhausted stream, a transferred builder,
+  or a spent promise fails at runtime, not through static move-tracking. (Optional, purely additive
+  lints over obvious straight-line cases may be added later; they are never required for the core
+  compile and never gate it.)
+
+The positive principle underneath: **every static fact Luna checks lives in a type**, errorability
+(`!`), capabilities (`use`), nullability (`?`), union and constraint membership, computed by
+structural rules or **call-graph fixpoints** (functions spec §2, §5) that read declared signatures,
+never by path-sensitive analysis. Every fact that *would* require path-sensitivity is instead either
+**dissolved by construction** (mandatory initialization removes the unassigned state; new-binding
+narrowing removes the path-dependent type) or made a **runtime property** checked at the point of
+violation (divergence, stream consumption, the branch-dependent write-once flag, variables spec
+§1.2). Facts live in **types** or in **runtime state**, never in "what is true on this path," which
+is precisely the thing control-flow analysis computes and Luna does not.
+
+The call-graph fixpoints for errorability, comptime-eligibility, and capabilities are **not** an
+exception to this. They are monotone least-fixpoint computations over the static call graph that read
+each callee's declared signature; they do not track intra-function paths or path-sensitive state, so
+they are ordinary type-level propagation, not flow analysis.
+
 ### 1.5 Lower to Luna IR
 
 The typed AST is lowered to the **Luna IR** (§4): a typed, explicit, lowered tree. Lowering makes

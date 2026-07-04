@@ -150,21 +150,51 @@ error (use `toString`), and `string as int` is a compile error (use `parseInt`).
   someFn(tab.values())     // always legal; builds a fresh list from tab's values (reindexes)
   ```
 
-  So `as list` and `values()` are not interchangeable: `{5=>'a', 9=>'b'} as list` panics
-  (not contiguous), while `{5=>'a', 9=>'b'}.values()` returns `['a', 'b']`. Use `as list`
+  So `as list` and `values()` are not interchangeable: `[5=>'a', 9=>'b'] as list` panics
+  (not contiguous), while `[5=>'a', 9=>'b'].values()` returns `['a', 'b']`. Use `as list`
   when a non-list is a bug you want caught (assert current type); use `values()` when you
   want a list out of any table (transform). This is the general split (§3): `as` asserts a
   type, a function transforms a value.
 - **`e as commandError`** (errors, exec): narrowing a caught base `error` to a specific error
-  type, checked. The `is` form (`e is commandError`) is the boolean-plus-narrowing counterpart.
+  type, checked. The `is` form (`e is commandError`) is the **boolean test** counterpart: it
+  reports whether `e` is a `commandError` but does **not** narrow `e`; to obtain a `commandError`
+  binding you use `as` (or `match`), which produces a new narrowed value.
 
 ---
 
-## 7. Open questions
+## 7. Narrowing produces a new binding; `is` does not flow-narrow
 
-- **`as` and `is`:** the relationship between `as T` (narrow, `TypeError` on mismatch) and
-  `is T` (test, returns bool and narrows in the taken branch). Presumably `x as T` is
-  equivalent to "`x` if `x is T` else raise `TypeError`"; confirming that `is` is the total
-  (non-panicking) test and `as` the asserting (panicking) narrowing.
+Narrowing in Luna **only** happens by producing a **new binding** of the narrower type, through
+`as` (`let s = x as string`, checked, panics on mismatch) or through a `match` arm (`match (x) {
+string s => ... }`, which binds a fresh `s`). A binding's type is **fixed at its declaration** and
+never changes based on the branch it is in.
+
+In particular, **`is` is a boolean test only**: it reports whether a value currently has a type, and
+does **not** narrow the tested binding within the guarded branch.
+
+```
+if (x is int) {
+  foo(x);          // x is STILL its declared type here (e.g. int | string), not narrowed
+  let n = x as int; foo(n);   // to use it as int, produce a narrowed binding
+}
+match (x) {
+  int n => foo(n); // idiomatic: the arm binds a fresh n : int
+}
+```
+
+This is a deliberate design choice tied to the compiler guarantee: Luna does **no control-flow
+analysis** (compiler spec). Flow-narrowing, changing `x`'s type inside a branch because of a
+preceding `is` test, would require the compiler to track a binding's type *along control-flow paths*,
+which is exactly the intraprocedural flow-typing Luna refuses to do. By confining narrowing to
+new-binding forms (`as`, `match`), the narrowed type is always a property of a *fresh binding at its
+declaration*, never a path-dependent fact about an existing one, so no flow analysis is needed. The
+tools (`match`, `as`) cover every case; `if (x is int) { let n = x as int; ... }` is the explicit
+form, and `match` is the ergonomic one.
+
+`x as T` is equivalent to "`x` if `x is T`, else raise `TypeError`": `is` is the total
+(non-panicking) test, `as` the asserting (panicking) narrowing that yields the narrowed value.
+
+## 8. Open questions
+
 - **`as` on secret payloads:** interaction with `reveal` once `bytes` exists (whether a
   revealed `string | bytes` is narrowed with `as`), pending the `bytes` type.

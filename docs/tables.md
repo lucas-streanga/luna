@@ -89,7 +89,9 @@ A value typed `table` is narrowed to `list` by the checked operators (`as` / `is
 
 - **`tab as list`**: asserts the table is currently a list; a `TypeError` (panic) if it is
   not (has a gap or a string key).
-- **`tab is list`**: the boolean test that also narrows `tab` to `list` in the taken branch.
+- **`tab is list`**: a **boolean test** of whether the table is currently a list. It does not
+  narrow `tab` (Luna does no flow-narrowing, as spec §7); to obtain a `list`-typed binding, use
+  `tab as list` (or a `@list` match pattern), which produces a narrowed value.
 
 Removal leaves gaps rather than reindexing (§2.2), so a table with gaps is genuinely not a
 list. To **re-compact** a gapped or keyed table into a fresh contiguous list, call

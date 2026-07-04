@@ -74,20 +74,28 @@ arm matches iff the pattern matches **and** the guard holds:
 ```
 
 Here the positions are simple (two literals, a discard, a binding `x`), and the `where` guard
-does the work: `x is int` is the type refinement (using `is`, which also **narrows** `x` to
-`int` in the body), and `x > 10` is the value condition. This is the clean form of what would
-otherwise be an unreadable per-position tangle:
+does the work: `x is int` is a **boolean type test** and `x > 10` is a value condition. A `where`
+guard is a pure boolean expression; it conditions whether the arm matches, but it does **not**
+narrow a binding's type (Luna does no flow-narrowing, as spec §7). To bind `x` **already narrowed**
+to `int`, put the type in the **position** with the `@T name` type pattern, which binds a fresh
+`x : int`:
 
 ```
-[1, 2, _, x where int as x && x > 10]      // avoid: binding, type, and guard crammed into one position
-[1, 2, _, x] where x is int && x > 10       // prefer: position binds; guard conditions
+[1, 2, _, @int x] where x > 10 => ...,      // @int x binds x AS int; guard is a pure value condition
+[1, 2, _, x] where x is int && x > 10 => ..., // also valid: x is the union type; `is int` is a boolean guard
 ```
+
+The first form is idiomatic when you want `x` typed as `int` in the body: the **type pattern**
+narrows (by binding a new name of that type), which is the only way narrowing ever happens (as spec
+§7). In the second form `x` keeps its matched type in the body and `is int` merely gates the arm;
+if you then need it as `int`, bind it narrowed with `@int x` in the position instead.
 
 `where` is the **same operator as in constraints** (constraints spec): "restrict a value by a
 predicate." A guard is an ordinary boolean expression over the arm's bindings, so it composes
 freely:
 
-- **Type refinement:** `where x is int` (narrows `x` to `int` in the body).
+- **Type test:** `where x is int` (a boolean test that gates the arm; to bind `x` narrowed to
+  `int`, use the `@int x` type pattern in the position, as spec §7).
 - **Value condition:** `where x > 10`.
 - **Cross-binding:** `where x > y` (references several bindings from the pattern).
 - **Any pure predicate:** `where isPrime(x)`.
@@ -197,8 +205,9 @@ undefined in a binding, require-presence in a match. This is noted in both specs
 Two further pattern forms cover "in a range" and "one of these," reusing existing syntax rather
 than adding a new construct:
 
-- **Range pattern** `lo..hi`: matches iff the scrutinee is within the range (reusing the range
-  syntax that slicing uses, bytes spec). Natural for classifying numbers:
+- **Range pattern** `lo..hi`: matches iff the scrutinee is within the **inclusive** range
+  (range spec), a membership test (endpoints), not a stream. `200..299` matches 200 through 299
+  inclusive; `lo..<hi` excludes the top. Natural for classifying numbers:
 
   ```
   match (status) {
@@ -396,12 +405,6 @@ references, with the nocopy handling that implies.
 
 ## 12. Open questions
 
-Match itself is essentially settled; its one genuine dependency is on a construct it does not
-own:
-
-- **Range semantics come from the range spec, which is not yet written.** Whether `1..10` is
-  inclusive or half-open, whether a second form (`..=`) exists for the other, and whether ranges
-  apply beyond numbers (to strings, for example) are properties of the `..` syntax itself, used
-  already in slicing (bytes spec) and here in range patterns (§5), but never defined. Range
-  patterns inherit whatever the range spec decides; this is a language-wide gap, not a match
-  question, and is the next spec to write.
+Match itself is settled. Range patterns (§5) now follow the **range spec**: `..` is inclusive,
+`..<` excludes the top, and a range pattern is a membership test over the inclusive (or
+top-exclusive) bounds. No open match-specific questions remain.

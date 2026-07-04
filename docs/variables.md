@@ -100,6 +100,36 @@ if (a) handle = openA();
 if (b) handle = openB();           // runtime WriteOnceViolationError if a and b both hold
 ```
 
+### 1.3 Every declaration must be initialized
+
+A variable declaration **must** provide an initializer. There is no uninitialized
+declaration form: `var x: int;` is a **compile error**. You write `var x: int = 0`, or, for
+a value that is not yet known, an **optional** initialized to `null`:
+
+```
+var x: int;             // COMPILE ERROR: a declaration must be initialized
+var x: int = 0;         // OK
+let x?: int = null;     // OK: "not set yet" is an explicit null, filled once later (§1.2)
+```
+
+This is not merely stylistic; it is what lets Luna's compiler do **no control-flow analysis**
+(compiler spec). "Is this variable assigned before it is used?" is the classic question that
+requires definite-assignment analysis, tracking, along every control-flow path, whether an
+assignment has happened yet. By forbidding the uninitialized state entirely, Luna makes that
+question vacuous: there is never a point where a binding lacks a value, so there is nothing to
+analyze. The two legitimate "no value yet" needs are served without an uninitialized state:
+
+- **"Empty for now, will be set once"**, an optional `let x?: T = null` (§1.2). The not-yet-set
+  value is a *checkable* `null` (the type is `T | null`, so the type system forces you to handle the
+  null before using it as `T`), not a value that panics on use.
+- **"Absent"**, handled by `undefined` (undefined spec), which the language produces (a missing
+  key, a void return) but which you never write as an initializer.
+
+So "not yet set" is always an explicit, checkable `null` via an optional, never an uninitialized
+binding. The fact carried is in the **type** (`T | null`), not in a control-flow path, which is the
+recurring rule that keeps the compiler analysis-free: facts live in types or in runtime state, never
+in "what is true on this path."
+
 ---
 
 ## 2. `let` and interior mutation

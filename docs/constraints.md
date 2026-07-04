@@ -104,8 +104,9 @@ directions follow the general rule (`as` spec):
   fits. `byte -> int` never checks and never fails.
 - **Narrow to constrained: explicit `as`, runtime-checked.** `int -> byte` adds the
   constraint, which can fail, so it is written `x as byte`, which runs the predicate and raises
-  a `TypeError` (panic) if it does not hold. `x is byte` is the boolean-plus-narrowing
-  counterpart.
+  a `TypeError` (panic) if it does not hold. `x is byte` is the **boolean test** counterpart: it
+  reports whether `x` satisfies the constraint but does not narrow `x`; to obtain a `byte` binding,
+  use `as` (as spec §7).
 
 So constraints slot exactly into the widen-implicit / narrow-via-`as` model that governs every
 other subtype relationship in Luna.
