@@ -208,20 +208,21 @@ per-value reflection cost.
 - **Constraint base**, for a constrained type (`byte`), its base type (`int`); the predicate itself
   is comptime-only.
 
-**Comptime-only (the deeper reflection surface, specified with `typeinfo`):**
+**Comptime-only (the deeper reflection surface, the `comptime fn` tier of the reflection spec):**
 
-- **Field enumeration**, for a table or record type, its fields and their types (what serialization
-  and attribute-driven generation walk, attributes spec §4).
-- **Attributes**, readable only at comptime (attributes spec).
-- **Enum variants**, for an enum type, its variant set and payload types (compile-time exhaustiveness
-  uses this, match spec §9).
-- **Constraint predicate** and other full structural detail.
+- **Field enumeration** (`fields(t)`), for a table or record type, its fields and their types (what
+  serialization and attribute-driven generation walk, attributes spec §4, reflection spec §3.2).
+- **Attributes** (`attributes(t)`), readable only at comptime (attributes spec).
+- **Enum variants** (`variants(t)`), for an enum type, its variant set and payload types
+  (compile-time exhaustiveness uses this, match spec §9).
+- **Constraint predicate** (`constraintPredicate(t)`) and other full structural detail.
 
 The dividing line is cost: the runtime tier is a handful of integer and string lookups on the
 `typetable`; the comptime tier is structural walking that, if permitted at runtime on arbitrary
-values, would reintroduce the per-value reflection cost the value model avoids. So the full
-`typeinfo` is a comptime capability, and a runtime `type` is the cheap, comparable identity plus its
-immediate typetable facts.
+values, would reintroduce the per-value reflection cost the value model avoids. So the deep
+structural surface is a **comptime** capability (the `comptime fn` reflection tier), and a runtime
+`type` is the cheap, comparable identity plus its immediate typetable facts (the `fn` reflection
+tier).
 
 ---
 
@@ -295,11 +296,9 @@ compiler's `typeinfo`/IR, not by any runtime structure.
 
 ## 9. Open questions
 
-- **The full comptime `typeinfo` surface.** The exact API for the comptime-only tier of §6 (field
-  enumeration, attribute reads, variant enumeration, predicate access) is specified with `typeinfo`
-  and the comptime-reflection design; this spec fixes only the runtime-vs-comptime split.
 - **`declared` on nested and destructured bindings.** How `declared` behaves for a binding reached
   through destructuring or for a field of a declared table (whether it reports the enclosing
   declaration's element type or something finer), pending use. The written-vs-inferred case is
   resolved (§4: `declared` reports the binding's type either way); only nested and destructured
-  forms remain open.
+  forms remain open. (The comptime reflection surface itself, `fields`, `variants`, `attributes`,
+  `constraintPredicate`, is specified in the reflection spec.)

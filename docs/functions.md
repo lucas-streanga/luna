@@ -133,6 +133,42 @@ identity, so the type system checks them at assignment and call (§7). A `fn` va
 type is not assignable where an incompatible function type is required, e.g. a throwing
 function is not accepted where a non-throwing one is demanded.
 
+Comptime-eligibility being type-distinguishing has two consequences worth stating, since a
+function that is comptime and one that is not are genuinely different kinds of value:
+
+- **Type comparison respects it.** `@f != @g` when one is comptime-eligible and the other is
+  not, they are different function types. (Value equality is separate: `fn` compares by
+  **identity**, equality spec, so `f == g` never consults the signature; the comptime
+  distinction lives in the *type*, `@f`, not the value.)
+- **The substitution rule is one-directional**, and it turns on the difference between
+  **foldability** (a function *can* run at compile time) and **runtime-absence** (a function exists
+  *only* at compile time). These are two different properties, and only the first coerces:
+
+  - **An eligible plain `fn` may be used where a `comptime fn` is expected.** A comptime-fn context
+    requires that the function be **foldable**, and a comptime-*eligible* plain `fn` is exactly that.
+    The compiler already computes eligibility (§5.1), so at the boundary it checks: if the passed
+    function is eligible, it is **accepted** (an automatic coercion, no runtime cost); if it is not
+    eligible (it has a `use` clause or calls ineligible code), it is a **compile error** at that
+    call site. This gating is what makes the coercion both safe and ergonomic, you need not annotate
+    a function `comptime` merely to hand it to a comptime-fn parameter; the compiler resolves it.
+  - **A declared `comptime fn` may *not* be used where a runtime `fn` is expected.** This is not a
+    safety policy but an **impossibility**: a declared `comptime fn` has **no runtime existence**
+    (it is consumed at compile time, like an attribute), so a runtime call site handed one would
+    have nothing to call. The runtime-`fn` slot needs a callable that exists at runtime, and a
+    declared `comptime fn` is definitionally absent then.
+
+  So foldability **widens into** comptime-fn contexts (eligible plain fn is usable as a comptime
+  fn), while runtime-absence **does not widen out** to runtime contexts (a comptime fn is not a
+  runtime fn). This mirrors errorability (§4): a non-throwing function widens into a context expecting
+  a throwing one, but not the reverse. Here an eligible function widens into a comptime context, but
+  a runtime-absent one does not widen back to runtime.
+
+Note the distinction between *eligible* and *declared* here: a comptime-**eligible** plain `fn`
+exists at runtime (it is an ordinary pure function that *may* also be folded at a `comptime` call
+site, and so coerces into comptime contexts), whereas a **declared** `comptime fn` exists only at
+compile time (and so cannot go where a runtime function is required). Only the declared form is
+runtime-absent; eligibility alone never removes a function from runtime.
+
 The `use` clause is **not** part of the externally-visible type in the same way: it
 describes how the function captures its *own* defining scope, which is fixed when the
 closure is created, not a parameter the caller supplies. What the caller sees of capture
@@ -298,14 +334,46 @@ comptime maybe(21);                 // error: let binding is not a statically-kn
 ineligible function is still not comptime-callable, and an eligible function reached
 through a reassignable `let` is not either.
 
-### 5.3 Inferred, optionally declared
+### 5.3 Inferred, optionally declared; and `comptime fn` for always-comptime functions
 
 Comptime-eligibility is **inferred** by default: any `use`-free (transitively) function
-may be called in `comptime` without annotation. A function may optionally be **declared**
-`comptime` to require the compiler to enforce eligibility at its definition, so that a
-later edit adding a `use` clause becomes a compile error at the function rather than
-silently breaking distant `comptime` callers. Inference for convenience, declaration for
-contract, the same pattern as errorability (§4).
+may be called in `comptime` without annotation. A function may also be **declared**
+`comptime`, and there are two strengths of declaration:
+
+- **`comptime` as an eligibility contract on an ordinary function.** Annotating a normal
+  function `comptime` requires the compiler to enforce eligibility at its definition, so
+  that a later edit adding a `use` clause becomes a compile error at the function rather
+  than silently breaking distant `comptime` callers. The function is still an ordinary
+  runtime function; the annotation only *guarantees* it stays comptime-eligible.
+
+- **`comptime fn` as an always-comptime declaration.** A binding declared
+  `const f = comptime fn (...) => ...` is a function that is **always** evaluated at
+  compile time. Every call to it folds, and it **may only be called with
+  compile-time-known arguments** (or from within other comptime code). Such a function
+  has **no runtime existence**: like an attribute (attributes spec), it is consumed during
+  compilation and is never emitted. This is the form the reflection API's structural
+  queries use (reflection spec): `const fields = comptime fn (t: type): table` is always
+  comptime, so calling it *requires* a compile-time-known `type` argument and *never*
+  appears at runtime.
+
+The difference: a plain (or `comptime`-annotated) function *may* be folded at a `comptime`
+call site but otherwise runs at runtime; a **`comptime fn`** is folded at *every* call,
+requires compile-time-known arguments *at every call*, and has no runtime form. `comptime
+fn` is to comptime what an attribute is to data: a compile-time-only construct. Inference
+for convenience, `comptime` annotation for contract, `comptime fn` for a function that is
+compile-time-only by construction.
+
+A `comptime fn` may of course still be called from an ordinary runtime function, as long as
+its arguments are compile-time-known there. Because the criterion is *compile-time-known
+arguments*, not *const values*, a call like `fields(@x)` folds whenever `x`'s **type** is
+statically known (the common case, any typed binding), even when `x` itself is a mutable
+`var` whose value is computed at runtime, what must be static is the *type* passed in, not
+the value `x` holds (reflection spec §2).
+
+Conversely, a comptime-*eligible* plain function may be passed **into** a context that expects a
+`comptime fn` (the compiler checks eligibility and coerces, or errors if ineligible), while a
+declared `comptime fn` may **not** be passed where a runtime `fn` is expected (it has no runtime
+existence). This one-directional substitution rule is stated with the function type (§3).
 
 ### 5.4 A comptime error is a compile error
 
