@@ -202,6 +202,17 @@ here because it governs all element access, and `apply` is just one place it mat
 A `.` or `[]` read of a missing key yields `undefined` (§6.1), which coalesces with
 `??` / `?.` like any other absence.
 
+**A table never stores `undefined`**, so assigning `undefined` into a key never stores it and never
+deletes the key. Assigning `undefined` is a **use** of the value and is illegal (undefined spec §3):
+the literal `tab['k'] = undefined` and any assignment of a *statically* undefined value (a void call,
+an `undefined`-typed binding) are **compile errors**, and assigning a value that turns out to be
+undefined at run time (for example a missing-key read passed along) is a **runtime panic**. So
+`existence ⟺ not-undefined` holds by construction: no assignment can put `undefined` into storage.
+Deletion is always **explicit**, `remove` / `unset` (§4.1), never a side effect of assigning
+`undefined`, silent delete-on-assign would let a stray undefined make a key vanish untraceably, so
+the language rejects the assignment instead. To move a possibly-undefined value into a table, resolve
+the absence first (`tab['k'] = maybe ?? fallback`).
+
 ### 3.3 Element space (`.` / `[]`) vs. meta space (`->`)
 
 `.` and `[]` reach **element space**: the table's own keyed data. A third operator,

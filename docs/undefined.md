@@ -36,17 +36,29 @@ because absence is something the language can report anywhere a value is produce
 a real, storable value at the **binding** level.
 
 But **using** an `undefined`, dereferencing it, doing arithmetic on it, calling it, indexing it,
-passing it where a concrete value is required, **panics** (a `Panic`, errors spec). This is the
-point of `undefined`: it represents a value that is not there, so *acting* on it as though it were a
-real value is a bug, and the language stops loudly rather than proceeding with a nonsense value.
+assigning it into a table (§3.1), passing it where a concrete value is required, is an error, because
+`undefined` represents a value that is not there, so *acting* on it as though it were a real value is
+a bug. The language catches this at the earliest point it can:
+
+- if the value is **statically known** to be undefined (its type *is* `undefined`, a void return or
+  an `undefined`-typed binding), the use is a **compile error**;
+- if the value **might** be undefined (its type is `T` but it could hold undefined at run time, a
+  missing-key read), the use is a **runtime panic** (a `Panic`, errors spec) *iff* it is actually
+  undefined at that moment.
+
+This is the same static-when-possible discipline used throughout the language: prove it and reject at
+compile time, otherwise stop loudly at run time rather than proceeding with a nonsense value.
 
 ```
-const l = tab['missing'];      // l is undefined (fine)
-const n = l + 1;               // PANIC: used an undefined
+const l = tab['missing'];      // l is undefined (fine, a binding, §3.3)
+const n = l + 1;               // PANIC: used a possibly-undefined value that is undefined now
+const u = voidFn();            // u : undefined (fine, inert binding)
+const m = u + 1;               // COMPILE ERROR: used a statically-known undefined
 ```
 
 So `undefined` is **storable but not usable**: you may hold it, check it, and coalesce it away, but
-the moment you treat it as a real value, it panics. Holding it is safe; using it is the bug.
+the moment you treat it as a real value it is rejected, statically if the compiler can prove it,
+dynamically otherwise. Holding it is safe; using it is the bug.
 
 ### 2.1 Checking and coalescing, the safe ways to handle it
 
@@ -73,9 +85,81 @@ spec). This gives the load-bearing equivalence:
 > that does not exist reads as `undefined`. There is no third case.
 
 This is what makes absence unambiguous: `tab['k'] == undefined` means exactly "no such key," never
-"a key storing undefined," because the latter cannot exist. Writing `undefined` into a table is not
-possible (there is no way to produce it as a stored value, §5), so the equivalence holds by
-construction, and `??`/`?.`/existence-checks compose without ambiguity (coalescing spec).
+"a key storing undefined," because the latter cannot exist. The equivalence holds **by
+construction**: there is no path, at compile time or run time, by which `undefined` can enter table
+storage.
+
+### 3.1 Assigning `undefined` into a table never stores it
+
+Because `undefined` can never be a table value, assigning it into a key does **not** store it, and it
+does **not** silently delete the key either (deletion is explicit, §3.2). Instead:
+
+- **`tab['k'] = undefined` (the literal)** is a **compile error**, undefined cannot be written
+  explicitly at all (§5), so this is caught the same way `var x = undefined` is.
+- **`tab['k'] = v` where `v` is *statically* undefined** is a **compile error**. When the compiler
+  *knows* the right-hand side is undefined, because its type *is* `undefined` (a void return, or a
+  binding of type `undefined`), it rejects the assignment at compile time rather than deferring to a
+  runtime panic:
+
+  ```
+  someTab['i'] = voidFn();          // COMPILE ERROR: voidFn() returns undefined (§4)
+  const u = voidFn();               // legal: u : undefined (an inert binding, §3.3)
+  someTab['k'] = u;                 // COMPILE ERROR: u is statically undefined
+  ```
+
+- **`tab['k'] = v` where `v` *might* be undefined at run time** is a **runtime panic** if `v` is in
+  fact undefined at that moment. When the value's type is `T` but it could hold undefined (for
+  example, the result of a missing-key read bound to a variable), the compiler cannot prove it either
+  way, so the check is deferred: assigning it panics *iff* it is actually undefined when the
+  assignment runs.
+
+  ```
+  var v = tab['maybeMissing'];      // v might be undefined
+  dest['k'] = v;                    // PANIC iff v is undefined right now
+  dest['k'] = v ?? fallback;        // safe: ?? resolves the absence before the write
+  ```
+
+The unifying rule: **assigning `undefined` into a table is illegal**, and the language catches it
+**statically when it can prove the value is undefined (a compile error) and dynamically when it can
+only tell at run time (a panic)**, the same static-when-possible discipline used throughout the
+language. Assignment into a table is a **use** of the value, so this is just the general
+undefined-on-use rule (§2) applied to the assignment position: a use of a statically-known undefined
+is a compile error, a use of a possibly-undefined value is a runtime panic.
+
+Why panic rather than delete-on-assign: silent deletion would be a severe footgun. If
+`tab['balance'] = computeBalance()` and `computeBalance()` accidentally produced undefined (a missing
+lookup deep inside), a delete-on-assign rule would make `tab['balance']` **silently vanish**, and
+later reads could not distinguish "never set" from "deleted by a bad write." Panicking (or erroring
+at compile time) instead surfaces the upstream undefined-producing bug **at the assignment site**,
+which is exactly where the corruption would have entered the table. Deletion is therefore always
+explicit (§3.2), never a side effect of assignment.
+
+### 3.2 Deleting a key is explicit
+
+Removing a key is done with the table's explicit removal operations (`remove`, `unset`, tables
+spec), never by assigning `undefined`. This keeps deletion a deliberate, named act, and it keeps
+`undefined` out of the assignment-to-delete role that would require making it writable. So: to read
+absence, read a missing key (yields `undefined`); to *create* absence, call `remove`; assignment
+never deletes.
+
+### 3.3 A binding of type `undefined` is legal but inert
+
+Holding `undefined` is always legal, whether or not the compiler knows statically that the value is
+undefined. `const u = voidFn()` binds `u : undefined`; a missing-key read binds a possibly-undefined
+value. Binding is never the error, this is the same decision that lets `const l = tab['missing']`
+bind undefined (§2). What is controlled is **use**, not holding:
+
+- a statically-`undefined` binding (`u : undefined`) is **inert**, you may hold it, compare it, and
+  coalesce it, but any *use* (arithmetic, deref, call, index, assignment into a table, passing where
+  a concrete value is required) is a **compile error**, because the compiler knows it is undefined;
+- a possibly-undefined binding (type `T`, might hold undefined) is usable *if* it currently holds a
+  real value, and **panics** if it is used while actually undefined.
+
+Forbidding the *binding* would be inconsistent: it would penalize the compiler for knowing more (a
+statically-undefined binding would be illegal while an equally-undefined-but-less-provable one is
+legal). So binding is uniformly legal, and the static knowledge is spent making *uses* compile
+errors rather than runtime panics, which is a strict improvement (caught earlier, clearer
+diagnostic), not a new prohibition.
 
 ## 4. Void functions return `undefined`
 
