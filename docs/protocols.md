@@ -384,23 +384,32 @@ is unchanged; this is additional static information that some values carry.
 
 ### 7.1 A protocol as a type: `@proto`
 
-A protocol is a `proto` value, but in **type position** it denotes a type: the type of
-tables that wear it. That type is written `@proto`.
+A protocol is a `proto` value, but in **type position** the form `@P` denotes a type: the type of
+tables that wear `P`.
 
 ```
 var l: @stringBuilder = ...;    // l is a table statically known to wear stringBuilder
 ```
 
-`@` on a `proto` is a distinguished meaning of the type-of operator: `@42` is `int` (the
-value's own type), but `@stringBuilder` is **not** `proto` (the value's own type), it is
-"wearer of stringBuilder". So `@stringBuilder != proto`. This is the one place `@` yields
-something other than the literal type of its operand, and it does so because a protocol
-is exactly the kind of value whose "as a type" meaning is a contract on *other* values,
-not a description of itself.
+This is **not** a special case of the reflection operator; it is the type-position role of `@`,
+disambiguated purely by grammatical position, the same way `*` in C is multiplication in an
+expression and a pointer in a declaration (type spec §1.1). In **value** position, `@x` reflects a
+value and yields a `type` (so `@stringBuilder` in value position is `proto`, the proto's own type).
+In **type** position, `@P` is a **wearer refinement**: "a table guaranteed to wear `P`." Same glyph,
+two roles, fixed by position at parse time, so there is no runtime ambiguity and the parser needs no
+type information. Within type position, `@X` is a wearer refinement only when `X` resolves to a
+protocol; `@X` on a non-protocol type is a compile error, decided in semantic analysis (protocol-ness
+is static, the type universe is closed).
 
-It composes with `@@` (views document): `@` crosses from a `proto` value to its
-wearer-type, while `@@` crosses from a value to the `proto` values it carries. The two
-`@`-family operators stay coherent, `@` is about types, `@@` is about protocols-as-data.
+A wearer refinement is deliberately **not a `type` value** (type spec §5): it has no `typeid`,
+because protocol-wearing is a *value* property (the applied-protocol set, reflected by `@@`, views
+document), not a type property. So `@P` cannot be produced by `@` on a value, cannot be compared by
+`typeid` equality, and cannot be bound to a `type` binding; it is a static guarantee about `->P`, not
+a first-class type. This is why it composes with `@@` without collision: `@@` crosses from a value to
+the `proto` values it carries (reflection on the protocol axis), while `@P` in type position is a
+static guarantee *about* that axis, "`l->P` is present." The two `@`-family operators stay coherent:
+`@` is types (value-position reflection, `typeid`s), `@@` is protocols-as-data, and `@P` in type
+position is a refinement guaranteeing membership on the `@@` axis.
 
 ### 7.2 Composing protocol types: `@P & @Q`
 
@@ -463,7 +472,7 @@ compile time. A table *literal* has statically-known keys, so the check applies 
 the literal is non-empty, not only for the fresh `[]` case:
 
 ```
-var l: @stringBuilder = [collision => "value"] apply stringBuilder;
+var l: @stringBuilder = ['collision' => "value"] apply stringBuilder;
 // compile error if stringBuilder declares an element member `collision`
 ```
 
