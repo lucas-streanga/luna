@@ -47,33 +47,50 @@ Two O(1) predicates report internal shape (both defined in
 - `isContiguousMemory()`, true iff stored contiguously. All lists are
   contiguous; some non-list tables are too. **Any string key ⇒ never contiguous.**
 
-### 2.1 `list` is a type: a refinement of `table`
+### 2.1 `table` is the primitive; `list` is a constraint on it
 
-`list` is a **type**, usable in annotations and signatures, not merely an internal shape.
-It is a **refinement (subtype) of `table`**: a `list` is exactly a table whose keys are
-`{0, 1, ..., n-1}` and nothing else. So:
+**`table` is the one table type.** There is no second table-like primitive, no `hashmap`,
+and list-ness is not a distinct kind of value: it is a **shape a table currently has**
+(keys exactly `{0, 1, ..., n-1}` and nothing else), queryable in O(1) as **`isList()`**
+(§2.2).
 
-```
-list <: table          // every list is a table; not every table is a list
-```
+**`list` is a type only in the way every constraint is** (constraints spec): the built-in
+**invariant table-level constraint** (§8, constraints §7.1, §10) whose predicate is
+"`isList()` holds." It mints a typeid inside `table`'s interval (constraints §9.1), so
+`list <: table` and a list is usable anywhere a `table` is expected (widening is implicit,
+`as` spec), while treating a `table` as a `list` is a checked narrowing (§2.3). It is
+special among table-level constraints only in cost: its predicate reads the maintained
+O(1) bit (§2.2) instead of scanning keys, so declaring `list` buys full invariant
+protection at O(1) per mutation where a general table constraint pays its predicate.
 
-This is the same is-a relationship `IOError` has to `error` or `reveal` to `capability`. A
-`list` is usable **anywhere a `table` is expected** with no ceremony (widening is implicit,
-`as` spec); the reverse, treating a `table` as a `list`, is a narrowing (§2.3). `list` is the
-built-in instance of a **table-level constraint** (§8), a constraint that refines `table` by its
-**structure** rather than by any stored value; it is special only in that its membership is
-maintained as an O(1) bit (§2.2) rather than tested by a predicate scan.
+The division of labor is **type = commitment, method = fact**. An *unconstrained* table's
+shape is a fact that varies freely as keys come and go, reported by `isList()`, and `@t`
+reports `"table"` regardless of the current shape, no key layout changes a value's type.
+A *`list`-declared* position is a commitment: the value entered through the constraint,
+carries its typeid, `@` reports `"list"` (ordinary constraint reflection, constraints §8),
+and a shape-breaking write is a violation, a **compile error** where statically evident
+(`xs['k'] = 1` on `xs: list`), a **panic** where index-dependent (constraints §7). So:
+declare `table` and nothing about shape can ever be violated; declare `list` and the shape
+is protected, through every path, like any invariant constraint (constraints §9.4).
 
-The empty table `[]` is the empty list (zero keys vacuously satisfies "keys are `0..n-1`"),
-so `let xs: list = []` is statically a list. A table literal whose shape is visibly a list
-(`[1, 2, 3]`) is statically `list`; one with a string key (`['x' => 1]`) is not, and
-assigning it to a `list` binding is a compile error.
+The empty table `[]` satisfies the predicate vacuously, so `let xs: list = []` is legal,
+and a literal whose shape visibly satisfies it (`[1, 2, 3]`) enters a `list` declaration
+with the check discharged at compile time; `['x' => 1]` into a `list` binding is a compile
+error. An **unannotated** binding infers `table` (`var t = [1, 2, 3]` is a table that
+happens to be list-shaped): a literal carries no constraint, constraints enter only
+through declarations (constraints §7, "on entry"), so protection is always an explicit
+choice, never an accident of the initializer.
 
 ### 2.2 List-ness is a maintained, O(1) property
 
-A table's list-ness is **maintained**, not recomputed: the table carries it as a cheap
-derived property, so `isList()` is O(1), never an O(n) key scan. Operations preserve or
-break it predictably:
+A table's list-ness is **maintained**, not recomputed: every table carries it as a cheap
+derived bit, so `isList()` is O(1), never an O(n) key scan. The bit is a **fact about the
+current shape**, not a type (§2.1): on an unconstrained table it simply flips as the shape
+changes, and on a `list`-constrained value it is what makes the constraint's per-mutation
+predicate O(1) (constraints §7, §10), the check *reads the bit the write would leave*, and
+a write that would clear it **panics** with the value unchanged (invariant semantics,
+constraints §7.1), compile error where statically evident (§2.1). Operations set or clear
+the bit predictably:
 
 - **Append at the next index** (setting key `n` on an `n`-element list): stays a list.
 - **Update an existing in-range integer key** (value change): stays a list.
@@ -127,6 +144,10 @@ someFn(tab.values())    // always legal; builds a fresh list from tab's values
 Operations that are guaranteed to produce a contiguous-from-zero result are typed to return
 `list`, not `table`, so callers get the list guarantee statically (and can index `0..n-1`,
 pass to list-requiring functions, and destructure positionally without a runtime check). A
+returned `list` is a constraint-carrying value like any other (constraints §9.2), so the
+guarantee is **maintained** by ordinary invariant enforcement, and an unannotated binding
+initialized from such a call infers `list` (inference keeps constraints as-is, variables
+§1: the producer's commitment stays). A
 `const` list additionally takes the tightest representation (a pure contiguous array with no
 stored keys, since the keys are implicitly `0..n-1`; Amendment A).
 
@@ -657,10 +678,12 @@ specifically:
 
 - **The constraint travels with the value.** Widening a `pair`-constrained table to plain `table`
   (collapse, constraints §9.2) does not strip the constraint from the value; it only relaxes the
-  static demand. So a mutation reached through a `&t: table` reference to a `pair` still re-runs the
-  `pair` predicate and **panics if the write would break it** (constraints §9.4), even though the
-  mutating site sees only `table`. Handing a callee a genuinely unconstrained table is explicit,
-  `copy` it (variables §5.2) or rebuild with `values()`.
+  static demand. A widened **`&`** route no longer exists (references are invariant, variables
+  §5.1), but the value can still be reached through a **wider container path**, a `pair` stored
+  in an untyped slot and mutated as `outer['p']['x'] = v`, and there the write still re-runs the
+  `pair` predicate off the value's own typeid and **panics if it would break it** (constraints
+  §9.4), even though the mutating site sees no `pair`. Handing code a genuinely unconstrained
+  table is explicit, `copy` it (variables §5.2) or rebuild with `values()`.
 - **A violating mutation panics and leaves the table unchanged** (`TypeError`, errors §9); it never
   silently downgrades the binding's type (Luna does no flow-narrowing, `as` spec §7).
 

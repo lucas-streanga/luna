@@ -259,8 +259,24 @@ properties:
 
 - **Nullability.** Whether the declared type admits null. (The *current* null state
   is the `lval`'s `isNull` flag; the *capacity* to be null is here.)
-- **Attributes.** Attributes are tied to the type. Each distinct combination of base
-  type and attributes is its own `typeinfo`, and therefore its own id.
+- **What is *not* here: attributes.** Attributes have **no runtime existence** and are
+  **not** part of a `typeinfo` or a `typeid` (attributes spec §1, §5): they are a
+  compile-time sidecar on the *declaration*, consumed by comptime and then gone. Two
+  declarations that differ only in attributes intern to the **same** id, an attributed
+  `int` *is* `int`, and `@a == @b` is never perturbed by tags. (Consequence for
+  reflection: a bare `type` value identifies attributes only where typeid and declaration
+  are 1:1, named declarations; anonymous shapes are reached through the `comptype`
+  operator, which reads comptime provenance, reflection spec §3.2.)
+- **`valueBase`.** One precomputed `typeid`: the type's **constraint-erasure**. For a
+  constraint type (constraints §9.1) it is the base's `valueBase`, so chains collapse
+  transitively to the plain root (`byte` → `int`, `port` → `int`, `list` → `table`);
+  for **every other** type, plain types, unions, enum variants, error types, function
+  types, it is the type's **own id**, nominal identity never erases. Computed once at
+  interning (the universe is closed, §4.1), immutable, one word per entry. This is what
+  makes constraint-transparent `==` cheap (equality spec §1): same-typeid comparisons
+  never touch it, and a typeid mismatch resolves with two indexed loads and one compare,
+  or at compile time outright when the operands' static types are known. Hashing for
+  `==`-keyed structures hashes (`valueBase`, payload) for the same reason (equality §1).
 
 ### 4.1 The type universe is static; interning bounds the table
 

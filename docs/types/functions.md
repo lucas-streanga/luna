@@ -280,6 +280,11 @@ separate variance calculus:
   parameter, an ordinary "does this parameter accept this argument type" check (a wider
   parameter, `int | string`, accepts a narrower argument, `int`). This gives parameter
   flexibility from the same assignability rule.
+- **`&` parameters are invariant**: a reference position matches only the **exact** same
+  referenced type, `&list` never fits `&table`, in either direction (variables §5.1). A
+  reference is a write channel, so the widening that is safe for by-value parameters is the
+  classic variance unsoundness for references; exactness is checked here like any other
+  per-position rule, with no variance calculus.
 
 The checker does **only** this per-position assignability; it never infers deeper variance.
 Where the automatic check is too strict, or the value is a bare `fn` whose signature is not

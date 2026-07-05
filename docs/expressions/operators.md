@@ -52,6 +52,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
+| `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | reflection §3.2 |
 | `...x` | reference | spread / rest | spread a table/stream into elements, or collect rest | spread, destructuring |
 | `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |
 | `a .. b` | control flow | range | lazy range stream from `a` to `b` | range |

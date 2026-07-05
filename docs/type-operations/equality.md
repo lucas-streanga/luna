@@ -1,39 +1,74 @@
 # Equality
 
 `==` is **strict** equality. It never coerces and never approximates: two values are equal only
-when they are the **same type** and, within that type, the **same value**. When strictness is not
-what you want, the escapes are explicit, conversion functions (conversion spec) to compare across
-types, and `match` (match spec) for partial or structural-subset matching. `==` itself is exact.
+when they are the **same underlying type** and, within it, the **same value**. "Underlying" is
+the one deliberate transparency: a **constraint** refines the *description* of a value, not the
+value (`byte` 65 *is* `int` 65, constraints §3, §9), so constraints are **transparent to `==`**,
+while **nominal identity** (an enum variant, an error type) is part of what a value *is* and
+never erases. When strictness is not what you want, the escapes are explicit, conversion
+functions (conversion spec) to compare across types, and `match` (match spec) for partial or
+structural-subset matching. `==` itself is exact.
 
 The evaluation of `a == b` has a uniform shape:
 
-1. **Compare types first.** If `@a != @b` (different `typeid`), the result is **`false`**
-   immediately, with no value comparison. Different types are never equal (§1).
-2. **Same type: compare by value or identity**, dispatched by which category the type falls into
-   (§2): scalars and strings and tables compare by **value**; streams, builders, functions,
-   promises, views, and capabilities compare by **identity**; a `type` compares by **`typeid`**.
+1. **Flags first**: the `null`/`undefined` states compare as their own values (§5).
+2. **Same `typeid`**: the fast path, one integer compare, then value/identity comparison
+   dispatched by the type's category (§2).
+3. **Different `typeid`s: erase constraints and re-compare.** Load each type's **`valueBase`**,
+   its precomputed constraint-erasure, from the `typetable` (value-representation §4). If the
+   bases **differ**, the result is **`false`**, no value comparison (§1): different underlying
+   types are never equal. If the bases **match**, the two values are the same underlying type
+   described at different precisions (a `byte` against an `int`, a `list` against a `table`), and
+   comparison proceeds by **value under the shared base's category** (§2).
 
-Because step 1 is a single integer compare and rejects mismatches outright, most unequal
-comparisons are O(1), and value comparison only ever runs on two values of identical type.
+Step 2 is unchanged from a pure typeid-first design and remains the overwhelmingly common case.
+Step 3 costs two indexed loads into the hot, read-only, compile-time-fixed `typetable` plus one
+compare, and it rarely runs at all: wherever both operands' **static** types are known, the
+compiler resolves `valueBase` at compile time and emits either the direct base comparison or a
+constant `false`, so the table loads exist only for dynamically-typed operands (`any`, unions).
+In statically-typed code the erasure rule costs nothing.
 
 ---
 
-## 1. Different types are never equal
+## 1. Different base types are never equal
 
-`a == b` is **`false`** whenever `@a != @b`. There is **no cross-type equality**: `1 == 1.0` is
-**false** (an `int` is not a `double`), `"1" == 1` is false, `null == undefined` is false (§5). This
-follows directly from the no-implicit-coercion stance (the language never coerces `1` to `1.0` to
-make a comparison succeed) and it has three payoffs:
+`a == b` is **`false`** whenever the two operands' **`valueBase`s** differ. There is **no
+cross-type equality** between underlying types: `1 == 1.0` is **false** (an `int` is not a
+`double`, the bases differ), `"1" == 1` is false, `null == undefined` is false (§5). This follows
+directly from the no-implicit-coercion stance (the language never coerces `1` to `1.0` to make a
+comparison succeed), and the payoffs stand:
 
-- **A fast path.** Type mismatch is rejected by one `typeid` compare, before any value is examined.
-- **It strengthens conversions.** To compare across types, convert explicitly (`x.toDouble() == y`,
-  conversion spec); the conversion is visible in the source, so what is being compared is never
-  hidden behind an implicit rule.
-- **It strengthens `match`.** Cross-type and partial comparisons are `match`'s job (match spec), so
-  `==` is free to be exact.
+- **A fast path.** Same-typeid comparison is one integer compare; a base mismatch is two table
+  loads and a compare, and compiles away entirely where static types are known (intro).
+- **It strengthens conversions.** To compare across underlying types, convert explicitly
+  (`x.toDouble() == y`, conversion spec); the conversion is visible in the source.
+- **It strengthens `match`.** Cross-type and partial comparisons are `match`'s job (match spec).
 
-So `==` presupposes equal types: the value comparisons in the rest of this document all assume
-`@a == @b` has already held.
+What changed from a pure typeid-first rule, and why: a **constraint typeid is not a different
+type of value**, it is the *same* base value carrying a more precise description (constraints §3,
+§9.2), so rejecting `someByte == 65` on the typeid alone would deny that `byte` 65 and `int` 65
+are the same integer, and it broke real code, `bytes` filtering (`x != 0` with `x` a `byte`,
+bytes §6), a `list`-declared value compared against an equal-content plain `table`, any
+constrained value against a literal (a literal always bears the plain base type). So `==` **erases constraints**:
+`someByte == 65` is `true` when the payloads match, `somePort == someByte` compares the two ints,
+`someList == someTable` compares structurally. Erasure applies **only** to constraints:
+
+- **Nominal identity never erases.** Enum variants are distinct kinds (`circle == square` is
+  `false` however equal the payloads, §6); distinct error types are unequal; the erasure chain
+  follows constraint edges only, and every non-constraint type is its own `valueBase`.
+- **Type values are exempt.** `@a == @b` compares two values *of type `type`*, whose payload
+  **is** the `typeid`, so `@someByte == @someInt` is **false** (`byte` and `int` are different
+  types, constraints §8). Erasure applies to an operand's type *tag*, never to a type-valued
+  *payload*; reflection sees constraints exactly as before.
+- **Relational parity.** `<`, `<=`, and arithmetic already operate on the widened base
+  (constraints §5); `==` was the one comparison that did not, and now agrees.
+- **Keying and hashing must agree with `==`.** Any structure keyed by `==` (table keys, tables
+  spec; membership and dedupe operations) must hash the **pair (`valueBase`, payload)**, never
+  the raw typeid, so `t[someByte]` and `t[65]` are the same slot, as equality demands.
+
+So `==` presupposes equal **bases**: the value comparisons in the rest of this document all
+assume the operands' `valueBase`s match, and "same type" below means same base, with the payload
+comparison run under that base's category.
 
 ---
 
@@ -69,7 +104,8 @@ stream, deciding function equivalence, reading a secret) would be wrong, impossi
 ## 3. Scalars and `type`
 
 - **`int`, `bool`, `byte`**, trivial value equality (a machine-integer compare on the payload).
-  Exact, no surprises.
+  Exact, no surprises. `byte` (and every int-based constraint, `port`, `i8`..., constraints §10)
+  erases to `int` (§1): `someByte == 65` is a plain integer compare.
 - **`type`**, a `typeid` compare (value-representation §4). Because type equality is **canonical**
   (type spec §3), `int | double == double | int` and `number == int | double` are true by a single
   integer compare, no structural walk. This is the cheapest possible comparison.
@@ -111,9 +147,11 @@ Two consequences of "by `==`" throughout:
   same, but the order differs, and order is observable (via `foreach`, tables spec), so it is part
   of a table's identity and therefore part of equality. Tables are ordered values, not unordered
   maps.
-- **Element type-strictness.** `['a' => 1] != ['a' => 1.0]`: the values `1` and `1.0` are different
-  types, so unequal (§1), so the tables are unequal. Table equality inherits the strictness of
-  element `==`, including IEEE NaN (a table with a NaN element is not equal to itself, §3).
+- **Element base-strictness.** `['a' => 1] != ['a' => 1.0]`: the values `1` and `1.0` have
+  different bases, so unequal (§1), so the tables are unequal. Table equality inherits element
+  `==` exactly, including constraint erasure (a table of `byte`s equals a table of the same
+  `int`s; a `list` equals an equal-content, equal-order `table`, their bases match, §1) and IEEE
+  NaN (a table with a NaN element is not equal to itself, §3).
 
 ### 4.1 Termination: tables cannot form cycles
 
@@ -238,19 +276,20 @@ become identity-equal by accident: some protocol it wears said so, in its defini
 
 ## 6. Summary: how each type compares
 
-`a == b` is always `false` first if `@a != @b` (different type, one `typeid` compare, §1).
-Otherwise, comparison is by the type below. "Reflexive" means `x == x` is true (it is, for every
-type except the two noted).
+`a == b` is `false` first if the operands' **`valueBase`s** differ (same-typeid fast path, else
+erasure, §1, intro). Otherwise, comparison is by the shared base type below. "Reflexive" means
+`x == x` is true (it is, for every type except the two noted).
 
 | Type | `==` compares by | Notes |
 |-|-|-|
-| `int`, `bool`, `byte` | value (integer compare) | trivial, exact |
+| `int`, `bool`, `byte` | value (integer compare) | trivial, exact; int-based constraints erase to `int` (§1): `someByte == 65` is true when payloads match |
 | `double` | **IEEE 754** | `NaN != NaN` (**not reflexive**); `-0.0 == +0.0`; no bit-compare; total order handles matching/sorting (§3) |
 | `null` | value | `null == null` true; single inhabitant |
 | `undefined` | value | `undefined == undefined` **true** (needed for absence checks); `null == undefined` false |
 | `string` | contents (length then bytes) | pointer fast-path to `true`; not interned; FFI strings compared by bytes (§5) |
 | `type` | canonical `typeid` | one integer compare; `int\|double == double\|int` (§3) |
-| `table` (default) | **structural**: same length, key/value pairs, types, values, **order** | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4) |
+| `table` (default) | **structural**: same length, key/value pairs, bases, values, **order** | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4); `list` erases to `table` (§1) |
+| `enum` value | same **variant** (nominal, no erasure, §1), then payload structurally | `circle != square` regardless of payloads; same variant compares its payload table by `==` |
 | `table` wearing `identityEquality` | **identity** | how builders compare; any such protocol makes the whole table identity-equal (§4.4) |
 | `stream` | identity | contents uncomparable (single-pass, maybe infinite) |
 | `stringBuilder` / builders | identity | via the `identityEquality` protocol declaration (§4.4); compare `.build()` results for content |
@@ -269,6 +308,10 @@ functions and `match` as the deliberate escapes for cross-type and partial compa
 
 ## 7. Open questions
 
+- **`error` value equality.** Errors are field-carrying value types (errors §5) but no row above
+  covers them; structural comparison is complicated by `stacktrace` (two otherwise-identical
+  errors thrown in different places differ) and `cause` chains. Undecided between structural-
+  minus-trace, identity, and structural-in-full.
 - **`view` equality.** How two views compare (pure identity, or "same underlying table identity and
   same protocol tag") is deferred to the reflection design, where the shape of a view's runtime
   identity is settled; identity is the working default until then.

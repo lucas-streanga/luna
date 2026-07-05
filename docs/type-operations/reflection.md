@@ -103,11 +103,64 @@ fn constraintBase(t: type): type?
 ### 3.2 Comptime tier
 
 ```
+comptype v                                   // operator: the comptime type of v (comptime-only)
 comptime fn fields(t: type): list
 comptime fn variants(t: type): list
 comptime fn attributes(t: type): table
 comptime fn constraintPredicate(t: type): fn
 ```
+
+- **`comptype v`**, an **operator**, the bridge from a **value** to its **declaration
+  descriptor**, a value of the built-in type **`comptype`**. Like `error`, the word is both
+  the operator and the type's name, disambiguated by position (errors spec §3): in expression
+  position it is a prefix word operator in the `copy` / `try` family; in type position it is
+  the type. A `comptype` value is a **nominal record**, read with ordinary `.` like an error's
+  fields (errors §2.1), **not** a table and not a subtype of one (so it can never leak into
+  runtime through a `table`-typed slot):
+
+  ```
+  (comptype v).type          // type: exactly @v, the ordinary, runtime-identical type
+  (comptype v).fields        // list: the declared members, in the fields() row shape below
+  (comptype v).attributes    // table: the declaration's attributes (attributes spec)
+  ```
+
+  `fields` and `attributes` are drawn from the value's **originating declaration** (a table
+  literal's annotated field list, or a protocol's declaration for a `@P` value). This is what
+  makes attributes reachable for **anonymous** shapes: the *type* of a bare table literal has
+  no fields and no attributes (no shape types; same-shape literals intern to one `typeid`,
+  attributes spec §1, value-representation §4), but the *declaration* has both, and `comptype`
+  reads the declaration. Because `comptype` is a type, a generator can **demand** it in its
+  signature, `const toJson = comptime fn (ct: comptype): string`, called as
+  `toJson(comptype User)`, which is what gives the serialization pipeline a typed
+  intermediate.
+
+  **`comptype` is comptime-confined.** No `comptype` value exists at runtime: the operator is
+  a **compile error** outside a comptime context, and, stronger, the confinement rides the
+  *type*, a value of type `comptype` may not flow into anything that survives lowering, a
+  runtime `const` splice, a stored table element, an `any`-typed slot that outlives comptime
+  evaluation, each a compile error at the offending point. The rule-on-the-type is what makes
+  "no runtime existence" airtight where a rule on the operator alone would leak through
+  `any`. Equality on `comptype` values is **structural over its three fields**, so it is
+  attribute-**inclusive** by construction, the right meaning for asking whether two
+  declarations share one shape, while `type` and value equality stay exactly as at runtime
+  (below).
+
+  **How the value finds its declaration: provenance.** A comptime type holds strictly more
+  information than the runtime type, they are separate things joined by one bridge, and the
+  extra information rides the **value during comptime evaluation** as a provenance tag: a value
+  originating from a declaration carries that declaration; **copies preserve** the tag (so a
+  value passed through `comptime fn` parameters still knows its declaration, which is what
+  makes generator pipelines work); **computed** values (`merge(a, b)`, a freshly built table)
+  carry a fresh, attribute-free provenance; and **lowering to runtime erases** the tag
+  entirely (the same erasure discipline as any attribute access, attributes spec §1).
+
+  **Equality is untouched, in both phases, deliberately.** Provenance is invisible to `==`:
+  values compare at comptime exactly as they would at runtime, and `type` values compare by
+  `typeid` at comptime exactly as at runtime, no phase-dependent equality anywhere. The
+  honest consequence, stated rather than hidden: `comptype` is **not a function of the
+  value alone**, two `==`-equal values may yield different descriptors, because it reads the
+  value's provenance, not its content. That is precisely why it cannot exist at runtime, and
+  it is confined to this one introspective operator and its confined type.
 
 - **`fields(t)`**, for a **protocol-typed** table (a `@P` type, protocols §5.4), its **declared
   element members**, as a **list of tables**, each of shape `['name' => string, 'type' => type,
@@ -120,8 +173,14 @@ comptime fn constraintPredicate(t: type): fn
 - **`variants(t)`**, for an enum type, its variants, as a **list of tables**, each of shape
   `['name' => string, 'payloadType' => type?]` (payload `null` for a payload-less variant). Drives
   exhaustive code generation over an enum.
-- **`attributes(t)`**, the attributes attached to the type (or the declaration it came from), as a
-  **table** keyed by attribute (attributes spec §4). Comptime-only, exactly as attributes are.
+- **`attributes(t)`**, the attributes attached to the declaration a **named** type came from, as
+  a **table** keyed by attribute (attributes spec §4). Comptime-only, exactly as attributes are.
+  Well-defined only where `typeid` and declaration are **1:1**, named declarations (protocols,
+  errors, enums, constraints); on an anonymous structural type it is a **compile error** whose
+  message directs to the `comptype` operator, since same-shape anonymous declarations share one
+  `typeid` and the type value alone cannot say which declaration is meant (attributes spec §6).
+  `fields(t)` has the same named-only scope for the same reason; the `comptype` operator is the
+  general form of both.
 - **`constraintPredicate(t)`**, for a constraint type, its predicate as a callable. The reflection
   call is `comptime` (getting the predicate needs a static type), but the **returned predicate is a
   comptime-*eligible* plain `fn`**, not a declared `comptime fn`, so it **exists at runtime** and may

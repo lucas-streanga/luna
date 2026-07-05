@@ -37,7 +37,12 @@ against it.
 
 - **Annotated**, the annotation is the declared type: `var n: stream|table = 0..100`.
 - **Unannotated**, the type is **inferred from the initializer and then fixed**; it
-  does *not* widen on later assignment. Use `any` to opt out of static typing.
+  does *not* widen on later assignment. Use `any` to opt out of static typing. Note on
+  constraints: a **literal carries no constraint** (`var t = [1, 2, 3]` infers `table`;
+  constraints enter only through declarations, constraints §7), while a value that
+  already carries one keeps it (`var b = someByte()` infers `byte`, `var xs =
+  t.values()` infers `list`): a constraint is a validated commitment the producer made,
+  and inference preserves commitments, never manufactures them.
 
 ```
 var numbers: stream|table = 0..100;
@@ -257,6 +262,19 @@ error. A single reference kind cannot distinguish "mutate through the reference"
 references are restricted to `var`. To let a function mutate your value in place,
 declare it `var`; a `let`/`const` value can still be passed by value (the callee
 mutates only its own copy).
+
+**`&` is invariant.** A reference's type is the binding's declared type, **exactly**: a
+`&` argument fits a `&` parameter only when the two types are the same, never by
+widening. `&xs` on a `list`-declared binding is a `&list` and does not fit `&t: table`;
+`&b` on a `byte`-declared binding does not fit `&x: int`. Both are compile errors at the
+call. The reason is the classic reference-variance unsoundness: a reference is a
+**write** channel, and a callee holding the widened reference could write any value the
+wider type admits (a string key, `300`) straight into a binding whose declaration
+forbids it, a violation the callee cannot see and the caller never authorized. Reading
+widely is safe and needs no reference, pass by value; writing must be exact. (The
+value-carried check, constraints §9.4, would catch such a write at runtime anyway;
+invariance turns it into a compile error at the call, the earlier and better
+diagnostic.)
 
 ```
 let t = [];

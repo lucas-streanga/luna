@@ -152,13 +152,16 @@ A constraint is checked on **every operation that could make the value violate i
   predicate. This is where an unconstrained value becomes constrained.
 - **On mutation (mutable-base constraints only):** a constrained value with a mutable interior,
   a table constrained as `list` or by a user table-level constraint (tables §8), or a `bytes`
-  buffer, re-checks the invariant on **every mutation that could break it** (every key write for
-  a table, every element write for `bytes`). The check reads the value's **own constraint
-  typeid** (§9.4), so it fires regardless of whether the mutating binding is statically typed as
-  the constraint or as its **widened base**: a mutation reached through a `&t: table` reference
-  to a `list` still checks `list`-ness, because the value is a `list`. A violating mutation
-  **panics** (`TypeError`, errors §9) and leaves the value unchanged; it never silently widens
-  the binding's type (which would need the flow-narrowing Luna refuses, `as` spec §7).
+  buffer, runs the check on **every mutation that could break it** (every key write for a
+  table, every element write for `bytes`). The check reads the value's
+  **own constraint typeid** (§9.4), so it fires regardless of whether the mutating site is
+  statically typed as the constraint or sees only a wider **container path** (references
+  themselves never widen, variables §5.1). A violating mutation **panics** (`TypeError`,
+  errors §9) and leaves the value unchanged, and is a **compile error** where the violation
+  is statically evident (`xs['k'] = 1` on `xs: list`, tables §2.1); it never silently
+  widens the binding's type (which would need the flow-narrowing Luna refuses, `as` spec
+  §7).
+
   **Immutable-base** constraints (`byte` and the sized ints over `int`, a `string` constraint)
   have no interior to mutate, so **entry is their only check**.
 - **On read:** reading a value already typed as the constraint runs **no check**, because entry
@@ -171,6 +174,30 @@ the value could change, rely on it everywhere else. The per-mutation cost of a t
 constraint is the price of that guarantee (tables §8); `list` keeps it O(1) by maintaining
 membership as a bit rather than rescanning (tables §2.2), and the compiler elides checks it can
 prove redundant (§9.5, §11).
+
+### 7.1 One outcome: a breaking write panics
+
+Every constraint names a **commitment**: the value entered through a declaration that
+promised the property, the constraint typeid on the value is the record of that promise
+(§9.2), and a breaking write, through any path, is a **wrong write**, the program asked for
+a value the promise forbids. The check **panics** with the value unchanged (a compile error
+where statically evident). The panic is forced, not a style choice: with references
+invariant (variables §5.1), the widened-`&` route is a compile error, but a mutable
+constrained value (a `pair` or a `list`, tables §8) can still sit in an **untyped container
+slot** and be mutated through it, and that write site cannot see the demands on the value;
+the value-carried check (§9.4) is what protects them, and panicking is its only sound
+response.
+
+The complementary behavior needs no enforcement at all: a table **not** under any
+constraint has made no promise, its shape (list-ness, tables §2.1) is a freely-varying
+**fact** reported by `isList()` and the maintained bit (tables §2.2), and no write to it
+can violate anything. So "a list is a list until it's not" describes *unconstrained*
+tables, where list-ness is a fact, and "no silent conversion, ever" describes
+*`list`-declared* positions, where it is a promise. (A drifting "shape class" of
+constraint, where breaking writes retag the value instead of panicking, was considered and
+rejected: it required a second enforcement mechanism keyed to the write path rather than
+the value, plus special inference rules, and the fact/promise split above delivers the same
+two behaviors with one mechanism. History in the changelog.)
 
 ---
 
@@ -214,7 +241,10 @@ A constrained value's `lval` carries its constraint typeid in the ordinary type 
 "constrained?" bit** and no base-plus-annotation encoding.
 
 - **`@` is one uint compare.** `@someByte` is `byte`; `@a == @b` compares the constrained typeids
-  directly (type spec §3), a single integer comparison, never a decode.
+  directly (type spec §3), a single integer comparison, never a decode. (That is *type*-value
+  equality; **value** equality on the constrained values themselves erases the constraint,
+  `someByte == 65` is true, via the precomputed `valueBase` in the typetable, equality spec §1,
+  value-representation §4.)
 - **The typeid travels with the value through every channel**, because it *is* the value's type
   and a value has only one: a `&` reference points at the same `lval` (same typeid), a passed
   argument carries its typeid, and table storage keeps it. Widening the **binding's declared
@@ -239,9 +269,13 @@ type of the binding performing the mutation. This is what makes constraints surv
 §9.2: a value widened to its base still carries its constraint typeid, so a mutation reached through
 a **base-typed** binding is still checked against the value's **actual** constraint.
 
-- **Consequence (deliberate):** a function taking `&t: table` may **panic on a write that would be
-  legal for a bare table**, because the value it was handed is a constrained table and the write
-  would break the constraint. This is the honest cost of *collapse-carries-constraints* (§9.2); the
+- **Consequence (deliberate):** a write through a **wider-typed container path** (an untyped
+  table slot holding an invariant-constrained table, `outer['p']['x'] = v` where `outer['p']`
+  is a `pair`) may **panic where the same write to a bare table would be legal**, because the
+  value carries an **invariant-class** constraint (§7.1) the write would break. (The widened
+  **`&`** route is closed statically, references are invariant, variables §5.1; and a
+  **shape** constraint like `list` never panics through a wider path, it retags, §7.1.) This
+  is the honest cost of *collapse-carries-constraints* (§9.2); the
   alternative, constraints evaporating on widening, is the unsound one. To hand a callee a genuinely
   unconstrained table, `copy` it (variables §5.2) or rebuild a bare table (`values()`, tables spec),
   both explicit.
@@ -271,11 +305,14 @@ only removes a check the compiler can prove redundant.
 
 - **`byte`** = `constraint { int as i where i >= 0 && i <= 255 }`. The element type of `bytes`
   (bytes spec). An **immutable-base** constraint: checked on entry only (§7).
-- **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). `list` is a
-  **table-level** constraint (tables §8): it refines `table` by structure, not by a stored value.
-  Its membership is maintained as an **O(1) bit** (tables §2.2) rather than re-checked by a
-  predicate scan, so it is the cheap, specialized instance of the general table-level constraint,
-  checked on entry *and* on every key mutation (§7) at O(1) rather than O(n).
+- **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). An ordinary
+  **invariant table-level constraint** (§7.1, tables §8), special only in **cost**: every
+  table maintains its shape as an O(1) bit (tables §2.2), so `list`'s per-mutation predicate
+  reads the bit instead of scanning keys, full invariant protection at O(1) where a general
+  table constraint pays its predicate, which is also what licenses the compiler's
+  contiguous-representation optimizations for `list`-declared values (tables §2.4,
+  Amendment A). On unconstrained tables the same bit is just the queryable fact `isList()`,
+  no promise, nothing to enforce.
 
 General user-defined constraints (ports, percentages, non-empty, sorted, and so on) use the same
 `constraint {}` form; those over `table` are table-level constraints (tables §8).

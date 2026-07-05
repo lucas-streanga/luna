@@ -132,7 +132,8 @@ Every mainstream language with a byte buffer (Go `[]byte`, Rust `Vec<u8>`, Pytho
 separate byte type would need its own arithmetic, literals, and conversions for no benefit.
 Luna follows this: a `byte` is an `int` constrained to `0..255` (§2), so it reuses all integer
 operations and widens to `int` freely. `b.filter(fn (x: int) => x != 0)` works with `x` an
-ordinary int; `b.map(...)` must produce values in `0..255` (the `byte` constraint is checked on
+ordinary int, and the comparison against the `int` literal `0` works because `==`/`!=` erase
+constraints (`byte` and `0` share the base `int`, equality spec §1); `b.map(...)` must produce values in `0..255` (the `byte` constraint is checked on
 write-back). No new scalar type.
 
 ---

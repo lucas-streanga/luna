@@ -131,10 +131,12 @@ Attributes attach to **declaration sites**, and there are two:
   ];
   ```
 
-  The attribute is metadata on that **field of the literal's type**, which comptime can read when
-  it processes the type (§4). It is **not** carried by the runtime table value: "attributes stick
-  to the table literal" means the literal's *type* records them for comptime, not that the runtime
-  table holds them.
+  The attribute is metadata on that field of the **declaration**, held in the compiler's record
+  of the declaration site, which comptime can read when it processes it (§4). It is **not**
+  carried by the runtime table value, and it is **not** recorded in the interned type either
+  (same-shape literals share one `typeid` whatever their attributes, §1, §5): "attributes stick
+  to the table literal" means the *compiler's view of that declaration* records them for
+  comptime, not that the runtime table, or the type, holds them.
 
 **Multiple attributes** on one declaration stack, each in its own `#[ ... ]`:
 
@@ -225,10 +227,16 @@ the value, nor its type, nor its assignability, nor anything at runtime.
 
 ## 6. Open questions
 
-- **Comptime introspection surface.** The API by which comptime reads attributes, `fields(t)` (each
-  field carrying its `attributes` table) and `attributes(t)` for a binding, is specified in the
-  reflection spec (§3.2). Attributes are comptime-readable through those `comptime fn` queries and
-  readable nowhere else.
+- ~~**Comptime introspection surface, and the keying problem**~~, **resolved** (reflection spec
+  §3.2): attributes are read through `comptime fn` queries and nowhere else. For **named**
+  declarations (typeid and declaration 1:1), `fields(t)` and `attributes(t)` on the `type` work
+  directly; for **anonymous** shapes, where same-shape declarations share one `typeid` (§1), the
+  bridge is the **`comptype` operator** (`comptype v`), which reads the **declaration descriptor** off the value's
+  comptime **provenance** (declaration-originated values carry their declaration through copies
+  and parameters; computed values carry fresh attribute-free provenance; runtime lowering erases
+  it). Equality semantics are identical in both phases, provenance is invisible to `==`, for
+  values and for `type` values alike; the comptime/runtime difference lives only in the
+  provenance sidecar and this one API.
 - **Attribute targets and validation.** Whether an attribute declaration may restrict what it can
   be applied to (only fields, only functions, only bindings), and whether misapplication or
   duplicate application of the same attribute on one declaration is an error, pending use.
