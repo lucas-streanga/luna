@@ -335,11 +335,25 @@ in the value: each error `typeinfo` records its supertype. A value carries only 
 concrete error `typeid`; every `<: error`, `catch IOError`, or `is` test is a lookup
 over `typeinfo` ancestry.
 
-Since the hierarchy is statically known, subtype tests are made **O(1)** by numbering
-the tree once at load: give each type a preorder index `enter` and its subtree
-`size`, stored in its `typeinfo`. Then `a <: b` holds iff
-`b.enter <= a.enter < b.enter + b.size`, two integer comparisons, no pointer
-chasing.
+Since the hierarchy is statically known, subtype tests over the **nominal tree** are
+made **O(1)** by numbering the tree once at load: give each type a preorder index
+`enter` and its subtree `size`, stored in its `typeinfo`. Then, for tree nodes,
+`a <: b` holds iff `b.enter <= a.enter < b.enter + b.size`, two integer comparisons,
+no pointer chasing.
+
+**The interval test is scoped to the tree, and unions are deliberately not in it.**
+The intervals of one preorder numbering are laminar (any two nest or are disjoint), so
+they can encode only single-parent relationships, and union membership is exactly not
+one: `int <: int | double` and `int <: int | string` both hold while the two unions are
+incomparable, so no interval assignment can satisfy all three facts, this is the
+multiple-supertype DAG the parenthetical below warns about, arising for every type with
+two union supertypes. Unions therefore decide by **member decomposition** over the flat,
+canonicalized member list already stored in the union's `typeinfo` (type spec §3, §5,
+"union members"): `T <: (A | B | ...)` iff `T <:` some member, each an interval check;
+a union on the left distributes, `(A | B) <: U` iff both members are. Canonicalization
+flattens union-of-union, so members are always non-union and the decomposition never
+recurses. Honest cost: **O(1) for tree edges, O(members) for unions**, over statically
+tiny lists, with pairs between statically-known types foldable at compile time (§4.1).
 
 Under **single inheritance** a subtype's fields are laid out as a **prefix** of its
 supertype's, so a pointer to an `IOError` is already a valid pointer to `error`:

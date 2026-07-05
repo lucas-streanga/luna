@@ -200,7 +200,12 @@ per-value reflection cost.
 - **Name**, the type's display name (`int`, `Shape`, `int | double`), for output and debugging.
 - **Kind**, which declaration form or built-in category the type is (scalar, table, list, enum,
   protocol, constraint, union, ...), so reflection can branch on type category.
-- **Subtype tests** (`t is u`, `t <: u`), the interval check (value-representation §4.2).
+- **Subtype tests.** On a **value**, `x is U`, the single meaning of `is` (is spec §2, §4): the
+  value's current `typeid` (always concrete, never a union) against `U`, an interval check when
+  `U` is a tree node, member decomposition when `U` is a union (value-representation §4.2).
+  Between two **`type` values**, the `isSubtype(t, of)` reflection function (reflection §3.1);
+  there is **no** type-to-type operator (is spec §4), and `<:` in these documents is notation
+  for the relation, never grammar.
 - **Nullability**, whether the type admits null (`T` vs `T?`, value-representation §2).
 - **Union members**, for a union type, the set of member types (`(int | double)` yields `int` and
   `double`), which is what makes `declared n` returning a union useful: you can enumerate what it

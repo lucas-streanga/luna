@@ -91,8 +91,9 @@ fn constraintBase(t: type): type?
 - **`isNullable(t)`**, whether the type admits null (`T?` vs `T`), a flag read (value-representation
   §2).
 - **`isSubtype(t, of)`**, whether `t <: of`, the interval check (value-representation §4.2) as a
-  function over two `type` **values**. The `is` and `<:` operators cover the common case on values
-  and annotations; this function form is for when both operands are `type` values in hand.
+  function over two `type` **values**, and the **only** type-to-type form: there is no subtype
+  operator (is spec §4). `is` covers the common case, a *value* against a type; this function is
+  for when both operands are `type` values in hand, the rare reflective need.
 - **`unionMembers(t)`**, for a union type, the list of its member types (`unionMembers(int |
   double)` is `[int, double]`); for a non-union, the single-element list `[t]`. This is runtime-tier
   because union membership is a flat `typetable` fact, not a structural walk. It makes `declared`
@@ -331,8 +332,9 @@ Reflection functions complement, and never replace, the reflection **operators**
   functions here are about the type layer (`@`), not the protocol layer (`@@`).
 - **`declared x`** (type spec §4) gives a binding's declared type, itself a `type`, so reflection
   functions apply to it too (`unionMembers(declared x)` enumerates what the binding admits).
-- **`is` / `<:`** are the operator forms of `isSubtype`, preferred on values and in annotations; the
-  function form is for two `type` values in hand.
+- **`is`** is the value-side form of the subtype question (a value against a type, its single
+  meaning, is spec §2); **`isSubtype`** is the type-to-type form, a function, deliberately not an
+  operator (is spec §4). `<:` appears in these documents only as notation for the relation.
 
 So the operators produce and narrow types; the functions interrogate them. Together they are the
 type-reflection surface, split by cost into the runtime tier (any value, cheap) and the comptime

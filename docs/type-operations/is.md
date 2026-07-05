@@ -43,9 +43,14 @@ v is byte             // constraint: true if v is an int in 0..255
 v is @drawable        // protocol: true if v is a table wearing the drawable protocol
 ```
 
-Because Luna's type universe is statically closed and each value carries its type (value-representation
-spec), the test is a cheap runtime check (a `typeid` comparison, or an O(1) subtype test against a
-union or protocol set); it does not evaluate the value's contents beyond what the type requires.
+Because Luna's type universe is statically closed and each value carries its type
+(value-representation spec), the test is a cheap runtime check on the value's current `typeid`,
+which is always **concrete**, a current type is never a union, so the check is the two-tier rule
+of value-representation §4.2: an **interval check** when `T` is a tree node (a named type, a
+constraint, an error), **member decomposition** when `T` is a union (one interval check per flat,
+canonicalized member), and the worn-set membership test for a `@P` refinement (protocols §9). It
+does not evaluate the value's contents beyond what the type requires (a constraint runs its
+predicate, constraints §7).
 
 ## 3. `is` does not narrow
 
@@ -74,7 +79,7 @@ question and stops there; narrowing is always a separate, explicit new-binding s
 ## 4. There is no separate subtype operator
 
 `is` is the only surface form of the type-membership question, and it is deliberately the *only* one.
-There is **no** type-to-type subtype operator (no `:<`). A raw subtype test between two *types*
+There is **no** type-to-type subtype operator (no `<:` in source). A raw subtype test between two *types*
 (`int` subtype of `number`?) would, in a language without generics (Luna has none), always have both
 operands statically known, so its answer is a **compile-time constant**, not something worth an
 operator. Where subtyping matters it is compiler machinery, surfaced to the programmer through `is`
@@ -99,5 +104,5 @@ one.
   protocol refinement).
 - It does **not** narrow the tested binding; narrowing is a separate new-binding step (`as` /
   `match`), per the no-CFA guarantee.
-- There is **no `:<`**; the type-to-type subtype relation is compiler machinery, surfaced through
+- There is **no `<:` operator**; the type-to-type subtype relation is compiler machinery, surfaced through
   `is` / `as` / declarations and, for comptime, the `isSubtype` reflection function.

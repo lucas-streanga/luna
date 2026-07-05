@@ -230,8 +230,9 @@ time. The type universe is closed (value-representation §4.1) and canonicalizat
 distinct type (type spec §3), so `byte` and `int` are **different typeids** (§1), never one id plus
 a "constrained?" bit. Each constraint's id is placed **inside its base type's subtype interval**
 (value-representation §4.2): `byte`, `i8..i32`, and `port` lie within `int`'s interval; `list` lies
-within `table`'s. So "is this constrained value usable as its base", the widening, `is`, `<:`, and
-`as` questions of §5, is the **O(1) interval check on the id alone**, with no flag to decode and no
+within `table`'s. So "is this constrained value usable as its base", the widening, `is`, and
+`as` questions of §5 (and `isSubtype` in reflection), is the **O(1) interval check on the id
+alone**, with no flag to decode and no
 identity to reconstruct. The subtype relation §5 relies on is the interval, not a per-value bit.
 
 ### 9.2 The value carries the constrained typeid
