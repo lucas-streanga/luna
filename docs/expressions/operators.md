@@ -163,7 +163,7 @@ are meant to preserve:
 - **No hidden runtime cost.** Overloading turns `a + b` into a call that might allocate, block, or be
   expensive. In Luna, a simple operator is a simple operation, its cost is visible in its syntax.
 - **No hidden control flow.** An overloaded operator can throw or run arbitrary logic; a primitive one
-  cannot surprise you. `a + b` on ints either yields an int or panics on overflow (a `Panic`), with no
+  cannot surprise you. `a + b` on ints either yields an int or panics on overflow (a `panic`), with no
   third possibility.
 - **One meaning per operator.** `+` is numeric addition, everywhere, for every type it applies to. It
   is never string concatenation, never list append, never a user's notion of "combine." Readers never

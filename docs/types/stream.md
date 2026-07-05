@@ -43,7 +43,12 @@ const entries = fn (t: table): stream {
 ```
 
 `yield` suspends the function, hands the value (or `key => value` pair) to the consumer, and
-resumes when the consumer asks for the next element. A function containing `yield` is a
+resumes when the consumer asks for the next element. Generator classification is
+**per function literal and purely lexical**: a literal is a generator iff its **own body,
+excluding nested function literals**, contains `yield`. A nested `fn` with its own `yield`
+is its own generator returning its own stream (the PHP rule), and contributes nothing to
+the enclosing function's classification. One parse-tree walk decides it, no flow analysis.
+A function containing `yield` is a
 generator and its result type is `stream`.
 
 ### 1.1 Values-only and key-value streams

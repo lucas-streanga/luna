@@ -48,7 +48,7 @@ continuation as dead, and lets the branch contribute `never` to unions) but does
 
 Because the exit claim is unchecked at compile time, Luna checks it at **runtime**. If control ever
 reaches the end of a `fn (): never`, that is, the function **returns** when it promised never to, the
-runtime **panics** (a `Panic`, errors spec): "a `never` function returned." This is the same stance
+runtime **panics** (a `panic`, errors spec): "a `never` function returned." This is the same stance
 the language takes everywhere it cannot prove a property statically: it does not allow a silent wrong
 result (the caller would proceed with no value where the compiler assumed none, which would be
 corruption), and it does not do expensive static analysis to rule it out; it **checks at runtime and

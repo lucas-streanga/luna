@@ -128,6 +128,7 @@ table is a map.
 | Spec | File | What it is |
 |-|-|-|
 | std.io errors | `io-errors.md` | The `ioError` hierarchy, errno-grounded for linux-x86-64. |
+| Keywords | `keywords.md` | The reserved-word inventory, contextual keywords, predeclared names, and flagged definition gaps. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
 | Associativity | `associativity.md` | Precedence and associativity: the expression and type grammars, word-prefix binding, resolved drift, parser-blocking questions. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |

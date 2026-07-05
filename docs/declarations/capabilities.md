@@ -21,7 +21,7 @@ same way a protocol or error type is declared (`proto {...}`, `error {...}`):
 ```
 const reveal = capability;
 const exec   = capability;
-const io     = implicit capability;             // opt into silent inference (§6)
+const io     = capability;
 const cfg    = comptime capability;             // opt into comptime use (§8); non-comptime is the default
 const webApp = capability { io, net };  // a composed set: grants io and net together (§7.1)
 ```
@@ -40,22 +40,8 @@ const webApp = capability { io, net };  // a composed set: grants io and net tog
   **distinct capability type**, just as `myError = error {}` declares a distinct error type.
   `reveal` and `io` are *different types*, which is what lets `use (reveal)` demand the
   reveal authority specifically and nothing else.
-- **The `implicit` modifier** marks a capability as silently inferable (§6). Its absence is
-  the default: a plain `capability` must be declared wherever it is required.
-- **The `comptime` modifier** marks a capability as usable in comptime code (§8, functions
-  §5.5). Its absence is the default: a capability is **non-comptime** unless declared `comptime`,
-  so it cannot be held at compile time, which keeps the sandbox failsafe (a forgotten modifier
-  leaves a capability *out* of comptime, never smuggled in). A composed `comptime capability
-  { A, B }` requires **every member to be `comptime` as well**; listing a non-comptime member
-  (e.g. `io`) is a **compile error**, decidable at the declaration, and this is exactly what
-  prevents a comptime capability from smuggling a non-comptime one into the sandbox. `comptime`
-  and `implicit` are orthogonal: a capability may be neither, either, or both.
-- **Always `const`.** A capability binding is always `const`, never `var` or `let`. Nothing
-  else makes sense: a capability is a fixed, unforgeable token of authority, so rebinding it
-  (`var`) or leaving it reassignable serves no purpose and would only invite confusion.
-  Declaring a capability with anything but `const` is an error. The runtime provides the single
-  instance for stdlib capabilities; a user capability's instance is minted where it is declared
-  (§7.2).
+- ~~The `implicit` modifier~~: **removed** (R33). Every capability is explicit; a
+  required-but-undeclared `use` is a compile error, uniformly, no inference tier exists.
 
 Capabilities live in the **modules that define them** (`io` exported by `std.io`, `reveal` by `std.secret`), imported and named like any binding (§4), a light,
 dataless module, so that capability names never collide with ordinary function names. `reveal`
@@ -261,44 +247,15 @@ runtime capability state anywhere.
 
 ---
 
-## 6. Inference: explicit by default, `implicit` to opt in
+## 6. No inference: every capability is explicit, always
 
-Capability requirements are **inferred**, by the same cheap transitive pass as
-comptime-eligibility (functions §5.1): one propagation over the call graph, each function's
-requirement computed from its direct `use` clause and its callees' already-computed
-requirements, O(N + E), not a re-walk of bodies per call site. So inference costs no more than
-the analysis already run for comptime.
-
-What differs per capability is **whether a required-but-undeclared use is an error or is
-filled silently.** This is the `explicit` / `implicit` distinction:
-
-- **Explicit (the default, plain `capability`).** If inference finds a function requires the
-  capability but its signature does not declare it, that is a **compile error**. The
-  capability must appear in the source signature wherever required. So its presence is always
-  visible, and the absence guarantee (§5) is readable off the source, not merely computed.
-  `reveal`, `exec`, and the `unsafe-` capabilities are explicit.
-- **`implicit` (opt in, `implicit capability`).** A required-but-undeclared use is **fine**;
-  inference fills it silently. The requirement is still tracked (and tooling can show it), but
-  it need not clutter every signature. `io` is `implicit`, because threading `use (io)`
-  through every function that logs would be noise for a low-stakes, ubiquitous effect.
-
-Inference runs either way; `implicit` only changes whether a *missing* declaration is an error
-or is quietly supplied.
-
-**Explicit is the default on purpose, and the direction is failsafe.** A newly declared
-capability, if no one thinks about its tier, is explicit, so forgetting fails toward
-*over-disclosure* (an annotation you did not strictly need), which is harmless. If `implicit`
-were the default, forgetting would fail toward *under-disclosure* (a security-critical
-authority silently inferred and invisible in signatures), which is exactly the auditability
-hole. So hiding a capability from signatures must be a deliberate `implicit` opt-in, never the
-default, consistent with Luna's stance of opting *into* the sharp thing (`unsafe-`,
-backtracking regex, shell strings) rather than defaulting to it.
-
-Tooling shows the full inferred capability set of any function regardless of tier, so even
-`implicit` capabilities are auditable on demand; the explicit default makes the critical ones
-auditable *always*, in source.
-
----
+An earlier design had an `implicit` modifier letting a capability be silently inferred into
+`use` clauses. **Removed** (R33), as genuinely useless: the entire value of the capability
+system is that effects are *visible at the signature*, and a capability that appears without
+being written is exactly the invisibility the system exists to prevent, purchased to save
+one `use (io)`. The rule is now uniform: a function exercising a capability **declares it**,
+a required-but-undeclared use is a **compile error**, and the audit story (§4) has no
+carve-outs.
 
 ## 7. The root: `main` holds the ambient capabilities
 
@@ -383,7 +340,7 @@ user code and gate user-defined boundaries. Same mechanism, different root.
 
 ---
 
-## 8. Comptime, and the `unsafe-` convention
+## 8. Comptime, and the `unsafe` convention
 
 **Comptime** code cannot hold any **non-comptime** capability, because comptime-eligibility
 forbids using one (functions §5.5) and a capability is reachable only through `use`. So comptime
@@ -407,9 +364,9 @@ comptime function, since a slot could not hold a capability-holding value even a
 needs no capability reasoning at all: the eligibility rule above and this existence argument
 reach the same verdict independently, a belt over a brace.
 
-The **`unsafe-` convention** (functions §5.6): a capability whose use *suspends* Luna's
-guarantees (by reaching untrusted native code) is marked with an `unsafe-` prefix
-(`unsafe-ffi`, `unsafe-system`). The prefix is a naming convention that flags danger;
+The **`unsafe` convention** (functions §5.6): a capability whose use *suspends* Luna's
+guarantees (by reaching untrusted native code) is marked with an `unsafe` prefix
+(`unsafeFfi`, `unsafeSystem`). The prefix is a naming convention that flags danger;
 mechanically these are ordinary `capability` declarations, nocopy, `use`-gated, and explicit
 (never `implicit`), so they are comptime-safe and always source-visible. The prefix warns; it
 adds no separate mechanism.
@@ -424,8 +381,8 @@ adds no separate mechanism.
 | `exec` | explicit | Spawn and run a structured `command` | exec |
 | `reveal` | explicit | Reveal a `secret`'s payload | secret |
 | `system` | explicit | Safe syscalls (clock, `getpid`, `stat`, ...) | (system, deferred) |
-| `unsafe-ffi` | explicit | Call foreign (native) code | (ffi, deferred) |
-| `unsafe-system` | explicit | Dangerous syscalls, shell-string execution | (unsafe-system, deferred) |
+| `unsafeFfi` | explicit | Call foreign (native) code | (ffi, deferred) |
+| `unsafeSystem` | explicit | Dangerous syscalls, shell-string execution | (unsafeSystem, deferred) |
 
 `argv` is **not** here: it is nocopy immutable data passed to `main`, not a capability (§3,
 §7). The set will grow; each new authority is a `capability` (explicit unless deliberately
@@ -455,4 +412,4 @@ clause.
   (functions §3, §5.2, §7), shrinking the type surface and retiring the written-syntax
   canonicalization question. Pending an audit that no ineligibility source exists outside the
   capability system (candidates to check: allocation limits, nondeterminism not yet gated,
-  `unsafe-` conventions).
+  `unsafe` conventions).

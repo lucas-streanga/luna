@@ -194,5 +194,5 @@ The `...rest` binding is always a **`list`** (§1.2) regardless of element typin
 - **Rest position:** whether a rest element may appear anywhere but the end (`[a, ...mid, z]`),
   or only trailing (current assumption: trailing only).
 - **Destructuring in other positions:** whether the same patterns bind function parameters
-  (`fn ([a, b]) => ...`) and loop variables (`foreach (pairs as [k, v])`), pending those
+  (`fn ([a, b]) => ...`) and loop variables (`foreach ([k, v] in pairs)`), pending those
   grammars.

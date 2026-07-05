@@ -56,8 +56,8 @@ fn isConsumed(s: stream): bool             // whether the stream has been exhaus
 Consumption is single-pass and exhausts the stream (stream spec §2).
 
 ```
-foreach (s as v)      { ... }     // values-only
-foreach (s as k => v) { ... }     // key-value
+foreach (v in s)      { ... }     // values-only
+foreach (k => v in s) { ... }     // key-value
 ```
 
 `foreach` is the primary consumer. In addition:

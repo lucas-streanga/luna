@@ -22,10 +22,10 @@ only through `use` (functions §5.6), like `io` and `system`. Consequences:
   so a command can be *constructed* at compile time but never *run* at compile time. No
   exec-specific comptime rule is needed; it falls out of the capability model.
 
-`exec` is an **ordinary** capability, not `unsafe-`. The structured-command design (command
+`exec` is an **ordinary** capability, not `unsafe`. The structured-command design (command
 spec) means running a command does not suspend Luna's guarantees: there is no shell, no
 injection surface, no memory or type unsafety. It is a bounded, structured effect like `io`,
-so it does not carry the `unsafe-` prefix (functions §5.6). (The genuinely unsafe
+so it does not carry the `unsafe` prefix (functions §5.6). (The genuinely unsafe
 shell-string path is separate; §5.)
 
 A command argument that is a `secret` (secret spec) is `reveal`ed **internally by `exec`**,
@@ -152,26 +152,26 @@ like any other error.
 
 ---
 
-## 5. The `unsafe-system.shellExec` escape hatch (deferred)
+## 5. The `unsafeShellExec` escape hatch (deferred)
 
 The `command` / `exec` path never invokes a shell, which is what makes it injection-safe
 (command spec §2.1). For the genuine, rare need to run an actual **shell string**, running a
 user-supplied shell one-liner, or needing shell features like globbing and `$VAR` expansion,
-a separate operation will exist: **`unsafe-system.shellExec`**, which hands a string to a
+a separate operation will exist: **`unsafeShellExec`**, which hands a string to a
 real shell (`/bin/sh -c`).
 
 It is deliberately marked dangerous on both axes:
 
-- **`unsafe-` capability prefix**, because handing a string to a shell reintroduces
+- **`unsafe` capability prefix**, because handing a string to a shell reintroduces
   injection: the shell re-parses the string, so an interpolated value can become syntax.
-  This suspends the safety guarantee, which is exactly what `unsafe-` denotes (functions
+  This suspends the safety guarantee, which is exactly what `unsafe` denotes (functions
   §5.6).
 - **`shell` in the name**, because it genuinely runs a shell, unlike the shell-less
   `command`/`exec` path.
 
 So the safe, structured path is the easy default (`exec.run` / `exec.capture` on a
 `command`), and the dangerous shell-string path is possible but explicitly opt-in and
-visibly marked. `unsafe-system` is a large, complex module (raw syscalls and shell access)
+visibly marked. `unsafeSystem` is a large, complex module (raw syscalls and shell access)
 and is **specified separately, later**; this section only records that `shellExec` is its
 home for shell-string execution and why it is unsafe.
 

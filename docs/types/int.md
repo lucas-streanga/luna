@@ -38,10 +38,10 @@ yields the current value, writing through it updates the variable.
 Arithmetic that exceeds the 64-bit range **panics**; it never silently wraps. Silent
 wraparound is a severe and common bug class (a wrapped length becomes a tiny allocation, a
 wrapped index goes out of bounds, wrapped money goes negative), and the failure is invisible.
-So the default is safe: overflow raises a `Panic` (an `OverflowError`, errors §2), stopping the
+So the default is safe: overflow raises a `panic` (an `OverflowError`, errors §2), stopping the
 program at the point the wrong value would have been produced.
 
-Because overflow is a **`Panic`** (ambient, undeclarable, errors §2), arithmetic does **not**
+Because overflow is a **`panic`** (ambient, undeclarable, errors §2), arithmetic does **not**
 make a function `!`: `a + b` returns a plain `int`, and functions doing arithmetic keep clean
 signatures. The panic is still real and catchable at a `try`/`catch` block (§3); it simply is not a declarable
 declarable error, so it does not infect every arithmetic-using signature with `!`. This is the same
@@ -61,8 +61,8 @@ saturation is actually the intended arithmetic, it is available explicitly (§4)
 
 ## 3. Detecting overflow: the `try`/`catch` block, not a checked-add function
 
-Because overflow is a `Panic`, the `try` **expression** does **not** catch it: `try` catches
-declarable errors only (everything outside the `Panic` subtree), and a panic unwinds
+Because overflow is a `panic`, the `try` **expression** does **not** catch it: `try` catches
+declarable errors only (everything outside the `panic` subtree), and a panic unwinds
 through it (errors §8.1). `let sum! = try
 bigA + bigB` is therefore **not** an overflow check, the `try` there can only ever catch a
 declarable error from a callee, never the `OverflowError`, and code anticipating overflow that way
@@ -128,7 +128,7 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
   hardware-native, staple convention. A floor-dividing pair (`floorDiv`, `floorMod`) is
   available for the alternative (floor semantics, remainder following the divisor).
 - **Remainder sign follows the dividend**, pairing with truncated division: `-7 % 2` is `-1`.
-- **Division by zero panics** (a `Panic`, errors §2): `5 / 0` and `5 % 0` stop the program;
+- **Division by zero panics** (a `panic`, errors §2): `5 / 0` and `5 % 0` stop the program;
   ints have no NaN or infinity to yield.
 - **`INT_MIN / -1` panics**, and so does unary negation of `int.min` (`-x` where `x == int.min`), the same missing +2^63: the mathematical result does not fit in a signed 64-bit int,
   so this edge case is an **overflow** and panics like any other (§2).

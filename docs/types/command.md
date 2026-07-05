@@ -77,9 +77,9 @@ argument, whatever characters it contains, so it can never become a second comma
 or a substitution. Injection is impossible by construction (§3).
 
 For the genuine, rare case that needs an actual shell (running a user-supplied shell
-one-liner, or needing shell globbing), a separate `unsafe-system.shellExec` exists (exec
+one-liner, or needing shell globbing), a separate `unsafeShellExec` exists (exec
 spec); it invokes a real shell, is therefore genuinely unsafe, and is marked so on both axes
-(the `unsafe-` capability prefix and the `shell` in its name). The default `command` path
+(the `unsafe` capability prefix and the `shell` in its name). The default `command` path
 never touches a shell.
 
 ---
@@ -233,9 +233,9 @@ value, so no redaction flag on `debugJson` is needed; a secret argument redacts 
 There is intentionally **no** function on the command surface that renders a command to an
 executable shell string. Producing that string is exactly the injectable artifact the
 structured design avoids (§2.1), so it does not belong in ordinary introspection. The one
-place that conversion legitimately lives is behind the `unsafe-` marking:
-**`unsafe-system.commandToString`** (deferred, part of the not-yet-specified `unsafe-system`
-module) will render a command to a shell string, its `unsafe-` prefix and name signalling
+place that conversion legitimately lives is behind the `unsafe` marking:
+**`unsafeCommandToString`** (deferred, part of the not-yet-specified unsafeSystem
+module) will render a command to a shell string, its `unsafe` prefix and name signalling
 that using the result reopens injection. Ordinary code introspects structurally (§5.1) or
 diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
 
@@ -249,7 +249,7 @@ diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
   respect to effects; nothing executes until an `exec` function runs the command (exec
   spec). A command may be built at comptime.
 - **Not a shell.** No `/bin/sh` is involved on the `command`/`exec` path. Shell-string
-  execution is the separate, `unsafe-`marked `unsafe-system.shellExec` (deferred).
+  execution is the separate, `unsafe`-marked `unsafeShellExec` (deferred).
 
 ---
 

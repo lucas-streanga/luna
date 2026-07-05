@@ -51,17 +51,16 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
 | Form | Declares | Union supertype | Members are | Spec |
 |-|-|-|-|-|
 | `proto` | A protocol (`p = proto {...}`) | `proto` | distinct protocols | protocols |
-| `error` | An error type (`e = error {...}`) | `error` | distinct error types (the `Panic` subtree, and declarable errors under the root) | errors |
+| `error` | An error type (`e = error {...}`) | `error` | distinct error types (the `panic` subtree, and declarable errors under the root) | errors |
 | `capability` | A capability (`c = capability`) | `capability` | distinct capability types | capabilities |
 
 - **`proto`** is the union of all protocols; a specific protocol (`stringBuilder`) is a
   member. A protocol is also usable as a type via `@proto` (the application type).
 - **`error`** is the root and union of all error types; specific errors (`commandError`,
-  `Panic`, user-defined errors) are members, related by single inheritance.
+  `panic`, user-defined errors) are members, related by single inheritance.
 - **`capability`** is the union of all capabilities; a specific capability (`reveal`, `io`) is
   a member. Capabilities are zero-data, nocopy, and reached only through `use`. They live in
-  its defining module's exports (`reveal` from `std.secret`), and a capability may be marked `implicit` to opt into
-  silent inference (capabilities spec).
+  its defining module's exports (`reveal` from `std.secret`).
 
 A related declaration form is **`constraint`**, which refines a base type by a pure predicate
 (`byte = constraint { int as i where i >= 0 && i <= 255 }`). A constrained type is a subtype of

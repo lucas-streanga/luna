@@ -58,9 +58,9 @@ point, the mechanism Java deprecated (`Thread.stop`) and every runtime since has
 complexity budget taming. When cancellation arrives it will be **cooperative and
 suspension-point-delivered**: a cancelled task keeps running until its next suspension point
 (`await`, a blocking io call), where the runtime delivers **`Cancelled`**, a runtime-minted
-type in the `Panic` subtree (errors §9: user code can neither originate nor be forced to
+type in the `panic` subtree (errors §9: user code can neither originate nor be forced to
 declare it), unwinding through `defer`s so cleanup runs (std.io §4's `defer close(&fd)`
-works unchanged). That design slots into machinery that already exists, Panic origination
+works unchanged). That design slots into machinery that already exists, panic origination
 rules, defer unwinding, the io-errors §4 note on `EINTR`, and is recorded here so the alpha
 does not accidentally foreclose it.
 

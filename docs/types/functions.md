@@ -296,7 +296,7 @@ the whole signature at the `as` site, because a function's conformance to `fn (A
 about *all* its inputs and outputs, observable only when it runs. So `as` defers the signature
 check to **each call**, the faithful analogue of value `as` ("check when you can"): a value's type
 is checkable now, a function's behaviour only on call. Each call through the narrowed value is
-checked in two directions, panicking (a `Panic`, errors spec) on a mismatch:
+checked in two directions, panicking (a `panic`, errors spec) on a mismatch:
 
 - **Arguments are checked against the callee's *real* parameters** (contravariance). A missing
   required parameter is a deficit `ArityError` (§3.3); a surplus argument is dropped (§3.3); an
@@ -357,8 +357,8 @@ Argument count and parameter count need not match, and the mismatch is direction
   error, not `undefined`: a missing required parameter is a broken contract, not an absent
   value, and `undefined` is too weak (it would be silently coalesced away). The check is a
   **compile error** where the callee's concrete signature is statically visible, and a
-  runtime **`ArityError`** (a `Panic`, errors spec) where it is reached through an erased
-  `fn` boundary. As a `Panic`, a deficit `ArityError` does not make the enclosing
+  runtime **`ArityError`** (a `panic`, errors spec) where it is reached through an erased
+  `fn` boundary. As a `panic`, a deficit `ArityError` does not make the enclosing
   higher-order function `fn!`.
 
 So a callback may declare *fewer* parameters than the caller supplies (ignore the rest),
@@ -438,7 +438,7 @@ as `?` is, not an effect the compiler *discovers*.
 What the compiler verifies is a **local, syntactic containment check** on the body, **not**
 control-flow analysis (compiler §1.4.1). In a function **not** declared `!`, every call to a
 `!`-declared function, and every originating direct `throw` (every user `throw` except a
-`Panic`-typed re-throw, errors §6), must be **lexically enclosed in a handler** (a
+`panic`-typed re-throw, errors §6), must be **lexically enclosed in a handler** (a
 `try` expression, a `try` / `catch` block, or an errorable binding that resolves the error,
 errors spec). An unhandled throwing call or a bare `throw` in a non-`!` function is a **compile
 error**; the fix is to add `!` to the signature, or a handler at the call site. In a function
@@ -460,7 +460,7 @@ Three properties keep this local and predictable:
   compiler §1.4.1); it asks only "is *this* call lexically inside a handler." That is stricter
   and predictable, in the same family as the `use`-clause and `undefined`-on-use checks.
 - **Panics are exempt.** `!` governs only the declarable channel. Any function may raise a
-  `Panic` (overflow, a failed `as`, an `ArityError`) without being `fn!` (errors spec §7, §9),
+  `panic` (overflow, a failed `as`, an `ArityError`) without being `fn!` (errors spec §7, §9),
   so the containment check applies to declarable-error-throwing calls, never to panics.
 
 A caller must handle a throwing function's result with `try` or an errorable binding; a
@@ -597,7 +597,7 @@ const c = comptime parseThing("bad input");   // if parseThing throws, compilati
 
 This is a nice property: a failure that would have surfaced at runtime is surfaced at
 compile time instead, and the error's `stacktrace` (errors spec) is a compile-time trace.
-It applies to both error subtrees uniformly, a comptime `Panic` (division by zero, an
+It applies to both error subtrees uniformly, a comptime `panic` (division by zero, an
 `ArityError`) is equally a compile error, so comptime evaluation catches those failures
 before the program runs.
 
@@ -681,53 +681,53 @@ at runtime at all (its argument type cannot be inhabited there), so it is exempt
 vacuously rather than able to violate it. Every function that *can* run in both phases therefore
 computes from values alone, and folding is behavior-preserving.
 
-### 5.6 The `unsafe-` capability convention
+### 5.6 The `unsafe` capability naming convention
 
 Most capabilities do effects *within* Luna's guarantees: `io`, `http`, and safe syscalls
 (`system`) reach the outside world, but their implementations respect Luna's memory model,
 type and seal model, and error model. A small class of capabilities is different: reaching
 them **suspends** those guarantees, because the callee is untrusted native code that can
 corrupt memory, mutate frozen data, or ignore the error model. These are marked by an
-**`unsafe-` prefix** on the capability name.
+**`unsafe` camelCase prefix** on the capability name (`unsafeExec`, `unsafeReveal`); hyphens are not legal in identifiers, `-` is subtraction (associativity §1), so the prefix is a naming convention with zero lexer impact.
 
-The test for the prefix: **a capability is `unsafe-` iff, after the call, Luna's guarantees
-may no longer hold.** Ordinary capabilities are effects inside the guarantees; `unsafe-`
+The test for the prefix: **a capability takes the `unsafe` prefix iff, after the call, Luna's guarantees
+may no longer hold.** Ordinary capabilities are effects inside the guarantees; `unsafe`
 capabilities are doors out of them.
 
-- **`unsafe-ffi`** , the foreign-function interface. Native code can do anything, so the
-  guarantees end at the boundary. Named `unsafe-ffi` (not `ffi`) so both callers and
-  callees see the danger at every `use (unsafe-ffi)` site.
-- **`system` vs `unsafe-system`** , syscalls split by the same test. Safe syscalls that
+- **`unsafeFfi`** , the foreign-function interface. Native code can do anything, so the
+  guarantees end at the boundary. Named `unsafeFfi` (not `ffi`) so both callers and
+  callees see the danger at every `use (unsafeFfi)` site.
+- **`system` vs `unsafeSystem`** , syscalls split by the same test. Safe syscalls that
   respect the process (reading the clock, `getpid`, `stat`) are `system`, an ordinary
   capability. Syscalls that can corrupt the process or hand back memory outside Luna's
-  model (`mmap`, `ptrace`, and the like) are `unsafe-system`.
+  model (`mmap`, `ptrace`, and the like) are `unsafeSystem`.
 
-`unsafe-` capabilities are still ordinary capabilities in every mechanical respect: they
+`unsafe` capabilities are still ordinary capabilities in every mechanical respect: they
 are `nocopy`, reached only through `use`, and therefore **comptime-safe by the same
 invariant** (comptime forbids using any non-comptime capability, §5.5, so it can reach
-neither `io` nor `unsafe-ffi`). The
+neither `io` nor `unsafeFfi`). The
 prefix adds no new mechanism; it is a warning carried in the name. Luna has no separate
 `unsafe` construct (no `unsafe` blocks, no `unsafe fn`), because it has no
 guarantee-suspending *language* operation, no raw pointers, no manual memory, no bitcasts
 or reinterpret casts, no unsynchronized shared state (green threads enforce copying, so
-concurrency never suspends the guarantees and is never `unsafe-`). The only way to leave
+concurrency never suspends the guarantees and is never `unsafe`). The only way to leave
 the guarantees is through a capability, so the capability system carries the entire
-"unsafe" axis, and the `unsafe-` prefix names the subset that does so.
+"unsafe" axis, and the `unsafe` prefix names the subset that does so.
 
-Two properties every `unsafe-` capability carries, beyond an ordinary capability, because
+Two properties every `unsafe` capability carries, beyond an ordinary capability, because
 its callee is untrusted:
 
-- **Non-escaping handles.** Anything an `unsafe-` capability hands back (a foreign function
+- **Non-escaping handles.** Anything an `unsafe` capability hands back (a foreign function
   value, a raw handle) is itself `nocopy` and non-escaping, so the capability cannot be
   laundered by acquiring the handle in a `use`-scope and passing it to un-`use`d code that
   invokes it without the capability. Danger stays contained to declared sites.
-- **Invariant-preserving marshalling.** An `unsafe-` boundary must not expose data whose
+- **Invariant-preserving marshalling.** An `unsafe` boundary must not expose data whose
   immutability the compiler relies on as mutable to the outside, most concretely, it must
   not hand native code a mutable pointer into frozen or `const` table storage, or the
   const-table representation (tables Amendment A) would be unsound. It copies or refuses
   such data rather than exposing it mutably.
 
-The full design of `unsafe-ffi` and the syscall capabilities is deferred to their own
+The full design of `unsafeFfi` and the syscall capabilities is deferred to their own
 specs; this note fixes only the convention and its comptime-safety, which follow from the
 capability model already in this section.
 

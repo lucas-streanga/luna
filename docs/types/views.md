@@ -397,7 +397,7 @@ let v = t.value;                    // t is plain; `.` is data
 if (@@sb == stringBuilder) { ... }  // compare the view's protocol against a proto value
 if (stringBuilder in @@b) { ... }   // membership test by value
 let applied = @@b;                  // the table's user protocols, application-ordered
-foreach (@@b as p) { other->apply(p); }   // re-apply this table's protocols elsewhere
+foreach (p in @@b) { other->apply(p); }   // re-apply this table's protocols elsewhere
 ```
 The built-in never appears in `@@b`, so the `foreach` never has to skip an
 un-re-appliable element.

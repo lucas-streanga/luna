@@ -336,7 +336,7 @@ widen the scrutinee. So: **`_` present means exhaustive; `_` absent means `| und
 ### 9.2 `match!`: strict match, panic on fall-through
 
 `match!` is the **strict** form: identical to `match` in every way except that a fall-through
-(no arm matches) **panics** (a `Panic`) instead of yielding `undefined`.
+(no arm matches) **panics** (a `panic`) instead of yielding `undefined`.
 
 ```
 let v = match! (state) {       // v : the union of arm bodies, with NO | undefined
@@ -355,7 +355,7 @@ let v = match! (state) {       // v : the union of arm bodies, with NO | undefin
   guarantee (a loud failure on an unhandled case), not a compile-time exhaustiveness proof.
 - **The `!` is the ordinary fail-loud `!`.** As elsewhere, `!` marks the form that fails loudly
   (functions §4, errorability). `match!` reads as "match, and fail loudly if nothing matches,"
-  consistent with the rest of the language. (The panic is a `Panic`, so `match!` does not by
+  consistent with the rest of the language. (The panic is a `panic`, so `match!` does not by
   itself make the enclosing function `fn!`; a fall-through is a programming error, like any
   panic.)
 

@@ -61,7 +61,7 @@ detail deferred to the literal grammar, and does not affect the operator.
 The **behavior on violation** is uniform across the integer types and follows the language's
 panic-on-violation stance:
 
-- **Integer overflow panics** (int spec §2): arithmetic exceeding the type's range raises a `Panic`
+- **Integer overflow panics** (int spec §2): arithmetic exceeding the type's range raises a `panic`
   (an `OverflowError`), never silently wraps. Wrapping and saturating variants are explicit, named
   functions (`wrappingAdd`, `saturatingAdd`, int spec §4), never the operator default.
 - **Integer division and remainder by zero panic** (int spec §5): integers have no infinity or NaN to
@@ -75,7 +75,7 @@ and the float types are **safe by IEEE** (no silent wrong value; a violation bec
 NaN sentinel that is itself well-defined). Each type's spec is authoritative for its own edges; this
 document only names the shared shape.
 
-Because operator arithmetic can panic (integer overflow, divide-by-zero) but the panic is a `Panic`
+Because operator arithmetic can panic (integer overflow, divide-by-zero) but the panic is a `panic`
 (ambient, undeclarable, errors spec §2), arithmetic does **not** make a function errorable: `a + b`
 returns a plain `int`, not `int!`, and the panic is still catchable with `try` (int spec §3). So
 operator-bearing code keeps clean signatures.

@@ -141,7 +141,7 @@ principle as constraint and protocol enforcement, which follow the **value**, no
   once, at the spawn point, then only read afterward (write-once-then-read-only), so the spawner's
   panic-checks and the task's ownership never race and **no atomic is needed**, the same discipline
   that lets the eager copy skip atomic refcounting (§2).
-- **Using a taken value panics** (a `Panic`, errors §9), immediately, on any access through any
+- **Using a taken value panics** (a `panic`, errors §9), immediately, on any access through any
   alias. This is **distinct from consumed**: a *consumed* stream yields **empty** on read (a normal
   end-state, no panic), a *taken* stream **panics**, because another task now owns it. The
   referent therefore carries a small terminal state, **active / consumed / taken**, not one
@@ -236,7 +236,7 @@ errorable-value rules.
 
 ### 4.1 A task panic resolves its promise; `await` never hangs on a dead task
 
-A task may also **panic** (a `Panic`, not a declarable error: an `OverflowError`, a failed `as`, and so
+A task may also **panic** (a `panic`, not a declarable error: an `OverflowError`, a failed `as`, and so
 on, errors spec §9). A panicking task does **not** die silently. Its panic **resolves its promise
 as a failure**, and `await` **propagates** that panic to the awaiter, rather than leaving the
 awaiter blocked forever on a promise that will never resolve. So:

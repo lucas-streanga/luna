@@ -213,9 +213,9 @@ a throw introduces no new type (§4.1).
 **The error arm of a `try` result is always the root `error`**, written `error` or
 `!`, never a specific subtype. `let myVal: string | IOError = try someFunc()` is a
 compile error. `try` is **not total**: it converts every **declarable-error** throw
-(anything outside the `Panic` subtree, errors §2) into the value, and a **`Panic`
+(anything outside the `panic` subtree, errors §2) into the value, and a **`panic`
 unwinds through it** untouched (errors §8.1), so a panic never dynamically lands in
-the arm even though the arm's spelling, root `error`, statically includes `Panic`,
+the arm even though the arm's spelling, root `error`, statically includes `panic`,
 the declarable category has no type of its own, so the root is the tightest honest
 spelling (errors §7). Within the caught category, Luna keeps throw types opaque, a
 call is known to throw, but not *what* (precise throw-set inference would have to
@@ -229,7 +229,7 @@ subtype test (§4.2). Coarse in the declared type, precise in the value: the sam
 as everywhere else.
 
 The restriction is scoped strictly to `try`. Error subtypes are otherwise
-**first-class**: declarable ones may be constructed (`IOError('disk full')`; `Panic`
+**first-class**: declarable ones may be constructed (`IOError('disk full')`; `panic`
 types are runtime-minted only, errors §9), and any error value may be stored and named
 in ordinary declared types, `let e: IOError = IOError('disk full')`, or a function
 that returns `IOError`. Only the arm *introduced by catching a throw* is pinned to the

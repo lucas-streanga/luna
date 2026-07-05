@@ -311,7 +311,11 @@ and the difference is exactly language-versus-library.
 
 - **Builtins are ambient in every module, always, and are not optional.** The primitive types
   and their full APIs, `string`, `int`, `double`, `table`, `regex`, `command`, `bytes`, `secret`,
-  are available everywhere with no import; capabilities are not among them, they are ordinary module exports (capabilities §4). Builtin-ness
+  are available everywhere with no import; capabilities are not among them, they are ordinary
+module exports (capabilities §4). Predeclared names occupy an **outermost universe scope**
+and are **shadowable** by ordinary scoping (`let int = 5;` is legal and makes `x: int` an
+error in that scope, self-inflicted and local; typeids interned at declaration are
+unaffected), no special case, no reserved-word status (keywords §5). Builtin-ness
   follows the **type**: a builtin type's API is builtin regardless of how large it is, so the
   extensive `string` API is builtin because `string` is. There is no builtin-free build mode,
   builtins are what the language *is*, not a library that could be omitted, so "without builtins"

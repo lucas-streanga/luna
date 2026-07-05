@@ -161,7 +161,7 @@ export const readAll  = fn (fd: file) use (io): string | bytes;
 export const readLine = fn (fd: file = stdin) use (io): string?;
 ```
 
-- **`lines`** is **text-mode only** (a `Panic` on a binary file, the exact symmetry of `seek`
+- **`lines`** is **text-mode only** (a `panic` on a binary file, the exact symmetry of `seek`
   being binary-only, §7): a stream of `string`, decoded per `sourceEncoding`, delimiter
   stripped unless `includeLineEnding`.
 - **`chunks`** is the binary reader: a stream of `bytes`, `size` bytes per element (short
@@ -215,8 +215,8 @@ One table, because the categories were decided elsewhere and io just inherits th
 | Situation | Category | Why |
 |-|-|-|
 | open fails (missing, permissions) | declarable, `file!` | expected, environmental, anticipatable (errors §7) |
-| wrong-mode use, use-after-close, `lines` on binary, `seek`/`write` on text | `Panic` | misuse, an invariant violation (errors §9) |
-| I/O failure mid-stream or mid-write | `Panic` | environmental but exceptional; no stream error channel; boundary-caught (errors §8.2) |
+| wrong-mode use, use-after-close, `lines` on binary, `seek`/`write` on text | `panic` | misuse, an invariant violation (errors §9) |
+| I/O failure mid-stream or mid-write | `panic` | environmental but exceptional; no stream error channel; boundary-caught (errors §8.2) |
 
 ## 9. Open questions
 

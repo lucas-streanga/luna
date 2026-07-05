@@ -43,7 +43,7 @@ a bug. The language catches this at the earliest point it can:
 - if the value is **statically known** to be undefined (its type *is* `undefined`, a void return or
   an `undefined`-typed binding), the use is a **compile error**;
 - if the value **might** be undefined (its type is `T` but it could hold undefined at run time, a
-  missing-key read), the use is a **runtime panic** (a `Panic`, errors spec) *iff* it is actually
+  missing-key read), the use is a **runtime panic** (a `panic`, errors spec) *iff* it is actually
   undefined at that moment.
 
 This is the same static-when-possible discipline used throughout the language: prove it and reject at

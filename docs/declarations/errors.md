@@ -41,7 +41,7 @@ Every error descends from a single root, `error`, which has two subtrees:
 
 ```
 error                     (root: catchable; constructable, the throwaway §5.2; the target of `!`; "catch everything")
-├── Panic                 (sealed: no user inheritance; ambient; undeclarable)
+├── panic                 (sealed: no user inheritance; ambient; undeclarable)
 │   ├── OutOfMemory
 │   ├── TypeError
 │   ├── ArityError
@@ -57,30 +57,30 @@ is an `error`. There is no separate top type above it (no `Throwable`) that a ca
 miss, so the obvious catch is the complete catch. This is the property the hierarchy
 exists to guarantee.
 
-The hierarchy has exactly **one distinguished subtree, `Panic`**, and everything else,
+The hierarchy has exactly **one distinguished subtree, `panic`**, and everything else,
 the root itself and every user-defined type, is the other category by complement. An
-error outside the `Panic` subtree is a **declarable error**: the term names a
+error outside the `panic` subtree is a **declarable error**: the term names a
 *category*, not a type. There is deliberately no `UserError` node giving the category a
 type of its own, because none is needed for disambiguation: any error defined in a
 program extends the root (directly or transitively) and is therefore automatically not
-a `Panic`, and the category test, "is the `typeid` in the `Panic` interval," is one
+a `panic`, and the category test, "is the `typeid` in the `panic` interval," is one
 O(1) interval check (value-representation §4.2), used negated. The partition is total by
-construction, every error value either is in the `Panic` subtree or it is not, so
+construction, every error value either is in the `panic` subtree or it is not, so
 there is no third category and no orphan. What the category gives up by having no type
 is precision at type level: the widest arm and the widest catch are both spelled
-`error`, which statically includes `Panic` even in positions (a `!` arm, §7) where a
+`error`, which statically includes `panic` even in positions (a `!` arm, §7) where a
 panic can never dynamically land. The everyday throwaway error is the base `error`
 itself (§5.2).
 
 Two policies attach to the two subtrees, and each is an O(1) subtree test
 (value-representation §4.2):
 
-- **Declarability** is governed by the `Panic` subtree, by exclusion. A function must be
-  declared `fn!` iff it can raise a **declarable** error, any error outside `Panic` (§7).
-  A `Panic` may arise from any function without declaration.
+- **Declarability** is governed by the `panic` subtree, by exclusion. A function must be
+  declared `fn!` iff it can raise a **declarable** error, any error outside `panic` (§7).
+  A `panic` may arise from any function without declaration.
 - **Inheritability** is governed by the same split. User error types extend the root (the
-  default, §4) or any non-`Panic` type; the `Panic` subtree is **sealed**, no user type
-  may inherit from `Panic` or any of its descendants (§9). The runtime owns that subtree.
+  default, §4) or any non-`panic` type; the `panic` subtree is **sealed**, no user type
+  may inherit from `panic` or any of its descendants (§9). The runtime owns that subtree.
 
 So "must this be declared" and "may a user extend this" both reduce to "which subtree,"
 answered by the interval test on the statically-known hierarchy.
@@ -134,7 +134,7 @@ error definition binds like any value; a module exports an error type by exporti
 variable.
 
 A definition with no explicit parent **implicitly extends the root `error`**, so
-`myError` above is a declarable error by construction (it is not under `Panic`, §2). Its
+`myError` above is a declarable error by construction (it is not under `panic`, §2). Its
 body declares **fields**: typed, optionally `?` (which makes
 the field nullable and omissible at construction, defaulting to `null`). Fields are
 immutable after construction (§5).
@@ -159,8 +159,8 @@ diskError = error : myError {
   extends `myError`, which extends `error`.
 - **Default parent is the root `error`**: omitting `: Parent` extends `error` directly
   (§3).
-- **The `Panic` subtree is sealed**: `error : Panic` or extending any `Panic` descendant
-  is a **compile error**. Everything a user defines is therefore outside `Panic`, i.e.
+- **The `panic` subtree is sealed**: `error : panic` or extending any `panic` descendant
+  is a **compile error**. Everything a user defines is therefore outside `panic`, i.e.
   declarable (§2), automatically.
 - **Fields inherit as a prefix** (value-representation §4.2): a child's fields are laid
   out after its parent's, so `diskError` has `code`, `detail` (from `myError`), and
@@ -188,8 +188,8 @@ throw myError();        // all fields optional (own and inherited), so no argume
 ## 5. Construction
 
 A **declarable** error is constructed by naming its type and supplying its fields.
-**`Panic` types are not constructable in user code** (§9): the runtime mints every
-`Panic` value at the failing operation, so `OverflowError(...)` or `TypeError(...)` in
+**`panic` types are not constructable in user code** (§9): the runtime mints every
+`panic` value at the failing operation, so `OverflowError(...)` or `TypeError(...)` in
 source is a compile error. Construction below therefore always means a declarable
 error:
 
@@ -242,8 +242,8 @@ empty-message form. This is the common case, failing with a message, and it need
 declaration, so the boilerplate of minting a type per failure is avoided.
 
 The throwaway is **declarable** and **`try`-catchable** like any user error, because both
-policies key on "outside the `Panic` subtree" (§2), and the root is outside its own
-`Panic` child. So `throw error('msg')` requires the enclosing function to be `fn!` (§7)
+policies key on "outside the `panic` subtree" (§2), and the root is outside its own
+`panic` child. So `throw error('msg')` requires the enclosing function to be `fn!` (§7)
 and is caught by a `try` expression (§8.1), exactly as a declared error type would be.
 
 When a throwaway error wants **structured** data, that data goes in the `data` table
@@ -285,11 +285,11 @@ throw myError(11);                      // construct, then throw
 ```
 
 `throw` takes an already-constructed error value. Because user code cannot construct a
-`Panic` (§5, §9), everything user code can *originate* is declarable, so **every
+`panic` (§5, §9), everything user code can *originate* is declarable, so **every
 originating `throw` requires the enclosing function to be `fn!`** (§7), with no
 per-throw category test. The one `throw` that does *not* require `fn!` is the
-**re-throw of a `Panic`-typed expression** (possible only inside a `catch` that
-received one, the sole way user code ever holds a `Panic`-typed value): that is
+**re-throw of a `panic`-typed expression** (possible only inside a `catch` that
+received one, the sole way user code ever holds a `panic`-typed value): that is
 propagation of an ambient failure already in flight, and panics are undeclarable (§9).
 A `throw` whose expression is root-`error`-typed is treated as origination (it requires
 `fn!`), even if the value is dynamically a panic; the narrowed `catch panic p { throw
@@ -352,18 +352,18 @@ Errorability is declared with `!`, the error-analogue of `?` (value-representati
 `!` on a result type means "or error": `string!` is `string | error`, and the two
 capacities compose freely (`string?!` is `string | null | error`). The arm is the root
 `error`, because the declarable category has no type of its own (§2): what *lands* in the
-arm is always a declarable error, a `Panic` never becomes a value through `!` or `try`
+arm is always a declarable error, a `panic` never becomes a value through `!` or `try`
 (it unwinds, §8.1), but the type spelling the arm is the root, which statically includes
-`Panic`. The imprecision is accepted and one-directional: `try` can never seat a panic in
+`panic`. The imprecision is accepted and one-directional: `try` can never seat a panic in
 the arm, though a program may *manually* store a block-caught panic (§8.2) into an
-`error`-typed location, and an `is Panic` test on a `try` arm is legal but always false.
+`error`-typed location, and an `is panic` test on a `try` arm is legal but always false.
 
 A function's type records whether it can raise a declarable error, and it does so **by
 declaration, not inference** (functions spec §4, never spec §5):
 
 - A function is **`fn!`** iff its signature **declares** `!`. The `!` is **required, and
   verified**, whenever the body can raise a **declarable** error (§2), by a direct `throw` (every
-  originating `throw` qualifies, §6; only a `Panic`-typed re-throw does not) or by an
+  originating `throw` qualifies, §6; only a `panic`-typed re-throw does not) or by an
   **unhandled** call to an `fn!` function (an `fn!` call not lexically enclosed in a `try` /
   `catch` or resolved by an errorable binding). The compiler **checks** that a declared `!` is
   justified and that a missing `!` is safe; it never **adds** `!` for you. A function that can
@@ -376,7 +376,7 @@ The check is the **local, syntactic containment check** of functions spec §4 (p
 lexical, not control-flow analysis), not a call-graph propagation: "can `g` throw?" is read off
 `g`'s **signature**, so errorability is never computed transitively.
 
-**Panics are ambient and undeclarable.** Any function may raise a `Panic` (an `OutOfMemory`,
+**Panics are ambient and undeclarable.** Any function may raise a `panic` (an `OutOfMemory`,
 a `TypeError`, an `ArityError`) without being `fn!`. So `fn` guarantees "no declarable
 error escapes," not "cannot fail": a non-`!` function may still panic. This is what keeps `!`
 meaningful (it tracks the failures you can locally anticipate and handle) without forcing
@@ -394,20 +394,20 @@ There are two ways to handle a thrown error, and they split along the two error 
 the central design point of the whole error model:
 
 - The **`try` expression** (§8.1) catches **declarable errors only** (everything outside the
-  `Panic` subtree, §2), expected failures, collapsing them to a value inline. Panics unwind
+  `panic` subtree, §2), expected failures, collapsing them to a value inline. Panics unwind
   through it.
-- The **`try`/`catch` block** (§8.2) catches **everything**, declarable errors and `Panic`, the
+- The **`try`/`catch` block** (§8.2) catches **everything**, declarable errors and `panic`, the
   deliberate boundary where you stop even the exceptional.
 
 The distinction is visible at a glance (a block has a `catch`, an expression does not) and it maps
-exactly onto the declarable/`Panic` split: routine, inline handling of expected errors versus a
+exactly onto the declarable/`panic` split: routine, inline handling of expected errors versus a
 boundary that catches all. This is what keeps the model safe *and* ergonomic: expected errors are
 handled where they arise, invariant violations propagate to a real boundary, and the syntax for the
 first can never silently absorb the second.
 
 ### 8.1 The `try` expression catches declarable errors only
 
-`try expr` runs `expr` and, if it throws a **declarable error** (any error outside the `Panic`
+`try expr` runs `expr` and, if it throws a **declarable error** (any error outside the `panic`
 subtree, §2), yields that error as a value instead of unwinding:
 
 ```
@@ -415,22 +415,22 @@ let v!: string = try someFunc();          // v : string | error
 let w:  string | error = try someFunc();  // identical; ! is sugar for the error arm
 ```
 
-The `try` **expression** catches everything **outside the `Panic` subtree**, one negated O(1)
-interval test (§2). A **`Panic`** is **not** caught
+The `try` **expression** catches everything **outside the `panic` subtree**, one negated O(1)
+interval test (§2). A **`panic`** is **not** caught
 by a `try` expression: it **unwinds through** it, propagating up to a `try`/`catch` block (§8.2) or,
 if none, to the task or program boundary. This is deliberate and is the heart of the two-category
 design:
 
 - A declarable error is an **expected** outcome, part of a function's normal control-flow contract
   (it is what `!` declares). Handling it inline with `try` is routine, so `try` collapses it to a value.
-- A `Panic` is an **invariant violation**, a bug or exhausted resource, not an expected outcome
+- A `panic` is an **invariant violation**, a bug or exhausted resource, not an expected outcome
   (which is exactly why it is undeclared, §9). It must **not** be silently absorbable by the syntax
   used to handle expected errors: a programmer writing `_ = try cleanup()` to ignore an *expected*
   failure must not thereby swallow an overflow or out-of-memory. So a panic ignores `try` entirely
   and keeps unwinding to a real boundary, where a supervisor can decide to crash, restart, or fail
   the unit of work.
 
-Letting `try` catch panics would defeat the reason `Panic` exists: a panic's job is to propagate a
+Letting `try` catch panics would defeat the reason `panic` exists: a panic's job is to propagate a
 violated invariant to a level that can act on it (or to crash loudly), which is what makes
 "assume-no-overflow" safe in the first place (§9). Absorbing it at an unrelated `try` site would make
 the bug invisible, the smuggled-error failure mode, at the panic layer. So the `try` expression
@@ -438,7 +438,7 @@ respects the category split: expected errors in, invariant violations through.
 
 The expression's error arm is spelled with the **root `error`**, the widest error type, because the
 declarable category it actually catches has no type of its own (§2); what lands there is always
-declarable, a panic never does (it unwinds), the static `Panic` inclusion is the accepted
+declarable, a panic never does (it unwinds), the static `panic` inclusion is the accepted
 imprecision of §7. Binding the result into a type that cannot hold the error (no `!`, no `| error`)
 is a compile error, exactly as assigning `null` to a non-`?` type is: the error must be handled.
 The result is a union (`string | error`), so the value cannot
@@ -468,19 +468,19 @@ another.
 try {
   ...
 } catch e {
-  // e is the caught error, typed root `error`; may be a declarable error or a Panic
+  // e is the caught error, typed root `error`; may be a declarable error or a panic
 }
 ```
 
 The `try`/`catch` **block** is the **catch-all**: a bare `catch e` catches the **root `error`**, so
-it catches **both categories**, declarable errors and `Panic`. This is the intended boundary form, and it honors the
+it catches **both categories**, declarable errors and `panic`. This is the intended boundary form, and it honors the
 universal intuition that a `try`/`catch` block catches everything. The two catch forms therefore
 split cleanly by the two error categories, and the split is visible at a glance (one has a `catch`
 block, one does not):
 
 - **`try expr`** (expression, no block), catches **declarable errors only**; panics unwind through.
   The ergonomic, inline handling of expected failures (§8.1).
-- **`try { } catch { }`** (block), catches **everything** (declarable and `Panic`). The deliberate
+- **`try { } catch { }`** (block), catches **everything** (declarable and `panic`). The deliberate
   **boundary**: you opened a `catch`, so you are declaring "I stop errors here," and that includes
   the exceptional ones.
 
@@ -514,7 +514,7 @@ unhandled panic out of `main` exactly as it does on an escaped declared error ou
 the two channels stay distinct all the way to the top.
 
 Because the block catches both categories and they share the `error` root, a boundary that wants to
-treat them differently distinguishes in the `catch` (§8.3): the `Panic` subtree has a type to name
+treat them differently distinguishes in the `catch` (§8.3): the `panic` subtree has a type to name
 (`catch panic`), and the declarable category, which has none (§2), is selected by **ordering**, a
 leading `catch panic` clause (re-throwing, or handling) leaves the following bare `catch` with
 exactly the declarable errors. So the block is a genuine catch-all safety net without conflating
@@ -529,7 +529,7 @@ try {
   ...
 } catch diskError e {     // catches diskError and its subtypes
   ...
-} catch panic p {         // catches any Panic (OOM, TypeError, ArityError, ...)
+} catch panic p {         // catches any panic (OOM, TypeError, ArityError, ...)
   ...
 } catch e {               // everything else: the remaining declarable errors
   ...
@@ -537,13 +537,13 @@ try {
 ```
 
 - **`catch error e`** (or bare `catch e`), everything.
-- **`catch panic p`**, the `Panic` subtree only; declarable errors propagate.
+- **`catch panic p`**, the `panic` subtree only; declarable errors propagate.
 - **`catch SomeType e`**, that type and its descendants.
 
 There is deliberately no one-word catch for "declarable errors only" (the category has no
 type, §2). Where a boundary wants to handle expected errors while letting panics keep
 unwinding, the spelling is **ordering plus re-throw**: a leading `catch panic p { throw p; }`
-forwards the `Panic` subtree, and the following bare `catch e` then receives exactly the
+forwards the `panic` subtree, and the following bare `catch e` then receives exactly the
 declarable errors. This is the price of the flat hierarchy, paid at the rare boundary that
 splits the categories block-side; the common inline form for expected errors is the `try`
 expression, which makes the split for free (§8.1).
@@ -557,9 +557,9 @@ there, §8.1).
 
 ---
 
-## 9. Panic
+## 9. panic
 
-`Panic` is the sealed subtree for runtime failures that are ubiquitous and not locally
+`panic` is the sealed subtree for runtime failures that are ubiquitous and not locally
 preventable:
 
 - Membership includes `OutOfMemory`, `TypeError` (a runtime type violation), `ArityError`
@@ -571,23 +571,23 @@ preventable:
   an incidental effect of an inline `try`.
 - Panics are **undeclarable**: a function that can only panic is still `fn`, not `fn!`
   (§7). This is why `!` stays meaningful, ambient failures do not infect every signature.
-- The `Panic` subtree is **sealed against user inheritance**: `error : Panic` (or
-  extending any `Panic` descendant) is a compile error (§4). The runtime owns this
+- The `panic` subtree is **sealed against user inheritance**: `error : panic` (or
+  extending any `panic` descendant) is a compile error (§4). The runtime owns this
   subtree; user error types extend the root `error` (or each other), and are therefore
   declarable by construction.
-- The `Panic` subtree is **sealed against user origination** too: no `Panic` type is
+- The `panic` subtree is **sealed against user origination** too: no `panic` type is
   constructable in user code (§5), and the runtime raises panics only at its own failing
-  operations. So `Panic` means exactly **"a language or runtime error"**: if a panic is
-  unwinding, the runtime put it there, a program cannot fake one. The only `Panic`-typed
+  operations. So `panic` means exactly **"a language or runtime error"**: if a panic is
+  unwinding, the runtime put it there, a program cannot fake one. The only `panic`-typed
   act available to user code is **re-throwing** one it caught (`catch panic p { throw
   p; }`, §6, §8.3), which relays, and appends a breadcrumb to (§6.1), a runtime-minted
   value, never forges a new one. Together the two seals make the category meaning
-  unspoofable in both directions: nothing user-defined is a `Panic`, and nothing
+  unspoofable in both directions: nothing user-defined is a `panic`, and nothing
   user-made becomes one.
 
 The design goal is the two-axis separation: **catchability and declarability are
 independent.** A panic is catchable (it is an `error`) yet undeclarable (it is in the
-`Panic` subtree). This lets the `try`/`catch` block be the honest catch-all while `!` tracks only
+`panic` subtree). This lets the `try`/`catch` block be the honest catch-all while `!` tracks only
 the failures a caller can meaningfully be required to handle. And the two *catch* forms respect the
 split: the `try` **expression** catches only declarable errors (so panics cannot be
 absorbed by inline expected-error handling), while the `try`/`catch` **block** catches everything (so
@@ -595,7 +595,7 @@ a boundary can stop even the exceptional).
 
 The practical consequence for higher-order code: a function like a callback runner that
 can raise an `ArityError` on a bad callback does **not** thereby become `fn!`, because
-`ArityError` is a `Panic`. It stays `fn`, and a caller who wants to guard the panic wraps
+`ArityError` is a `panic`. It stays `fn`, and a caller who wants to guard the panic wraps
 the call in a `try`/`catch` **block** and catches `panic` (not a `try` expression, which would let
 the panic through), rather than being forced to handle a declared error that was never really the
 contract.
@@ -606,10 +606,10 @@ contract.
 
 - ~~**Constructing the roots**~~, **resolved**: the root `error` **is** constructable and
   throwable, it is the throwaway (§5.2), there is no `UserError` node (§2), and the
-  `Panic` subtree is **runtime-raised only**, not constructable and not originable from
-  user code, re-throw of a caught panic being the sole user-side `Panic` act (§5, §6,
+  `panic` subtree is **runtime-raised only**, not constructable and not originable from
+  user code, re-throw of a caught panic being the sole user-side `panic` act (§5, §6,
   §9).
-- **The built-in `Panic` set:** the exact enumeration of runtime panic subtypes
+- **The built-in `panic` set:** the exact enumeration of runtime panic subtypes
   (`OutOfMemory`, `TypeError`, `ArityError`, and the rest) and where it is defined (here,
   or the runtime spec).
 - **Stack frame shape:** what a single `stacktrace` frame contains (function, file,
