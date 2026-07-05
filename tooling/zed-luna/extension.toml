@@ -1,0 +1,11 @@
+id = "luna"
+name = "Luna"
+version = "0.0.1"
+schema_version = 1
+authors = ["Luna spec"]
+description = "Syntax highlighting for the Luna programming language."
+
+[grammars.luna]
+repository = "https://github.com/lucas-streanga/luna"
+rev = "9e55a726b3d784d39ccec119f6178f8508d56fee"
+path = "tooling/tree-sitter-luna"
