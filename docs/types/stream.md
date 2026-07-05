@@ -82,8 +82,10 @@ Consumption is **single-pass**: each element is produced once, seen once, and no
 After a stream is consumed, it is **exhausted**, iterating it again yields nothing (an empty
 pass), because its elements are gone and its generator has run to completion.
 
-This is a **discipline, not an enforced move** (matching how single-pass already works):
-iterating an exhausted stream is not a compile error, it simply produces nothing. To traverse
+This is a **discipline, not an enforced move** for plain re-iteration: iterating an
+exhausted stream is not a compile error, it simply produces nothing (deterministically; the
+one aliasing case that was worse than exhaustion, a piped-from stream, is an **enforced**
+move instead, §7.3, and whether re-iteration should follow is flagged in §8). To traverse
 a sequence more than once, re-create the stream (§4) or materialize it into a table or list
 (§5), paying the memory cost deliberately.
 
@@ -250,12 +252,14 @@ building the pipeline consumes nothing; but when the pipeline is consumed, it pu
 so **consuming the pipeline consumes `a`**. After piping, `a` is a **stage of the pipeline,
 not an independent stream**: consume the pipeline result, not the original.
 
-This is not a special side effect of `|>`; it is the same single-pass rule that governs
-`foreach`. Using a piped-from stream independently gives you a stream that will be (or has
-been) consumed through the pipeline, exactly as iterating any stream twice gives an exhausted
-second pass. The discipline is: **once you pipe a stream, consume the pipeline, not the
-original.** As with all single-pass behavior (§2), this is a discipline, not an enforced move,
-independent use is not a compile error, it just yields consumed elements.
+Unlike general single-pass exhaustion (§2), piping is an **enforced move** (pipeline spec
+§5.1): after `a |> t`, `a` is **moved-from** and any later use **panics**, a compile error
+where statically evident, the same enforcement as a stream crossing `spawn` (concurrency
+§2.3), a promise after `await`, a file after `close`. The upgrade from the earlier
+"discipline" wording is deliberate: a piped-from handle and its pipeline shared a live
+cursor, so interleaved pulls made elements silently vanish from one consumer into the other,
+which is worse than an exhausted second pass and exactly what single ownership exists to
+prevent. **Once you pipe a stream, the pipeline is the stream.**
 
 ---
 
@@ -265,6 +269,12 @@ independent use is not a compile error, it just yields consumed elements.
   alongside named generator functions, or whether generators are always named functions.
 - **Bidirectional generators:** whether `yield` can receive a value back from the consumer (a
   two-way generator, as in Python), or is one-way (produce only); current model is one-way.
+- **Single-pass enforcement generally:** §2's exhausted-second-pass behavior (`foreach`
+  twice) remains a discipline while `spawn`, `await`, `close`, and now `|>` all enforce
+  moves; whether plain re-iteration should also upgrade to moved-from enforcement is a
+  consistency review to run once real code exists (the pipe case was upgraded because it
+  aliased a *live* cursor; a fully exhausted stream is deterministic, so the case is
+  weaker there).
 - **Parallel consumption:** how a stream interacts with green threads if one is ever shared
   despite the single-owner intent, pending the concurrency model.
 - **`asStream` element typing:** whether a `stream` carries its element type as precisely as a

@@ -129,6 +129,16 @@ semantics are what matter here.)
 
 ## 4. Pipelines: the `|>` operator
 
+**A `command` is an immutable value.** This was implicit (inert descriptions, pure
+composition, no mutator anywhere in this spec) and is now the rule: a command is
+argv-and-structure, a *description*, with no live cursor, no OS handle, and no consumption
+state, the process does not exist until `exec`. All "modification" is construction, a new
+literal, a `|>` composition, or future `withEnv`-style functions returning new commands.
+Two consequences, both features: **piping does not move a command** (pipeline spec §5.1),
+`let grep404 = \`grep 404\`;` composes into any number of pipelines and stays valid, an
+immutable value shares like any other; and **`exec` does not consume a command**, running a
+description twice is two process trees, like calling a function twice.
+
 Commands compose into pipelines with `|>`, which connects the stdout of the left command to
 the stdin of the right and yields a **new `command` value** (a pipeline is itself a
 command):

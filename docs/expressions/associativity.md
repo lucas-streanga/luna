@@ -19,9 +19,10 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 7 equality | `==` `!=` | **none** | non-chainable; there is **no** `===` / `!==` (§4, resolved) |
 | 8 conjunction | `&&` | left | short-circuits |
 | 9 disjunction | `\|\|` | left | short-circuits |
-| 10 coalescing | `??` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain |
-| 11 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` | right | see §3: word prefixes bind the **whole expression** below assignment |
-| 12 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns only when the target is `null`; requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (strings §11) |
+| 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
+| 11 pipeline | `\|>` | left | dataflow connection over streams and commands (pipeline spec); loose enough that `a \|> f(x) \|> g` chains whole call expressions, tight enough that word prefixes wrap the whole pipe |
+| 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` | right | see §3: word prefixes bind the **whole expression** below assignment |
+| 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (strings §11) |
 
 Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
 control-flow spec) are statement grammar, not operators, and sit outside this table; `where`
@@ -70,7 +71,7 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
 
 **Resolved by ruling (were open):**
 
-- **Compound assignments exist**: `+=` `-=` `*=` `/=` `%=` `??=`, tier 12 above, sugar with
+- **Compound assignments exist**: `+=` `-=` `*=` `/=` `%=` `??=` `???=`, tier 13 above, sugar with
   single evaluation of the target. `&&=`/`||=` excluded for now (no demonstrated need;
   addable later without breakage).
 - **Ranges never reverse.** `a..b` with `b < a` is the **empty range**, total and loop-safe;
@@ -83,10 +84,10 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
 - **`&` outside argument position is a semantic error**, not a grammar production: the parser
   accepts prefix `&` uniformly and semantic analysis rejects non-argument uses (variables
   §5.1), keeping the grammar regular and the diagnostic precise.
-- **`await` is defined** (concurrency/await.md): word prefix, tier 11; parks the green
+- **`await` is defined** (concurrency/await.md): word prefix, tier 12; parks the green
   thread, moves the result out, consumes the promise, surfaces the task's error or panic at
   the collection point.
-- **`throw ... if (...)` parses** as tier-11 prefix under a statement modifier; pinned.
+- **`throw ... if (...)` parses** as tier-12 prefix under a statement modifier; pinned.
 - **Pattern grouping**: at pattern top level, **`|` is always the or-pattern separator**; an
   inline union *type* pattern requires parentheses, `(int | string) n`. This keeps the
   pattern grammar LR(1) with one-token decisions, and costs almost nothing: match's

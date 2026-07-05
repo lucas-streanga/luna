@@ -96,20 +96,48 @@ element that flows forward through the stages. One element traverses the whole p
 step. So `take(10)` pulls only ten times, the source produces only about ten lines, the
 pipeline **short-circuits**, and memory stays bounded. Detail in stream spec §7.2.
 
-### 5.1 Piping transfers and consumes
+### 5.1 Piping moves streams, and only streams, because `|>` has no move rule of its own
 
-`a |> t` **transfers** the stream `a` into the resulting pipeline. Because of lazy-start,
-building the pipeline consumes nothing; but consuming the pipeline pulls from `a`, so
-**consuming the pipeline consumes `a`**. After piping, `a` is a **stage of the pipeline, not an
-independent stream**: consume the pipeline result, not the original.
+The operator's ownership behavior is **not the operator's**: operands behave per their
+value class, exactly as function arguments do. A **stream** is a transferred, single-owner
+resource (concurrency §2.1), so piping it moves it, below. A **command** is an **immutable
+value** (command spec §4), so piping it shares it like any immutable value, the original
+stays valid and reusable in other pipelines, no move, no copy anyone can observe. One rule,
+the one every call site already follows; nothing pipe-specific to memorize.
 
-This is the same single-pass rule that governs `foreach`, not a special effect of `|>`. Using a
-piped-from stream independently gives a stream that will be (or has been) consumed through the
-pipeline, exactly as iterating any stream twice gives an exhausted second pass. It is a
-**discipline, not an enforced move** (stream spec §2, §7.3): independent use is not a compile
-error, it just yields consumed elements.
+For the stream operand: `a |> t` **moves** the stream `a` into the resulting pipeline: `a` becomes **moved-from**,
+and any later use of `a` **panics** (a compile error where statically evident), the same
+enforcement every other single-owner resource already has, a stream crossing `spawn`
+(concurrency §2.3), a promise after `await` (await spec §1), a file after `close` (std.io
+§4). Building the pipeline still consumes nothing (§4, lazy); the move is about **ownership
+of the cursor**, not about elements: after the pipe there is exactly one handle to the
+source, the pipeline. The discipline the earlier draft stated ("consume the pipeline, not
+the original") is now enforced rather than requested, because the soft version was not
+merely a stale-read hazard: the piped-from handle and the pipeline shared a live cursor, so
+interleaved pulls made elements silently vanish from one consumer into the other, the
+aliased-mutable-cursor bug single ownership exists to prevent.
 
----
+### 5.2 Stages are effect-free by construction, and panic on failure
+
+A transformer argument (`map(f)`, `filter(p)`) is an ordinary function value, so the
+capability rules already decide two properties, worth surfacing:
+
+- **Stages are `use`-free.** A capability-holding function value is second-class and cannot
+  be passed as an argument at all (capabilities §3.1), so `f` in `map(f)` is necessarily
+  capability-free: **a pipeline performs no effects beyond its source and its consumer**,
+  by construction, not convention. Effects live at the endpoints (the `file` behind
+  `lines()`, the `exec` that runs a command pipeline), which is exactly where `use` clauses
+  already sit.
+- **A failing stage panics at the pull.** Stages are plain `fn`, not `fn!`: a stream has no
+  error channel (std.io §8, the mid-stream ruling), so a stage that cannot do its job
+  panics, surfacing at the consumption site, boundary-caught like every mid-stream failure.
+  Expected failure belongs before the pipeline (validate, then pipe), not inside it.
+
+### 5.3 Precedence
+
+`|>` is **left-associative** and binds looser than every value operator but tighter than
+the word prefixes (associativity §1, its own tier): `a |> f(x) |> g` is `(a |> f(x)) |> g`,
+and `try src() |> stage` wraps the whole pipeline, the reading a dataflow expression wants.
 
 ## 6. Command pipelines: structured process flow
 
