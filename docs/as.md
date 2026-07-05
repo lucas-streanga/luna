@@ -130,6 +130,27 @@ it cannot bridge disjoint types (`int` and `string` share no values). Bridging t
 *conversion* (§3), `toString` / `parseInt`, not a narrowing. So `int as string` is a compile
 error (use `toString`), and `string as int` is a compile error (use `parseInt`).
 
+### 5.1 Function narrowing is checked per call, not at the `as`
+
+Narrowing to a **function type** splits by *what* is asserted:
+
+- **Kind is checked eagerly, here.** A `fn` value `as` a non-function type, or a non-callable
+  value `as fn (...)`, is disjoint and fails immediately, like `"h" as int`. And when the value's
+  signature is statically known and no function could inhabit both it and the target (disjoint
+  parameters *and* disjoint results, so no call could satisfy either direction), the narrowing is a
+  **compile error**, for locality.
+- **Signature conformance is checked per call, not at the `as`.** A function's conformance to
+  `fn (A): R` is a claim about all its inputs and outputs, observable only when it runs, so `as`
+  defers it to each call (functions §3.2). Each call checks arguments against the callee's *real*
+  parameters and the result against the *claimed* return type, panicking on a mismatch. Thus
+  `f as fn (int): int` on an `f` whose result is `int | string` is allowed *optimistically*, and a
+  call that actually returns a `string` panics **on return**, not at the `as`.
+
+This is the one place `as` defers its check past the assertion site, the same "check when you can"
+principle as everywhere: a value's type is checkable now, a function's behaviour only on call. The
+full rules (arguments contravariant against real parameters, result covariant against the claim,
+recursive for higher-order narrowing) live in functions §3.2.
+
 ---
 
 ## 6. Known uses across the specs

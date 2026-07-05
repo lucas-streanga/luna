@@ -216,10 +216,63 @@ separate variance calculus:
   flexibility from the same assignability rule.
 
 The checker does **only** this per-position assignability; it never infers deeper variance.
-Where the automatic check is too strict but you know a function is compatible, **`as`**
-asserts it (runtime-checked), the same escape hatch as everywhere. So function-type
-compatibility is unions plus `as`, consistent with the language's "no solver, runtime checks
-over static cleverness" stance, and there is no variance system to reason about.
+Where the automatic check is too strict, or the value is a bare `fn` whose signature is not
+statically known, **`as`** asserts a target signature (runtime-checked), the same escape hatch
+as everywhere.
+
+**What the `as` check does, and when.** Narrowing a function to a signature does **not** verify
+the whole signature at the `as` site, because a function's conformance to `fn (A): R` is a claim
+about *all* its inputs and outputs, observable only when it runs. So `as` defers the signature
+check to **each call**, the faithful analogue of value `as` ("check when you can"): a value's type
+is checkable now, a function's behaviour only on call. Each call through the narrowed value is
+checked in two directions, panicking (a `Panic`, errors spec) on a mismatch:
+
+- **Arguments are checked against the callee's *real* parameters** (contravariance). A missing
+  required parameter is a deficit `ArityError` (§3.3); a surplus argument is dropped (§3.3); an
+  argument whose type the real parameter does not accept is a `TypeError`. This protects the
+  function body, which runs assuming its declared parameter types.
+- **The result is checked against the *claimed* return type** (covariance). A returned value that
+  is not of the narrowed result type is a `TypeError` **on return**. This protects the caller,
+  which consumes the result at the claimed type with no further check, and it is the direction that
+  would otherwise cause type confusion: narrowing `fn (int): (int | string)` to `fn (int): int` is
+  allowed *optimistically*, and a call that actually returns a `string` panics on return rather
+  than seating a `string` in an `int`.
+
+The two runtime checks are exactly the two variance directions above, deferred from compile time to
+the call: arguments against the callee's parameters, result against the caller's claim. Because
+every call is checked this way, **higher-order narrowing is sound with no variance calculus**: a
+function passed to a narrowed function is itself checked when *it* is called, recursively at each
+boundary, so nested function types need no structural variance reasoning (this is what makes the
+"never infers deeper variance" rule above safe).
+
+**Coercion is the softer alternative to asserting a result.** The result check above *asserts* (it
+panics on a mismatch). Where a panic is not what you want, you need not narrow with `as` at all: a
+returned value can instead be **coerced** through an ordinary function, which *transforms* rather
+than asserts (`as` spec §3–§4, conversion spec). A coercion defines its own failure behaviour, the
+API decides it: `toString` always succeeds, `parseInt` returns an error, and another helper may
+return a default or a `T?` instead of panicking. So if you *truly need* a value of some type, you
+can try to coerce it and let the API say what happens when it cannot, rather than asserting with
+`as` and panicking on return. This has always been available and is orthogonal to the `as` rules
+above: `as` gives an assert-and-panic result, a coercion gives a transform-and-handle one.
+
+Two limits keep this consistent with `as` elsewhere:
+
+- **Kind mismatch is still eager.** `as` between a function and a non-function (a `fn` value
+  `as int`, or a non-callable `as fn (...)`) is disjoint and fails immediately, exactly like
+  `"h" as int` (`as` spec §5). Only *signature* conformance defers; being a function at all is
+  checked now.
+- **Statically-disjoint signatures are a compile error.** When the value's signature is statically
+  known and no function could inhabit both it and the target (disjoint parameters *and* disjoint
+  results, so no call could satisfy either direction), the narrowing is a **compile error**, not a
+  deferred panic (`as` spec §5), for locality. Deferral to per-call checks is for a value whose
+  signature is not statically visible (a bare `fn`) or a compatible-but-not-statically-provable
+  narrowing.
+
+One consequence follows from deferral: an optimistic narrowing that is **never called** never
+panics, there is no behaviour to observe, so no confusion to prevent. This is harmless but differs
+from eager value `as`, which panics at the assertion regardless of later use. So function-type
+compatibility is unions plus `as`, consistent with the language's "no solver, runtime checks over
+static cleverness" stance, and there is no variance system to reason about.
 
 ### 3.3 Arity
 
