@@ -94,9 +94,11 @@ var y: @proto1 & @proto2 = [] apply proto1, proto2;   // a table wearing both pr
 var z: (@proto1 & @proto2) | null = null;
 ```
 
-Union and intersection are structural and canonical: `int | double` and `double | int` are the same
-type. Intersections apply to protocol-wearer refinements (`@P & @Q`, a table wearing both), which is
-how a table composes capabilities.
+Union and intersection are structural and canonical: `int | double` and `double | int` are the
+same type, and `@Q & @P` is `@P & @Q`. Intersection is **general** (type spec §3.1), defined for
+every pair by normalization, though the single-inheritance tree makes it collapse everywhere
+except the multi-membership axes, protocol sets (`@P & @Q`, a table wearing both, how a table
+composes capabilities) and constraint conjunctions (`byte & even`).
 
 ## Type inference
 

@@ -22,6 +22,15 @@ The two load-bearing choices:
 
 ---
 
+## 0. Target
+
+The compiler targets **`linux-x86-64` only, for now**. This is a sequencing decision, not a
+design one: the Go backend is inherently multi-platform, but pinning one target lets
+platform-relative surfaces (`std.platform`, the `path` predicate, the errno grounding of
+`std.io`'s error hierarchy, io-errors spec) be specified concretely against one ABI instead of
+abstractly against all of them. Widening the target set revisits exactly those named
+surfaces and nothing else.
+
 ## 1. The phase pipeline
 
 ```

@@ -110,6 +110,45 @@ a `constraint`), not an alias.
 
 ---
 
+### 3.1 Intersections: `&`
+
+`A & B` is the **type intersection** ("all of"), the dual of `|`, and like the union it is
+**structural, canonical, and total**, defined for every pair of types by normalization at
+interning time (the universe is closed, value-representation §4.1). The normal form is a
+canonical union of **compound atoms**, each: one nominal base atom (a node of the tree), plus
+an optional **constraint conjunction** over that base, plus an optional **protocol set** (for
+`table`-based atoms). Normalization rules:
+
+- **Distribute over unions**: `(A | B) & C` is `(A & C) | (B & C)`.
+- **Meet tree atoms**: identical atoms yield themselves; tree-related atoms yield the
+  **lower** (`int & byte` is `byte`); atoms with disjoint bases are **uninhabited** and the
+  conjunct is dropped from the surrounding union.
+- **Merge refinements over one base**: constraints conjoin (`byte & even`, the type-position
+  spelling of constraints §6's `where`-composition, run in canonical order, base-match
+  required exactly as there, and with the same **no-implication** rule, conjuncts are
+  executed, never reasoned about); protocol sets union (`@P & @Q`, a table wearing both);
+  the two mix over `table` (`list & @drawable`, a list-shaped wearer).
+- **A written type that normalizes to uninhabited is a compile error** (`var x: int &
+  string`), the same stance as constraints §6's base-mismatch: you wrote an impossible
+  thing, and Luna errors rather than warns. `never` is reachable only by writing `never`.
+- **`fn` types never intersect.** `fn (int): int & fn (string): string` would be a
+  multi-signature callable, which is **overloading**, and Luna rejects overloading by design
+  (strings spec, functions spec); the intersection is a **compile error**, not `never`.
+- `any & X` is `X`; `never & X` is uninhabited (hence the error above if written).
+
+**Membership decomposes by conjunction**, the exact dual of the union rule
+(value-representation §4.2): `x is (A & B)` iff `x is A` **and** `x is B`, each conjunct by
+its own test (interval for tree atoms, predicate for constraints, worn-set for protocol
+refinements). One consequence is free and worth stating: `(A & B) <: A` holds
+**structurally** (conjunct elimination on the normal form, no solving), which does not
+breach constraints §6's no-implication rule, that rule forbids reasoning about *predicate*
+bodies (`0..100` implying `0..255`), while this is set algebra on the written form.
+
+Why intersections earn their place despite the tree: meets of ordinary atoms always
+**collapse** (to the lower type, or to nothing), so `&` is genuinely productive exactly on
+the **multi-membership axes**, protocol sets and constraint conjunctions, which is what the
+overview's `(@P & @Q) | null` always needed and what §5 now grounds.
+
 ## 4. `declared`: a binding's declared type
 
 A **value** has exactly one type (its current type, what `@` returns). What people sometimes call a
@@ -159,30 +198,30 @@ operator, written prefix on a binding.
 
 ---
 
-## 5. Two categories of type: `type` values vs. protocol-wearer refinements
+## 5. Every type-position form is a `type` value, including `@P`
 
-Not everything that can appear in **type position** is a `type` **value**. There are two
-categories, and keeping them distinct is what keeps `@` and comparison coherent:
+Everything that can appear in **type position** is a `type` value with an interned `typeid`
+(§3): scalars, `table`, `list`, `view`, `fn`, `stream`, `promise`, enums, constraints (`byte`),
+unions (`int | double`), intersections (§3.1), and **protocol-wearer refinements** (`@P`,
+`@P & @Q`). The last of these follows the pattern unions established (value-representation
+§4.2): **identity from interning, membership from a test that is not the interval check.** A
+wearer refinement's `typeinfo` records its **protocol set**, canonicalized sorted and deduped
+so `@Q & @P` and `@P & @Q` intern to one id, and that id is what lets `@P` do everything a
+public type must: sit in a union's member list (`(@P & @Q) | null`), be bound to an alias
+(`export const file = @fileDescriptor`, std.io §2), and compare by `typeid` (`@P == @P` across
+modules, §3).
 
-- **Types that are `type` values.** Scalars (`int`, `double`, `bool`, `type` itself), `table`,
-  `list`, `view`, `fn`, `stream`, `promise`, enums, **constraints** (`byte`), and **unions**
-  (`int | double`), all have a `typeid`. They *are* `type` values: `@x` returns them, `==` compares
-  them (a `typeid` compare, §3), and they can be bound (`const t: type = byte`). A constraint and a
-  union are ordinary `type` values because canonicalization gives each a single `typeid` (§3): a
-  `byte` value's type is `byte` (`@someByte == byte`), and `number == int | double`.
-- **Protocol-wearer refinements.** `@P` and `@P & @Q` (§6) are the **one** kind of type-position
-  construct that is **not** a `type` value. They have **no `typeid`**, because protocol-wearing is a
-  **value** property (the applied-protocol set, reflected by `@@`, views spec), not a type property.
-  So `@P` cannot be produced by `@` on a value, cannot be compared by `typeid` equality, and cannot
-  be bound to a `type` binding. It is a **type-position refinement** that compiles to a
-  protocol-membership test (§6), not a first-class type.
-
-This split is the reason the earlier axes hold: `@` reflects the type (category 1, `typeid`s);
-`@@` reflects protocols (the value property); and `@P` in type position is a **static guarantee
-about `@@`**, not a member of category 1. Constraints and unions look like they might be the odd
-ones out, but they are ordinary category-1 `type` values (they have `typeid`s); the genuine odd one
-out is the protocol-wearer refinement, precisely because protocol-wearing lives on the `@@` axis,
-never in the type.
+What stays exactly as before is the **membership semantics**, because protocol-wearing remains
+a **value** property (the applied-protocol set, the `@@` axis, views spec), never encoded in a
+value's own `typeid`: `x is @P` and entry into a `@P`-declared position run the O(1)
+**worn-set test** (protocols §9, is spec §2), never an interval containment, and `@x` on a
+wearing table still reports the value's type (`table`, or its constraint), never `@P`, since
+`@` reads the typeid and wearing is not in it. For `==` on *values*, a refinement's
+`valueBase` is `table` (equality §1): wearing never perturbs value equality except through
+`identityEquality` (equality §4.4). So the axes hold with one fewer exception: `@` is types,
+`@@` is protocols-as-data, and `@P` is a first-class type whose membership question happens to
+be answered on the `@@` axis, precisely as a union is a first-class type whose membership
+question is answered by decomposition rather than intervals.
 
 ---
 

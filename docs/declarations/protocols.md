@@ -488,15 +488,18 @@ type information. Within type position, `@X` is a wearer refinement only when `X
 protocol; `@X` on a non-protocol type is a compile error, decided in semantic analysis (protocol-ness
 is static, the type universe is closed).
 
-A wearer refinement is deliberately **not a `type` value** (type spec §5): it has no `typeid`,
-because protocol-wearing is a *value* property (the applied-protocol set, reflected by `@@`, views
-document), not a type property. So `@P` cannot be produced by `@` on a value, cannot be compared by
-`typeid` equality, and cannot be bound to a `type` binding; it is a static guarantee about `->P`, not
-a first-class type. This is why it composes with `@@` without collision: `@@` crosses from a value to
-the `proto` values it carries (reflection on the protocol axis), while `@P` in type position is a
-static guarantee *about* that axis, "`l->P` is present." The two `@`-family operators stay coherent:
-`@` is types (value-position reflection, `typeid`s), `@@` is protocols-as-data, and `@P` in type
-position is a refinement guaranteeing membership on the `@@` axis.
+A wearer refinement is a **first-class `type` value** (type spec §5, §3.1): `@P`, and the
+canonicalized protocol set `@P & @Q`, intern a `typeid` whose `typeinfo` records the set, so a
+refinement can sit in unions, be aliased (`export const file = @fileDescriptor`, std.io §2),
+and compare by `typeid`. What it deliberately is **not** is part of any *value's* typeid:
+protocol-wearing stays a *value* property (the applied-protocol set, reflected by `@@`, views
+document), so `@x` on a wearing table never reports `@P`, and membership, `x is @P`, entry into
+a `@P` position, is the O(1) **worn-set test**, never an interval check, the same
+identity-versus-membership split unions have (value-representation §4.2). This is why it
+composes with `@@` without collision: `@@` crosses from a value to the `proto` values it
+carries, while `@P` in type position is a static guarantee *about* that axis, "`l->P` is
+present." The `@`-family stays coherent: `@` is types, `@@` is protocols-as-data, and `@P` is a
+type whose membership question is answered on the `@@` axis.
 
 ### 7.2 Composing protocol types: `@P & @Q`
 

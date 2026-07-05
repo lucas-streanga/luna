@@ -139,7 +139,10 @@ evaluated in order. Two rules govern it:
   is what makes composition useful.
 
 So composition is "execute the conjoined predicates in order," with base-type agreement checked
-at declaration and no predicate-implication reasoning ever.
+at declaration and no predicate-implication reasoning ever. The **type-position spelling of the
+same conjunction is `&`** (type spec §3.1): `byte & even` in an annotation interns the anonymous
+conjunction with identical semantics, base-match, canonical order, no implication, while a
+`constraint {}` declaration like `asciiByte` gives the conjunction a name and its own `typeid`.
 
 ---
 

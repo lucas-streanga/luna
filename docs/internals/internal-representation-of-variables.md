@@ -352,8 +352,14 @@ canonicalized member list already stored in the union's `typeinfo` (type spec §
 "union members"): `T <: (A | B | ...)` iff `T <:` some member, each an interval check;
 a union on the left distributes, `(A | B) <: U` iff both members are. Canonicalization
 flattens union-of-union, so members are always non-union and the decomposition never
-recurses. Honest cost: **O(1) for tree edges, O(members) for unions**, over statically
-tiny lists, with pairs between statically-known types foldable at compile time (§4.1).
+recurses. **Intersections** (type spec §3.1) decompose dually, by **conjunction**: `x` is a
+member iff it is a member of every compound atom's parts, tree atom by interval, constraint
+conjunct by predicate, protocol set by the worn-set test, and **protocol-wearer refinements**
+intern typeids exactly as unions do (identity in the table, membership never by interval;
+their `typeinfo` records the canonical protocol set, their `valueBase` is `table`, type spec
+§5). Honest cost: **O(1) for tree edges, O(members) for unions and intersections**, over
+statically tiny lists, with pairs between statically-known types foldable at compile time
+(§4.1).
 
 Under **single inheritance** a subtype's fields are laid out as a **prefix** of its
 supertype's, so a pointer to an `IOError` is already a valid pointer to `error`:

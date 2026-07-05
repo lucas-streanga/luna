@@ -109,13 +109,11 @@ export const openFile = fn (
 ```
 
 Opening is the canonical **expected failure**, so the return is `file!` (errors §2, §7). The
-error family, extensible pending experience (§9):
-
-```
-fileError        = error { path: path };
-fileNotFound     = error : fileError {};
-permissionDenied = error : fileError {};
-```
+error family is the **`ioError` hierarchy**, specified in full, errno-grounded for the
+current target, in the io-errors spec: `fileNotFound`, `notADirectory`, `isADirectory`,
+`permissionDenied` (with `readOnlyTarget`), `alreadyExists`, `invalidPath`,
+`tooManyOpenFiles`, `outOfSpace`, all under `ioError = error { path: path?, errno: int? }`,
+caught by **type**, never by errno-switching.
 
 ```
 export const close = fn (&fd: file) use (io): undefined;

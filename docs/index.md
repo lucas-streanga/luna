@@ -127,6 +127,7 @@ table is a map.
 
 | Spec | File | What it is |
 |-|-|-|
+| std.io errors | `io-errors.md` | The `ioError` hierarchy, errno-grounded for linux-x86-64. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |

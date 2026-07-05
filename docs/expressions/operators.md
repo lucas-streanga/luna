@@ -32,7 +32,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `a < b`, `a > b`, `a <= b`, `a >= b` | comparison | ordering | relational comparison; operands must share a type (widening within a numeric family is implicit, crossing families needs an explicit conversion, as with arithmetic). Numbers order numerically; strings lexicographically by the total order | equality (total order) |
 | `a && b` | logical | and | short-circuiting logical and (both operands `bool`) | bool |
 | `a \|\| b` | logical | or | short-circuiting logical or (both operands `bool`) | bool |
-| `a!` | logical | not | logical negation (**prefix**; distinct from postfix `!` errorable) | bool |
+| `!a` | logical | not | logical negation (**prefix, expression position**; distinct from postfix, type-position `T!` errorable) | bool |
 | `x.key` | access | static key | compile-checked element access on a table (**infix, right operand an identifier**) | tables §3.2 |
 | `x[k]` | access | dynamic key | runtime element access (miss yields `undefined`) | tables §3.2 |
 | `x->name` | access | meta | protocol / meta-space navigation and method call | tables §3.3, views |
@@ -52,6 +52,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
+| `A & B` | type | intersection | the type meet, canonical and total (**infix, type position**; distinct from prefix `&` reference) | type §3.1 |
 | `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | reflection §3.2 |
 | `...x` | reference | spread / rest | spread a table/stream into elements, or collect rest | spread, destructuring |
 | `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |
