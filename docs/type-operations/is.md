@@ -24,9 +24,9 @@ This is the sharp contrast with `as` (as spec):
 | | result | on mismatch |
 |-|-|-|
 | `x is T` | `bool` | returns `false` (never throws) |
-| `x as T` | a value of type `T` | raises `TypeError` (panic) |
+| `x as T` | a value of type `T` | raises `typeError` (panic) |
 
-`x as T` is equivalent to "`x` if `x is T`, else raise `TypeError`." So `is` is the *question* and
+`x as T` is equivalent to "`x` if `x is T`, else raise `typeError`." So `is` is the *question* and
 `as` is the *assertion*: use `is` to ask, `as` to commit.
 
 ## 2. `is` tests a value against a type

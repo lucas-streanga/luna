@@ -185,8 +185,8 @@ tests.
 
 #### some() · every()
 ```
-fn some(tab: table, predicateFn?, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
-fn every(tab: table, predicateFn?, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
+fn some(tab: table, predicateFn: fn (any): bool, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
+fn every(tab: table, predicateFn: fn (any): bool, mode: enum {values, keys, both} = {values}, onNoGet: enum {throw, skip} = {throw}): bool
 ```
 **O(n).** Whether any / all elements satisfy `predicateFn` (`fn(x): bool`). With
 `predicateFn` omitted, tests truthiness. Both short-circuit.

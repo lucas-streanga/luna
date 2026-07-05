@@ -30,7 +30,7 @@ Positional destructuring expects the source to have **exactly** as many integer-
 as there are targets. A mismatch is an error, not a silent drop:
 
 - **Too few values** (`[a, b, c] = pair` where `pair` has two): an error. There is no value to
-  bind `c`. (A `TypeError` panic at runtime, or a compile error where the source shape is
+  bind `c`. (A `typeError` panic at runtime, or a compile error where the source shape is
   statically known.)
 - **Too many values** (`[a, b] = triple` where `triple` has three): also an error by default.
   The extra value is data you would be discarding, and discarding it silently hides a shape

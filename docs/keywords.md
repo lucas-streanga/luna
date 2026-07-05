@@ -86,7 +86,7 @@ All seven original flags are ruled (R33):
   **`panic`**, matching the lowercase root `error`; `catch panic p` is now plain
   catch-by-type, and the "contextual keyword" entry this file briefly had is gone, there is
   nothing contextual about it. (Follow-up flag, small: the builtin children remain
-  PascalCase, `TypeError`, `OutOfMemory`, while the std families are camelCase, `ioError`,
+  PascalCase, `typeError`, `outOfMemory`, while the std families are camelCase, `ioError`,
   `fileNotFound`; the casing convention for builtin error types deserves one ruling.)
 - **`implicit` is scratched** (capabilities §6): every capability is explicit, a
   required-but-undeclared `use` is a compile error, no inference tier, no modifier, no

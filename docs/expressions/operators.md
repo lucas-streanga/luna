@@ -42,7 +42,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `a ??= b` | coalescing | absent-assign | assign `b` to `a` only if the key is absent | coalescing |
 | `a ???= b` | coalescing | null-assign | assign `b` to `a` if absent or `null` | coalescing |
 | `x is T` | type | type test | total **boolean** test: does value `x` have type `T`? never panics, never narrows | is |
-| `x as T` | type | checked narrow | narrow `x` to `T`, or panic (`TypeError`); yields a value of `T`, never transforms | as |
+| `x as T` | type | checked narrow | narrow `x` to `T`, or panic (`typeError`); yields a value of `T`, never transforms | as |
 | `A \| B` | type | union | type union ("one of"; **type position**) | types |
 | `@P & @Q` | type | intersection | protocol-application intersection ("all of"; **infix, type position**; distinct from prefix `&` reference) | types, protocols |
 | `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |

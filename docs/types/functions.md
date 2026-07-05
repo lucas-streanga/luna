@@ -300,10 +300,10 @@ checked in two directions, panicking (a `panic`, errors spec) on a mismatch:
 
 - **Arguments are checked against the callee's *real* parameters** (contravariance). A missing
   required parameter is a deficit `ArityError` (§3.3); a surplus argument is dropped (§3.3); an
-  argument whose type the real parameter does not accept is a `TypeError`. This protects the
+  argument whose type the real parameter does not accept is a `typeError`. This protects the
   function body, which runs assuming its declared parameter types.
 - **The result is checked against the *claimed* return type** (covariance). A returned value that
-  is not of the narrowed result type is a `TypeError` **on return**. This protects the caller,
+  is not of the narrowed result type is a `typeError` **on return**. This protects the caller,
   which consumes the result at the claimed type with no further check, and it is the direction that
   would otherwise cause type confusion: narrowing `fn (int): (int | string)` to `fn (int): int` is
   allowed *optimistically*, and a call that actually returns a `string` panics on return rather

@@ -42,8 +42,8 @@ Every error descends from a single root, `error`, which has two subtrees:
 ```
 error                     (root: catchable; constructable, the throwaway §5.2; the target of `!`; "catch everything")
 ├── panic                 (sealed: no user inheritance; ambient; undeclarable)
-│   ├── OutOfMemory
-│   ├── TypeError
+│   ├── outOfMemory
+│   ├── typeError
 │   ├── ArityError
 │   ├── OverflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── DivisionByZero    (int division or remainder by zero; int spec)
@@ -189,7 +189,7 @@ throw myError();        // all fields optional (own and inherited), so no argume
 
 A **declarable** error is constructed by naming its type and supplying its fields.
 **`panic` types are not constructable in user code** (§9): the runtime mints every
-`panic` value at the failing operation, so `OverflowError(...)` or `TypeError(...)` in
+`panic` value at the failing operation, so `OverflowError(...)` or `typeError(...)` in
 source is a compile error. Construction below therefore always means a declarable
 error:
 
@@ -376,8 +376,8 @@ The check is the **local, syntactic containment check** of functions spec §4 (p
 lexical, not control-flow analysis), not a call-graph propagation: "can `g` throw?" is read off
 `g`'s **signature**, so errorability is never computed transitively.
 
-**Panics are ambient and undeclarable.** Any function may raise a `panic` (an `OutOfMemory`,
-a `TypeError`, an `ArityError`) without being `fn!`. So `fn` guarantees "no declarable
+**Panics are ambient and undeclarable.** Any function may raise a `panic` (an `outOfMemory`,
+a `typeError`, an `ArityError`) without being `fn!`. So `fn` guarantees "no declarable
 error escapes," not "cannot fail": a non-`!` function may still panic. This is what keeps `!`
 meaningful (it tracks the failures you can locally anticipate and handle) without forcing
 every allocating or calling function to be `!` for failures nobody can locally prevent
@@ -529,7 +529,7 @@ try {
   ...
 } catch diskError e {     // catches diskError and its subtypes
   ...
-} catch panic p {         // catches any panic (OOM, TypeError, ArityError, ...)
+} catch panic p {         // catches any panic (OOM, typeError, ArityError, ...)
   ...
 } catch e {               // everything else: the remaining declarable errors
   ...
@@ -562,7 +562,7 @@ there, §8.1).
 `panic` is the sealed subtree for runtime failures that are ubiquitous and not locally
 preventable:
 
-- Membership includes `OutOfMemory`, `TypeError` (a runtime type violation), `ArityError`
+- Membership includes `outOfMemory`, `typeError` (a runtime type violation), `ArityError`
   (calling a function with fewer arguments than it declares, when not statically caught,
   functions spec), division by zero, failed runtime invariants, and similar.
 - Panics are **catchable**: they are `error` values under the root, so the `try`/`catch` **block**
@@ -610,7 +610,7 @@ contract.
   user code, re-throw of a caught panic being the sole user-side `panic` act (§5, §6,
   §9).
 - **The built-in `panic` set:** the exact enumeration of runtime panic subtypes
-  (`OutOfMemory`, `TypeError`, `ArityError`, and the rest) and where it is defined (here,
+  (`outOfMemory`, `typeError`, `ArityError`, and the rest) and where it is defined (here,
   or the runtime spec).
 - **Stack frame shape:** what a single `stacktrace` frame contains (function, file,
   line, and how a re-throw breadcrumb is distinguished from an origin frame), pending the

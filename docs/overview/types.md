@@ -128,7 +128,7 @@ Not types, but how types are reached and tested:
 - **`@@x`** , protocol reflection over a table or view (distinct from `@`; not used for enum
   variants or function signatures). views.
 - **`x as T`** , checked **narrowing** (union to member, supertype to subtype), runtime-checked
-  with a `TypeError` (panic) on mismatch; never transforms a value and never needs `!`. Value
+  with a `typeError` (panic) on mismatch; never transforms a value and never needs `!`. Value
   *conversion* (parsing, formatting) is a function (`parseInt`, `toString`), not `as`. See the
   `as` spec.
 - **`x is T`** , the **total boolean type test** (e.g. `e is commandError`): always a `bool`, never

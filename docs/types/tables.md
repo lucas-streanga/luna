@@ -107,7 +107,7 @@ Because list-ness is maintained, spread (spread spec) and the const-table repres
 
 A value typed `table` is narrowed to `list` by the checked operators (`as` / `is` specs):
 
-- **`tab as list`**: asserts the table is currently a list; a `TypeError` (panic) if it is
+- **`tab as list`**: asserts the table is currently a list; a `typeError` (panic) if it is
   not (has a gap or a string key).
 - **`tab is list`**: a **boolean test** of whether the table is currently a list. It does not
   narrow `tab` (Luna does no flow-narrowing, as spec §7); to obtain a `list`-typed binding, use
@@ -123,7 +123,7 @@ silently.
 different questions:
 
 - **`tab as list`** *asserts* the table is **already** a list. It runs a check and raises a
-  `TypeError` (panic) if `tab` has a gap or a string key; on success the same value is
+  `typeError` (panic) if `tab` has a gap or a string key; on success the same value is
   re-typed, unchanged. Use it when a non-list is a bug you want caught.
 - **`tab.values()`** *produces* a fresh list by reindexing, so it **always** succeeds
   whatever `tab`'s shape. Use it when you want a list out of any table.
@@ -135,7 +135,7 @@ compile error; you choose `as list` (assert) or `values()` (produce) explicitly:
 
 ```
 someFn(tab)             // COMPILE ERROR: table is not implicitly a list
-someFn(tab as list)     // asserts tab is currently a list; TypeError panic if not
+someFn(tab as list)     // asserts tab is currently a list; typeError panic if not
 someFn(tab.values())    // always legal; builds a fresh list from tab's values
 ```
 
@@ -185,7 +185,7 @@ A key is **`int` or `string`, and nothing else.** There is **no implicit key coe
 a `double`, `bool`, `table`, or any other type is **not** a valid key and is **not** silently
 converted into one. This matches the language's no-implicit-coercion stance everywhere else
 (no truthiness, no implicit numeric coercion, conversions are explicit functions): a key of
-another type is a compile error (statically) or a `TypeError` (dynamically), not a quiet
+another type is a compile error (statically) or a `typeError` (dynamically), not a quiet
 normalization.
 
 | Key type | Allowed? |
@@ -555,7 +555,7 @@ element access (§6.1, protocols §5.4.1) but does **not** strip the protocol fr
 write through that bare-`table` binding is still checked against the value's actual contracts:
 
 - a write to a key the applied protocol does not grant `set` still raises `TableMutationViolationError`;
-- a write of a value that violates the key's declared type still raises `TypeError` (protocols
+- a write of a value that violates the key's declared type still raises `typeError` (protocols
   §5.4.2).
 
 This is the exact parallel of constraint collapse (constraints §9.2): a `list` widened to `table`
@@ -684,7 +684,7 @@ specifically:
   `pair` predicate off the value's own typeid and **panics if it would break it** (constraints
   §9.4), even though the mutating site sees no `pair`. Handing code a genuinely unconstrained
   table is explicit, `copy` it (variables §5.2) or rebuild with `values()`.
-- **A violating mutation panics and leaves the table unchanged** (`TypeError`, errors §9); it never
+- **A violating mutation panics and leaves the table unchanged** (`typeError`, errors §9); it never
   silently downgrades the binding's type (Luna does no flow-narrowing, `as` spec §7).
 
 ### 8.4 The one-key degenerate case is allowed

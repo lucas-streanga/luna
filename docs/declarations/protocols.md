@@ -220,7 +220,7 @@ errorability rule above.
    - **Present** → **check, do not overwrite.** The existing value is validated against the
      member's declared type; if it conforms, it is kept unchanged (installing the default
      over a caller-supplied value would be data loss). If it does **not** conform, the whole
-     application **fails** (`TypeError` / `ApplyError`, §4.2), table unchanged. The default,
+     application **fails** (`typeError` / `ApplyError`, §4.2), table unchanged. The default,
      if any, is irrelevant when the key is present.
    - **Absent + defaulted** → **install the default.** The default was type-checked at
      proto-definition time (§2), so this is a plain typed write with **no runtime check**,
@@ -248,7 +248,7 @@ declared members, which §5.4's typed access relies on.
   an `ApplyError` at runtime otherwise.
 - **Present member type mismatch:** a declared element member is present but its value does
   not satisfy the member's declared type (§4.1 step 2). A **compile error** on a static shape
-  with a known value type, a `TypeError` at runtime otherwise.
+  with a known value type, a `typeError` at runtime otherwise.
 - **Reapply / element collision:** a declared element member already present *from a different
   protocol*, or the `apply` body detecting a prior application, throws (typically `ApplyError`,
   see §5.2).
@@ -390,7 +390,7 @@ applied-protocol set (the `@@` axis, views spec), not the writing binding's decl
 as constraint enforcement keys off the value's typeid (constraints §9.4):
 
 > A write to key `K` checks: does the value **have applied** a protocol declaring `K: T`? If so, is the
-> incoming value a `T`? A non-conforming write is rejected (`TypeError`, errors §9), value
+> incoming value a `T`? A non-conforming write is rejected (`typeError`, errors §9), value
 > unchanged.
 
 This closes the widening / `&`-alias path. Widening a `@person` to bare `table` (or passing
@@ -742,7 +742,8 @@ var c: @stringBuilder = [] apply stringBuilder;   // c is @stringBuilder-typed; 
 `apply` yields a value whose static type is the `@P` refinement, so a *declaration*
 initialized with it is statically protocol-typed, facts in types, checked at compile time.
 In **statement** position, `apply` is an ordinary runtime mutation of the value's applied set
-(the `@@` axis, §9): it changes **no static type**, the binding stays whatever it was
+(the `@@` axis, §9), and, like every mutation, **illegal on a `const` binding** (variables §3,
+the freeze covers the applied set): it changes **no static type**, the binding stays whatever it was
 declared, and the compiler makes **zero control-flow attempt** to learn from it. Subsequent
 protocol access through a non-`@P`-typed binding (`b->stringBuilder`) is resolved against
 the value's applied set **at runtime** and **panics** if the protocol is absent, facts in

@@ -57,7 +57,7 @@ task stopped mid-external-effect (a half-written file, a half-sent message) with
 point, the mechanism Java deprecated (`Thread.stop`) and every runtime since has spent its
 complexity budget taming. When cancellation arrives it will be **cooperative and
 suspension-point-delivered**: a cancelled task keeps running until its next suspension point
-(`await`, a blocking io call), where the runtime delivers **`Cancelled`**, a runtime-minted
+(`await`, a blocking io call), where the runtime delivers **`cancelled`**, a runtime-minted
 type in the `panic` subtree (errors §9: user code can neither originate nor be forced to
 declare it), unwinding through `defer`s so cleanup runs (std.io §4's `defer close(&fd)`
 works unchanged). That design slots into machinery that already exists, panic origination

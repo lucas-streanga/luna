@@ -125,7 +125,7 @@ closed file **panics** (misuse, an invariant violation, the same category as wro
 §8). The idiom is `defer`:
 
 ```
-let fd = try openFile('log.txt', {append});
+var fd = try openFile('log.txt', {append});
 defer close(&fd);
 ```
 

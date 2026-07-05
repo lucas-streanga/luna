@@ -45,7 +45,7 @@ Because overflow is a **`panic`** (ambient, undeclarable, errors §2), arithmeti
 make a function `!`: `a + b` returns a plain `int`, and functions doing arithmetic keep clean
 signatures. The panic is still real and catchable at a `try`/`catch` block (§3); it simply is not a declarable
 declarable error, so it does not infect every arithmetic-using signature with `!`. This is the same
-treatment as `TypeError` and out-of-bounds access.
+treatment as `typeError` and out-of-bounds access.
 
 ### 2.1 The performance cost is negligible for Luna
 
@@ -199,7 +199,8 @@ library type would be built from.
 | Type | Mechanism | Why |
 |-|-|-|
 | `int` (i64) | primitive | the native word; inline; panic on overflow |
-| `u8`, `i8`, `u16`, `i16`, `u32`, `i32` | constraint on `int` | fit in signed 64-bit; range-checked, panic out of range |
+| `i8`, `i16`, `i32` | constraint on `int` | fit in signed 64-bit; range-checked, panic out of range |
+| `u8`, `u16`, `u32` | constraint on `u64` | the unsigned tower's smalls, `u8 <: u16 <: u32 <: u64` (numeric-tower §2); range-checked, panic out of range. **`u8` is not `byte`**: same value range, different bases (`byte` is `int`-based, the `bytes` element and IO workhorse; `u8` is `u64`-based, the unsigned tower's smallest), so crossing them is a family crossing and needs an explicit conversion, like every signed/unsigned crossing |
 | `u64` | separate primitive | needs the full 0..2^64 - 1 range signed-64 cannot hold |
 | `int128` | library (if ever) | fixed 128-bit; rarely needed; `decimal` covers exactness, `int`/`u64` cover ordinary work |
 

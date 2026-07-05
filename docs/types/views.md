@@ -116,7 +116,8 @@ capability*, and Luna's absence model handles it exactly like any other missing 
 composable check rather than a separate predicate:
 
 ```
-if (tab->stringBuilder) { ... }                         // truthy iff the table has it applied
+if (tab is @stringBuilder) { ... }                      // the presence test is `is @P` (is spec §2);
+                                                        // a view is not a bool, and there is no truthiness
 let s = tab->stringBuilder?.build() ?? "";              // build if capable, else default
 let sb = tab->stringBuilder ?? { try tab->apply(stringBuilder); tab->stringBuilder };
 ```

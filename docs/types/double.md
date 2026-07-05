@@ -154,7 +154,7 @@ So constraints give ranges and finiteness, not reduced precision.
 
 `finiteDouble` (§4) is the antidote to IEEE's silent NaN/Infinity: a `double` guaranteed to be
 a real, finite number. Because it is an ordinary constraint (constraints spec), narrowing to it
-runs the check and **panics** (a `TypeError`) on a NaN or Infinity:
+runs the check and **panics** (a `typeError`) on a NaN or Infinity:
 
 ```
 let r = someComputation();          // r : double, possibly NaN or Infinity

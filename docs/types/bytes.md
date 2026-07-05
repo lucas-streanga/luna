@@ -39,7 +39,7 @@ apply, and a `byte` widens to `int` implicitly.
 
 - **Reading** `b[i]` yields a `byte` (usable as an `int`, widening is free).
 - **Writing** `b[i] = x` requires `x` to satisfy the `byte` constraint. A write of an out-of-
-  range value (`b[i] = 300`) fails the constraint and raises a `TypeError` (panic), the ordinary
+  range value (`b[i] = 300`) fails the constraint and raises a `typeError` (panic), the ordinary
   constraint-on-entry check (constraints §7). So the one invariant `bytes` enforces is
   per-octet range (a byte is `0..255`), checked on write, not text validity.
 
@@ -62,7 +62,7 @@ let x = b[0];             // read: x = 66 (a byte)
 
 - **In-bounds modify** (`b[i] = x` for `i < len`): updates the octet at `i` in place. O(1).
 - **Append** (`b[] = x`, or `b[len] = x`): grows the buffer by one octet. O(1) amortized.
-- **Out-of-range write is an error.** `b[i] = x` for `i > len` is rejected (a `TypeError`
+- **Out-of-range write is an error.** `b[i] = x` for `i > len` is rejected (a `typeError`
   panic), **not** a silent gap-fill. `bytes` is a packed buffer with no representation for a
   hole, so writing past the end cannot leave a gap, and silently zero-filling an arbitrary index
   (`b[1000000] = 1` allocating a megabyte) is a footgun. To grow deliberately, use `fill` (§3.1).

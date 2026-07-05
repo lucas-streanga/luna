@@ -10,7 +10,7 @@ solver.
 
 Luna deliberately takes the **runtime-checked** form of refinement types, not the
 statically-verified form. A value's membership in a constrained type is checked when the value
-*enters* the type (construction, assignment, `as`), and a failure is a `TypeError` (panic,
+*enters* the type (construction, assignment, `as`), and a failure is a `typeError` (panic,
 errors §9), exactly like any other narrowing (`as` spec). There is no theorem prover, no
 flow-sensitive proof obligation, and type-checking stays decidable. The price is a runtime
 check at the boundary (cheap, one predicate call) and no reasoning about predicate implication
@@ -104,7 +104,7 @@ directions follow the general rule (`as` spec):
   fits. `byte -> int` never checks and never fails.
 - **Narrow to constrained: explicit `as`, runtime-checked.** `int -> byte` adds the
   constraint, which can fail, so it is written `x as byte`, which runs the predicate and raises
-  a `TypeError` (panic) if it does not hold. `x is byte` is the **boolean test** counterpart: it
+  a `typeError` (panic) if it does not hold. `x is byte` is the **boolean test** counterpart: it
   reports whether `x` satisfies the constraint but does not narrow `x`; to obtain a `byte` binding,
   use `as` (as spec §7).
 
@@ -159,7 +159,7 @@ A constraint is checked on **every operation that could make the value violate i
   table, every element write for `bytes`). The check reads the value's
   **own constraint typeid** (§9.4), so it fires regardless of whether the mutating site is
   statically typed as the constraint or sees only a wider **container path** (references
-  themselves never widen, variables §5.1). A violating mutation **panics** (`TypeError`,
+  themselves never widen, variables §5.1). A violating mutation **panics** (`typeError`,
   errors §9) and leaves the value unchanged, and is a **compile error** where the violation
   is statically evident (`xs['k'] = 1` on `xs: list`, tables §2.1); it never silently
   widens the binding's type (which would need the flow-narrowing Luna refuses, `as` spec

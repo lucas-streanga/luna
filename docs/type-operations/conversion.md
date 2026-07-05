@@ -13,7 +13,7 @@ which conversions are extensible versus closed.
 The dividing line, stated once here and relied on everywhere:
 
 - **`as` is checked narrowing.** It asserts that a value **already is** some type (a union member,
-  a subtype) and re-types it, runtime-checked, raising a `TypeError` (panic) on mismatch. It
+  a subtype) and re-types it, runtime-checked, raising a `typeError` (panic) on mismatch. It
   **never changes the value** (`as` spec). `x as int` means "x already is an int, treat it as
   one," not "make an int out of x."
 - **A conversion is a function.** It **produces a different value**, of a different type: `true`

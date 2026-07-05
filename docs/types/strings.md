@@ -23,7 +23,7 @@ general rule (variables §5.1) and can only **rebind the slot** to a new string.
 
 **Binding modes follow the variables spec exactly; strings add no carve-out.** `var s`
 may be rebound to a new string; `let s` fixes the binding and may **never** be rebound
-(`ReassignmentError`, variables §1.1), the "new value, not a mutation" reading is
+(`reassignmentError`, variables §1.1), the "new value, not a mutation" reading is
 wrong, rebinding is precisely what `let` forbids; `const s` is the same as `let` here,
 since an immutable string has no interior for `const` to additionally freeze
 (variables §3.1). Since strings have no in-place mutation at all, the practical ladder

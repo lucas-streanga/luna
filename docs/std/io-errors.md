@@ -51,7 +51,7 @@ categories (errors §2, std.io §8) digesting POSIX:
 | Fate | Errnos | Why |
 |-|-|-|
 | **Declarable** (§2, at `openFile`) | `ENOENT ENXIO ENODEV ENOTDIR EISDIR EACCES EPERM ETXTBSY EROFS EEXIST ENAMETOOLONG ELOOP EMFILE ENFILE ENOSPC EDQUOT EFBIG` | expected, environmental, anticipatable at the one boundary where failure is routine |
-| **panic, existing subtree** | `ENOMEM` | already `OutOfMemory` in the `panic` tree (errors §2); io adds nothing |
+| **panic, existing subtree** | `ENOMEM` | already `outOfMemory` in the `panic` tree (errors §2); io adds nothing |
 | **panic, environmental mid-operation** | `EIO`, and write-side `ENOSPC`/`EDQUOT`/`EPIPE` surfacing at `write`/`flush`/`close` | the mid-stream ruling (std.io §8): no error channel in a stream, rare, boundary-caught; the write-side revisit stays flagged (std.io §9) |
 | **Absorbed by the runtime** | `EINTR`, `EAGAIN`/`EWOULDBLOCK` | the Go runtime restarts interrupted syscalls and the green-thread scheduler parks a task on would-block; user code never sees either |
 | **Impossible by construction** | `EFAULT`, `EBADF`, mode/flag `EINVAL` | `EFAULT` cannot arise in a memory-safe language; `EBADF` is use-after-close, caught at the Luna layer as a misuse panic before any syscall (std.io §4); flag combinations are unrepresentable through the typed API, so a residual `EINVAL` is a runtime bug and panics as one |

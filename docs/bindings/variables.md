@@ -53,7 +53,7 @@ println(numbers.isConsumed());     // "true"
 numbers = (0..50).values();        // materialize the range into a list (a table);
                                    // a conversion function, not `as` (`as` never transforms)
 println(@numbers.typeName);        // "list"
-numbers = null;                    // compile error IncompatibleTypeError:
+numbers = null;                    // compile error incompatibleTypeError:
                                    // null is not a member of stream|table
 ```
 
@@ -67,18 +67,18 @@ myFile = myFile.lines();           // OK: stream is a member of File|stream
 println(@myFile.typeName);         // "stream"
 
 var f = openFile('myfile.txt', File.modeRead);   // inferred type: File (fixed)
-f = f.lines();                     // compile error IncompatibleTypeError:
+f = f.lines();                     // compile error incompatibleTypeError:
                                    // stream is not a member of File
 ```
 
 ### 1.1 Rebinding a `let` or `const`
 
-Rebinding a fixed binding is a **compile error** (`ReassignmentError`; compile errors
+Rebinding a fixed binding is a **compile error** (`reassignmentError`; compile errors
 will carry codes):
 
 ```
 let numbers = 0..100;
-numbers = 0..50;                   // compile error ReassignmentError:
+numbers = 0..50;                   // compile error reassignmentError:
                                    // cannot rebind a variable declared with let
 ```
 
@@ -90,12 +90,12 @@ assignment, after which it behaves like any other `let`:
 ```
 let numbers?: stream = null;
 numbers = 0..100;                  // OK: the single permitted write
-numbers = 0..50;                   // compile error ReassignmentError
+numbers = 0..50;                   // compile error reassignmentError
 ```
 
 The single write must be non-null; once it is spent, *every* further assignment -
 including `numbers = null`, is rejected. Where the double write is statically
-evident (straight-line code, as above) it is a compile-time `ReassignmentError`;
+evident (straight-line code, as above) it is a compile-time `reassignmentError`;
 where it is branch-dependent it cannot be seen statically, so it is tracked with a
 runtime flag and raises `WriteOnceViolationError`:
 
@@ -217,6 +217,16 @@ fixed definition, functions spec §1). `let f` is allowed and identical in meani
 not semantic.
 
 ---
+
+**The freeze covers meta space.** A `const` value's deep freeze includes its **protocol
+state** (meta members like a builder's buffer) and its **applied set**: a mutating meta call
+(one taking `&self`) on a const-rooted value is a **compile error** where statically evident
+and a **panic** through any dynamic path, and statement `apply` on a `const` binding is an
+error (protocols §10). This is forced, not stylistic: `const` values cross task boundaries
+**shared by reference** (concurrency §2.1), justified entirely by immutability, so a mutable
+meta side door would be a shared-state data race, the exact race the isolation model exists
+to prevent. (The std handles remain coherent: their buffers live runtime-side behind the
+runtime's lock, not in Luna meta space, std.io §2.1.)
 
 ## 4. Scoping
 
@@ -368,9 +378,9 @@ See the types spec for the full `type` surface.
 
 | Error | When | Detected |
 |-|-|-|
-| `ReassignmentError` | Rebinding a `let` / `const`; assigning a spent write-once optional | compile (runtime when branch-dependent) |
+| `reassignmentError` | Rebinding a `let` / `const`; assigning a spent write-once optional | compile (runtime when branch-dependent) |
 | `WriteOnceViolationError` | Second write to a write-once optional on a runtime path | runtime |
-| `IncompatibleTypeError` | Assigning a value outside the binding's declared type | compile |
+| `incompatibleTypeError` | Assigning a value outside the binding's declared type | compile |
 | (const immutability) | Adding a key to, or overwriting a value in, a `const` (deeply immutable) table | compile where the target is static; otherwise a table-protocol violation at runtime (table spec) |
 
 (Reference-of-`let` and out-of-scope use are compile errors without dedicated names

@@ -7,7 +7,7 @@ type **annotations** (which assert a type that must *already* statically hold) a
 **conversion functions** (which transform one value into another).
 
 The defining property: **`as` never transforms a value and never needs `!`.** Its only failure
-is a `TypeError`, which is a `panic` (errors §9), so a failing `as` is a programming error that
+is a `typeError`, which is a `panic` (errors §9), so a failing `as` is a programming error that
 propagates ambiently, not a declarable error. `as` is a type-level assertion with a
 runtime check, not a computation.
 
@@ -17,14 +17,14 @@ runtime check, not a computation.
 
 ```
 let u = someFn();            // u : string | int   (inferred union)
-let s = u as string;         // narrow to string; TypeError (panic) if u is currently an int
+let s = u as string;         // narrow to string; typeError (panic) if u is currently an int
 ```
 
 - **Union to member.** `string | int` narrowed to `string`. The value already is a string or
   it is not; `as` checks. On success, the result is typed `string`. On mismatch, it raises a
-  `TypeError` (panic).
+  `typeError` (panic).
 - **Subtype narrowing.** A supertype narrowed to a subtype it currently is: `error as
-  commandError`, `table as list`, `capability as reveal`. Same check, same `TypeError` on
+  commandError`, `table as list`, `capability as reveal`. Same check, same `typeError` on
   mismatch.
 - **Safe widening.** The reverse direction (member to union, subtype to supertype, `list` to
   `table`, `commandError` to `error`) always succeeds, because the value already satisfies the
@@ -82,7 +82,7 @@ The line between `as` and a conversion function is exact:
 |-|-|-|
 | Transforms the value? | No, same bits | Yes, new value |
 | Runs custom code? | No, a type check | Yes |
-| Failure kind | `TypeError` (panic) | declarable error (`!`), or total (no failure) |
+| Failure kind | `typeError` (panic) | declarable error (`!`), or total (no failure) |
 | Needs `!`? | Never | Yes if fallible (`parseInt`), no if total (`toString`) |
 
 This split is why `as` keeps its clean "never `!`" property: everything that can fail with a
@@ -103,7 +103,7 @@ The three are distinct and never silently substitute for one another:
   **never** implies an `as`: `let s: string = someUnion()` is a compile error (narrow it
   explicitly), not a hidden runtime-checked narrowing.
 - **`as`** (`x as string`): narrows a wider type to a narrower one the value currently
-  satisfies, runtime-checked, `TypeError` (panic) on mismatch. Explicit, visible at the point
+  satisfies, runtime-checked, `typeError` (panic) on mismatch. Explicit, visible at the point
   the check happens.
 - **Conversion function** (`toString`, `parseInt`): transforms a value into a different value,
   running custom code; fallible ones return `!`.
@@ -160,14 +160,14 @@ recursive for higher-order narrowing) live in functions §3.2.
   asymmetry: `secret` back to `string` is *not* `as`, it is `reveal`, a capability-gated
   extraction.)
 - **`tab as list`** (tables §2.1, §2.3): narrowing a `table` to a `list`, checked. It
-  **asserts** the table is *already* a list and raises a `TypeError` (panic) if it is not
+  **asserts** the table is *already* a list and raises a `typeError` (panic) if it is not
   (has a gap or a string key). It does not reshape the table; if it passes, the same value is
   simply re-typed. Contrast `tab.values()`, which **produces** a fresh list by reindexing and
   therefore *always* succeeds regardless of the table's shape:
 
   ```
   someFn(tab)              // COMPILE ERROR: table is not implicitly a list
-  someFn(tab as list)      // legal; asserts tab is currently a list, TypeError panic if not
+  someFn(tab as list)      // legal; asserts tab is currently a list, typeError panic if not
   someFn(tab.values())     // always legal; builds a fresh list from tab's values (reindexes)
   ```
 
@@ -212,7 +212,7 @@ declaration*, never a path-dependent fact about an existing one, so no flow anal
 tools (`match`, `as`) cover every case; `if (x is int) { let n = x as int; ... }` is the explicit
 form, and `match` is the ergonomic one.
 
-`x as T` is equivalent to "`x` if `x is T`, else raise `TypeError`": `is` is the total
+`x as T` is equivalent to "`x` if `x is T`, else raise `typeError`": `is` is the total
 (non-panicking) test, `as` the asserting (panicking) narrowing that yields the narrowed value.
 
 ## 8. Open questions
