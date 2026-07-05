@@ -62,24 +62,39 @@ const toString = fn (value: any): string => { ... };     // total; one function 
 
 A single function still renders every type appropriately, and stays **open** to user types,
 because it **dispatches to a protocol meta-function** rather than to overloads. A type makes
-itself renderable by wearing a protocol that provides a **`stringify`** meta-function (protocols
-spec); `toString` calls it when present, and falls back to a built-in rendering otherwise:
+itself renderable by wearing the well-known **`stringify` protocol** (its one member:
+`toString = meta fn (b: table): string`, **non-errorable by contract**); `toString` dispatches
+through it when worn, and falls back to a built-in rendering otherwise:
 
 ```
 const toString = fn (value: any): string => match {
-  value->hasMeta('stringify') => value->stringify(),     // the type's own rendering
-  _                           => builtinRender(value),   // default per built-in type
+  value is @stringify => value->stringify.toString(),   // the wearer's own rendering
+  _                   => builtinRender(value),          // default per built-in type
 };
 ```
 
-- **`toString`** is the **free function callers use**. It is total.
-- **`stringify`** is the **protocol meta-function types provide** (reached with `->`, the meta
-  navigation operator). The two are named distinctly on purpose: callers call `toString`, types
-  provide `stringify`, so the entry point and the extension point never blur.
+Every step of that dispatch is a form the protocol model already permits, which is the point:
 
-So **custom rendering is protocol dispatch, not overloading**: a user type wears a protocol with
-`stringify`, and `toString` finds it. This is the same protocol / `->` mechanism used elsewhere;
-`toString` extensibility needs no new machinery.
+- **`value is @stringify`** is a membership test on the worn set (the `@@` axis, protocols §9),
+  the sanctioned wear-test, never view-truthiness (bool spec).
+- **`value->stringify`** is the **view form** of `->`, a *qualified* reach into one named
+  protocol (views spec); **`.toString()`** is a member call on that view. An earlier draft
+  wrote the dispatch as an *unqualified* meta call, `value->stringify()`, which is
+  **ill-formed**: bare `->member` reaches only the built-in pool, and unqualified
+  cross-protocol lookup is impossible by design (protocols §3.3, §12). Naming the protocol is
+  what disambiguates; `tab->stringify.toString()` is the exact and only spelling.
+
+- **`toString`** is the **free function callers use**. It is total (§3.1).
+- **`stringify`** is the **protocol types wear**. The two names stay distinct on purpose:
+  callers call `toString`, types wear `stringify`; the entry point and the extension point
+  never blur. How a wearer supplies its rendering follows the ordinary protocol mechanism
+  (per-wearer meta state read by the shared member, or installation at `apply`; protocols
+  spec), nothing conversion-specific.
+
+So **custom rendering is qualified protocol dispatch, not overloading and not lookup**: a user
+type wears `stringify`, and `toString` reaches it by name. This is the same protocol / view
+mechanism used everywhere; `toString` extensibility needs no new machinery, and, after the
+fix above, no forbidden machinery either.
 
 ### 3.1 `toString` is total, including for user types
 
@@ -87,9 +102,12 @@ Because `toString` is total, it always yields a string:
 
 - For a **built-in** type, the built-in rendering always exists (a number, a bool, a string
   itself, an enum variant, a table, each has a default form).
-- For a **user** type with a `stringify` meta-function, that function supplies the rendering. A
-  well-behaved `stringify` is itself total; `toString` guarantees a string to its caller
-  regardless, so display paths (logging, interpolation) never fail.
+- For a **wearer** of `stringify`, the protocol's member supplies the rendering, and its
+  totality is **contract, not courtesy**: the member is declared `meta fn (b: table): string`,
+  no `!`, and protocol application enforces member signatures, so an errorable implementation
+  cannot enter the protocol (protocols spec). Display paths (logging, interpolation, `.`
+  concatenation, strings §11) therefore never fail through the extension point; only ambient
+  panics remain possible, as everywhere (errors §7).
 
 This totality is what lets **string interpolation** (string-builder spec) lower to `toString`
 calls safely: interpolating any value, built-in or user, always produces text, so `"${anyValue}"`
