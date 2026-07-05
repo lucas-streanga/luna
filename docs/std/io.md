@@ -28,13 +28,13 @@ declaration. Every effectful function below carries `use (io)` and propagates it
 
 ## 2. The `file` type
 
-A `file` is a **table wearing the `fileDescriptor` protocol**, following the string-builder
+A `file` is a **table with the applied `fileDescriptor` protocol**, following the string-builder
 precedent exactly (protocols §10, equality §4.4, concurrency §2.1):
 
 - **`identityEquality`**: two files are equal only if they are the same handle; comparing
   contents is not what `==` on handles means.
 - **Transferred crossing class**: a file is stateful and single-owner, like a stream or a
-  builder. It **moves** across a spawn boundary, the source is marked *moved-from*, and any
+  builder. It **moves** across a spawn boundary, the source is marked **taken**, and any
   later access through any alias panics (concurrency §2.3). Ownership, not locking, is what
   makes operations on an opened file race-free: the type system guarantees one task holds it
   at every instant.

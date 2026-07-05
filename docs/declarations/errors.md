@@ -29,7 +29,7 @@ Because errors are their own kind, they are accessed differently from tables:
 
 - **`.field`** reads a declared field. Fields are static (declared in the error type) and
   immutable, so error access is `.name` only.
-- There is **no `[]`** (an error is not a hashmap) and **no `->`** (an error wears no
+- There is **no `[]`** (an error is not a hashmap) and **no `->`** (an error has no applied
   protocols). The three-operator table model (tables §3.3) does not apply; an error has
   only its declared fields.
 

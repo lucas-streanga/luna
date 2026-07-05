@@ -110,13 +110,13 @@ a runtime property; views do not introduce static generics to change that.
 ### 3.2 An unapplied protocol yields `undefined`
 
 `tab->protoName` produces `undefined` when `protoName` is a real, in-scope protocol that
-the table does not currently wear. A view of an unapplied protocol is a *missing
+not currently applied to the table. A view of an unapplied protocol is a *missing
 capability*, and Luna's absence model handles it exactly like any other missing thing:
 `undefined`, navigable with `??` and `?.`. This makes protocol presence a constant-time,
 composable check rather than a separate predicate:
 
 ```
-if (tab->stringBuilder) { ... }                         // truthy iff the table wears it
+if (tab->stringBuilder) { ... }                         // truthy iff the table has it applied
 let s = tab->stringBuilder?.build() ?? "";              // build if capable, else default
 let sb = tab->stringBuilder ?? { try tab->apply(stringBuilder); tab->stringBuilder };
 ```
@@ -139,7 +139,7 @@ So the presence check is not gone, it is *relocated to the point of use*: carele
 `undefined`; only a genuinely-unapplied-but-real protocol yields it.
 
 Note that **`self` is never `undefined`**: inside a meta function you are running a
-protocol the table provably wears, so the current-protocol view always exists. The
+protocol the table provably has applied, so the current-protocol view always exists. The
 `undefined` case arises only for outward reach (`tab->someProto`), never for `self` or
 `view(receiver)`.
 
@@ -218,9 +218,9 @@ needed to name it.
 to `tab`, it yields **`undefined`**, so `view(tab, someProto)` and `tab->someProto`
 behave identically. Its return type is therefore `view | undefined`. In practice the
 common internal call, `view(t)` or `self` with the default current protocol, is **never**
-`undefined`, because a meta function only runs on a table that provably wears its
+`undefined`, because a meta function only runs on a table that provably has its applied
 protocol; the `undefined` case arises only when wrapping in an *explicit foreign*
-protocol the table may not wear. As with `->`, a subsequent hard `.` on an `undefined`
+protocol that may not be applied to the table. As with `->`, a subsequent hard `.` on an `undefined`
 result throws, so a mistakenly-constructed view fails at once rather than being handed
 around to fail distantly. The operator and the constructor thus stay consistent, and a
 bad view cannot be silently passed along.
@@ -230,7 +230,7 @@ receiver, viewed," and it is `self`.
 
 Note the distinction between the two absences a view can encounter:
 
-- **Table does not wear the protocol** , `tab->P` / `view(tab, P)` is `undefined`. A
+- **Protocol not applied to the table** , `tab->P` / `view(tab, P)` is `undefined`. A
   *capability* absence, coalescable with `??` / `?.`.
 - **Protocol does not define the meta function** , `someView.M()` where `M` is not a
   meta function of the view's protocol is an *error*, not `undefined` (§3.1). Whether a
@@ -287,7 +287,7 @@ top of it, and a reader who knows one guesses the other.
 The runtime stores a table's applied protocols as an append-ordered list: each
 successful `apply` appends. `@@tab` hands that order back. Tracking it costs nothing,
 the storage is naturally ordered, and it would take extra work to discard the order (by
-hashing into an unordered set). For the small number of protocols a table wears,
+hashing into an unordered set). For the small number of protocols a table has applied,
 membership (`p in @@tab`) is a short linear scan, so no hash set is wanted anyway.
 
 The order is **deterministic but not semantically load-bearing**: protocols are an
@@ -314,7 +314,7 @@ never appears. This is by design, not omission, and it is what keeps every eleme
 A value that is nameless, non-re-applicable, and information-free cannot sit usefully in
 a list whose elements are meant to be compared, applied, and iterated. So the built-in
 is the always-present substrate, reached only by bare `->`, and `@@tab == []` cleanly
-means "a plain table wearing no user protocols." Discriminating "is this a built-in
+means "a plain table with no applied user protocols." Discriminating "is this a built-in
 view" is not a reflection-list question; if it is ever needed, it is a dedicated
 predicate, not membership in `@@tab`.
 

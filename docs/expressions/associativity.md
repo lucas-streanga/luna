@@ -34,7 +34,7 @@ string interpolation is lexical, not an operator.
 | Tier | Forms | Associativity | Notes |
 |-|-|-|-|
 | 1 postfix | `T!` `T?` | left, stackable | `string?!` ≡ `string!?` ≡ `string \| null \| error` (errors §7, value-representation §3.1), order-independent by canonicalization |
-| 2 refinement | `@P` | prefix | wearer refinement; `@X` on a non-protocol is a compile error (protocols spec) |
+| 2 refinement | `@P` | prefix | application refinement; `@X` on a non-protocol is a compile error (protocols spec) |
 | 3 intersection | `&` | left, canonical | commutative after interning (`@Q & @P` ≡ `@P & @Q`, type §3.1) |
 | 4 union | `\|` | left, canonical | `&` binds tighter than `\|`: `@P & @Q \| null` is `(@P & @Q) \| null`; the overview's parenthesized spelling stays as the readable convention |
 | 5 fn | `fn (params): T` | , | the result type extends greedily right through tiers 1-4: `fn (): int \| string` returns the union; parenthesize the `fn` type itself to embed it in a union |

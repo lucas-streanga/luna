@@ -73,13 +73,13 @@ language with no enum-specific contract mechanism:
 
 ```
 const Event = enum {
-  logged  ['entry' => @Loggable],       // field wears a protocol (protocols spec)
+  logged  ['entry' => @Loggable],       // field has a protocol applied (protocols spec)
   counted ['n' => byte],                 // field is a constrained type (constraints spec)
   wrapped ['inner' => Shape],            // field is another enum
 };
 ```
 
-So a payload or payload-field type may be a constrained type (`byte`), a protocol-wearer type
+So a payload or payload-field type may be a constrained type (`byte`), a protocol-application type
 (`@SomeProto`), another enum, a table, a list, or any other type. Shape contracts on payload
 fields are therefore not a separate feature, they are just the field types being drawn from the
 full type language.

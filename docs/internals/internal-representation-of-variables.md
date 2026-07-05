@@ -36,7 +36,7 @@ For a synchronous call this needs no allocation (the caller's frame outlives the
 escaping `use`-capture **boxes** the scalar so binding and closure share one cell. The compiler
 emits a pointer to the binding and defers the stack-vs-heap decision to the Go backend's escape
 analysis, so no Luna-level escape analysis is required (compiler §1.4.1). A reference **shares**
-the slot, it never **moves** it: a scalar is copyable and so is never *moved-from* (§2.1,
+the slot, it never **moves** it: a scalar is copyable and so is never *taken* (§2.1,
 concurrency §2.3), and references cannot cross a spawn boundary anyway (concurrency §2.1), so a
 referenced or boxed scalar is always confined to one task.
 
@@ -121,10 +121,10 @@ per-value:
   can be aliased by several `lval`s at once, a binding and a table slot both referring to
   the one stream (stream §6.1), and a transfer must invalidate **all** of them; a
   per-`lval` flag would mark only the slot handed to `spawn` and leave the aliases live and
-  dangling. So moved-from lives in the referent's heap state (beside the stream's cursor or
+  dangling. So taken lives in the referent's heap state (beside the stream's cursor or
   the builder's buffer), where every alias dereferences it, the same reason error-ness lives
   in the `typeid` rather than a flag: one shared fact must not have per-slot copies that can
-  disagree. `taken(x)` (concurrency §2.3) reads this referent state; **using** a moved-from
+  disagree. `taken(x)` (concurrency §2.3) reads this referent state; **using** a taken
   value panics. This is distinct from `isUndefined`, which is a genuine per-slot fact (one
   binding is absent) and so *does* belong in the flag byte.
 
@@ -354,7 +354,7 @@ a union on the left distributes, `(A | B) <: U` iff both members are. Canonicali
 flattens union-of-union, so members are always non-union and the decomposition never
 recurses. **Intersections** (type spec §3.1) decompose dually, by **conjunction**: `x` is a
 member iff it is a member of every compound atom's parts, tree atom by interval, constraint
-conjunct by predicate, protocol set by the worn-set test, and **protocol-wearer refinements**
+conjunct by predicate, protocol set by the applied-set test, and **protocol-application refinements**
 intern typeids exactly as unions do (identity in the table, membership never by interval;
 their `typeinfo` records the canonical protocol set, their `valueBase` is `table`, type spec
 §5). Honest cost: **O(1) for tree edges, O(members) for unions and intersections**, over

@@ -105,7 +105,7 @@ value** (command spec §4), so piping it shares it like any immutable value, the
 stays valid and reusable in other pipelines, no move, no copy anyone can observe. One rule,
 the one every call site already follows; nothing pipe-specific to memorize.
 
-For the stream operand: `a |> t` **moves** the stream `a` into the resulting pipeline: `a` becomes **moved-from**,
+For the stream operand: `a |> t` **moves** the stream `a` into the resulting pipeline: `a` is **taken**,
 and any later use of `a` **panics** (a compile error where statically evident), the same
 enforcement every other single-owner resource already has, a stream crossing `spawn`
 (concurrency §2.3), a promise after `await` (await spec §1), a file after `close` (std.io

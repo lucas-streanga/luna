@@ -141,10 +141,10 @@ is performed:
 - **No reachability or divergence analysis.** A `fn (): never` that actually returns is not caught
   statically (that would be the halting problem in general); it panics at runtime (never spec).
 - **No move, linearity, or use-after-consume analysis.** Single-pass stream consumption, builder
-  transfer, and promise use are **runtime** properties: an exhausted stream, a **moved-from** stream
+  transfer, and promise use are **runtime** properties: an exhausted stream, a **taken** stream
   or builder (transferred across a spawn boundary, concurrency §2.3), or a spent promise fails at
   runtime, not through static move-tracking. Ownership transfer marks the value's **referent**
-  moved-from (value-representation §2.1) and any later access through any alias panics, a runtime
+  taken (value-representation §2.1) and any later access through any alias panics, a runtime
   referent check, precisely because proving "the spawner stopped using it on this path" would be the
   move-tracking this guarantee forgoes. (Optional, purely additive lints over obvious straight-line
   cases may be added later; they are never required for the core compile and never gate it.)
@@ -329,7 +329,7 @@ see, which is the reason the IR must exist.
   offset loads rather than hash probes. This pass chooses the representation and rewrites the
   access nodes.
 - **Protocol-dispatch devirtualization** (protocols, views specs). Where the protocol set a table
-  wears is statically known at a `->` site, resolve the meta-function to a direct call instead of
+  has is applied statically known at a `->` site, resolve the meta-function to a direct call instead of
   a runtime view lookup. Where it is not known, emit the dynamic dispatch.
 - **Ordinary folding and dead-code elimination**, applied where Luna semantics make them sound
   (pure expressions, unreachable arms). Go repeats much of this on the emitted code, but doing the

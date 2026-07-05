@@ -1,6 +1,6 @@
 # Concurrency
 
-Luna runs concurrent work as **green threads**: lightweight tasks scheduled by the always-present
+Concurrency operates on **tasks**. A task is Luna's unit of concurrent work, implemented as a green thread: lightweight, scheduled by the always-present
 runtime (goroutines under the hood, compiler spec §7.3). Concurrency is built on three pieces, a
 **`spawn`** that starts a task, a **`promise`** that stands for its future result, and an
 **`await`** that collapses a promise to a value, and on one architectural decision that makes it
@@ -9,7 +9,7 @@ safe: **a task shares no mutable state.** Everything crossing a spawn boundary i
 construction, which is why there is no function coloring: any function may be spawned.
 
 ```
-let p = spawn compute(x);       // start compute(x) as a green thread; p is a promise
+let p = spawn compute(x);       // start compute(x) as a task; p is its promise
 let v = await p;                // wait for the result: a value, or an error (§4)
 ```
 
@@ -24,7 +24,7 @@ there is no data race to prevent, and therefore no need to mark functions as con
 Coloring exists in other languages to manage shared-state hazards; Luna removes the hazard
 structurally, so it removes the coloring.
 
-`spawn f(args)` evaluates `args`, starts `f` on a green thread, and immediately returns a
+`spawn f(args)` evaluates `args`, starts `f` as a **task**, and immediately returns a
 **`promise`** (§3) for its eventual result. Green threads are light and the runtime is always
 present, so spawning is cheap.
 
@@ -83,7 +83,7 @@ sharing mutable state:
   so they cannot be copied and cannot be `const` (deep-freeze is meaningless for a stateful
   value). They cross by **ownership transfer**: the spawner hands the stream or builder to the
   task, after which the spawner is **enforced-ly** prevented from touching it, the transfer marks
-  the value **moved-from** (§2.3), and any later access through any alias panics. This is the
+  the value **taken** (§2.3), and any later access through any alias panics. This is the
   ownership-transfer escape for large data (move a stream into a task rather than copy a table).
   Because such values can never be `const`, they can never ride the const-share path into
   *multiple* tasks, so the "stateful value shared through a frozen container" race cannot arise.
@@ -119,21 +119,21 @@ purely an optimization (a task that builds a large table and returns it does not
 back). Inputs are copied (task and spawner both live on); outputs move (the task is finished). A
 task cannot return a **promise**, however (§3, confinement).
 
-### 2.3 Transfer is enforced: the moved-from state
+### 2.3 Transfer is enforced: the taken state
 
 A transferred value's move is **not** a convention the spawner must remember; it is **enforced at
 runtime**. Because Luna does no static move or use-after-consume analysis (compiler §1.4.1), "the
 spawner stopped using it" cannot be a compile-time guarantee, so it is a runtime one, on the same
 footing as reading an already-exhausted stream.
 
-**The moved-from state lives on the value, not the binding.** A stream or builder is a by-reference
+**The taken state lives on the value, not the binding.** A stream or builder is a by-reference
 value that can be **aliased**, most sharply, a stream held in a table is shared by reference, so one
 stream is reachable through several bindings and table slots at once (stream §6.1, tables §4).
 Marking a single binding would leave the other aliases live and dangling. So transfer marks the
 **referent**, the stream's / builder's heap state, beside its cursor / buffer, which **every** alias
 dereferences: the direct binding, a table element, a captured copy, all see it. This is the same
 principle as constraint and protocol enforcement, which follow the **value**, not the binding
-(constraints §9.4, tables §6.4); moved-from is that rule applied to ownership, and it is deliberately
+(constraints §9.4, tables §6.4); taken is that rule applied to ownership, and it is deliberately
 **not** the `undefined` mechanism, which is a per-*binding* `lval` flag that cannot live in a table
 (undefined §3, §7, value-representation §2.1).
 
@@ -141,16 +141,16 @@ principle as constraint and protocol enforcement, which follow the **value**, no
   once, at the spawn point, then only read afterward (write-once-then-read-only), so the spawner's
   panic-checks and the task's ownership never race and **no atomic is needed**, the same discipline
   that lets the eager copy skip atomic refcounting (§2).
-- **Using a moved-from value panics** (a `Panic`, errors §9), immediately, on any access through any
+- **Using a taken value panics** (a `Panic`, errors §9), immediately, on any access through any
   alias. This is **distinct from consumed**: a *consumed* stream yields **empty** on read (a normal
-  end-state, no panic), a *moved-from* stream **panics**, because another task now owns it. The
-  referent therefore carries a small terminal state, **active / consumed / moved-from**, not one
+  end-state, no panic), a *taken* stream **panics**, because another task now owns it. The
+  referent therefore carries a small terminal state, **active / consumed / taken**, not one
   reused bit.
 - **`taken(x): bool`** is the non-panicking query. `const taken = fn (x: any): bool` reports whether
-  `x` has been moved-from, reading the referent's state **without touching the value**. It returns
-  `false` for any non-movable value (an `int` is never moved-from) and never panics, the total,
+  `x` has been taken, reading the referent's state **without touching the value**. It returns
+  `false` for any non-movable value (an `int` is never taken) and never panics, the total,
   *asking* counterpart to the panicking *use* (as `has` is to a hard key read, `is` to `as`). It is
-  an ordinary **runtime** query, not comptime-foldable, since moved-from is set at spawn, at runtime.
+  an ordinary **runtime** query, not comptime-foldable, since taken is set at spawn, at runtime.
   Because it reads the referent, `taken(s)` and `taken(t['s'])` **agree** after a move: both see the
   one moved stream.
 
@@ -162,13 +162,13 @@ while the moved stream element panics on access:
 
 ```
 var t = ['s' => makeStream(), 'n' => 5];
-spawn f(t);        // copyable parts deep-copied; the stream moves (referent marked moved-from)
+spawn f(t);        // copyable parts deep-copied; the stream moves (referent marked **taken**)
 t['n'];            // 5: the copy is independent and usable
-t['s'];            // PANIC: the stream is moved-from, seen through the table alias
+t['s'];            // PANIC: the stream is taken, seen through the table alias
 taken(t['s']);     // true (a query, not a use): no panic, reports the move
 ```
 
-The `&`-reference ban (§2.1) and the moved-from state are the two halves of one guarantee: a live
+The `&`-reference ban (§2.1) and the taken state are the two halves of one guarantee: a live
 mutable value is never reachable from two tasks, `&` references cannot cross at all, and a
 stream / builder that *does* cross leaves an **enforced-dead** handle behind, on the referent, so
 every alias of it is dead too.
@@ -349,14 +349,14 @@ impossible**, not merely discouraged:
 - **No data races on Luna values.** No live mutable value is reachable from two tasks at once
   (§2.1): copyable values are copied, frozen `const` values are shared read-only (with no lazy
   initialization, so a read is never a hidden write), stateful values (streams, builders) transfer
-  sole ownership (enforced by the moved-from state, §2.3), capabilities are immutable, promises are
+  sole ownership (enforced by the taken state, §2.3), capabilities are immutable, promises are
   confined, and `&` references cannot cross. This rests on the **copy discipline, not on locking**:
   because every task's mutable data is sole-owned, copy-on-write refcounts are touched
   single-threaded and are **non-atomic** (§2, value-representation §6.1). The only cross-task
   sharing is **frozen `const`s**, which are immutable and carry **no refcount** (§2), so they are
   safe to read concurrently with no synchronization. The one runtime obligation is therefore that
   the **spawn and await boundaries act as synchronization points** (where the eager copy and the
-  moved-from mark, §2.3, are established); the runtime interiors need no atomic refcounting or
+  taken mark, §2.3, are established); the runtime interiors need no atomic refcounting or
   locks.
 - **No deadlocks.** There are no locks (aggregation is return-and-fold, §5, not shared-memory
   locking), so no lock-ordering deadlock exists. Awaiting cannot deadlock either: promises are

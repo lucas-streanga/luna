@@ -115,8 +115,8 @@ fn canGet(tab: table, key: any): bool
 fn canSet(tab: table, key: any): bool
 ```
 **O(1).** Whether `key` may currently be read / written. `canGet` is false for a
-missing key or a key the wearing protocol does not grant `get`. `canSet` is false for
-a missing key or a key the wearing protocol does not grant `set`.
+missing key or a key the applying protocol does not grant `get`. `canSet` is false for
+a missing key or a key the applying protocol does not grant `set`.
 
 ### 2.2 Table-level growth seal
 
@@ -515,8 +515,8 @@ coerced.
 |-|-|
 | `OpenViolationError` | Adding a new key to a `closed` or `neverOpen` table. |
 | `InvalidOpenError` | Calling `open()` on a `neverOpen` table. |
-| `TableReadViolationError` | Reading a key the wearing protocol does not grant `get`, including bulk reads under `onNoGet = throw`. |
-| `TableMutationViolationError` | Writing a key the wearing protocol does not grant `set`, including bulk writes under `onNoSet = throw`. |
+| `TableReadViolationError` | Reading a key the applying protocol does not grant `get`, including bulk reads under `onNoGet = throw`. |
+| `TableMutationViolationError` | Writing a key the applying protocol does not grant `set`, including bulk writes under `onNoSet = throw`. |
 
 Absence is **not** an error: reading a missing key yields `undefined`. See the
 *Optional Access & Coalescing* reference for how `?.`, `??`, and `???` navigate

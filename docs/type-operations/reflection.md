@@ -221,7 +221,7 @@ structural query that fits it.
 ### 3.4 Reflecting a protocol
 
 A **protocol** is a first-class `proto` value (protocols spec), so reflecting it is well-defined,
-unlike reflecting a wearer refinement (§3.5). Protocol reflection queries take a `proto`, not a
+unlike reflecting an application refinement (§3.5). Protocol reflection queries take a `proto`, not a
 `type`:
 
 ```
@@ -250,37 +250,37 @@ fn hasApply(p: proto): bool
 
 Two boundaries make protocol reflection safe for encapsulation:
 
-- **It is keyed on the protocol, not the wearing table.** Meta members are the same for every table
-  wearing a protocol (they are the protocol's declaration), so they are reflected off the `proto`,
-  reached from a value via `@@t` (views spec §7: the protocols a table wears), then reflected. You do
+- **It is keyed on the protocol, not the applying table.** Meta members are the same for every table
+  applying a protocol (they are the protocol's declaration), so they are reflected off the `proto`,
+  reached from a value via `@@t` (views spec §7: the protocols a table has applied), then reflected. You do
   not reflect meta members off a table.
 - **It exposes declarations, never values.** `metaMembers(p)` tells you a protocol declares
   `meta buffer: bytes`; it does **not** expose any table's actual buffer contents. Meta *values* stay
   private, reachable only inside the protocol's own meta functions (protocols spec §3.3). Reflection
-  sees the protocol's public *shape*, not any wearer's private *state*. This is deliberate: deep
+  sees the protocol's public *shape*, not any application's private *state*. This is deliberate: deep
   introspection of private state is exactly what encapsulation exists to prevent, so reflection stops
   at the declaration boundary.
 
-### 3.5 Wearer refinements (`@P`) and views are reflected by decomposition, not directly
+### 3.5 Application refinements (`@P`) and views are reflected by decomposition, not directly
 
-A wearer refinement `@P` and a `view` value are **not** in the domain of type reflection, because
+A application refinement `@P` and a `view` value are **not** in the domain of type reflection, because
 `@P` is **not a `type` value** (type spec §5): it has no `typeid`, so `typeName`/`kind`/`fields` do
-not take it. This is not a gap; it is a consequence of the type model, protocol-wearing lives on the
+not take it. This is not a gap; it is a consequence of the type model, protocol-applying lives on the
 `@@` axis, not the `@` axis, so type reflection structurally cannot apply to it.
 
-Reflecting "a table wearing `P`" therefore **decomposes** along the two axes it actually is:
+Reflecting "a table with `P` applied" therefore **decomposes** along the two axes it actually is:
 
 - **The table** is reflected by ordinary type reflection: `@t` gives the table type and `kind(@t)`
   is `table`. A bare `table` type has **no declared fields** (no shape types), so `fields(@t)` is
   the **empty list**; a table's per-key types are declared by a protocol, so they surface through
   the protocol reflection below, not through `@t`.
-- **The protocols** are reflected via `@@t` (the protocols the value wears, views spec §7), each a
+- **The protocols** are reflected via `@@t` (the protocols the value has applied, views spec §7), each a
   `proto` reflected by §3.4.
 
-And to **dispatch** on whether a value wears a protocol, the tool is **`match`** (type spec §7):
-matching a wearer-refinement pattern (`match (x) { @stringBuilder => ... }`) is the protocol-
-membership test. So "reflect a wearer" is answered by existing machinery, `@` for the table, `@@`
-for the protocols, `match` to branch on wearing, with no unified "wearer reflection" that would
+And to **dispatch** on whether a value has a protocol applied, the tool is **`match`** (type spec §7):
+matching an application-refinement pattern (`match (x) { @stringBuilder => ... }`) is the protocol-
+membership test. So "reflect an application" is answered by existing machinery, `@` for the table, `@@`
+for the protocols, `match` to branch on applying, with no unified "application reflection" that would
 recreate the category error of treating `@P` as a `type`.
 
 ---
@@ -359,10 +359,10 @@ tier (static type, structural).
 
 **Open:**
 
-- **Field ordering and worn-member inclusion.** Whether `fields(t)` reports fields in declaration
+- **Field ordering and applied-member inclusion.** Whether `fields(t)` reports fields in declaration
   order (the natural choice, given tables are ordered) and whether it includes element members
-  installed by *worn protocols* (which are element-space, so arguably yes) or only the type's own
+  installed by *applied protocols* (which are element-space, so arguably yes) or only the type's own
   declared fields, pending use with the protocol model.
-- **`elementMembers` vs `fields` overlap.** Whether a table type's fields and a worn protocol's
+- **`elementMembers` vs `fields` overlap.** Whether a table type's fields and a applied protocol's
   declared element members are reported through one unified query or the two separate ones here,
   pending the same protocol-model use.

@@ -185,7 +185,7 @@ home for shell-string execution and why it is unsafe.
 - **Environment, cwd, stdin:** how environment variables, working directory, and a fixed
   stdin input attach to a run, as methods on the `command` value (command spec open
   questions) or as options to `run` / `capture`.
-- **Concurrency:** running commands from multiple green threads, and whether `exec` exposes a
+- **Concurrency:** running commands from multiple tasks, and whether `exec` exposes a
   spawn-and-await form distinct from the synchronous `run` / `capture`, pending the
   concurrency model.
 - **`capture` and spawn failure:** confirm the boundary that a process which *ran* yields a

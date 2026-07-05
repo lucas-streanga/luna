@@ -10,7 +10,7 @@ Luna keeps `null` and `undefined` genuinely distinct, and this distinction is wh
 - **`null`, present-but-null.** `null` *is* a storable value, and with optional types it is common. A key holding `null` exists; someone put it there on purpose. `null` means "explicitly nothing," which is distinct from "no entry."
 - **value, a real, present value.**
 
-These three are the *value* axis. There is a second, independent **access** axis: a key the wearing protocol does not grant `get` cannot be read, so reading it raises `TableReadViolationError`, it does **not** collapse into `undefined`. Absence and denial are different failures and stay different everywhere below.
+These three are the *value* axis. There is a second, independent **access** axis: a key the applying protocol does not grant `get` cannot be read, so reading it raises `TableReadViolationError`, it does **not** collapse into `undefined`. Absence and denial are different failures and stay different everywhere below.
 
 > Because `undefined` is unstorable, **existence ⟺ not-`undefined`**. A present key always holds `null` or a real value, never `undefined`. This equivalence is what lets `?.`, `??`, and existence checks compose without ambiguity.
 

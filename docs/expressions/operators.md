@@ -44,11 +44,11 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `x is T` | type | type test | total **boolean** test: does value `x` have type `T`? never panics, never narrows | is |
 | `x as T` | type | checked narrow | narrow `x` to `T`, or panic (`TypeError`); yields a value of `T`, never transforms | as |
 | `A \| B` | type | union | type union ("one of"; **type position**) | types |
-| `@P & @Q` | type | intersection | protocol-wearer intersection ("all of"; **infix, type position**; distinct from prefix `&` reference) | types, protocols |
+| `@P & @Q` | type | intersection | protocol-application intersection ("all of"; **infix, type position**; distinct from prefix `&` reference) | types, protocols |
 | `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |
 | `T!` | type | errorable | adds the error arm (`| error`, errors §7) to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
-| `@x` | type | type-of | value position: the value's `type`; type position: wearer-refinement `@P` | type §1.1 |
-| `@@x` | type | protocol-reflect | reflect the protocols a table/view wears | reflection, views |
+| `@x` | type | type-of | value position: the value's `type`; type position: application-refinement `@P` | type §1.1 |
+| `@@x` | type | protocol-reflect | reflect the protocols a table/view has applied | reflection, views |
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
@@ -104,10 +104,10 @@ so the overload is decidable and never ambiguous:
 
 - **`&x`**, prefix, in **expression/value position**, is a **reference** (by-ref argument,
   write-back; variables §5.1).
-- **`@P & @Q`**, infix, in **type position**, is protocol-wearer **intersection** (types, protocols).
+- **`@P & @Q`**, infix, in **type position**, is protocol-application **intersection** (types, protocols).
 
 Value position vs. type position is the same grammatical distinction that decides `@` (type-of vs.
-wearer-refinement) and `!` (logical-not vs. errorable), Luna always knows syntactically whether it is
+application-refinement) and `!` (logical-not vs. errorable), Luna always knows syntactically whether it is
 parsing a type (after `:`, `as`, `is`, in a declared type) or an expression. On top of that, fixity
 differs (prefix `&x` vs. infix `A & B`), so the two are distinguished twice over. Because types and
 expressions are syntactically separated in Luna, there is no context where both could parse, so the

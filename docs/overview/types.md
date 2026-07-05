@@ -38,7 +38,7 @@ table*. See the undefined spec (and value-representation, coalescing).
 | `fn` | A function value (`fn` cannot throw; `fn!` may throw a declarable error) | functions |
 | `stream` | A lazy, single-pass sequence (generator producer, `foreach` consumer) | stream |
 | `promise` | A single future value from a spawned green thread; `await` collapses it to `T!` | concurrency |
-| `stringBuilder` | A table wearing the `stringBuilder` protocol (the builder) | string-builder |
+| `stringBuilder` | A table with the applied `stringBuilder` protocol (the builder) | string-builder |
 
 ---
 
@@ -55,7 +55,7 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
 | `capability` | A capability (`c = capability`) | `capability` | distinct capability types | capabilities |
 
 - **`proto`** is the union of all protocols; a specific protocol (`stringBuilder`) is a
-  member. A protocol is also usable as a type via `@proto` (the wearer type).
+  member. A protocol is also usable as a type via `@proto` (the application type).
 - **`error`** is the root and union of all error types; specific errors (`commandError`,
   `Panic`, user-defined errors) are members, related by single inheritance.
 - **`capability`** is the union of all capabilities; a specific capability (`reveal`, `io`) is
@@ -115,8 +115,8 @@ Not types, but how types are reached and tested:
   - **Already a type , written bare, no `@`:** `int`, `string`, an enum name, a constraint name
     (`byte`), a function type (`fn (int): string`), and bare `fn` (any callable). These *are*
     types, so they need no operator.
-  - **Not a type , `@` derives one:** `@P` gives a protocol's **wearer type** (a protocol is a
-    shape-predicate, not a value-set, so `@` yields "the type of tables wearing it"); `@value`
+  - **Not a type , `@` derives one:** `@P` gives a protocol's **application type** (a protocol is a
+    shape-predicate, not a value-set, so `@` yields "the type of tables with it applied"); `@value`
     gives a **value's type** (reflection), so `@someError` is its specific error type and `@f` is
     a function value's full type (`fn (int): string`, since function types are not erased,
     functions spec §3).

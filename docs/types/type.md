@@ -31,7 +31,7 @@ Making `type` a primitive rather than a table is deliberate and buys three thing
 ```
 
 `@` reflects a **value**. It is protocol-blind and attribute-blind: the type it returns identifies
-the value's structural type, not the protocols the value wears (§6) or any attributes on its
+the value's structural type, not the protocols the value has applied (§6) or any attributes on its
 declaration (attributes spec), both of which are separate axes kept out of `@` so that type
 comparison is never perturbed by them (`@a == @b` compares types, nothing else).
 
@@ -45,22 +45,22 @@ any runtime ambiguity about what `@` means.
 - **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **reflection**:
   "the type of this value," always yielding a comparable `type`. This is the uniform meaning above.
 - **In type position** (after `:`, after `as`, in a match pattern head), `@P` is a **type
-  expression**: a protocol-wearer refinement (§6), "a table guaranteed to wear `P`." It does not
+  expression**: a protocol-application refinement (§6), "a table guaranteed to have `P` applied." It does not
   reflect a value and does not produce a `type` value (§6, §5).
 
 The two roles share the glyph but never collide, because a parser always knows which position it is
 in, without consulting any type information. So `@stringBuilder` in `var x: @stringBuilder` (type
-position) is the wearer refinement, while `@stringBuilder` in `let t = @stringBuilder` (value
+position) is the application refinement, while `@stringBuilder` in `let t = @stringBuilder` (value
 position) is reflection on the proto value, and so yields `proto` (a proto's own type). Same text,
 two meanings, disambiguated purely by position, like C's `*`.
 
-**Within type position, `@X` is a wearer refinement only when `X` is a protocol.** Whether `X` is a
+**Within type position, `@X` is an application refinement only when `X` is a protocol.** Whether `X` is a
 protocol is a **static** fact (protocols are declared, the type universe is closed,
 value-representation §4.1, and nothing is constructed at runtime), so semantic analysis always knows
 it. If `X` in `@X` (type position) resolves to a non-protocol, for example `const p = int | table;
 var x: @p = ...`, where `p` is a *type*, not a protocol, it is a **compile error** ("`@` in type
 position requires a protocol; `p` is a type"). The **parser stays context-free**: it parses `@X`
-into one node regardless of what `X` is; **semantic analysis** then assigns the meaning (wearer
+into one node regardless of what `X` is; **semantic analysis** then assigns the meaning (application
 refinement, or error) once `X`'s kind is resolved. The parser never needs type information, and
 because every binding's kind (protocol, type, value) is statically fixed, the analyzer always has
 what it needs to decide. This is the concrete payoff of the closed type universe: an `@`
@@ -126,8 +126,8 @@ an optional **constraint conjunction** over that base, plus an optional **protoc
 - **Merge refinements over one base**: constraints conjoin (`byte & even`, the type-position
   spelling of constraints §6's `where`-composition, run in canonical order, base-match
   required exactly as there, and with the same **no-implication** rule, conjuncts are
-  executed, never reasoned about); protocol sets union (`@P & @Q`, a table wearing both);
-  the two mix over `table` (`list & @drawable`, a list-shaped wearer).
+  executed, never reasoned about); protocol sets union (`@P & @Q`, a table with both applied);
+  the two mix over `table` (`list & @drawable`, a list-shaped application).
 - **A written type that normalizes to uninhabited is a compile error** (`var x: int &
   string`), the same stance as constraints §6's base-mismatch: you wrote an impossible
   thing, and Luna errors rather than warns. `never` is reachable only by writing `never`.
@@ -138,7 +138,7 @@ an optional **constraint conjunction** over that base, plus an optional **protoc
 
 **Membership decomposes by conjunction**, the exact dual of the union rule
 (value-representation §4.2): `x is (A & B)` iff `x is A` **and** `x is B`, each conjunct by
-its own test (interval for tree atoms, predicate for constraints, worn-set for protocol
+its own test (interval for tree atoms, predicate for constraints, applied-set for protocol
 refinements). One consequence is free and worth stating: `(A & B) <: A` holds
 **structurally** (conjunct elimination on the normal form, no solving), which does not
 breach constraints §6's no-implication rule, that rule forbids reasoning about *predicate*
@@ -202,22 +202,22 @@ operator, written prefix on a binding.
 
 Everything that can appear in **type position** is a `type` value with an interned `typeid`
 (§3): scalars, `table`, `list`, `view`, `fn`, `stream`, `promise`, enums, constraints (`byte`),
-unions (`int | double`), intersections (§3.1), and **protocol-wearer refinements** (`@P`,
+unions (`int | double`), intersections (§3.1), and **protocol-application refinements** (`@P`,
 `@P & @Q`). The last of these follows the pattern unions established (value-representation
 §4.2): **identity from interning, membership from a test that is not the interval check.** A
-wearer refinement's `typeinfo` records its **protocol set**, canonicalized sorted and deduped
+application refinement's `typeinfo` records its **protocol set**, canonicalized sorted and deduped
 so `@Q & @P` and `@P & @Q` intern to one id, and that id is what lets `@P` do everything a
 public type must: sit in a union's member list (`(@P & @Q) | null`), be bound to an alias
 (`export const file = @fileDescriptor`, std.io §2), and compare by `typeid` (`@P == @P` across
 modules, §3).
 
-What stays exactly as before is the **membership semantics**, because protocol-wearing remains
+What stays exactly as before is the **membership semantics**, because protocol-applying remains
 a **value** property (the applied-protocol set, the `@@` axis, views spec), never encoded in a
 value's own `typeid`: `x is @P` and entry into a `@P`-declared position run the O(1)
-**worn-set test** (protocols §9, is spec §2), never an interval containment, and `@x` on a
-wearing table still reports the value's type (`table`, or its constraint), never `@P`, since
-`@` reads the typeid and wearing is not in it. For `==` on *values*, a refinement's
-`valueBase` is `table` (equality §1): wearing never perturbs value equality except through
+**applied-set test** (protocols §9, is spec §2), never an interval containment, and `@x` on a
+applying table still reports the value's type (`table`, or its constraint), never `@P`, since
+`@` reads the typeid and applying is not in it. For `==` on *values*, a refinement's
+`valueBase` is `table` (equality §1): applying never perturbs value equality except through
 `identityEquality` (equality §4.4). So the axes hold with one fewer exception: `@` is types,
 `@@` is protocols-as-data, and `@P` is a first-class type whose membership question happens to
 be answered on the `@@` axis, precisely as a union is a first-class type whose membership
@@ -272,34 +272,33 @@ tier).
 
 ---
 
-## 7. Matching a table that wears a protocol
+## 7. Matching a table that has a protocol applied
 
-Protocol-wearing is **not** part of a value's type (§1): `@t` on a table gives its structural table
+Protocol-applying is **not** part of a value's type (§1): `@t` on a table gives its structural table
 type, not the protocols applied to it, because protocols are applied to **values** (protocols spec),
-so two tables of the same `@`-type may differ in the protocols they wear. Putting protocol-wearing in
-`@` would break type comparison (two same-shape tables, one wearing a protocol, would compare
-unequal). So protocol-wearing lives on its **own axis**, reached by `@@` (protocol reflection), not
+so two tables of the same `@`-type may differ in the protocols applied to them. Putting protocol-applying in
+`@` would break type comparison (two same-shape tables, one applying a protocol, would compare
+unequal). So protocol-applying lives on its **own axis**, reached by `@@` (protocol reflection), not
 `@`.
 
-Therefore matching "a table wearing protocol `P`" is **not** a match on `@t`. It is a match against
-the **wearer refinement** `@P` (§5, §1.1: in type position, "a table guaranteed to wear `P`"), and
-matching a wearer-refinement pattern is defined as a **protocol-membership test** (does the value
-wear `P`, an `@@` check), not a `typeid` equality:
+Therefore matching "a table with protocol applied `P`" is **not** a match on `@t`. It is a match against
+the **application refinement** `@P` (§5, §1.1: in type position, "a table guaranteed to have `P` applied"), and
+matching an application-refinement pattern is defined as a **protocol-membership test** (is `P` applied, an `@@` check), not a `typeid` equality:
 
 ```
 match (x) {
-  @stringBuilder => x->stringBuilder.append("!"),   // x is guaranteed to wear stringBuilder here
+  @stringBuilder => x->stringBuilder.append("!"),   // x is guaranteed to have stringBuilder applied here
   @otherProto    => ...,
   _              => ...,
 }
 ```
 
 The arm `@stringBuilder` does **not** compile to `@x == @stringBuilder` (that is false, `@x` is a
-table type, not a wearer refinement). It compiles to "does `x`'s protocol set include
-`stringBuilder`," an `@@`/`is`-protocol test. So protocol-wearing stays out of `@` (comparison stays
-clean), and `match` reaches it through wearer-refinement patterns.
+table type, not an application refinement). It compiles to "does `x`'s protocol set include
+`stringBuilder`," an `@@`/`is`-protocol test. So protocol-applying stays out of `@` (comparison stays
+clean), and `match` reaches it through application-refinement patterns.
 
-**Matching a wearer refinement narrows `x` to a table guaranteed to wear `P`, reached through
+**Matching an application refinement narrows `x` to a table guaranteed to have `P` applied, reached through
 `->`.** This is the key point where the two spaces stay separate (views spec §1): the narrowed `x`
 is still a **table**, so `.` on it is still **element** access; the protocol's meta functions are
 reached through `->`, exactly as everywhere else. What the match guarantees is that `x->P` is
@@ -316,7 +315,7 @@ Section 7 is one instance of a general rule: a type pattern in a `match` arm is 
 test:
 
 - a **concrete type** (`int`, `Shape`), a `typeid` compare (a fast switch),
-- a **wearer refinement** (`@stringBuilder`), a protocol-membership test (`@@`), narrowing to a
+- a **application refinement** (`@stringBuilder`), a protocol-membership test (`@@`), narrowing to a
   table with `->P` guaranteed present (not to a view),
 - a **constraint** (`byte`), the constraint predicate (constraints spec),
 - a **union** (`int | double`), "is the current type one of the members,"

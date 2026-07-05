@@ -389,7 +389,7 @@ loop. The **string builder** is the mutable, amortized-O(1)-append accumulator t
 this: you append into it freely, then materialize a `string` once. It is the one place in
 the string story where mutation lives.
 
-The builder is realized as a table wearing the `stringBuilder` protocol (an element-empty
+The builder is realized as a table with the applied `stringBuilder` protocol (an element-empty
 table whose growable buffer is a protocol-private meta member), so its operations are meta
 functions reached with `->`:
 

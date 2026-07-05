@@ -303,9 +303,9 @@ one: closures capture `const` snapshots only (functions spec §2.1), so the old
 "escaping `use`-capture of a scalar" case, and the boxing it required, **no longer exists**;
 no Luna-level escape analysis and no Go-side box is ever needed for a scalar reference
 (compiler §1.4.1). The reference **shares** the value; it never **moves** it. A scalar is
-copyable, so it is never *moved-from* (concurrency §2.3, value-representation §2.1): `&` exists
+copyable, so it is never *taken* (concurrency §2.3, value-representation §2.1): `&` exists
 to mutate a value and give it back, the opposite of a transfer, so `fillInt(&x)` leaves `x`
-holding the new value, never a moved-from slot.
+holding the new value, never a taken slot.
 
 **References cannot cross a spawn boundary.** A `&` argument may not cross into a spawned task,
 a compile error (concurrency §2.1), because it would share a mutable slot between the spawner

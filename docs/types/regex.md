@@ -27,7 +27,7 @@ let year = /\d{4}/;          // year : regex, compiled once
 matchYear(text, year);       // passed as a regex, not a string
 ```
 
-`regex` is not a table and wears no protocols; it is a primitive value type like `string`
+`regex` is not a table and has no protocol applieds; it is a primitive value type like `string`
 or `int`, with its own literal.
 
 ---

@@ -245,10 +245,10 @@ storing, and checking `undefined` are all cheap.
   `undefined` behaves uniformly with a concretely-typed one (holding is fine, using panics), and how
   reflection reports the type of an `undefined` binding, pending use.
 - **Undefined from a partial or interrupted computation.** The productions remain **missing-key and
-  void-return only**. A *moved-from* stream or builder, one transferred across a spawn boundary
-  (concurrency §2.3), is deliberately **not** `undefined` but a **separate moved-from state on the
+  void-return only**. A *taken* stream or builder, one transferred across a spawn boundary
+  (concurrency §2.3), is deliberately **not** `undefined` but a **separate taken state on the
   referent** (value-representation §2.1). The two are kept distinct on purpose: `undefined` is a
-  per-*binding* `lval` flag that can never live in a table (§3), whereas moved-from must be shared
+  per-*binding* `lval` flag that can never live in a table (§3), whereas taken must be shared
   across every alias of one stream, **including a table element**, so it lives on the value, not the
   slot, and using it **panics** rather than coalescing. Whether any *further* operation produces
   `undefined` (a reserved-but-unset slot in a future builder API) remains pending, but ownership

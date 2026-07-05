@@ -78,7 +78,7 @@ foreach (v in s) { ... }         // values-only stream
 foreach (k => v in s) { ... }    // key-value stream
 ```
 
-Consumption is **single-pass**: each element is produced once, seen once, and not retained.
+Streams are **consumable**: consumption is **single-pass**, each element is produced once, seen once, and not retained.
 After a stream is consumed, it is **exhausted**, iterating it again yields nothing (an empty
 pass), because its elements are gone and its generator has run to completion.
 
@@ -253,7 +253,7 @@ so **consuming the pipeline consumes `a`**. After piping, `a` is a **stage of th
 not an independent stream**: consume the pipeline result, not the original.
 
 Unlike general single-pass exhaustion (§2), piping is an **enforced move** (pipeline spec
-§5.1): after `a |> t`, `a` is **moved-from** and any later use **panics**, a compile error
+§5.1): after `a |> t`, `a` is **taken** and any later use **panics**, a compile error
 where statically evident, the same enforcement as a stream crossing `spawn` (concurrency
 §2.3), a promise after `await`, a file after `close`. The upgrade from the earlier
 "discipline" wording is deliberate: a piped-from handle and its pipeline shared a live
@@ -271,7 +271,7 @@ prevent. **Once you pipe a stream, the pipeline is the stream.**
   two-way generator, as in Python), or is one-way (produce only); current model is one-way.
 - **Single-pass enforcement generally:** §2's exhausted-second-pass behavior (`foreach`
   twice) remains a discipline while `spawn`, `await`, `close`, and now `|>` all enforce
-  moves; whether plain re-iteration should also upgrade to moved-from enforcement is a
+  moves; whether plain re-iteration should also upgrade to taken-value enforcement is a
   consistency review to run once real code exists (the pipe case was upgraded because it
   aliased a *live* cursor; a fully exhausted stream is deterministic, so the case is
   weaker there).

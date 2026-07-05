@@ -132,7 +132,7 @@ cases, matching whether the compiler can see the stream:
   stream is a runtime fact, so no compile-time rule can apply; capture therefore
   applies the same **crossing taxonomy as a spawn boundary** (concurrency §2.1):
   copyable parts are snapshotted as usual, and any stream referent is
-  **transferred**, marked *moved-from* (concurrency §2.3), so any later access
+  **transferred**, marked **taken** (concurrency §2.3), so any later access
   through the outer binding or any alias panics. The closure now solely owns the
   stream, exactly as a spawned task would.
 
@@ -143,7 +143,7 @@ let g = fn (src: stream) => src.take(3);
 
 var t = ['s' => (0..10)];
 let h = fn (): int => t['s'].count(); // capture moves the stream into h's snapshot
-t['s'];                               // PANIC: moved-from (concurrency §2.3)
+t['s'];                               // PANIC: taken (concurrency §2.3)
 ```
 
 One rule, two boundaries: a closure environment and a task are the same kind of place,

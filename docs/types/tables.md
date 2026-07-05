@@ -242,7 +242,7 @@ the absence first (`tab['k'] = maybe ?? fallback`).
 ### 3.3 Element space (`.` / `[]`) vs. meta space (`->`)
 
 `.` and `[]` reach **element space**: the table's own keyed data. A third operator,
-`->`, reaches **meta space**: the behavior contributed by the protocols a table wears.
+`->`, reaches **meta space**: the behavior contributed by the protocols a table has applied.
 The two spaces are disjoint, and the operators never overlap:
 
 - **`tab.name` / `tab['name']`** , element (data). Static or dynamic key. A miss is
@@ -252,7 +252,7 @@ The two spaces are disjoint, and the operators never overlap:
   (`map`, `filter`, `count`, `pop`, and the rest) lives here, in
   **table-api.md**.
 - **`tab->protoName`** , a view of a named applied protocol, or `undefined` if the
-  table does not wear it. Meta functions are reached through the view with `.`.
+  table does not have it applied. Meta functions are reached through the view with `.`.
 
 Because element space and meta space use different operators, a data key can share a
 name with a meta function without ambiguity: `tab.map` is the element under key `map`
@@ -260,7 +260,7 @@ name with a meta function without ambiguity: `tab.map` is the element under key 
 space is flat and un-namespaced (any string is a key); meta space is namespaced by
 protocol. Meta functions are never assignable, and `->` never appears on the left of an
 assignment. The full dispatch rules, views, chaining, and the `@@` protocol-reflection
-operator are specified in **views**; **protocols** specifies how a table comes to wear a
+operator are specified in **views**; **protocols** specifies how a protocol comes to be applied to a
 protocol in the first place.
 
 ---
@@ -498,7 +498,7 @@ keys default to **no access**, and the protocol opts specific keys into `get` an
 of its contract. This is how "this field is private, that one is read-only, this one is read-write"
 is expressed: as a *type contract* (a protocol), checkable at compile time, rather than an ad-hoc
 runtime flag on an individual key. There are no runtime methods to change a key's access; access is a
-property of the protocol a table wears.
+property of the protocol a table has applied.
 
 This matches the language's deny-by-default stance elsewhere (capabilities are granted, not revoked;
 `secret` conceals by default): a typed table exposes only what its protocol deliberately grants.
@@ -520,7 +520,7 @@ write this right now?" in O(1). On a **missing** key both return `false`, and
 
 ### 6.3 Bulk operations and permissions: `onNoGet` / `onNoSet`
 
-A method that **reads element values** may encounter a key the wearing protocol does not grant `get`;
+A method that **reads element values** may encounter a key the applying protocol does not grant `get`;
 one that **writes to existing keys** may encounter a key it does not grant `set`. Behavior is
 controlled by a two-member enum, defaulting to `throw`:
 
@@ -544,17 +544,17 @@ The per-method `onNoGet` / `onNoSet` parameters are listed with each entry in
 ### 6.4 Protocol contracts are value-carried, and enforced on write
 
 Both kinds of contract a protocol places on a key, its **access grant** (`get` / `set`, §6) and
-the **declared type** of the value (protocols §5.4), are properties of the **value's worn-protocol
+the **declared type** of the value (protocols §5.4), are properties of the **value's applied-protocol
 set** (the `@@` axis, views spec), not of the binding through which the value is reached. They are
 enforced the same way constraints are (constraints §9.4): **checked on write, keyed on the value,
 trusted on read.**
 
-The consequence that matters is that **widening cannot launder them.** Widening a protocol-wearing
+The consequence that matters is that **widening cannot launder them.** Widening a protocol-applying
 table to bare `table`, or passing `&t` to a `fn (&t: table)`, relaxes the *static* view to `any`
 element access (§6.1, protocols §5.4.1) but does **not** strip the protocol from the *value*. So a
 write through that bare-`table` binding is still checked against the value's actual contracts:
 
-- a write to a key the worn protocol does not grant `set` still raises `TableMutationViolationError`;
+- a write to a key the applied protocol does not grant `set` still raises `TableMutationViolationError`;
 - a write of a value that violates the key's declared type still raises `TypeError` (protocols
   §5.4.2).
 
@@ -564,11 +564,11 @@ is still checked as a `list` on mutation, because the value carries `list`; a `@
 check reads the value, so the widened static view is a loss of *precision on reads*, never a loss of
 *enforcement on writes*.
 
-The **bare-table-literal** rule of §6.1 is unchanged and consistent with this: a table wearing **no**
+The **bare-table-literal** rule of §6.1 is unchanged and consistent with this: a table applying **no**
 protocol has no contracts to enforce, so it is fully accessible to its holder. §6.1 is about a value
-that wears nothing; §6.4 is about a value that wears a protocol but is *seen through* a bare-`table`
-binding, a different thing. To obtain a genuinely contract-free table from a protocol-wearing one,
-derive a fresh one (`copy`, variables §5.2, or a transformer, §7.1), which is born wearing only the
+that has nothing applied; §6.4 is about a value that has a protocol applied but is *seen through* a bare-`table`
+binding, a different thing. To obtain a genuinely contract-free table from a protocol-applying one,
+derive a fresh one (`copy`, variables §5.2, or a transformer, §7.1), which is born applying only the
 built-in protocol.
 
 As with constraints, the runtime cost is confined to **writes the compiler cannot prove safe**: a
@@ -792,6 +792,6 @@ table semantics running faster.
 ---
 
 *See also:* **table-api.md** for the complete operation catalogue and the
-error summary, **protocols** and **views** for how tables wear protocols and how `->`
+error summary, **protocols** and **views** for how protocols apply to tables and how `->`
 reaches their behavior, and the *Optional Access & Coalescing* reference for `?.`, `??`,
 and `???`.

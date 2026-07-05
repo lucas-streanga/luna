@@ -90,14 +90,14 @@ Types combine with the **union** operator `|` ("one of") and the **intersection*
 
 ```
 var x: stream | fn = fn (): null => null;      // a stream or a function
-var y: @proto1 & @proto2 = [] apply proto1, proto2;   // a table wearing both protocols
+var y: @proto1 & @proto2 = [] apply proto1, proto2;   // a table with both applied protocols
 var z: (@proto1 & @proto2) | null = null;
 ```
 
 Union and intersection are structural and canonical: `int | double` and `double | int` are the
 same type, and `@Q & @P` is `@P & @Q`. Intersection is **general** (type spec §3.1), defined for
 every pair by normalization, though the single-inheritance tree makes it collapse everywhere
-except the multi-membership axes, protocol sets (`@P & @Q`, a table wearing both, how a table
+except the multi-membership axes, protocol sets (`@P & @Q`, a table with both applied, how a table
 composes capabilities) and constraint conjunctions (`byte & even`).
 
 ## Type inference

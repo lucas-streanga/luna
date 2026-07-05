@@ -62,21 +62,21 @@ const toString = fn (value: any): string => { ... };     // total; one function 
 
 A single function still renders every type appropriately, and stays **open** to user types,
 because it **dispatches to a protocol meta-function** rather than to overloads. A type makes
-itself renderable by wearing the well-known **`stringify` protocol** (its one member:
+itself renderable by applying the well-known **`stringify` protocol** (its one member:
 `toString = meta fn (b: table): string`, **non-errorable by contract**); `toString` dispatches
-through it when worn, and falls back to a built-in rendering otherwise:
+through it when applied, and falls back to a built-in rendering otherwise:
 
 ```
 const toString = fn (value: any): string => match {
-  value is @stringify => value->stringify.toString(),   // the wearer's own rendering
+  value is @stringify => value->stringify.toString(),   // the application's own rendering
   _                   => builtinRender(value),          // default per built-in type
 };
 ```
 
 Every step of that dispatch is a form the protocol model already permits, which is the point:
 
-- **`value is @stringify`** is a membership test on the worn set (the `@@` axis, protocols §9),
-  the sanctioned wear-test, never view-truthiness (bool spec).
+- **`value is @stringify`** is a membership test on the applied set (the `@@` axis, protocols §9),
+  the sanctioned application test, never view-truthiness (bool spec).
 - **`value->stringify`** is the **view form** of `->`, a *qualified* reach into one named
   protocol (views spec); **`.toString()`** is a member call on that view. An earlier draft
   wrote the dispatch as an *unqualified* meta call, `value->stringify()`, which is
@@ -85,14 +85,14 @@ Every step of that dispatch is a form the protocol model already permits, which 
   what disambiguates; `tab->stringify.toString()` is the exact and only spelling.
 
 - **`toString`** is the **free function callers use**. It is total (§3.1).
-- **`stringify`** is the **protocol types wear**. The two names stay distinct on purpose:
-  callers call `toString`, types wear `stringify`; the entry point and the extension point
-  never blur. How a wearer supplies its rendering follows the ordinary protocol mechanism
-  (per-wearer meta state read by the shared member, or installation at `apply`; protocols
+- **`stringify`** is the **protocol types have applied**. The two names stay distinct on purpose:
+  callers call `toString`, types apply `stringify`; the entry point and the extension point
+  never blur. How an application supplies its rendering follows the ordinary protocol mechanism
+  (per-application meta state read by the shared member, or installation at `apply`; protocols
   spec), nothing conversion-specific.
 
 So **custom rendering is qualified protocol dispatch, not overloading and not lookup**: a user
-type wears `stringify`, and `toString` reaches it by name. This is the same protocol / view
+type has `stringify` applied, and `toString` reaches it by name. This is the same protocol / view
 mechanism used everywhere; `toString` extensibility needs no new machinery, and, after the
 fix above, no forbidden machinery either.
 
@@ -102,7 +102,7 @@ Because `toString` is total, it always yields a string:
 
 - For a **built-in** type, the built-in rendering always exists (a number, a bool, a string
   itself, an enum variant, a table, each has a default form).
-- For a **wearer** of `stringify`, the protocol's member supplies the rendering, and its
+- For a **application** of `stringify`, the protocol's member supplies the rendering, and its
   totality is **contract, not courtesy**: the member is declared `meta fn (b: table): string`,
   no `!`, and protocol application enforces member signatures, so an errorable implementation
   cannot enter the protocol (protocols spec). Display paths (logging, interpolation, `.`

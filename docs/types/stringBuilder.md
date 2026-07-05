@@ -6,7 +6,7 @@ total length. The **string builder** is the mutable accumulator that solves this
 append into it freely, then materialize an immutable `string` once. It is the single place
 in the string story where mutation lives.
 
-A builder is not a new primitive type. It is realized as a **table wearing the
+A builder is not a new primitive type. It is realized as a **table with the applied
 `stringBuilder` protocol** (protocols, views): an element-empty table whose growable byte
 buffer is a protocol-private meta member. This is the canonical minimal use of the
 protocol model, so the builder doubles as its worked example. This document is the
@@ -22,7 +22,7 @@ A builder is a value of type `@stringBuilder` (protocols §7.1): a table with th
 
 - **Element-empty.** The builder holds no element data; its `.`/`[]` element space is
   empty (`[]`). All of its state is the buffer, which is a **meta member** (protocols
-  §3.3), not an element. So the builder is genuinely an empty table wearing a protocol,
+  §3.3), not an element. So the builder is genuinely an empty table with a applied protocol,
   the object-from-table-plus-protocol pattern in its simplest form.
 - **The buffer is protocol-private.** It is a meta member of `stringBuilder`, namespaced
   to the protocol, invisible to element introspection (`count()` sees nothing), and

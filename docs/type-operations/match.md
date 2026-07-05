@@ -48,12 +48,12 @@ recursing, so patterns stay simple and conditions live in the guard (§3):
   escapes as the match result; the name does not).
 - **Type pattern** `T` (optionally binding: `T name`): the pattern is a **type expression**,
   written exactly as in any type position, bare `int`, a union `int | string`, a constraint
-  `byte`, a wearer refinement `@stringBuilder` or `@P & @Q`, and it matches iff the value **is**
+  `byte`, an application refinement `@stringBuilder` or `@P & @Q`, and it matches iff the value **is**
   of that type (the single meaning of `is`, is spec §2, running the two-tier check /
-  worn-set test as the type dictates), **narrowing** to it. Appending a name binds the matched
+  applied-set test as the type dictates), **narrowing** to it. Appending a name binds the matched
   value: **`int n`** is the typed binding, "an `int`, bound to `n`", composing with a guard,
   `int n where n > 10`. Pattern-type position **is type position**, so `@` there means what it
-  means in every type position, the wearer refinement, and **`@int` is a compile error** by the
+  means in every type position, the application refinement, and **`@int` is a compile error** by the
   existing rule (`@X` on a non-protocol type, protocols spec), never a type pattern; earlier
   drafts spelled type patterns `@int n`, which read `@` as the type-of operator, but `@int` as
   an *expression* is `typeof(int)`, the type `type`, so that spelling never meant what it

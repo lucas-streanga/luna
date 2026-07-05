@@ -33,14 +33,14 @@ This is the sharp contrast with `as` (as spec):
 
 The left operand is a **value**; the right operand is a **type** (a `type` expression, types spec):
 a primitive (`int`, `string`, `bool`), a union (`int | string`), a constraint (`byte`), an enum, a
-protocol-wearer refinement (`@P`), or any other type value. `x is T` reports whether `x`'s current
+protocol-application refinement (`@P`), or any other type value. `x is T` reports whether `x`'s current
 type is a subtype of `T` (whether `x` is usable as a `T`).
 
 ```
 v is int              // primitive
 v is int | string     // union: true if v is either
 v is byte             // constraint: true if v is an int in 0..255
-v is @drawable        // protocol: true if v is a table wearing the drawable protocol
+v is @drawable        // protocol: true if v is a table with the applied drawable protocol
 ```
 
 Because Luna's type universe is statically closed and each value carries its type
@@ -48,7 +48,7 @@ Because Luna's type universe is statically closed and each value carries its typ
 which is always **concrete**, a current type is never a union, so the check is the two-tier rule
 of value-representation §4.2: an **interval check** when `T` is a tree node (a named type, a
 constraint, an error), **member decomposition** when `T` is a union (one interval check per flat,
-canonicalized member), and the worn-set membership test for a `@P` refinement (protocols §9). It
+canonicalized member), and the applied-set membership test for a `@P` refinement (protocols §9). It
 does not evaluate the value's contents beyond what the type requires (a constraint runs its
 predicate, constraints §7).
 

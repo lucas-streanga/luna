@@ -10,7 +10,7 @@ let result = await p;            // park until done; result MOVED out
 
 ## 1. Semantics
 
-- **`await p` parks the current green thread** until `p`'s task completes, then yields the
+- **`await p` parks the current task** until `p`'s task completes, then yields the
   task's result. Parking is a scheduler operation, not an OS block: the carrier thread runs
   other tasks meanwhile (the Go runtime underneath).
 - **No function coloring.** Any function may `await`; there is no `async` marker, no split
@@ -23,8 +23,8 @@ let result = await p;            // park until done; result MOVED out
   is dead, no alias to the result can exist, so transfer is free and safe. One copy at
   entry, zero at exit.
 - **A promise is consumed by `await`.** Collecting the value moves it, so the promise joins
-  the moved-from discipline that streams, builders, and files already follow (concurrency
-  §2.3): a second `await p`, or any use of `p` after the first, **panics** (moved-from). One
+  the taken-value discipline that streams, builders, and files already follow (concurrency
+  §2.3): a second `await p`, or any use of `p` after the first, **panics** (the value is taken). One
   task, one result, one collection.
 - **Errors surface at the `await`.** If the task's function is errorable and it threw, the
   error is delivered at the collection point: `await p` on a task running `fn (...): T!` has

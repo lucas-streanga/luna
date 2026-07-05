@@ -81,7 +81,7 @@ every type belongs to exactly one:
   `byte`, `null`), `string`, and `table` (structural, §4). Two distinct values with the same
   contents are equal.
 - **Identity-equality types**, compared by **identity** (same underlying object): `stream`, `fn`,
-  `promise`, `capability`, `command`, and a **table that wears an `identityEquality` protocol**
+  `promise`, `capability`, `command`, and a **table that has an applied `identityEquality` protocol**
   (§4.4, which is how builders compare). Two of these are equal only if they are the **same** value,
   because comparing their contents is impossible (a `stream` cannot be read without consuming it,
   and may be infinite), undecidable (`fn` extensional equality), or meaningless (a `capability` is a
@@ -191,25 +191,25 @@ pointer mismatch is itself the answer: not identical, so not equal). Pointer equ
 sound positive optimization, never a decision procedure for inequality, except for identity types,
 where identity *is* the definition.
 
-### 4.4 A protocol may declare its wearers identity-equal (`identityEquality`)
+### 4.4 A protocol may declare its applications identity-equal (`identityEquality`)
 
 A table's equality can be switched from structural (the default) to **identity** by a protocol it
-wears. A protocol declares this with **`identityEquality`** inside its `proto` block:
+has applied. A protocol declares this with **`identityEquality`** inside its `proto` block:
 
 ```
 const stringBuilder = proto {
-  identityEquality               // tables wearing this protocol compare by identity, not structure
+  identityEquality               // tables with this applied protocol compare by identity, not structure
   meta buffer: bytes
   meta append(self, s: string): self => ...
 };
 ```
 
-A table that wears **any** protocol declaring `identityEquality` compares by **identity** (§2), not
-by structure. This is what makes **builders** compare by identity: a builder is a table wearing
+A table that has applied **any** protocol declaring `identityEquality` compares by **identity** (§2), not
+by structure. This is what makes **builders** compare by identity: a builder is a table applying
 `stringBuilder`, and `stringBuilder` declares `identityEquality`, so builders are identity-equal.
 There is **no special builder type**; the behavior is entirely a consequence of the protocol
 declaration, which is exactly why a **user-defined** builder-like protocol gets the same treatment,
-declare `identityEquality`, and its wearers are identity-equal too. Builtin and user builders are
+declare `identityEquality`, and its applications are identity-equal too. Builtin and user builders are
 first-class equals; `stringBuilder` is just the builtin protocol that happens to declare it.
 
 Why this is a bounded, declarative switch and **not** a user-defined `==`:
@@ -225,12 +225,12 @@ Why this is a bounded, declarative switch and **not** a user-defined `==`:
   and compare the results (`b1.build() == b2.build()`, comparing strings), exactly as one compares
   the materialized results of two streams rather than the streams.
 
-**Conflict rule: any identity wins.** If a table wears several protocols and *any* of them declares
-`identityEquality`, the table is identity-equal. Identity is the conservative choice (if any worn
-protocol considers its wearers not structurally comparable, trust it). This is statically visible
+**Conflict rule: any identity wins.** If a table has several protocol applieds and *any* of them declares
+`identityEquality`, the table is identity-equal. Identity is the conservative choice (if any applied
+protocol considers its applications not structurally comparable, trust it). This is statically visible
 whenever the protocol set is known (static apply, `@P` types), so it is an inspectable property, not
 a hidden one, and `identityEquality` is a rare, explicit, loud declaration, so a table does not
-become identity-equal by accident: some protocol it wears said so, in its definition.
+become identity-equal by accident: some protocol it has said applied so, in its definition.
 
 ---
 
@@ -290,7 +290,7 @@ erasure, §1, intro). Otherwise, comparison is by the shared base type below. "R
 | `type` | canonical `typeid` | one integer compare; `int\|double == double\|int` (§3) |
 | `table` (default) | **structural**: same length, key/value pairs, bases, values, **order** | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4); `list` erases to `table` (§1) |
 | `enum` value | same **variant** (nominal, no erasure, §1), then payload structurally | `circle != square` regardless of payloads; same variant compares its payload table by `==` |
-| `table` wearing `identityEquality` | **identity** | how builders compare; any such protocol makes the whole table identity-equal (§4.4) |
+| `table` applying `identityEquality` | **identity** | how builders compare; any such protocol makes the whole table identity-equal (§4.4) |
 | `stream` | identity | contents uncomparable (single-pass, maybe infinite) |
 | `stringBuilder` / builders | identity | via the `identityEquality` protocol declaration (§4.4); compare `.build()` results for content |
 | `fn` | identity | signatures compare via `@f == @g` (a separate, type-level question) |

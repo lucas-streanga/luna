@@ -29,7 +29,7 @@ A protocol contributes three kinds of thing to a table it is applied to:
   protocol-private.
 
 Because a protocol is "applied, not implemented," a table does not inherit or subclass
-a protocol; it *wears* one, and can shed or gain protocols over its lifetime.
+a protocol; it *has applied* one, and can shed or gain protocols over its lifetime.
 
 ---
 
@@ -83,11 +83,11 @@ The block contains:
   required (§4.1, §5).
 - **Meta members** (`meta buffer: bytes`), protocol-private state (§3.3).
 - **Meta functions** (`name = meta fn (...) => ...`), the behavior (§3).
-- **`identityEquality`** (optional), a declaration that tables wearing this protocol compare by
+- **`identityEquality`** (optional), a declaration that tables with this applied protocol compare by
   **identity** rather than structure (equality spec §4.4). Its meaningful state is typically
   protocol-private (a meta member), which is not part of structural equality, so structural
   comparison would be wrong; identity is the correct relation. This is how `stringBuilder` (and any
-  user builder) compares by identity. A table wearing any `identityEquality` protocol is
+  user builder) compares by identity. A table with any applied `identityEquality` protocol is
   identity-equal.
 
 A protocol that needs to run code at attach time, logging, initializing a meta member,
@@ -110,7 +110,7 @@ determines the errorability of applying it, and it is readable directly from the
 ## 3. Meta functions and meta members
 
 The distinction that makes protocols work: **meta functions and meta members belong to
-the protocol, not to the table.** They are reachable *through* a table that wears the
+the protocol, not to the table.** They are reachable *through* a table that has the applied
 protocol, but they are not elements of it.
 
 ### 3.1 Meta functions are reached, never stored
@@ -238,7 +238,7 @@ errorability rule above.
 If any step fails, `apply` returns the error and the table is unchanged (application is
 all-or-nothing). Because every branch of step 2 ends with each declared member **present and
 of its declared type** (validated, or installed from a typed default) or the application
-**failed**, a table that successfully wears `P` provably satisfies every one of `P`'s
+**failed**, a table that successfully has `P` applied provably satisfies every one of `P`'s
 declared members, which §5.4's typed access relies on.
 
 ### 4.2 Failure modes
@@ -258,14 +258,14 @@ declared members, which §5.4's typed access relies on.
 
 ### 4.3 Re-application is permitted
 
-The machinery does **not** reject applying a protocol a table already wears. Re-apply is
+The machinery does **not** reject applying a protocol a table already has applied. Re-apply is
 naturally idempotent for declared element members (§4.1 tolerates re-installing a
 protocol's own members) and for meta functions (which are defined by the `proto` value,
 not installed on the table, so re-apply reaches the same functions and changes nothing).
 A protocol whose `apply` body has custom setup may guard against re-running it, returning
 early or throwing `ApplyError`, but that is the protocol author's choice, not a
 machinery-enforced rule. Applying the built-in protocol is meaningless (every table
-already wears it) and is not an operation.
+already has it applied) and is not an operation.
 
 Note that a protocol's meta functions can **never** be redefined by application, because
 application does not *define* meta functions; it makes the ones already declared in the
@@ -275,9 +275,9 @@ duplicate meta-function name within a `proto` block is a definition error.**
 
 ### 4.4 Reaching an unapplied protocol yields `undefined`
 
-Reaching a protocol a table does not wear, `tab->someProto` or `view(tab, someProto)`,
+Reaching a protocol a table does not have applied, `tab->someProto` or `view(tab, someProto)`,
 yields **`undefined`**, not an error (views document, §3.2 and §5). This makes "does
-this table wear protocol P" a constant-time, coalescable check
+this protocol applied to this table" a constant-time, coalescable check
 (`tab->someProto ?? ...`, `tab->someProto?.method()`), consistent with how a missing
 element key yields `undefined`. A hard `.` on the resulting `undefined` throws, so
 careless use of an absent capability still fails at once. The protocol name must resolve
@@ -348,15 +348,15 @@ default-no rule is the protocol's encapsulation of its declared keys.)
 ### 5.4 Declared element types are enforced, and give typed access
 
 A declared element member's type (`name: string`, `age: int`, `note?: string`) is a **per-key
-value constraint** (constraints spec), active on a table **while it wears the protocol**. It is
+value constraint** (constraints spec), active on a table **while it has the protocol applied**. It is
 an **enforced invariant**, not an advisory hint, and it is enforced by the same value-carried
 discipline as any constraint (constraints §9): **checked on write, trusted on read, keyed on the
-value.** So a table known to wear the protocol **provably** has each declared element member at
+value.** So a table with the protocol applied **provably** has each declared element member at
 its declared type: a `@person` genuinely has a `string` `name`. Two mechanisms establish that
 guarantee, at construction and at every subsequent write, and one consumes it, on read.
 
 **At construction:** apply installs or validates every declared member (§4.1 step 2), so a table
-that *starts* wearing `P` already satisfies `P`'s declared types (or the apply failed).
+that *starts* applying `P` already satisfies `P`'s declared types (or the apply failed).
 
 #### 5.4.1 Typed reads follow the declared type (no runtime check)
 
@@ -372,7 +372,7 @@ because protocol application is dynamic (§4) and statically invisible:
 
 - A value typed **`@person`** (or an intersection `@person & @stringBuilder`, §7.2) reads each
   named protocol's declared members at their declared type: `.name` is `string`.
-- A value typed bare **`table`** reads element access as **`any`**, even if it happens to wear
+- A value typed bare **`table`** reads element access as **`any`**, even if it happens to have applied
   `person` at runtime, because the declared type does not say so. Recover typed access by narrowing
   (`as @person` / `is @person`), one O(1) runtime protocol-tag check.
 
@@ -384,21 +384,21 @@ callers get `any`. The declaration is the knob that propagates typed *reads*.
 
 A read losing precision to `any` is safe (it under-promises). A **write** cannot be allowed the
 same latitude: if a write through a bare-`table` binding could put a non-`string` into the `name`
-of a value that wears `person`, then a `@person` read of that value (§5.4.1, no runtime check)
+of a value that has `person` applied, then a `@person` read of that value (§5.4.1, no runtime check)
 would return a non-`string`, type confusion. So **write-enforcement keys off the value's runtime
-worn-protocol set (the `@@` axis, views spec), not the writing binding's declared type**, exactly
+applied-protocol set (the `@@` axis, views spec), not the writing binding's declared type**, exactly
 as constraint enforcement keys off the value's typeid (constraints §9.4):
 
-> A write to key `K` checks: does the value **wear** a protocol declaring `K: T`? If so, is the
+> A write to key `K` checks: does the value **have applied** a protocol declaring `K: T`? If so, is the
 > incoming value a `T`? A non-conforming write is rejected (`TypeError`, errors §9), value
 > unchanged.
 
 This closes the widening / `&`-alias path. Widening a `@person` to bare `table` (or passing
 `&p` to a `fn (&t: table)`) does **not** strip the contract from the *value*; the value still
-wears `person`, so a write to `t.name` (or `t['name']`) is still checked against `string`, even
+has `person` applied, so a write to `t.name` (or `t['name']`) is still checked against `string`, even
 though the writing site sees only `table`. Handing a callee a genuinely unconstrained table is
 explicit, `copy` it (variables §5.2) or rebuild a bare table (`values()`), both of which produce
-a value wearing no protocol (flag propagation, §7.1).
+a value with no applied protocol (flag propagation, §7.1).
 
 The runtime cost lands **only on writes, and only where the site cannot prove them safe** — the
 same elision as constraints (constraints §9.5). A write is **statically discharged** (no runtime
@@ -414,13 +414,13 @@ knowledge* (an input to elision, tables §3.2), not whether enforcement happens.
 
 ## 6. Union: applying many protocols
 
-A table may wear any number of protocols; you `apply` as many as you like, and their
+A table may be an application of any number of protocols; you `apply` as many as you like, and their
 surfaces union.
 
 ```
 var w = [];
 try w->apply(stringBuilder);
-try w->apply(jsonWriter);        // w now wears both
+try w->apply(jsonWriter);        // w now has both applied
 ```
 
 ### 6.1 Meta functions never clash, because they are always qualified
@@ -465,36 +465,36 @@ exposes `byteLength`, not a shadowing `count`.
 
 Everything in §1 through §6 is the runtime, value-space model: protocols are `proto`
 values, applied at runtime, reflected with `@@`. This section adds the static,
-type-space layer: a way to write "a table that wears protocol P" as a *type*, and a way
+type-space layer: a way to write "a table that has protocol applied P" as a *type*, and a way
 to construct such a value with the guarantee checked at compile time. The runtime model
 is unchanged; this is additional static information that some values carry.
 
 ### 7.1 A protocol as a type: `@proto`
 
 A protocol is a `proto` value, but in **type position** the form `@P` denotes a type: the type of
-tables that wear `P`.
+tables with `P` applied.
 
 ```
-var l: @stringBuilder = ...;    // l is a table statically known to wear stringBuilder
+var l: @stringBuilder = ...;    // l is a table statically known to be an application of stringBuilder
 ```
 
 This is **not** a special case of the reflection operator; it is the type-position role of `@`,
 disambiguated purely by grammatical position, the same way `*` in C is multiplication in an
 expression and a pointer in a declaration (type spec §1.1). In **value** position, `@x` reflects a
 value and yields a `type` (so `@stringBuilder` in value position is `proto`, the proto's own type).
-In **type** position, `@P` is a **wearer refinement**: "a table guaranteed to wear `P`." Same glyph,
+In **type** position, `@P` is a **application refinement**: "a table guaranteed to have `P` applied." Same glyph,
 two roles, fixed by position at parse time, so there is no runtime ambiguity and the parser needs no
-type information. Within type position, `@X` is a wearer refinement only when `X` resolves to a
+type information. Within type position, `@X` is an application refinement only when `X` resolves to a
 protocol; `@X` on a non-protocol type is a compile error, decided in semantic analysis (protocol-ness
 is static, the type universe is closed).
 
-A wearer refinement is a **first-class `type` value** (type spec §5, §3.1): `@P`, and the
+A application refinement is a **first-class `type` value** (type spec §5, §3.1): `@P`, and the
 canonicalized protocol set `@P & @Q`, intern a `typeid` whose `typeinfo` records the set, so a
 refinement can sit in unions, be aliased (`export const file = @fileDescriptor`, std.io §2),
 and compare by `typeid`. What it deliberately is **not** is part of any *value's* typeid:
-protocol-wearing stays a *value* property (the applied-protocol set, reflected by `@@`, views
-document), so `@x` on a wearing table never reports `@P`, and membership, `x is @P`, entry into
-a `@P` position, is the O(1) **worn-set test**, never an interval check, the same
+protocol-applying stays a *value* property (the applied-protocol set, reflected by `@@`, views
+document), so `@x` on a applying table never reports `@P`, and membership, `x is @P`, entry into
+a `@P` position, is the O(1) **applied-set test**, never an interval check, the same
 identity-versus-membership split unions have (value-representation §4.2). This is why it
 composes with `@@` without collision: `@@` crosses from a value to the `proto` values it
 carries, while `@P` in type position is a static guarantee *about* that axis, "`l->P` is
@@ -503,8 +503,8 @@ type whose membership question is answered on the `@@` axis.
 
 ### 7.2 Composing protocol types: `@P & @Q`
 
-Protocol types compose. `@P & @Q` is "a table that wears both P and Q"; `@P | @Q` is
-"wears one or the other" (which narrows like any union, views document and the value
+Protocol types compose. `@P & @Q` is "a table that has both applied P and Q"; `@P | @Q` is
+"has one applied or the other" (which narrows like any union, views document and the value
 model).
 
 `@P & @Q` is a **well-formed type only if P and Q have disjoint declared element
@@ -517,7 +517,7 @@ flat, un-namespaced space (§5, §6.3):
 - **Meta members never constrain it.** They are protocol-private (§3.3), so same-named
   meta members coexist silently.
 - **Declared element members are the only thing that can collide**, because they land in
-  the shared element space. If P and Q both declare `status`, no table can soundly wear
+  the shared element space. If P and Q both declare `status`, no table can soundly have applied
   both, so `@P & @Q` is an **ill-formed type**: a compile error naming the shared member.
 
 So `@P & @Q` well-formedness reduces to one compile-time check, disjoint declared element
@@ -543,7 +543,7 @@ not a callable value.
 Static application still applies the protocol at runtime; the static protocol type is
 *additional* information the value carries, not a replacement for runtime application. A
 value of type `@P` is an ordinary table that also carries the static guarantee that it
-wears P.
+has P applied.
 
 "Static" describes what is **checked** (the collision check and the result type), not
 what is **executed**. Static apply runs the *same* runtime application as dynamic apply,
@@ -660,7 +660,7 @@ document's concern.
 
 ## 8. The built-in protocol
 
-Every table always wears one protocol implicitly: the **built-in protocol**, whose meta
+Every table always has one protocol applied implicitly: the **built-in protocol**, whose meta
 functions are the table operation catalogue (`map`, `filter`, `reduce`, `count`, `pop`,
 `sort`, and the rest, specified in the table-api.md document). It is not special
 machinery; it is simply the protocol that is always applied and that has **no name**.
@@ -725,10 +725,10 @@ stringBuilder = proto {
 
 // dynamic application onto a var table:
 var b = [];
-b apply stringBuilder;                     // STATEMENT form: a runtime wearer mutation.
+b apply stringBuilder;                     // STATEMENT form: a runtime application mutation.
                                            // b's static type is UNCHANGED (still `table`);
                                            // the applied set is a value fact on the @@ axis (§9)
-let sb = b->stringBuilder;                 // dynamically checked: a view if b wears the
+let sb = b->stringBuilder;                 // dynamically checked: a view if b has the applied
                                            // protocol, a PANIC if it does not (views spec)
 sb.append("Hello, ").append(name);         // chained meta calls on the view
 let greeting = sb.build();                 // an immutable string; sb still usable
@@ -741,17 +741,17 @@ var c: @stringBuilder = [] apply stringBuilder;   // c is @stringBuilder-typed; 
 **The two forms of `apply`, and why neither is flow typing.** In **expression** position,
 `apply` yields a value whose static type is the `@P` refinement, so a *declaration*
 initialized with it is statically protocol-typed, facts in types, checked at compile time.
-In **statement** position, `apply` is an ordinary runtime mutation of the value's worn set
+In **statement** position, `apply` is an ordinary runtime mutation of the value's applied set
 (the `@@` axis, §9): it changes **no static type**, the binding stays whatever it was
 declared, and the compiler makes **zero control-flow attempt** to learn from it. Subsequent
 protocol access through a non-`@P`-typed binding (`b->stringBuilder`) is resolved against
-the value's worn set **at runtime** and **panics** if the protocol is absent, facts in
+the value's applied set **at runtime** and **panics** if the protocol is absent, facts in
 runtime state, checked when used. This is the same fact/promise split as everywhere else
 (constraints §7.1): the statement form records a fact, the declared form makes a promise,
 and no fact ever silently upgrades into a static assumption, which is exactly the
 no-flow-typing rule (`as` spec §7, tables §5.2.1) holding here too. The split is **sound
 with no check on `apply` itself** because application is **monotone**, it only ever adds to
-the worn set, so no `@P` promise anywhere can be broken by someone else's later apply (see
+the applied set, so no `@P` promise anywhere can be broken by someone else's later apply (see
 §12, Removal, for the condition this rests on).
 
 `b` remains element-empty throughout; `buf` is meta state, never an element. `build` is
