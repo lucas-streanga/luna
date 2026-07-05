@@ -17,7 +17,8 @@ only through `use` (functions §5.6), like `io` and `system`. Consequences:
 - **Building is free; running is gated.** Constructing and composing a `command` needs no
   capability (it is pure data, command spec). A function that *runs* a command holds `exec`
   in its `use` clause, so "does this execute programs" is visible in the signature.
-- **Comptime-safe by the same invariant.** Comptime forbids `use`, so it cannot hold `exec`,
+- **Comptime-safe by the same invariant.** Comptime forbids using any non-comptime
+  capability (functions spec §5.5), and `exec` is not `comptime`, so comptime cannot hold it,
   so a command can be *constructed* at compile time but never *run* at compile time. No
   exec-specific comptime rule is needed; it falls out of the capability model.
 
@@ -35,7 +36,7 @@ log and error), and `exec` reveals it once, at the syscall, so the raw value nev
 user-visible output.
 
 ```
-const countLines = fn (path: string) use (exec): !int => {
+const countLines = fn (path: string) use (caps.exec): !int => {
   let out = try exec.run(`wc -l ${path}`);
   return parseFirstInt(out);
 };

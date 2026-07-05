@@ -196,10 +196,10 @@ contents reachable through the binding, there is nothing for `const` to freeze t
 - **Scalars and immutable values**, `int`, `double`, `bool`, an immutable `string`, have
   no interior to mutate, so `let x = 5` and `const x = 5` mean the same thing.
 - **Functions**, a `fn` value has no interior state reachable through its binding: you
-  never mutate a closure's contents through the name that holds it. (Its only mutable
-  state is whatever it captured by reference with `use`, and that is mutated through the
-  *captured* binding, not through the function binding.) So `let f = fn ...` and `const f
-  = fn ...` are equivalent.
+  never mutate a closure's contents through the name that holds it. (It has no mutable
+  contents at all: a closure's environment is an implicit deep-`const` snapshot,
+  functions spec §2.1, and its only referential capture is a `use`d capability, which
+  is itself immutable.) So `let f = fn ...` and `const f = fn ...` are equivalent.
 
 This is not a special case for any of these types; it falls out of the general rule that
 `let`-versus-`const` is exactly the presence or absence of interior freezing, which is
@@ -277,25 +277,26 @@ println(num) foreach (num in myStream);   // nothing: the stream is consumed
 (`table`, `stream`), whose `lval` already holds a shared pointer, so a reference just shares
 that pointer. A scalar (`int`, `double`, `bool`) is stored **inline** in its `lval` (there is no
 separate object to point at), so a reference to it is a **pointer to the binding's `lval` slot**
-itself. This needs no special handling and no allocation in the common case: calls are
-**synchronous**, so the caller's frame outlives the call, the callee writes through the pointer,
-and the caller resumes with the new value, exactly as for `&table`. The only case that allocates
-is an escaping **`use`-capture** of a scalar (a closure that reference-captures the `var` and
-then outlives the frame): the scalar is **boxed** so the binding and the closure share one cell
-and both see mutations. The compiler emits a pointer to the binding and lets the Go backend's
-escape analysis decide stack vs. heap, so the box is paid only when the reference truly escapes,
-no Luna-level analysis is required (compiler §1.4.1). Either way the reference **shares** the
-value; it never **moves** it. A scalar is copyable, so it is never *moved-from* (concurrency §2.3,
-value-representation §2.1): `&` exists to mutate a value and give it back, the opposite of a
-transfer, so `fillInt(&x)` leaves `x` holding the new value, never a moved-from slot.
+itself. This needs no special handling and **never allocates**: a `&` reference exists only as
+an argument, calls are **synchronous**, so the caller's frame outlives the call, the callee
+writes through the pointer, and the caller resumes with the new value, exactly as for `&table`.
+A reference cannot outlive the frame by any other route either, because a closure cannot hold
+one: closures capture `const` snapshots only (functions spec §2.1), so the old
+"escaping `use`-capture of a scalar" case, and the boxing it required, **no longer exists**;
+no Luna-level escape analysis and no Go-side box is ever needed for a scalar reference
+(compiler §1.4.1). The reference **shares** the value; it never **moves** it. A scalar is
+copyable, so it is never *moved-from* (concurrency §2.3, value-representation §2.1): `&` exists
+to mutate a value and give it back, the opposite of a transfer, so `fillInt(&x)` leaves `x`
+holding the new value, never a moved-from slot.
 
-**References cannot cross a spawn boundary.** Neither a `&` argument nor a `use`-capture of a
-`var` may cross into a spawned task, both are compile errors (concurrency §2.1), because either
-would share a mutable slot between the spawner and the task. This is why the boxing above stays
-single-task: the box a closure shares is never handed to another task. A task communicates a
-result by **returning** it (concurrency §2.2), never through a shared reference. (A `use`-capture
-of an immutable-shareable, a capability or a `const`, *may* cross, since there is no mutable slot
-to race on.)
+**References cannot cross a spawn boundary.** A `&` argument may not cross into a spawned task,
+a compile error (concurrency §2.1), because it would share a mutable slot between the spawner
+and the task. It is the only case that needs forbidding: a closure cannot carry a reference to a
+binding at all (its environment is a deep-`const` snapshot, functions spec §2.1), so there is no
+capture-shaped path for a mutable slot to cross, and **any closure is spawnable**. A task
+communicates a result by **returning** it (concurrency §2.2), never through a shared reference.
+(The one referential capture in the language, `use` of a capability, *does* cross, since a
+capability is immutable and there is no mutable slot to race on.)
 
 ### 5.2 The `copy` operator
 

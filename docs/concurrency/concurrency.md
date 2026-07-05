@@ -42,17 +42,16 @@ This covers both channels by which data could enter a task, and both obey the ru
 
 - **Arguments** to `spawn f(args)` are deep-copied into the task (a `const` argument shared by
   reference).
-- **Captures** of a spawned closure are deep-copied too (a closure's captured environment is the
-  sneaky path by which state could be shared, so it is copied on the same rule as arguments,
-  functions spec §2). How a capture crosses depends on *how it was captured* and *what it is*:
-  - an **auto (value) capture** of a `var` or `let` is **copied**, the task sees a **snapshot**,
-    not the spawner's live binding;
-  - a **`use`-capture of a `const` or a capability** is **shared by reference** (immutable, no
-    slot to race on), which is how a task comes to hold `io` (§2.1, capabilities §8);
-  - a **`use`-capture of a `var`** cannot be spawned at all, it is a **compile error** (§2.1),
-    because it would share a mutable slot; snapshotting it silently would instead break the
-    reference semantics the `use` asked for, so the language rejects it rather than quietly
-    changing its meaning. A `const` capture is always shared (it is deep-frozen either way).
+- **Captures** of a spawned closure need no rule of their own anymore: a closure's environment
+  is an implicit **deep-`const` snapshot** taken at creation (functions spec §2.1), so by the
+  time a closure reaches `spawn` its environment is already frozen data with no live link to any
+  binding. It crosses exactly as `const` does above, shared by reference where already frozen,
+  with nothing mutable to copy-protect. Any stream the closure came to own was transferred at
+  *capture* time (functions §2.3), not at spawn. The one referential capture in the language,
+  `use` of a **capability**, is **shared by reference** (immutable, no slot to race on), which
+  is how a task comes to hold `io` (§2.1, capabilities §7). So **every closure is spawnable**;
+  the old compile error for spawning a `use`-captured `var` is gone because the capture it
+  forbade no longer exists.
 
 So a task's inputs are an isolated copy, and there is **no shared mutable state** between tasks or
 between a task and its spawner. That is the whole safety story: no shared mutable state means no
@@ -89,16 +88,20 @@ sharing mutable state:
   Because such values can never be `const`, they can never ride the const-share path into
   *multiple* tasks, so the "stateful value shared through a frozen container" race cannot arise.
 - **Promises**, **confined** (§3): a promise cannot cross a spawn boundary in either direction.
-- **References to mutable bindings**, **forbidden**. A reference that shares a `var`, whether a
-  `&` argument (`spawn f(&t)`) or a `use`-capture of a `var` by the spawned closure, would give
-  the task a mutable reference to the spawner's binding, shared mutable state, a race. So **neither
-  a `&` argument nor a `use(var)` capture may cross a spawn boundary**; both are compile errors.
-  Mutation visible to the spawner is expressed by the task **returning** a value the spawner uses
-  (§2.2), never by a shared reference. This restriction is on **mutable** references only: a
-  `use`-capture of an **immutable-shareable**, a `const` or a **capability**, *does* cross (that is
-  exactly how a task comes to hold `io`, capabilities §8), because an immutable value shared by
-  reference has no slot to race on, the same reason `const` and capabilities cross by reference
-  above. The seam is mutability, not the `use` operator.
+- **References to mutable bindings**, **forbidden**. A reference that shares a `var`, i.e. a
+  `&` argument (`spawn f(&t)`), would give the task a mutable reference to the spawner's
+  binding, shared mutable state, a race. So **a `&` argument may not cross a spawn boundary**;
+  it is a compile error. Mutation visible to the spawner is expressed by the task **returning**
+  a value the spawner uses (§2.2), never by a shared reference. `&` arguments are the *only*
+  case left to forbid, because a closure can no longer smuggle one: a closure's environment is
+  an implicit deep-`const` snapshot (functions §2.1), there is no `use`-capture of a `var` in
+  the language, so **any closure is spawnable** with no environment check at all. Its captured
+  environment crosses by the rules above as the frozen data it is, already-`const` parts shared,
+  and any stream it came to own at capture (functions §2.3) already transferred then. The one
+  referential capture that exists, `use` of a **capability**, *does* cross (that is exactly how
+  a task comes to hold `io`, capabilities §7; `spawn f(...)` is a direct-call form, not a value
+  slot, capabilities §3.1), because a capability is immutable and zero-data, no slot to race on,
+  the same reason capabilities cross by reference above.
 
 The result: no live mutable value is ever reachable from two tasks at once. Copyable values are
 copied, frozen values are shared read-only, stateful values transfer sole ownership, capabilities

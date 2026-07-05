@@ -17,15 +17,17 @@ every entry in the catalogue rather than restated per function.
 
 **Strings are immutable, so every operation is pure.** No method mutates its
 receiver; each returns a new string (or a view, number, bool, or table). There is no
-`&`-write-back for strings the way there is for tables, because there is nothing to
-write back into. `&str` is a compile error (a string binding cannot be referenced for
-mutation), consistent with the general rule that references are for `var` bindings and
-`var str: string` is itself illegal.
+`&`-write-back *into* a string the way there is into a table, because there is no
+interior to write into; a `&` reference to a **`var`** string binding follows the
+general rule (variables §5.1) and can only **rebind the slot** to a new string.
 
-**`var str: string` is always illegal; strings bind with `let` or `const`.** A string
-value can never be rebound-in-place, so the mutable-binding form is disallowed
-outright. Rebinding a `let` string to a new string is fine (that is a new value, not a
-mutation); `const` additionally forbids rebinding.
+**Binding modes follow the variables spec exactly; strings add no carve-out.** `var s`
+may be rebound to a new string; `let s` fixes the binding and may **never** be rebound
+(`ReassignmentError`, variables §1.1), the "new value, not a mutation" reading is
+wrong, rebinding is precisely what `let` forbids; `const s` is the same as `let` here,
+since an immutable string has no interior for `const` to additionally freeze
+(variables §3.1). Since strings have no in-place mutation at all, the practical ladder
+is: `var` to reassign, `let`/`const` (equivalent) otherwise.
 
 **No overloading; unions instead.** Where another language would overload, Luna takes
 a union parameter. `split` accepts `string | int` for its separator; `replace` accepts
@@ -366,8 +368,9 @@ Two operators build strings by joining:
 - **`.`** concatenation. `a . b` is a new string with `b`'s bytes after `a`'s. Both
   operands are coerced via `toString`, so `"n=" . 42` is `"n=42"`. O(n + m).
 - **`.=`** append-assign. `s .= x` is `s = s . x`. Because strings are immutable this
-  is a rebind, not an in-place mutation, so it is legal on a `let` binding (a new value
-  is bound) and illegal on a `const` (§1).
+  is a rebind, not an in-place mutation, so it requires a **`var`** binding; on a `let`
+  or `const` it is a `ReassignmentError` (variables §1.1), rebinding is exactly what
+  those forbid.
 
 `.` is not `+`. Arithmetic `+` stays numeric; a distinct concatenation operator keeps
 `"3" + 4` from being ambiguous and matches the PHP/Perl lineage the interpolation rules

@@ -22,7 +22,7 @@ Two commitments shape everything else:
 ## A taste
 
 ```
-const main = fn (argv: list) use (&io): int => {
+const main = fn (argv: list) use (caps.io): int => {
   fail('no files given') if argv.empty();
 
   const files = argv.map(fn (name: string): file => openFile(name, File.modeRead));

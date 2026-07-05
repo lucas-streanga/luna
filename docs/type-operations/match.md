@@ -389,17 +389,21 @@ default, precise on request.
 ## 11. Capture is like a lambda
 
 A match expression captures the free variables it references the same way a function does
-(functions spec §2): **by value automatically**, and **by reference through `use`** for nocopy
-values or deliberate referential capture:
+(functions spec §2): as **implicit deep-`const` snapshots**, read-only, taken when the match
+is evaluated. `use` on a match means what `use` means everywhere, **capabilities only**
+(capabilities §3.1), for the case where a guard or arm calls a capability-requiring function
+by name:
 
 ```
-let v = match use (someRef) {
-  _ where check(someRef) => ...,
+let v = match use (caps.io) {
+  _ where confirm(io) => ...,     // a guard that reaches io must hold it, like any body
 };
 ```
 
-So match introduces no new capture rule; it captures exactly as a lambda body would, `use` for
-references, with the nocopy handling that implies.
+So match introduces no new capture rule; it captures exactly as a lambda body would: `const`
+snapshots for data, `use` for authority, and nothing else. A stream is never captured by a
+match either, scrutinize it as the subject or pass it through a binding pattern, per
+functions §2.3.
 
 ---
 

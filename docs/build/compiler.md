@@ -342,9 +342,11 @@ constants.
 - **It evaluates the IR, not generated Go.** Because comptime runs *during* compilation, it is far
   cleaner to interpret the IR than to generate-and-run Go mid-compile. This is an independent
   reason the IR must exist: comptime needs something evaluable before any Go is emitted.
-- **The capability sandbox is enforced statically and dynamically.** Comptime forbids `use`
-  (functions spec §5.5): a comptime-eligible subtree provably reaches no capability (checked in
-  analysis), so it can touch no outside world. The evaluator additionally runs under the liveness
+- **The capability sandbox is enforced statically and dynamically.** Comptime forbids using
+  any **non-comptime** capability (functions spec §5.5): a comptime-eligible subtree provably
+  reaches no outside authority (checked in analysis, and vacuously true besides, since no
+  non-comptime capability instance exists before runtime, capabilities spec §8), so it can
+  touch no outside world. The evaluator additionally runs under the liveness
   guards, deterministic execution budget (fuel, not wall-clock), stack-depth limit, and allocation
   ceiling (functions spec §5.5), each aborting with a compile error rather than hanging the build.
 - **It is deterministic.** The budget is a step counter, not wall-clock time, so comptime results

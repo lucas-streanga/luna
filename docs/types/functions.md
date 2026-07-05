@@ -30,90 +30,124 @@ another lives in the type, not in per-value flags (§6).
 
 ## 2. Capture
 
-A function may refer to bindings from its enclosing scope. How it captures them is the
-core of the function model, because capture is where a function's *effects* come from.
+A function may refer to bindings from its enclosing scope. Capture is deliberately
+inert: a closure's environment can never be a channel for effects. Everything a
+function can *do* to the outside world arrives through exactly two doors, both visible
+in source: a **capability**, named in `use` (§2.2), or a **`&` reference parameter**,
+passed at call time (variables §5.1). Capture itself carries neither.
 
-### 2.1 Auto-capture is by value
+### 2.1 Capture is an implicit deep-`const` binding
 
-By default, a function captures any binding it uses **by value**: it snapshots the
-value at closure-creation time. This is safe and implicit precisely because a value
-capture cannot affect the outside world, it is a copy, so mutations inside the function
-never escape, and changes outside never leak in. Value capture is the same
-copy-on-write value semantics as passing an argument (variables spec): logically a copy,
-physically shared until a write.
+A function captures every copyable binding it references as an implicit **deep-`const`
+bind of the current value** (variables §3). This is not an analogy but the same
+operation: at closure-creation time the closure takes an independent snapshot, exactly
+as `const snapshot = original` does, and holds it deeply immutable. Everything follows
+from the `const` rules:
+
+- **Snapshot at creation.** The closure binds the value as it is when the closure is
+  created; later rebinding or mutation of the outer binding is invisible inside, and
+  there is no way to observe "later values" of anything (which is also why capturing a
+  `let` or a `var` needs no distinct rules; see §9).
+- **Read-only inside, deeply.** Mutating a captured binding, rebinding it or writing
+  its interior (`t.k = v` on a captured table), is a **compile error**, the same error
+  as writing through any `const` (variables §3). A closure has no writable environment.
+- **Copy-on-write cost model.** As with every `const` bind and every by-value pass,
+  the snapshot is logically a copy and physically shared until a write (variables §5).
+  Since the closure can never write its captures, the only detaching writes are the
+  outer binding's own, so a closure that captures a large table costs nothing until
+  the *original* is mutated.
+- **`const` captures share.** A binding that is already `const` is captured by
+  reference with no copy at all, it is deep-frozen either way (the same rule as the
+  spawn boundary, concurrency §2.1).
+- **Scalars are trivial.** For values with no mutable interior, `const`-capture and
+  plain snapshot coincide (variables §3.1).
 
 ```
 let n = 10;
-let f = fn (): int => n * 2;    // captures n by value (snapshot); f() is 20
+let f = fn (): int => n * 2;    // captures n: implicit const snapshot; f() is 20
 // reassigning n afterward does not change what f captured
+
+var t = ['count' => 0];
+let g = fn (): int => t.count;  // captures t: deep-const snapshot of the current table
+t.count = 1;                     // detaches the original; g still sees 0
+let h = fn () => t.count = 5;   // COMPILE ERROR: cannot mutate through a capture
+                                 // (a capture is a const binding, variables §3)
 ```
 
-Because auto-capture is by value and therefore effect-free, it needs no declaration.
+Because capture is a `const` bind, one law now covers every boundary a value crosses,
+a call, a closure, a spawn: **crossing is by value (copy-on-write) or by declared
+reference; capture is the by-value case, made immutable.**
 
-### 2.2 `use` is the referential capture operator
-
-To capture a binding **by reference**, so that the function can mutate it and the
-mutation is visible outside, the function must declare it in a `use` clause. `use` is the
-**referential capture operator**: it exists only to introduce reference captures, so it
-always means "by reference" and needs no `&`.
-
-```
-let log = fn (msg: string) use (sink) => { sink->append(msg); };
-//                          ^^^^^^^^^^^ sink is captured by reference: appends are visible outside
-```
-
-A `use` clause is a function's **declared outward-effect surface**. Everything a function
-can reach and mutate outside itself is named there; anything not in `use` is captured by
-value and inert. This makes effects visible at a glance: a function with no `use` clause
-has no outward effects through capture, and a function with `use (a, b)` reaches exactly
-`a` and `b` by reference and nothing else.
-
-This mirrors the argument-passing rule (value by default, reference is explicit), so one
-principle governs both boundaries a value crosses, a call and a closure: **crossing by
-value is implicit and safe; crossing by reference is declared and effectful.**
-
-#### When `use` is required: value-capture cannot serve
-
-`use` (reference capture) is needed exactly when **value capture cannot serve**, and there
-are two such cases, for opposite reasons:
-
-- **A `var` you intend to mutate outward.** You reference-capture it so writes inside the
-  function escape. Reference capture here requires a **`var`**: a `let` or `const` binding
-  cannot be reference-captured (as with `&`, variables spec §5), because reference-capturing
-  a fixed binding would imply mutating through it, which `let`/`const` forbid.
-- **A `nocopy` value (§2.3), which cannot be copied at all**, so there is no snapshot to
-  value-capture. This includes every **capability**. Such a value **must** be `use`d
-  regardless of whether its binding is `let` or `const`, not because it is mutable (a
-  capability is `const` and zero-data), but because it is uncopyable.
-
-So the two triggers are distinct: a `var` is `use`d because it is *mutable-through*, a
-capability is `use`d because it is *uncopyable*. The `let`/`const`-versus-`var` distinction is
-the wrong lens for capabilities: a capability is reference-captured because it is `nocopy`, not
-because of its binding mode. An ordinary, copyable value with no outward mutation is
-value-captured (a snapshot) and never `use`d; a `let` or `const` holding such a value cannot be
-reference-captured. The rule is uniform at the use site, `use (x)` always means "reference
-capture x," whichever trigger applies, so nothing about the writing or reading of `use` differs
-between the two.
-
-### 2.3 Capturing a `nocopy` value
-
-A `nocopy` type (protocols spec) opts out of value semantics: it cannot be copied. It
-therefore **cannot be captured by value**, there is no snapshot to take. A function that
-uses a `nocopy` binding must capture it by reference, which means it must name it in
-`use`, or it is a compile error.
-
-This is the mechanism that makes capabilities explicit. The standard library defines
-`io` as `nocopy`, so any function that performs I/O must `use (io)`:
+**Consequences, stated as decisions.** A closure cannot accumulate: there are no
+stateful closures in Luna. A counter, `once`, `memoize`, a debouncer, anything that
+must retain private mutable state across calls, is a **non-goal** of the closure
+model; such state lives in a value the caller owns and passes explicitly. The
+accumulating idiom is therefore fold-shaped or reference-shaped:
 
 ```
-let greet = fn (name: string) use (io) => { io->println("hi " . name); };
+var sum = 0;
+each(xs, fn (x: int) => sum = sum + x);         // COMPILE ERROR: sum is a const capture
+
+let total = fold(xs, 0, fn (acc: int, x: int): int => acc + x);   // return the state
+
+var out = [];
+&out.push(x * 2) foreach (x in xs);   // or mutate through a reference, in statement position
 ```
 
-A function cannot silently close over `io`, because value capture of a `nocopy` value is
-impossible and reference capture must be declared. So "can this function do I/O" is
-answerable from its signature: it does I/O only if `io` (or another I/O capability) is in
-its `use` clause. Ambient authority is designed out: `nocopy` on a capability forces
-every user of it to declare the capability.
+The `&` form is the point, not a workaround: the mutable state appears **in the
+signature**, so a function's outward writes are readable off its parameter list, the
+recurring rule that facts live in types, never in an invisible environment.
+
+### 2.2 `use` names capabilities, and nothing else
+
+`use` has exactly one meaning: it is how a function comes to hold a **capability**.
+A capability is `nocopy` (capabilities §3), so it has no snapshot to `const`-capture;
+`use` is the referential capture that reaches the canonical instance (capabilities
+§3.1, §4). There is no other referential capture: `use` of an ordinary binding, the
+old "reference-capture a `var` to mutate outward", **does not exist**. To let a
+function mutate a caller's value, the caller passes `&var` at call time (variables
+§5.1); mutation is an argument, never an ambient capture.
+
+```
+const greet = fn (name: string) use (caps.io) => { io->println("hi " . name); };
+```
+
+A function cannot silently close over `io`: value capture of a `nocopy` value is
+impossible and `use` must be declared. So a function's `use` clause is precisely its
+**authority manifest**, it can do exactly what it `use`s, and its parameter list is
+precisely its **mutation manifest**, it can write exactly what it is `&`-given. The
+environment contributes nothing to either.
+
+### 2.3 Single-owner values: pass a stream, or the capture moves it
+
+A `stream` (or string builder) is stateful and single-owner: it cannot be copied and
+cannot be `const` (concurrency §2.1), so it has no `const` snapshot to capture. Two
+cases, matching whether the compiler can see the stream:
+
+- **A directly captured stream binding is a compile error.** The stream is statically
+  visible, so the fix is stated in the error: **pass it as a parameter**. Streams
+  always pass by reference (variables §5), so the closure operates on the caller's
+  stream, visibly, at each call.
+- **A stream reachable inside a captured table moves.** Whether a table holds a
+  stream is a runtime fact, so no compile-time rule can apply; capture therefore
+  applies the same **crossing taxonomy as a spawn boundary** (concurrency §2.1):
+  copyable parts are snapshotted as usual, and any stream referent is
+  **transferred**, marked *moved-from* (concurrency §2.3), so any later access
+  through the outer binding or any alias panics. The closure now solely owns the
+  stream, exactly as a spawned task would.
+
+```
+let s = 0..10;
+let f = fn () => s.take(3);          // COMPILE ERROR: cannot capture a stream; pass it:
+let g = fn (src: stream) => src.take(3);
+
+var t = ['s' => (0..10)];
+let h = fn (): int => t['s'].count(); // capture moves the stream into h's snapshot
+t['s'];                               // PANIC: moved-from (concurrency §2.3)
+```
+
+One rule, two boundaries: a closure environment and a task are the same kind of place,
+and a value enters both the same way.
 
 ---
 
@@ -132,6 +166,20 @@ comptime-eligibility (§5). These are not per-value flags; they are part of the 
 identity, so the type system checks them at assignment and call (§7). A `fn` value of one
 type is not assignable where an incompatible function type is required, e.g. a throwing
 function is not accepted where a non-throwing one is demanded.
+
+**Capabilities are deliberately not on this list.** A function's capability set is a
+property of the **value**, not the type: two values of written type `fn (int): int` may
+hold different authorities, because the set is fixed where the closure is *created*
+(capabilities §5.1), which is exactly the per-value situation §7 says the type must not
+encode. The type system still keeps capabilities out of every value slot, but by
+**confinement** rather than annotation: a capability-holding function value is
+second-class and cannot be assigned, passed, stored, or returned at all (capabilities
+§3.1), so every function value that *can* occupy a `fn`-typed slot is capability-free by
+construction, and no capability information is ever needed at an indirect call site. The
+division of labor between §4 and this rule is principled, not accidental: **an error
+rides a return value**, it is data flowing to the caller, so it must be in the type or it
+smuggles (§4, §7); **a capability is authority**, it flows nowhere, so it confines
+instead (capabilities §3.1).
 
 Comptime-eligibility being type-distinguishing has two consequences worth stating, since a
 function that is comptime and one that is not are genuinely different kinds of value:
@@ -175,30 +223,48 @@ closure is created, not a parameter the caller supplies. What the caller sees of
 is its *consequence*: whether the function is comptime-eligible (§5), which is derived
 partly from the `use` clause.
 
-### 3.1 Bare `fn` is any callable; a signature opts into checking
+### 3.1 Bare `fn` is any non-errorable callable; `fn!` admits errorable ones
 
-A bare **`fn`** (no signature) is the type "any function," the top of the function types,
-the callable analogue of `any`. It records no parameters or result, so nothing about a
-value's signature is statically checked through a bare-`fn` slot:
+A bare **`fn`** (no signature) is the type "any **non-errorable** function." It erases
+parameters and result, so nothing about a value's *signature* is statically checked
+through a bare-`fn` slot, but it does **not** erase errorability: a throwing function
+(`fn (...): !R`) does not fit a bare-`fn` slot. The errorable wildcard is **`fn!`**,
+"any function, which may error":
 
 ```
-fn f(cb: fn): ...            // cb is any callable; its signature is unchecked here
+fn f(cb: fn): ...            // cb is any non-errorable callable; signature unchecked
+fn e(cb: fn!): ...           // cb is any callable, errorable or not; calls need try/handling
 fn g(cb: fn (int): string)   // cb's parameters and result ARE checked (§3, §3.2)
 ```
 
-So **writing a signature opts into checking; bare `fn` opts out.** A field or parameter
-typed `fn (int): string` is checked at assignment and call; one typed bare `fn` accepts any
-function and forfeits signature safety for that slot (the deliberate trade for
-callable-flexibility, mitigated by arity panics, §3.3, and by `fn` still distinguishing a
-callable from a non-callable). Choose per use: `fn (A): R` where you want the check, bare
-`fn` where you want to accept anything callable.
+The reasoning is the no-laundering rule (§3, §4): an error rides a return value, so a
+slot that erases errorability would let a throwing callback flow to a caller that never
+handles the error, the exact smuggling the `!` marker exists to prevent. Signature
+erasure forfeits only *signature* safety (arity and argument/result types, recoverable
+per call, §3.3, §3.2); erasing errorability would forfeit a **caller obligation**, which
+no per-call check can restore. So the wildcard tier splits in two, and a call through
+`fn!` carries the same obligations as any errorable call (§4): handle or propagate.
 
-Specific function types are **subtypes of bare `fn`** (`fn (A): R <: fn`), so the narrowing
-asymmetry is the usual one:
+**Writing a signature opts into checking; bare `fn`/`fn!` opts out** of signature
+checking only. Choose per use: `fn (A): R` where you want the check, `fn` where you want
+to accept anything callable that cannot fail, `fn!` where you accept fallibility and are
+prepared to handle it.
 
-- **`fn (int): string` into `fn`** , implicit (a specific function *is* a function).
-- **`fn` into `fn (int): string`** , not implicit; requires `as` (the erased signature is
-  not statically known, so asserting it is a checked narrowing, `as` spec).
+The subtype ladder is the usual asymmetry, with errorability widening one way only:
+
+- **`fn (A): R <: fn`** , implicit (a specific non-throwing function *is* one).
+- **`fn (A): !R <: fn!`** , implicit, likewise.
+- **`fn <: fn!`** , implicit: a function that cannot fail is acceptable wherever
+  fallibility is already handled (the same direction as `R <: !R`, i.e. `R <: R | error`,
+  §3.2).
+- **`fn (A): !R` into `fn`** , **never**, this is the laundering the split forbids.
+- **`fn` into `fn (A): R`** , not implicit; requires `as` (the erased signature is not
+  statically known, so asserting it is a checked narrowing, `as` spec).
+
+Capability-holding values need no wildcard and get none: they cannot enter a `fn`, `fn!`,
+or signed slot at all (§3, capabilities §3.1), so every value reaching any function-typed
+slot is capability-free, and the wildcard tier stays a two-way split on errorability
+alone.
 
 ### 3.2 Compatibility is per-position assignability, not a variance system
 
@@ -384,8 +450,9 @@ propagated over the call graph:
 > A function is comptime-eligible iff **every capability it uses is declared `comptime`**
 > and every function it calls is comptime-eligible.
 
-The reasoning: `use` (reference capture) is the only way a function reaches mutable
-outside state, so what matters is *which* capabilities it reaches. A **non-comptime**
+The reasoning: `use` (the sole referential capture, §2.2) is the only way a function
+reaches the outside world at all, ordinary captures are inert `const` snapshots (§2.1),
+so what matters is *which* capabilities it reaches. A **non-comptime**
 capability authorizes outside effects (real `io`, the filesystem, the network), so using
 one makes the function ineligible. A **`comptime`** capability is zero-data and, by its
 declaration rule, can compose only other `comptime` capabilities (capabilities §1, §7.1), so
@@ -514,7 +581,7 @@ the budgets below provide *availability* (comptime cannot hang or crash the buil
 
 **The capability sandbox (security).** Every operation that reaches outside the program,
 I/O, filesystem, network, syscalls, the clock, is a `nocopy` capability (protocols spec)
-reached only through a `use` reference capture (§2). Comptime-eligibility forbids using any
+reached only through a `use` reference capture (§2.2). Comptime-eligibility forbids using any
 **non-comptime** capability (§5). Therefore **comptime code can hold no non-comptime
 capability**: reaching one would require a `use` of it, which would make the function
 comptime-ineligible. A comptime function may hold `comptime` capabilities, zero-data tags
@@ -580,7 +647,7 @@ capabilities are doors out of them.
 
 - **`unsafe-ffi`** , the foreign-function interface. Native code can do anything, so the
   guarantees end at the boundary. Named `unsafe-ffi` (not `ffi`) so both callers and
-  callees see the danger at every `use (unsafe-ffi)` site.
+  callees see the danger at every `use (caps.unsafe-ffi)` site.
 - **`system` vs `unsafe-system`** , syscalls split by the same test. Safe syscalls that
   respect the process (reading the clock, `getpid`, `stat`) are `system`, an ordinary
   capability. Syscalls that can corrupt the process or hand back memory outside Luna's
@@ -588,7 +655,8 @@ capabilities are doors out of them.
 
 `unsafe-` capabilities are still ordinary capabilities in every mechanical respect: they
 are `nocopy`, reached only through `use`, and therefore **comptime-safe by the same
-invariant** (comptime forbids `use`, so it can reach neither `io` nor `unsafe-ffi`). The
+invariant** (comptime forbids using any non-comptime capability, §5.5, so it can reach
+neither `io` nor `unsafe-ffi`). The
 prefix adds no new mechanism; it is a warning carried in the name. Luna has no separate
 `unsafe` construct (no `unsafe` blocks, no `unsafe fn`), because it has no
 guarantee-suspending *language* operation, no raw pointers, no manual memory, no bitcasts
@@ -625,7 +693,7 @@ Binding some arguments and leaving others open is written as an ordinary closure
 const add5 = fn (x: int): int => add(5, x);   // "add, with the first argument fixed to 5"
 ```
 
-This goes through the normal capture rules (§2): `5` is auto-captured by value, the result
+This goes through the normal capture rules (§2): `5` is captured as a const snapshot, the result
 is a plain `fn (int): int`, and it inherits errorability and comptime-eligibility correctly
 because it is just a closure. Nothing new is needed.
 
@@ -666,14 +734,29 @@ closure). The caller reads errorability and eligibility from the callee's type i
 and the type system checks them at assignment and call, which it could not do if they
 were hidden in per-value flags.
 
+The same discipline, run in reverse, is why **capabilities live on the value and not in
+the type** (§3): a capability set is genuinely per-value, two closures of one written
+type may hold different authorities, so encoding it in the typeid would be false, and
+encoding it per-value in the type system's view would need per-value types. The rule
+that resolves both directions at once: **an error is data, it rides the return value to
+the caller, so the type must carry it or it smuggles; a capability is authority, it
+rides nothing, so it is confined at the value instead of described in the type**
+(capabilities §3.1). Errorability in the typeid, authority in the value, and neither can
+be laundered: the first because `fn` never erases `!` (§3.1), the second because a
+capability-holding value never enters a slot.
+
 ---
 
 ## 8. Resolved notes
 
-- **`use` and the type:** a function's capture surface stays a **compiler-internal** concern
-  and is not surfaced in the externally-visible type. Only its comptime-consequence (§5) leaks
-  to callers, which is already handled; surfacing capability-typed captures in the type was
-  considered and rejected as needless complexity.
+- **`use` and the type:** a function's capture surface stays out of the externally-visible
+  type, now for a stronger reason than before. Ordinary captures are inert `const`
+  snapshots (§2.1), so there is nothing about them a caller could need; and capability
+  captures never need to be *read* through a type because a capability-holding value is
+  second-class and cannot occupy a function-typed slot at all (§3, capabilities §3.1).
+  Surfacing captures in the type was considered twice and rejected twice: first as
+  needless complexity, now as needless full stop, confinement makes the annotation's job
+  vacant. Only the comptime-consequence (§5) leaks to callers, which is already handled.
 - **`let` vs `const` for a function binding:** they **coincide**. A function has no
   interior-mutable state reachable through its binding, so the interior-freezing that
   distinguishes `const` from `let` has nothing to act on (variables spec §3.1). Both are
@@ -681,20 +764,14 @@ were hidden in per-value flags.
   definition (§1). This is not function-specific: `let` and `const` coincide for every value
   without a mutable interior (scalars, immutable strings, functions).
 
-## 9. Resolved: capturing a `let`
+## 9. Resolved: capturing a `let` (and a `var`)
 
-A `let` binding is only ever **value-captured** (a snapshot at capture time), so there is no
-binding-versus-slot ambiguity for it. This follows from two facts:
-
-- **`use` cannot reference-capture a `let`** (§2.2): reference capture requires a `var` (to
-  mutate outward) or a `nocopy` value (which a `let`-bound ordinary value is not). So a `let`
-  holding an ordinary value is captured by value only.
-- **A `let` is not repeatedly reassignable** (variables spec §1.1, §1.2): an ordinary `let`
-  cannot be rebound at all, and a write-once optional `let` makes at most one `null`-to-value
-  transition before freezing. So there is no stream of later values for a capture to "see."
-
-Together: a value-captured `let` snapshots its value at capture time and is unaffected by the
-single write-once transition; and there is no way to reference-capture a `let` to begin with. So
-"binding or slot" simply does not arise for a `let`. The only reference-captured bindings are
-`var`s (which see the live value through the reference, ordinary reference semantics) and
-`nocopy` capabilities (which are immutable, so "later values" is moot).
+Formerly this section reconciled "binding versus slot" for `let` captures. Under §2.1 the
+question no longer exists for **any** binding mode: every copyable binding, `var`, `let`,
+or `const`, is captured the same way, as an implicit deep-`const` snapshot of the current
+value. There is no reference capture of an ordinary binding, so no capture can "see later
+values" of anything: a captured `var`'s later reassignments, a write-once `let`'s single
+`null`-to-value transition (variables §1.2), are all invisible to an already-created
+closure, by the same rule and with no per-mode reasoning. The only referential capture in
+the language is `use` of a `nocopy` capability (§2.2), which is immutable, so "later
+values" is moot there too.

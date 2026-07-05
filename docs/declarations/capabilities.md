@@ -101,8 +101,11 @@ distinct type identity**. The nocopy-ness gives unforgeability and comptime-excl
 Because capabilities are nocopy, a function **cannot** take one as an ordinary by-value
 parameter, stash it, and hand it to other code. The only way to hold a capability is to `use`
 it, which is what makes it unlaunderable: there is no value-level copy to smuggle out of a
-`use` scope. Aliasing a capability-using function does not escape its requirement either, the
-requirement rides in the function's type, so a renamed alias still requires the capability.
+`use` scope. Aliasing a capability-using function does not escape its requirement either,
+because the alias itself is impossible: a capability set rides on the function **value**
+(fixed where the closure is created, §5.1), and a capability-holding function value is
+**second-class**, it cannot be bound to a new name, passed, stored, or returned at all
+(§3.1). There is no renamed alias to worry about, because the rename is a compile error.
 
 ### 3.1 `use` is the sole channel: capabilities never enter a value slot
 
@@ -113,7 +116,7 @@ through any value-carrying channel. It does not, because it is nocopy (and alway
 - **Not a parameter.** `fn (c: reveal) { ... }` is illegal: passing an argument copies it into
   the parameter slot, and a capability cannot be copied. So a capability cannot be smuggled in
   as a function argument (the hole this closes: otherwise a function could reveal without
-  declaring `use (reveal)`, voiding the absence guarantee).
+  declaring `use (caps.reveal)`, voiding the absence guarantee).
 - **Not a binding.** `let c = reveal` is illegal (nocopy). **Aliasing** an existing capability to
   a new name is likewise **not permitted**: it would copy a nocopy value, and there is no use for
   the alias anyway, since a `use` clause names the capability's declared type, not an alias.
@@ -134,6 +137,44 @@ their own `use` clauses** (§5), again by reference, never as an argument. So a 
 canonical and always-there, reachable only by naming it in `use`, and it never becomes a
 manipulable value at any point. This is what makes `use (X)` the complete and only account of a
 function's authority.
+
+**The confinement extends to capability-holding function values.** A closure whose `use`
+clause names a capability (or that calls anything requiring one, §5) is a bearer of that
+authority: whoever could call it could exercise the capability. So the doctrine above,
+"never enters a value slot," applies to it exactly as to the token itself. A
+capability-holding function value is **second-class**:
+
+- **Not a binding**: `let f = println;` is a **compile error** if `println` requires a
+  capability. A capability-holding function has exactly one name, the one its **literal**
+  was bound to at the declaration (`const println = fn ... use (caps.io) ...`, the
+  creation site, §5.1). Binding the literal is how such a function comes into being;
+  binding the already-named *value* again is aliasing, and is rejected, the same
+  literal-versus-existing distinction §1 draws for declaring a capability itself.
+- **Not an argument**: `each(xs, println)` is a **compile error**; no function-typed
+  parameter, signed, bare `fn`, or `fn!` (functions §3.1), ever receives a
+  capability-holding value.
+- **Not a field, element, or return value**: it cannot be stored in a table or returned,
+  the same slots the token itself is barred from.
+- **What remains is everything it is for**: a capability-holding function is **called
+  directly** by name (checked statically against the caller's own `use` set, §5) or
+  **spawned** (`spawn f(...)` is a direct-call form, not a value slot; the capability
+  crosses the task boundary by reference exactly as concurrency §2.1 specifies).
+
+All of these are **compile errors at the offending assignment or call**, not runtime
+events: since a capability-holding value can never reach a slot, there is no dynamic
+situation left to check and nothing to panic about. The payoff is the inverse guarantee
+for everything else: **every function value occupying any function-typed slot anywhere is
+capability-free by construction**, so indirect calls, `map`'s callback, a handler in a
+table, a `fn` field, need no capability reasoning at all, and §6's inference can assign
+an indirect call the empty requirement without being wrong. Effectful *iteration* is what
+statements are for: `println(v) foreach (v in xs)` calls `println` directly, by name,
+under the enclosing function's own `use` set, no function value crosses any slot.
+
+The asymmetry with errors (`!`) is deliberate and principled (functions §3, §7): **an
+error is data**, it rides the return value into the caller, so it must be carried in the
+type or it smuggles; **a capability is authority**, it rides nothing, so it is confined
+at the value instead of described in the type. Neither can be laundered, by opposite
+mechanisms.
 
 ---
 
@@ -189,6 +230,27 @@ function *able* to, transitively. The honest limit: a capability governs **reach
 authority, not what happens to a value **after** a permitted use. Once a function that holds
 `use (caps.reveal)` reveals a secret, it has a plain value the type system no longer tracks.
 The capability boundary is the last point the type system can help.
+
+### 5.1 The creation-site check
+
+A function value's capability set is a property of the **value**, fixed once, where the
+literal is evaluated: it is the literal's own `use` clause unioned with the requirements
+of everything the body calls (§5, computed by the same inference as §6). The compile-time
+check anchors there: **a function literal is legal exactly where the enclosing scope
+holds every capability in that set.** After creation, no further check ever runs,
+because none is needed:
+
+- a **direct call** by declared name is checked against the caller's own set (§5), which
+  is the same creation-site rule applied one level up;
+- an **indirect call**, through any function-typed slot, needs no check at all, because
+  a capability-holding value cannot enter a slot (§3.1), so the called value's set is
+  empty by construction. This is what keeps §6's one-pass inference exact rather than
+  approximate: an indirect call contributes nothing, and that is the truth, not an
+  assumption.
+
+So the whole system is checked at two kinds of place only, creation sites and named
+calls, both fully static, with no capability information in any function type and no
+runtime capability state anywhere.
 
 ---
 
@@ -328,6 +390,16 @@ opt-in is checked to compose only other `comptime` capabilities, so it can never
 outside effect. The failsafe direction is preserved, forgetting the modifier leaves an authority
 *out* of comptime, never smuggled in.
 
+With capability sets living on values (§5.1), the sandbox also holds **by existence**, not
+only by rule: capability instances are minted by the runtime at `main` (§7), so at comptime
+**no non-comptime capability instance exists yet**. There is nothing for a comptime-created
+closure's creation-site check to bind against, so every function value reachable at comptime
+is capability-free by construction, including through any function-typed parameter of a
+comptime function, since a slot could not hold a capability-holding value even at runtime
+(§3.1) and runtime values do not exist yet besides. Higher-order comptime code therefore
+needs no capability reasoning at all: the eligibility rule above and this existence argument
+reach the same verdict independently, a belt over a brace.
+
 The **`unsafe-` convention** (functions §5.6): a capability whose use *suspends* Luna's
 guarantees (by reaching untrusted native code) is marked with an `unsafe-` prefix
 (`unsafe-ffi`, `unsafe-system`). The prefix is a naming convention that flags danger;
@@ -364,6 +436,16 @@ clause.
   the module system.
 - **Reusing `implicit` elsewhere:** the `implicit` modifier (silent-inference opt-in) may
   generalize to other declarations beyond capabilities; its general meaning is left open.
-- **Capability-set polymorphism:** whether a higher-order function that forwards authority can
-  be generic over "some set of capabilities" rather than naming each, pending experience with
-  capability-passing patterns.
+- ~~**Capability-set polymorphism**~~, **resolved by §3.1**: a higher-order function never
+  receives a capability-holding value, so there is no forwarded authority to be polymorphic
+  over. Authority moves only down the named call graph (`use` propagation, §5) and across
+  `spawn`.
+- **Comptime-eligibility may leave the typeid.** Every ineligibility source is intended to be
+  a capability (functions §5.5: everything reaching outside the program is `use`-gated), and
+  under §5.1/§8 capability reasoning is creation-site and existence-based, never needed at an
+  indirect call. If that intent holds exhaustively, eligibility stops being information a
+  *caller* needs from a *type*, and the eligibility bit can come out of the function typeid
+  (functions §3, §5.2, §7), shrinking the type surface and retiring the written-syntax
+  canonicalization question. Pending an audit that no ineligibility source exists outside the
+  capability system (candidates to check: allocation limits, nondeterminism not yet gated,
+  `unsafe-` conventions).
