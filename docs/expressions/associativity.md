@@ -14,7 +14,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 2 prefix, symbolic | `!x` `-x` `@x` `@@x` | right (stack) | `!` is logical not, prefix, expression position only (operators §0; the postfix `T!` lives in the type grammar) |
 | 3 multiplicative | `*` `/` `%` | left | |
 | 4 additive | `+` `-` | left | `+` is numeric only; there is **no** concat operator (strings §11), interpolation joins |
-| 5 range | `..` `..<` | **none** | non-chainable: `a..b..c` is a parse error; arithmetic binds tighter, so `0..n-1` is `0..(n-1)` (the corpus's ubiquitous spelling, now grounded) |
+| 5 range | `..` `..<` `by` | **none** | non-chainable: `a..b..c` is a parse error; arithmetic binds tighter, so `0..n-1` is `0..(n-1)` and `0..n by k+1` steps by `k+1`; `by` is part of the range production (range §3, §4a), one per range |
 | 6 comparison | `<` `<=` `>` `>=` `is` `as` | **none** | non-chainable, `a < b < c` is a compile error, comparisons yield `bool` and re-comparing a bool to a number is a base mismatch anyway (equality §1); `is`/`as` take a **type expression** on the right (table §2), so no right-side ambiguity, and they sit here so `x is int == y` demands parens |
 | 7 equality | `==` `!=` | **none** | non-chainable; there is **no** `===` / `!==` (§4, resolved) |
 | 8 conjunction | `&&` | left | short-circuits |
@@ -77,8 +77,8 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
 - **Ranges never reverse.** `a..b` with `b < a` is the **empty range**, total and loop-safe;
   the counterexample that decides it is `0..n-1` at `n == 0`, which under implicit-descending
   would silently iterate `0, -1` in the most common loop header in the language. Descending
-  iteration is **explicit**: `reverse(r)` (UFCS `r.reverse()`, table-api's `reverse` already
-  exists for tables); a step form (`by -1`) is possible later. `0..-1` parses as `0..(-1)`
+  iteration is **explicit**: a negative step, `10..0 by -2` (range §3, landed in R47, the
+  "possible later" of this note), or `reverse(r)` for an existing stream. `0..-1` parses as `0..(-1)`
   (tier 2 inside tier 5) and is empty, consistently. Companion ruling: **unary negation of
   `int.min` panics** as overflow, joining `INT_MIN / -1` in int §overflow.
 - **`&` outside argument position is a semantic error**, not a grammar production: the parser

@@ -133,7 +133,9 @@ parameter is typed `enum {read, write, append}`), the assignment target, the mat
 type. Anonymous enums intern structurally (value-representation §4.1), so an inline
 `enum {read, write, append}` in a signature is one canonical type wherever it is written, and
 the context always resolves the literal to exactly one enum. With **no** enum-typed context
-(`let x = {read};`), the literal is a **compile error**, name the enum or annotate. This is
+(`let x = {read};`), the literal is a **compile error**, name the enum or annotate. One
+grammar note: directly after `=>` (a lambda or match-arm body), `{` opens a **block**, so a
+variant-literal body is parenthesized, `=> ({read})` (functions §3, R45). This is
 the same expected-type checking every literal already gets against a declared target; nothing
 is inferred *from* the literal upward.
 

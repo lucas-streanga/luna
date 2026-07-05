@@ -37,6 +37,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `match` | pattern dispatch (valued and open-ended) | match |
 | `where` | guard (match arms) **and** predicate clause (constraints); two homes, one meaning, "holds when" | match §3, constraints §2 |
 | `defer` | scope-exit statement | defer |
+| `by` | range step clause (`lo..hi by s`, contextual: only after a range) | range §3, §4a |
 | `try` / `catch` | error recovery expression / block | errors §8 |
 | `throw` | raise an error (word prefix, tier 12) | errors §4 |
 
@@ -106,6 +107,4 @@ All seven original flags are ruled (R33):
 
 ### Reserved for future use
 
-| Word | Reserved for | Since |
-|-|-|-|
-| `by` | stepped ranges (`0..n by 2`) | R33 |
+*(empty; `by` graduated to a keyword in R47)*

@@ -82,35 +82,74 @@ them different syntax lets each have its natural convention without one forcing 
 
 ---
 
-## 3. `by`: a step
+## 3. `by`: an arbitrary step expression; the sign is the direction
 
-`lo..hi by step` yields every `step`-th integer: `1..10 by 2` is `1, 3, 5, 7, 9`. The step is a
-**constant positive integer**; the direction is set by the bounds (§4), not the step:
+`lo..hi by step` takes **any `int`-valued expression**, evaluated **once** at range creation
+(`0..n by stride * 2` is fine), and the **step's sign selects the direction**:
 
 ```
 foreach (v in 0..100 by 10) { ... }     // 0, 10, 20, ..., 100
 1..<10 by 2                              // 1, 3, 5, 7, 9 (composes with ..<)
+10..0 by -2                              // 10, 8, 6, 4, 2, 0: EXPLICIT descending
+0..10 by -1                              // empty (0 >= 10 is false at the first check)
 ```
 
-`by` takes a positive step only; a negative step is an error (direction comes from `lo` vs
-`hi`, §4). Non-constant sequences (geometric, arbitrary) are **not** range syntax; they are
-ordinary generator functions (stream spec §1), so `..`/`by` stays simple and predictable rather
-than guessing a progression.
+A step of **`0` panics** (a misuse, the infinite-loop guard; checked once, at creation).
+Everything above is a corollary of the desugar (§4a), not a rule table. Non-constant
+*progressions* (geometric, arbitrary next-from-current) remain **not** range syntax; they are
+ordinary generator functions (stream spec §1), the step is an arbitrary *value*, never a
+per-iteration computation.
 
 ---
 
-## 4. Descending ranges
+## 4. Bounds never determine direction: `lo > hi` is empty
 
-If `lo > hi`, the range **descends**: `10..1` is `10, 9, ..., 1`. The direction is determined by
-the bounds, and `by` gives the (positive) step magnitude in that direction:
+`a..b` with `b < a` is the **empty range** (R28): the deciding counterexample is `0..n-1` at
+`n == 0`, the most common loop header in the language, which under bounds-determined
+descending would silently iterate `0, -1`. **Descending is explicit**: write a negative step
+(`10..0 by -2`, §3), where writing the sign *is* the explicitness, no loop header can descend
+by accident. A single-element range `5..5` yields just `5`; `5..<5` is empty.
+
+**Bounds-implied descending (`10..0` desugaring to `by -1`) was considered twice and
+rejected (R28, R48)**, and the desugar's simplicity was never the issue, the consequences
+were: (1) the `0..n-1` bug returns verbatim, data-dependent (fires only on the empty
+collection, the case tests miss) and silent (`t[-1]` reads `undefined` and travels, no
+panic); (2) direction becomes runtime-opaque for every range over non-literal bounds, every
+reader's model of every loop conditional on data; (3) explicit `by` would then need a
+bounds-vs-sign conflict rule that the current design makes unnecessary (`0..10 by -1` is
+harmlessly empty, the sign steers, the bounds only bound); (4) the purchase is six
+characters on the *rare, deliberate* case, and the frequency asymmetry is the whole
+argument, ascending-to-possibly-empty must be safe by default, descending can afford to say
+so. The tempting middle, implicit descent **only for literal bounds**, is rejected on
+phase-invariance grounds (functions §5.5): extracting `10` into a `const` must not change a
+loop's behavior. If `by -1` ever proves heavy in practice, the future ergonomic is a
+`downTo` sugar over the explicit form (`10 downTo 0` ≡ `10..0 by -1`), never a change to the
+bare one.
+
+---
+
+## 4a. The desugaring, explicit
+
+A range is **sugar for an immediately-invoked generator**, no magic, and every rule above is
+a line of it:
 
 ```
-foreach (v in 10..1) { ... }        // 10 down to 1
-10..1 by 2                          // 10, 8, 6, 4, 2 (descending, step 2)
+lo..hi by s      ≡      (fn (): stream => {
+                          let step = s;                    // arbitrary expr, evaluated ONCE
+                          throw typeError('zero step') if (step == 0);   // panics: misuse
+                          var i = lo;
+                          if (step > 0) { while (i <= hi) { yield i; i += step; } }
+                          else          { while (i >= hi) { yield i; i += step; } }
+                        })()
 ```
 
-So `by` is always positive; ascending vs descending is `lo <= hi` vs `lo > hi`. A single-element
-range `5..5` yields just `5`; `..<` with equal bounds (`5..<5`) is empty.
+- Bare `lo..hi` is `by 1`; `..<` replaces `<=`/`>=` with `<`/`>`; open-top `lo..` (§5) drops
+  the condition (`while (true)`).
+- **The desugar proves the rules**: `0..-1` runs zero iterations (`0 <= -1` is false), the
+  empty-range ruling; `0..10 by 3` yields `0, 3, 6, 9`, settling the alignment question, the
+  loop stops at the last value within the bound because the condition says so; `10..0 by -2`
+  descends and includes `0`; `restart()` is re-invocation (§2). A range is a stream because
+  the desugar returns one; there is nothing else to specify.
 
 ---
 
@@ -158,9 +197,6 @@ element types wait for their own treatment.
 
 ## 8. Open questions
 
-- **`by` and non-integer alignment:** whether `lo..hi by step` where `step` does not divide
-  `hi - lo` stops at the last value `<= hi` (`0..10 by 3` gives `0, 3, 6, 9`) as assumed, and how
-  this reads for descending.
 - **Range in more positions:** whether `..` ranges are useful anywhere beyond value position and
   match (they are not used in slicing, §2.1), pending experience.
 - **Character and other ranges:** ranges over codepoints or a future `char`/`float` type, and

@@ -59,7 +59,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | reflection §3.2 |
 | `...x` | structure | spread / rest | position-disambiguated: in literals, argument lists, command literals, and interpolation it **spreads** a table/stream into elements (spread spec); in a pattern it is the trailing **rest** element (destructuring §1.2) | spread, destructuring |
 | `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |
-| `a .. b` | control flow | range | lazy range stream from `a` to `b` | range |
+| `a .. b [by s]` | control flow | range | lazy range stream, sugar for an immediately-invoked generator (range §4a); `by` takes any once-evaluated int expression, sign = direction, `0` panics, `b < a` without a negative step is empty | range |
 | `.. by n` | control flow | step | range step | range |
 | `x in xs` | control flow | iterate-binding | binds iteration elements in `foreach` | control-flow |
 | `pattern where guard` | control flow | guard | boolean guard on a match arm / comprehension | match |

@@ -161,6 +161,15 @@ fn (params) : result             // base shape
 fn (params) : result!            // errorable (§4)
 ```
 
+**The literal's header order is fixed** (R45): `fn (params) [use (...)] [: returnType] =>
+body`, the `use` clause **before** the return type, then the mandatory `=>`, then a body
+that is an expression or a block. Parsing is LL(1) by construction: `fn` commits the
+production, and each junction is decided by its next token (`use`, `:`, `=>`). One
+disambiguation rule, pinned because the fenced variant literal also uses braces (enum
+§3.3): **after `=>`, a `{` always opens a block**; an expression body that is a variant
+literal takes parentheses, `fn (): mode => ({read})`. The same rule governs match arms
+(match spec).
+
 Two functions differ in type if they differ in parameters, result, or errorability (§4),
 and in **nothing else**: the function typeid is signature plus errorability, checked at
 assignment and call (§7). Comptime-eligibility left the typeid (R43, below), joining

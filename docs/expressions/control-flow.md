@@ -19,6 +19,19 @@ go() if (ready);                       // postfix
 Loops (`foreach`, `while`) are **statements**, not expressions: they do not produce a value. (The
 expression that selects a value by case is `match`, which is an operator, not a loop; match spec.)
 
+**The postfix form is an exact desugar** (R46): `expr foreach (h);` **is**
+`foreach (h) { expr; }`, `expr if (c);` is `if (c) { expr; }`, and everything follows from
+that identity rather than from new rules, the head's names bind **within the body
+expression only** (shadowing outer names there, leaking nowhere), the source is evaluated
+once, and the no-discard rule applies to the body per iteration (a non-`undefined` body
+needs `_ =`, exactly as the block would). The body **textually precedes** the head that
+binds its names (`println("${line}") foreach (line in fd.lines());`), and that is
+presentation, not a resolution problem: the parser needs no binding knowledge (identifiers
+parse as identifiers), and name resolution walks the **AST**, head first, body inside the
+head's scope, the comprehension-order every such construct uses. **One postfix modifier per
+statement**: `expr if (c) foreach (h)` is a **compile error**, chained modifiers pose the
+which-nests-which trap, and the block forms exist for exactly that.
+
 ---
 
 ## 1. `foreach`: iterate a stream, range, or collection
