@@ -68,9 +68,14 @@ your build rejects `file://` outright, the pushed-repo path always works.
 The message is generic; `zed: open log` (command palette) has the real error. In
 practice, three causes cover it, most likely first:
 
-1. **`rev` is a branch name or the URL is the placeholder.** Zed wants a pinned
-   commit: `git rev-parse HEAD` after pushing, paste the full sha into
-   `extension.toml`, reinstall.
+1. **`rev` is a branch name or the URL is the placeholder** (symptoms: the
+   generic compile error, or "failed to fetch revision main/master"). Zed wants
+   a pinned commit, and branch names also break when they simply differ
+   (main vs master). Fix: run `tooling/regen-grammar.sh`, which regenerates
+   extension.toml with the real origin URL and `git rev-parse HEAD`; the
+   committed template is deliberately invalid so a non-generated copy fails
+   obviously. Careful when dropping updated tooling files over a working
+   setup: extension.toml is generated, never copied.
 2. **`src/` not committed at that sha.** Zed clones and compiles the committed
    `src/parser.c`; it never runs `generate`. Verify:
    `git show <sha>:src/parser.c | head -3`.
@@ -85,8 +90,12 @@ practice, three causes cover it, most likely first:
    `zed-luna/grammars/<name>` during dev installs; after changing the
    `repository` URL, the leftover clone from the old URL blocks the install
    ("already exists, but is not a git clone of ..."). Fix:
-   `rm -rf tooling/zed-luna/grammars`, reinstall. Add that directory to
-   `.gitignore`, it is Zed's scratch space, never yours to commit.
+   `rm -rf tooling/zed-luna/grammars`, reinstall. **Only for URL changes**: after
+   install this directory holds the live compiled grammar Zed loads in place,
+   and deleting it during routine regeneration breaks the language ("failed to
+   load language Luna: No such file or directory") until reinstall; the regen
+   script leaves it alone and Zed refreshes it on reload. Keep it gitignored, it
+   is Zed's scratch space, never yours to commit.
 
 If none of these match, the log line is the thing to read (and to send): command
 palette `zed: open log`, or `~/.local/share/zed/logs/Zed.log` on Linux

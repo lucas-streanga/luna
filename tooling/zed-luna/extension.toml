@@ -7,5 +7,5 @@ description = "Syntax highlighting for the Luna programming language."
 
 [grammars.luna]
 repository = "https://github.com/lucas-streanga/luna"
-rev = "9e55a726b3d784d39ccec119f6178f8508d56fee"
+rev = "626ed3496d713ad9df8c4c0f3e3fc49a652241dc"
 path = "tooling/tree-sitter-luna"
