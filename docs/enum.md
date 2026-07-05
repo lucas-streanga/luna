@@ -279,24 +279,37 @@ named enums).
 
 ---
 
-## 6. Reflection: `@` gives the type, `match` gives the variant
+## 6. Reflection: `@` gives the variant, `match` binds its payload
 
-Two different questions have two different answers, and neither is type erasure:
+`@x` gives the value's **current variant type**, the most-specific `typeid` it carries, exactly as
+`@` does everywhere (`@someByte` is `byte`, not `int`; `@someError` is `IOError`, not `error`). It
+is **not** widened to the enum type. For a **named** enum, `@x` is the variant, `Shape.circle`; for
+an **anonymous** enum, `@x` is the **structural** variant (and two structurally-equal anonymous
+enums still share `@`, so structural identity is preserved). This is the cheapest possible read:
+the `lval` already carries the variant `typeid` (§8), so `@x` just returns it, with **no widening
+step**.
 
-- **What type is this?** `@x` (the type-of operator) gives the **enum type**, and does **not**
-  erase it. For a **named** enum, `@x` is the **name** (`Shape`). For an **anonymous** enum, `@x`
-  is the **structure** (`enum {a, b}`), because the structure *is* the anonymous enum's identity.
-  So `@` yields a name for nominal enums and a structure for structural ones, consistent with how
-  each is identified, and full type information is preserved either way. (Resolving an anonymous
-  enum's type to its structure also reinforces structural identity: two structurally equal
-  anonymous enums have the same `@`.)
-- **Which variant is it right now?** This is a **runtime** question (the discriminant tag), not a
-  type question, `circle` is a tag within `Shape`, not a type. It is answered by **`match`**,
-  which discriminates the variant and extracts its payload together. This is naturally runtime
-  dependent, and `match` is the way to ask it.
+Two questions, and the `is`/`match` split answers them the same way it does everywhere, identity
+vs. extraction:
+
+- **Which variant is this? (type-level, no payload.)** `@x == Shape.circle`, or the operator form
+  `x is Shape.circle`, tests the specific variant; `x is Shape` tests "*any* variant of `Shape`"
+  (the subtype/interval check, §8). Neither binds the payload; they only identify.
+- **Which variant, *and* its payload? (value-level, binds.)** `match` discriminates the variant and
+  **extracts its payload together** (`match { {circle ['radius' => r]} => ... }`), so `match` is how
+  you *use* a variant, `@`/`is` is how you *test* one. Same relationship as `is` to `as`/`match`
+  throughout the language.
+
+**One idiom shifts** from the old "`@` gives the enum type" model: "is this a `Shape` at all" is now
+`x is Shape` (true for every variant), **not** `@x == Shape` (which is now *false*, `@x` is the
+variant). "Is it a circle" is `x is Shape.circle` / `@x == Shape.circle` / `match`. This is the same
+shift constraints already made (`@x == int` is false for a `byte`; you write `x is int`), so enums
+now behave under `@` exactly like every other refinement `typeid`.
 
 `@@` (protocol reflection) is **not** used for enum variants: an enum is not a protocol, and the
 variant is not a protocol member, so overloading `@@` would conflate two different concepts.
+Recovering the **enum** type from a variant `typeid` (e.g. `Shape` from `Shape.circle`) is a
+reflection query deferred for now (§9).
 `@@` stays protocol-only; the variant is a runtime tag for `match`.
 
 ---
@@ -333,8 +346,9 @@ representation it already defines is the tagged union, and enums are one use of 
   "which variant is this?" is a **subtype test** on the `typeid`, the same interval check
   (value-representation §4.2) that answers "is this error a `commandError`?" A variant is to its
   enum exactly what an error subtype is to `error`: a refinement `typeid`, assignment-compatible
-  with the base, distinguished by the concrete id. `@value` yields the enum type (§6); the
-  variant is recovered from the concrete `typeid`. The type universe stays finite (variants are
+  with the base, distinguished by the concrete id. `@value` yields the **variant** `typeid`
+  directly (§6), a plain type-tag read with no widening; the *enum* is tested by the subtype check
+  `x is Shape`. The type universe stays finite (variants are
   written in source, bounded, value-representation §4.1), so one `typeid` per variant is cheap
   (ids are indices).
 - **The payload rides in the `lval` payload word.** A no-payload variant carries nothing; a
@@ -364,3 +378,10 @@ representation is the sum type, built once, and enums are an instance of it.
 - **Parameterized enums.** An enum parameterized by a type (an `Option` over any element type
   rather than a fixed payload type) reads as generics, which the language does not have, so this
   is **out of scope** unless parametric types are ever adopted.
+- **Enum-recovery reflection.** Now that `@x` yields the *variant* `typeid` (§6), recovering the
+  **enum** type from a variant (e.g. `Shape` from `Shape.circle`) needs a reflection query. The
+  likely form is a general `baseOf(t: type): type` returning the immediate refinement parent, which
+  would serve enum variants (`Shape.circle` → `Shape`), constraints (`byte` → `int`), and error
+  subtypes (`IOError` → `error`) uniformly, since all three are interval-refinement `typeid`s; a
+  narrower enum-specific `enumOf` is the alternative. **Deferred**: the need is real but the
+  choice of general-vs-specific (and the reflection surface) is not yet settled (reflection spec).
