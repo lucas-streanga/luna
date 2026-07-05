@@ -130,6 +130,8 @@ table is a map.
 | std.io errors | `io-errors.md` | The `ioError` hierarchy, errno-grounded for linux-x86-64. |
 | Keywords | `keywords.md` | The reserved-word inventory, contextual keywords, predeclared names, and flagged definition gaps. |
 | Any | `any.md` | The top type: universal operations vs narrow-first, the F22 rule. |
+| Spread | `spread.md` | `...x`: literals, streams, call arguments, interpolation; one level, always. |
+| Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
 | Associativity | `associativity.md` | Precedence and associativity: the expression and type grammars, word-prefix binding, resolved drift, parser-blocking questions. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |

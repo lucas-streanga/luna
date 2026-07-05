@@ -150,13 +150,18 @@ Everything in §2 through §6 fits that; everything in §7 would break it.
 
 ---
 
-## 8. Open questions
+## 8. Rulings (were open questions)
 
-- **`_` in nested destructuring:** how `_` composes with nested patterns
-  (`let [[_, b], _] = ...`) once the destructuring grammar is fully specified.
-- **Trailing `_` in parameter lists:** whether a trailing run of `_` parameters is ever
-  meaningful given surplus arguments are dropped anyway (declaring `fn (x, _)` vs `fn (x)`
-  when both simply ignore the second argument), and whether the two should be treated
-  identically.
-- **`_` as a whole-value discard in expression position:** whether `_` may stand alone as a
-  statement-level discard of a preceding expression in forms other than `_ = expr`.
+All three ruled (R37):
+
+- **`_` in nested destructuring: subsumed.** Nested destructuring itself is deferred by
+  decision (destructuring §7, R35); when depth lands, `_` composes by the flat rules at
+  each level with nothing new to define. Solved by the same ruling.
+- **Trailing `_` parameters: legal, kept.** `fn (x, _)` and `fn (x)` behave identically at
+  the call (surplus arguments drop either way, functions §3.3), and the trailing `_` is
+  kept precisely because it *says so*: it documents "a second argument arrives here and is
+  deliberately ignored" at the signature, an arity intent the shorter form leaves implicit.
+  Explicitness that costs nothing is Luna's default posture.
+- **Whole-value discard is `_ = expr`, only.** No bare-`_` statement form, no postfix
+  discard; the one spelling is the assignment (errors §8.1's no-silent-drop form), one way
+  to say one thing.

@@ -171,11 +171,12 @@ function is not accepted where a non-throwing one is demanded.
 property of the **value**, not the type: two values of written type `fn (int): int` may
 hold different authorities, because the set is fixed where the closure is *created*
 (capabilities §5.1), which is exactly the per-value situation §7 says the type must not
-encode. The type system still keeps capabilities out of every value slot, but by
-**confinement** rather than annotation: a capability-holding function value is
-second-class and cannot be assigned, passed, stored, or returned at all (capabilities
-§3.1), so every function value that *can* occupy a `fn`-typed slot is capability-free by
-construction, and no capability information is ever needed at an indirect call site. The
+encode. The type system keeps capability *tokens* out of every value slot (capabilities §3.1), and
+function values carry their **requirement set on the value** (capabilities §3.1, R39):
+first-class, storable, passable, with direct calls checked statically and calls through
+`fn`-typed slots checked dynamically against the executing frame's grant, panic on
+shortfall. No capability information appears in the *type*, which is exactly why the check
+rides the value. The
 division of labor between §4 and this rule is principled, not accidental: **an error
 rides a return value**, it is data flowing to the caller, so it must be in the type or it
 smuggles (§4, §7); **a capability is authority**, it flows nowhere, so it confines
@@ -801,10 +802,10 @@ capability-holding value never enters a slot.
 - **`use` and the type:** a function's capture surface stays out of the externally-visible
   type, now for a stronger reason than before. Ordinary captures are inert `const`
   snapshots (§2.1), so there is nothing about them a caller could need; and capability
-  captures never need to be *read* through a type because a capability-holding value is
-  second-class and cannot occupy a function-typed slot at all (§3, capabilities §3.1).
-  Surfacing captures in the type was considered twice and rejected twice: first as
-  needless complexity, now as needless full stop, confinement makes the annotation's job
+  captures never need to be *read* through a type because the requirement set rides the
+  **value** and is checked at the call (capabilities §3.1, R39), so an annotation would
+  duplicate information the runtime already enforces. Surfacing captures in the type was
+  considered and rejected as needless: the value-carried check makes the annotation's job
   vacant. Only the comptime-consequence (§5) leaks to callers, which is already handled.
 - **`let` vs `const` for a function binding:** they **coincide**. A function has no
   interior-mutable state reachable through its binding, so the interior-freezing that

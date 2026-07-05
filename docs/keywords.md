@@ -18,6 +18,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `error` | error declaration **and** the root error type (dual role, position-resolved) | errors §3 |
 | `capability` | capability declaration (`const io = capability`) | capabilities §1 |
 | `attribute` | attribute declaration | attributes §2 |
+| `test` | test declaration (string-literal name, zero params, implicit `undefined!`) | tests |
 | `meta` | protocol meta-member marker | protocols §3 |
 | `export` | module export (was `pub`, R19) | modules |
 | `import` | module import | modules |

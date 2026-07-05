@@ -27,7 +27,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
 control-flow spec) are statement grammar, not operators, and sit outside this table; `where`
 exists only inside `match` arms (match §3); `=>` is arrow/arm punctuation, not an operator;
-string interpolation is lexical, not an operator.
+string interpolation is lexical, not an operator; `...` is pattern punctuation (destructuring §1.2), never an expression operator.
 
 ## 2. Type-position precedence, tightest to loosest
 

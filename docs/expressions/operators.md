@@ -57,7 +57,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `await p` | concurrency | await | park until the task completes; move its result out; consume the promise (word prefix) | await |
 | `a += b` (and `-=` `*=` `/=` `%=` `??=`) | assignment | compound assign | `a = a op b`, target evaluated once; `??=` assigns only when `a` is null | associativity §1 |
 | `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | reflection §3.2 |
-| `...x` | reference | spread / rest | spread a table/stream into elements, or collect rest | spread, destructuring |
+| `...x` | structure | spread / rest | position-disambiguated: in literals, argument lists, command literals, and interpolation it **spreads** a table/stream into elements (spread spec); in a pattern it is the trailing **rest** element (destructuring §1.2) | spread, destructuring |
 | `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |
 | `a .. b` | control flow | range | lazy range stream from `a` to `b` | range |
 | `.. by n` | control flow | step | range step | range |

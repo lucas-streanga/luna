@@ -121,8 +121,8 @@ let flags = ["-l", "-a", "-h"];
 `ls ${...flags}`                     // args: ["-l", "-a", "-h"], three arguments
 ```
 
-`${expr}` is one argument; `${...expr}` spreads a list into many arguments. (The exact
-spread syntax is subject to the destructuring / spread grammar, still to be specified; the
+`${expr}` is one argument; `${...expr}` spreads a list into many arguments (spread spec §5,
+one element one argv entry, `toString`-rendered, never re-tokenized; the
 semantics are what matter here.)
 
 ---
@@ -255,8 +255,6 @@ diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
 
 ## 7. Open questions
 
-- **Spread syntax:** the exact form for spreading a list into multiple arguments
-  (`${...flags}` above) depends on the destructuring / spread grammar, still to be
   specified. The semantics (each element becomes one argument) are fixed.
 - **Environment and working directory:** how a command carries environment variables and a
   working directory (as builder-style methods on the command value, `.env(...)`, `.cwd(...)`,

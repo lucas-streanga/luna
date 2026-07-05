@@ -43,7 +43,10 @@ default.
 
 ### 1.2 The rest element: `...rest` and `..._`
 
-A trailing rest element consumes the remaining values, and you choose whether to keep or drop
+A rest element is **trailing only**, ruled: `[a, ...mid, z]` is a parse error, the rest
+consumes "everything after the fixed prefix" and nothing subtler (a mid-pattern rest would
+force length arithmetic against the source, complexity with no carried use case). A trailing
+rest element consumes the remaining values, and you choose whether to keep or drop
 them:
 
 ```
@@ -114,20 +117,32 @@ analogue of the positional `_`.
 
 ---
 
-## 3. Positional and keyed are distinct modes
+## 3. Positional and keyed may mix, mirroring the literal
 
-A destructuring pattern is positional (bare targets, integer keys) or keyed (`key =>` pairs);
-the mode follows the same distinction as table literals and the `.`/`[]` split. The two are
-not mixed in one pattern in the common case; a source with both integer and string keys is
-read positionally for its integer part and by key for its named part using the appropriate
-pattern. (Whether a single pattern may mix `[a, b, 'k' => c]` is left to the grammar, open
-questions.)
+A single pattern **may combine** positional and keyed elements, `[a, b, 'k' => c]`, and the
+rule is inherited rather than invented: the pattern grammar **is the table-literal grammar
+with targets in value position**, and the literal already mixes (`[1, 2, 'k' => v]` assigns
+implicit keys `0, 1` to the bare values and `'k'` independently, tables spec). So in a mixed
+pattern, the **bare targets** consume implicit integer keys `0, 1, 2, ...` in their order of
+appearance, and each **`key =>` entry** binds its key independently; the positional part
+follows §1's rules (exact length over the integer keys by default, a trailing rest to relax
+it), the keyed part follows §2's (absent keys bind `undefined`, unmentioned keys are
+ignored). Mixing is expected to be rare, a source shaped that way is usually two reads, but
+what the literal can build, the pattern can take apart.
 
 ---
 
 ## 4. Binding forms
 
-Destructuring binds with the same declaration forms as ordinary bindings (variables spec):
+Destructuring binds with the same declaration forms as ordinary bindings (variables spec),
+and, ruled, in **every position that introduces bindings**: declarations, **function
+parameters** (`fn ([a, b]) => ...`, the argument must fit the pattern per §1/§2), and
+**`foreach` heads** (`foreach ([k, v] in pairs) { ... }`, each element destructured per
+iteration), the PHP lineage. Semantics and typing are identical in every position (§5). One
+guard: a destructured parameter is **by value only**, `&` marks a whole named parameter
+(variables §5.1), never a pattern or a piece of one.
+
+Destructuring binds with the same forms:
 
 ```
 let [a, b] = pair;           // let bindings
@@ -187,12 +202,10 @@ The `...rest` binding is always a **`list`** (§1.2) regardless of element typin
 
 ## 7. Open questions
 
-- **Mixed patterns:** whether a single pattern may combine positional and keyed elements
-  (`[a, b, 'k' => c]`), pending the destructuring grammar.
-- **Nested destructuring:** binding through nested structure (`[[a, b], c] = ...`,
-  `['user' => ['name' => n]] = ...`) and how `_` and `...` compose inside nesting.
-- **Rest position:** whether a rest element may appear anywhere but the end (`[a, ...mid, z]`),
-  or only trailing (current assumption: trailing only).
-- **Destructuring in other positions:** whether the same patterns bind function parameters
-  (`fn ([a, b]) => ...`) and loop variables (`foreach ([k, v] in pairs)`), pending those
-  grammars.
+Four of the original questions are ruled (R35): mixed patterns are legal and mirror the
+literal (§3); the rest element is trailing-only (§1.2); patterns bind in parameters and
+`foreach` heads (§4). What remains:
+
+- **Nested destructuring**, deferred by decision: binding through nested structure
+  (`[[a, b], c]`, `['user' => ['name' => n]]`) and how `_` and `...` compose inside nesting;
+  flat patterns plus a second statement cover the cases until real code demands depth.

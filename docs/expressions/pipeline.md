@@ -122,12 +122,12 @@ aliased-mutable-cursor bug single ownership exists to prevent.
 A transformer argument (`map(f)`, `filter(p)`) is an ordinary function value, so the
 capability rules already decide two properties, worth surfacing:
 
-- **Stages are `use`-free.** A capability-holding function value is second-class and cannot
-  be passed as an argument at all (capabilities §3.1), so `f` in `map(f)` is necessarily
-  capability-free: **a pipeline performs no effects beyond its source and its consumer**,
-  by construction, not convention. Effects live at the endpoints (the `file` behind
-  `lines()`, the `exec` that runs a command pipeline), which is exactly where `use` clauses
-  already sit.
+- **Stage effects are ambient-checked at the pull.** A stage function may carry a
+  requirement set (capabilities §3.1, R39); each invocation during consumption checks it
+  against the **consuming frame's** grant, panic on shortfall, so a pipeline's effects are
+  bounded by the consumer's declared `use`, enforced per call. Effect-free stages (the
+  common case) check trivially; the old "effect-free by construction" claim, which rested
+  on the repealed second-class rule, weakens to this, which is more honest anyway.
 - **A failing stage panics at the pull.** Stages are plain `fn`, not `fn!`: a stream has no
   error channel (std.io §8, the mid-stream ruling), so a stage that cannot do its job
   panics, surfacing at the consumption site, boundary-caught like every mid-stream failure.

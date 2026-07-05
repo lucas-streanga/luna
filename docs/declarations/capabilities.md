@@ -90,8 +90,9 @@ it, which is what makes it unlaunderable: there is no value-level copy to smuggl
 `use` scope. Aliasing a capability-using function does not escape its requirement either,
 because the alias itself is impossible: a capability set rides on the function **value**
 (fixed where the closure is created, §5.1), and a capability-holding function value is
-**second-class**, it cannot be bound to a new name, passed, stored, or returned at all
-(§3.1). There is no renamed alias to worry about, because the rename is a compile error.
+**confined**, it cannot be bound to a new name, passed, stored, or returned at all
+(§3.1); note this is the capability *token*, function values that require capabilities
+are first-class and carry a requirement set instead (§3.1, R39). There is no renamed alias to worry about, because the rename is a compile error.
 
 ### 3.1 `use` is the sole channel: capabilities never enter a value slot
 
@@ -124,37 +125,40 @@ canonical and always-there, reachable only by naming it in `use`, and it never b
 manipulable value at any point. This is what makes `use (X)` the complete and only account of a
 function's authority.
 
-**The confinement extends to capability-holding function values.** A closure whose `use`
-clause names a capability (or that calls anything requiring one, §5) is a bearer of that
-authority: whoever could call it could exercise the capability. So the doctrine above,
-"never enters a value slot," applies to it exactly as to the token itself. A
-capability-holding function value is **second-class**:
+**Function values carry a requirement set, and are first-class.** An earlier draft made
+capability-holding function values second-class (unstorable, unpassable), the strongest
+possible confinement, adopted because no dynamic check existed. Repealed (R39): the check
+exists, and the confinement was stronger than the invariant needed. The model:
 
-- **Not a binding**: `let f = println;` is a **compile error** if `println` requires a
-  capability. A capability-holding function has exactly one name, the one its **literal**
-  was bound to at the declaration (`const println = fn ... use (io) ...`, the
-  creation site, §5.1). Binding the literal is how such a function comes into being;
-  binding the already-named *value* again is aliasing, and is rejected, the same
-  literal-versus-existing distinction §1 draws for declaring a capability itself.
-- **Not an argument**: `each(xs, println)` is a **compile error**; no function-typed
-  parameter, signed, bare `fn`, or `fn!` (functions §3.1), ever receives a
-  capability-holding value.
-- **Not a field, element, or return value**: it cannot be stored in a table or returned,
-  the same slots the token itself is barred from.
-- **What remains is everything it is for**: a capability-holding function is **called
-  directly** by name (checked statically against the caller's own `use` set, §5) or
-  **spawned** (`spawn f(...)` is a direct-call form, not a value slot; the capability
-  crosses the task boundary by reference exactly as concurrency §2.1 specifies).
+- **A function value carries its requirement set**, fixed at creation (§5.1): the union of
+  its `use` clause and its direct callees' declared requirements. This is a static fact
+  stamped on the **value**, a small set over the closed, compile-time-enumerable capability
+  universe (a bitmask in practice, one word on the function value), it is **not** a captured
+  capability instance, the tokens themselves still never enter any value slot (above).
+- **Direct calls stay statically checked**, unchanged: calling a function by its declared
+  name is verified against the caller's own `use` set at compile time (§5), and this remains
+  the overwhelmingly common case.
+- **Calls through function-typed values are checked dynamically**: invoking any value in a
+  `fn`-typed slot verifies **requirement set ⊆ the executing frame's granted set** (the
+  frame's declared `use`, granted transitively from `main`, §7), one bitmask compare, and
+  **panics** on shortfall. `let f = println; f("hi")` is now legal, and runs iff the frame
+  holds `io`.
+- **`spawn` on a function value** performs the same check against the spawner's grant at the
+  spawn.
 
-All of these are **compile errors at the offending assignment or call**, not runtime
-events: since a capability-holding value can never reach a slot, there is no dynamic
-situation left to check and nothing to panic about. The payoff is the inverse guarantee
-for everything else: **every function value occupying any function-typed slot anywhere is
-capability-free by construction**, so indirect calls, `map`'s callback, a handler in a
-table, a `fn` field, need no capability reasoning at all, and §6's inference can assign
-an indirect call the empty requirement without being wrong. Effectful *iteration* is what
-statements are for: `println(v) foreach (v in xs)` calls `println` directly, by name,
-under the enclosing function's own `use` set, no function value crosses any slot.
+**The laundering theorem survives the repeal, and is worth stating**: every actual exercise
+of a capability occurs under a declared `use` on the executing path, because the dynamic
+caller must hold the requirement, and holding means having declared it, granted from `main`
+down. What travels through capability-free code is the closure as **inert data**, never as
+exercisable authority: possession of the value is not possession of the grant. So the audit
+(§4, "who can do io" is a search for `use (io)`) is exactly as true as before; what moved is
+*when* a violation surfaces, compile time for direct calls, a panic at the call for
+value-mediated ones, the honest cost of first-classness, paid only on the dynamic frontier.
+Two consequences come free: the **comptime sandbox** (§8) preserves itself, no grants exist
+at comptime, so a requirement-carrying value invoked there fails the check vacuously; and
+callback-taking APIs (`map`, handlers in tables, the test table, tests spec §4) accept
+effectful functions with no special cases, their effects gated by the ambient grant at the
+point of invocation.
 
 The asymmetry with errors (`!`) is deliberate and principled (functions §3, §7): **an
 error is data**, it rides the return value into the caller, so it must be carried in the
