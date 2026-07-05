@@ -638,6 +638,17 @@ The split to remember: **the capability sandbox is the security control** (no re
 outside world), and **the four guards are liveness controls** (no hang, no crash). Neither
 substitutes for the other; together they make compile-time execution safe.
 
+**Phase invariance.** A comptime-*eligible* plain function is callable in **both** phases, and
+comptime evaluation **substitutes its result into the program** (§5.4, compiler spec §6), so its
+result must not depend on *which* phase ran it: same arguments, same result, at comptime and at
+runtime. Eligibility already guarantees most of this (no capabilities, no outside world, §5.5);
+the one further source of phase-divergence is comptime-only information, and it is closed by
+construction: the only such information is a value's comptime provenance, readable only through
+the `comptype` operator (reflection §3.2), and a function that touches `comptype` is not callable
+at runtime at all (its argument type cannot be inhabited there), so it is exempt from the rule
+vacuously rather than able to violate it. Every function that *can* run in both phases therefore
+computes from values alone, and folding is behavior-preserving.
+
 ### 5.6 The `unsafe-` capability convention
 
 Most capabilities do effects *within* Luna's guarantees: `io`, `http`, and safe syscalls

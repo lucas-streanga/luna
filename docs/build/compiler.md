@@ -350,7 +350,18 @@ constants.
   guards, deterministic execution budget (fuel, not wall-clock), stack-depth limit, and allocation
   ceiling (functions spec §5.5), each aborting with a compile error rather than hanging the build.
 - **It is deterministic.** The budget is a step counter, not wall-clock time, so comptime results
-  are reproducible and cacheable across machines (functions spec §5.5). Determinism here is what
+  are reproducible and cacheable across machines (functions spec §5.5). Determinism across runs is
+  complemented by **phase invariance** across phases (functions spec §5.5): a comptime-eligible
+  function yields the same result at comptime as it would at runtime, which is what makes
+  substituting the folded result behavior-preserving.
+- **Comptime-produced values splice as constants, functions included.** The evaluator substitutes
+  a comptime result into the IR as a constant. A **`fn` value** is spliceable exactly when its
+  captured environment is **confinement-free plain data**: the code pointer references a literal
+  already in the program, and the environment is a `const` snapshot (functions spec §2.1) of
+  ordinary values. A `comptype` value, or any environment containing one, cannot be spliced,
+  lowering erases comptime provenance and confined values may not survive it (reflection spec
+  §3.2), so a generator that tried to capture its descriptor fails to compile at the capture,
+  and what reaches the runtime program is always plain data (attributes spec §4). Determinism here is what
   keeps builds reproducible.
 - **Its main product is `const` data.** Comptime-built `const` tables become the
   compile-time-shaped tables that get the perfect-hash struct layout (§5, tables Amendment A), so

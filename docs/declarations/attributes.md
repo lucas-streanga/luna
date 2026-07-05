@@ -165,42 +165,65 @@ An attribute is fixed at the declaration and can never be added, removed, or com
 
 ## 4. Comptime reads attributes; generation is the use
 
-Attributes exist to be consumed by **comptime** (functions spec §5). At compile time, comptime
-reflection (reflection spec: `comptime fn` queries over a statically-known `type`) can, for a
-**statically-known** type:
-
-- **Enumerate the type's fields** (`fields(t)`, reflection spec §3.2), and
-- **Read each field's attributes** (each field's `attributes` table, and `attributes(t)` for a
-  binding, reflection spec §3.2).
-
-From these, a comptime function **generates specialized code**. The canonical example is JSON
-serialization: a comptime generator walks a type's fields, reads each `jsonTag`, and emits a
-serializer that writes the tagged names directly.
+Attributes exist to be consumed by **comptime** (functions spec §5). The consumer is a
+**generator**: a `comptime fn` that takes a **`comptype`** descriptor (reflection spec §3.2),
+walks its `fields` and their `attributes`, and returns a **plain runtime function**. The
+canonical example is JSON serialization, and its shape is fully expressible with no dependent
+types:
 
 ```
-// Sketch: a comptime generator reads field attributes and emits a specialized serializer.
-const toJson = comptime fn (T: type): fn (v: T): string => {
-  // at compile time: for each field of T, read its jsonTag and build the writer
-  // returns a runtime function specialized to T's tags
-  ...
+// The generator: comptime in, plain runtime function out.
+const toJson = comptime fn (ct: comptype): fn (any): json => {   // json: a string constraint, json spec §1
+  // Extract what generation needs into PLAIN data: names and tags are strings.
+  var cols = [];
+  foreach (f in ct.fields) {
+    cols->push(['key' => f.name,
+                'out' => f.attributes.jsonTag?.tag ?? f.name]);
+  }
+  // Return the specialized serializer. It const-captures `cols` (functions §2.1),
+  // ordinary strings in an ordinary table, and walks the value at runtime.
+  return fn (v: any): json => {
+    ...   // for each col: emit '"' . col.out . '":' . serialize(v[col.key])
+  };
 };
 
-const writeUser = toJson(User);     // generated at compile time from User's jsonTag attributes
-writeUser(someUser);                // runtime: no reflection; the tags are compiled in
+const writeUser = toJson(comptype User);   // generated at compile time from User's jsonTags
+writeUser(someUser);                        // runtime: no reflection; the tags are compiled in
 ```
 
-Two properties make this the right model:
+Three properties make this the right model, and each is enforced, not hoped for:
 
-- **The serializer is specialized and static.** The JSON shape is baked into the emitted code at
-  compile time, so runtime serialization does no attribute lookup and no reflection, it just writes
-  the compiled-in structure. This is faster than runtime reflection and needs no runtime attribute
-  storage.
-- **It requires a statically-known type.** Generation reads attributes off a type the compiler
-  knows, which is exactly the compile-time-only constraint (§1). Serializing a value whose type is
-  unknown until runtime is the unsupported case, deliberately (§1).
+- **The return type is `fn (any): json`, not a dependent `fn (v: T)`.** The specialization
+  lives in the **captured data** (`cols`), not in the parameter's type: the emitted function
+  walks any table using the compiled-in key/tag map. Luna has no type-parameterized
+  signatures, and this pattern shows none are needed, the descriptor's information is
+  extracted into plain values and rides an ordinary `const`-snapshot capture.
+- **Confinement forces the extraction.** The generator may not capture `ct` itself into the
+  returned function: a `comptype` value cannot survive lowering (reflection §3.2), and a
+  closure returned from comptime is spliced into the runtime program, so `use`-less capture of
+  `ct` is a **compile error** at exactly the right place. The type system, not discipline,
+  guarantees that what reaches runtime is plain data.
+- **The result is spliceable.** A comptime-produced `fn` value lowers to runtime exactly when
+  its captured environment is confinement-free plain data (compiler spec §6), which the
+  previous point guarantees. The JSON shape is baked in; runtime serialization does no
+  attribute lookup and no reflection.
 
-So attributes are not read by ordinary runtime code; they are read by comptime, which turns them
-into code. Ordinary runtime code then runs that generated code.
+**The dynamic counterpart is a separate function, deliberately.** A structural,
+attribute-blind serializer is trivially writable today, `toJsonDynamic = fn (v: any): json` (json spec §3),
+walking the value with `foreach` and `@`: the primitive set is closed
+(value-representation §4.1), so a runtime walk meets only known cases, all the tools are
+there. It is **not** unified with the generator behind one name (no
+`toJson(ct: comptype | any)`), for a reason stronger than taste: the two paths differ in
+**observable output**, the generator honors `jsonTag`, the dynamic walk cannot (attributes are
+erased, §1), and a comptime-eligible function callable in both phases must be
+**phase-invariant** (functions §5.5), or folding it at comptime would change program behavior.
+A `comptype`-taking function is exempt from that rule vacuously, it cannot be called at
+runtime at all; a unified union function would be subject to it and would violate it. Two
+names, two contracts: `toJson` is "the declaration's serialization, tags honored";
+`toJsonDynamic` is "this value's structure, as it stands."
+
+So attributes are not read by ordinary runtime code; they are read by comptime, which turns
+them into plain data captured by generated code. Ordinary runtime code then runs that code.
 
 ---
 
