@@ -383,7 +383,7 @@ not an exception to the deficit rule.)
 
 ## 4. Errorability
 
-A function that can throw a `UserError` **declares** it with `!` on the result type
+A function that can throw a declarable error (errors §2) **declares** it with `!` on the result type
 (value-representation error model):
 
 ```
@@ -400,7 +400,8 @@ as `?` is, not an effect the compiler *discovers*.
 
 What the compiler verifies is a **local, syntactic containment check** on the body, **not**
 control-flow analysis (compiler §1.4.1). In a function **not** declared `!`, every call to a
-`!`-declared function, and every direct `throw`, must be **lexically enclosed in a handler** (a
+`!`-declared function, and every originating direct `throw` (every user `throw` except a
+`Panic`-typed re-throw, errors §6), must be **lexically enclosed in a handler** (a
 `try` expression, a `try` / `catch` block, or an errorable binding that resolves the error,
 errors spec). An unhandled throwing call or a bare `throw` in a non-`!` function is a **compile
 error**; the fix is to add `!` to the signature, or a handler at the call site. In a function
@@ -421,9 +422,9 @@ Three properties keep this local and predictable:
   asks "is this handled on *every* path" (that would be the flow analysis Luna does not do,
   compiler §1.4.1); it asks only "is *this* call lexically inside a handler." That is stricter
   and predictable, in the same family as the `use`-clause and `undefined`-on-use checks.
-- **Panics are exempt.** `!` governs only the `UserError` channel. Any function may raise a
+- **Panics are exempt.** `!` governs only the declarable channel. Any function may raise a
   `Panic` (overflow, a failed `as`, an `ArityError`) without being `fn!` (errors spec §7, §9),
-  so the containment check applies to `UserError`-throwing calls, never to panics.
+  so the containment check applies to declarable-error-throwing calls, never to panics.
 
 A caller must handle a throwing function's result with `try` or an errorable binding; a
 non-throwing function's result needs neither. This is the same errorability the protocol `apply`
@@ -432,9 +433,9 @@ uses (`: !self`) and the same that static protocol application inherits (protoco
 **`main` is no exception.** If `main` can throw and does not handle it, `main` **must be declared
 `fn!`**, exactly as any other function that lets an error escape. A `fn!` `main` is the deliberate,
 signature-visible statement "**`main` may error and end the program, and that is fine**": there is
-no caller above `main`, so an escaped `UserError` reaches the **runtime**, which terminates the
+no caller above `main`, so an escaped declarable error reaches the **runtime**, which terminates the
 program with the error reported (errors §8). A `main` that is *not* `fn!` is therefore statically
-guaranteed to have handled every `UserError` internally. `main` gets no inferred `!` and no special
+guaranteed to have handled every declarable error internally. `main` gets no inferred `!` and no special
 pass, the compiler will not add `!` for it any more than for a leaf function, and (like every
 function) it cannot declare panics, which remain ambient (errors §7). So whether the program can end
 on a declared error is readable off one line: `main`'s signature.

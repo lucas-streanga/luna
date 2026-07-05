@@ -196,7 +196,7 @@ fn toInt(d: double): int!          // double to int; truncates toward zero; fall
   mantissa cannot exactly represent every 64-bit int, so ints beyond 2^53 lose low bits. The
   function succeeds but the result may be rounded.
 - **`double` to `int`** truncates toward zero and is **fallible** (`int!`): NaN, the infinities,
-  and values outside the int range have no int result, so the conversion throws (a `UserError`
+  and values outside the int range have no int result, so the conversion throws (a declarable error
   to handle, or a panic, matching how out-of-range narrowing behaves). Truncation of an
   in-range finite double is exact.
 

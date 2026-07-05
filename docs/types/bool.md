@@ -73,7 +73,7 @@ parseBool(s)          // "true" -> true, "false" -> false, else an error: bool! 
   `toInt(b)` or `b.toInt()` (UFCS), the same function either way.
 - **`toString(b): string`** , `true` to `"true"`, `false` to `"false"`. Total; this is the same
   `toString` that applies across types, not a bool-specific operator.
-- **`parseBool(s): bool!`** , parses a string to a `bool`, fallible (a `UserError` on anything but
+- **`parseBool(s): bool!`** , parses a string to a `bool`, fallible (a declarable error on anything but
   the accepted spellings), like `parseInt`. The accepted spellings are defined with the parsing
   functions.
 

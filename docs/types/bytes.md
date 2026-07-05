@@ -115,7 +115,7 @@ fn fromBytes(b: bytes): string!        // string.fromBytes: validates UTF-8, thr
 ```
 
 `string.fromBytes(b)` validates the octets as UTF-8 and returns a `string`, or throws a
-`UserError` (handled with `try`) if they are not valid UTF-8. The name and the `!` make the
+declarable error (handled with `try`) if they are not valid UTF-8. The name and the `!` make the
 fallibility visible, unlike a `b.toString()` that would falsely imply a total operation.
 
 The reverse direction, a `string`'s raw octets, is the string spec's `bytes()` view, which

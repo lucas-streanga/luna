@@ -8,7 +8,7 @@ type **annotations** (which assert a type that must *already* statically hold) a
 
 The defining property: **`as` never transforms a value and never needs `!`.** Its only failure
 is a `TypeError`, which is a `panic` (errors §9), so a failing `as` is a programming error that
-propagates ambiently, not a declarable `UserError`. `as` is a type-level assertion with a
+propagates ambiently, not a declarable error. `as` is a type-level assertion with a
 runtime check, not a computation.
 
 ---
@@ -73,7 +73,7 @@ let n    = parseInt("42");      // string -> int: a fallible function, int!
 - **`toString(n): string`** formats an int as text. It is a total function (every int has a
   string form), never fails.
 - **`parseInt(s): int!`** parses text into an int. It is **fallible** (`"hello"` is not an
-  int), so it returns `int!` (errorable) and its failure is a `UserError` handled with `try`,
+  int), so it returns `int!` (errorable) and its failure is a declarable error handled with `try`,
   because malformed input is an expected, recoverable condition, not a programming error.
 
 The line between `as` and a conversion function is exact:
@@ -82,7 +82,7 @@ The line between `as` and a conversion function is exact:
 |-|-|-|
 | Transforms the value? | No, same bits | Yes, new value |
 | Runs custom code? | No, a type check | Yes |
-| Failure kind | `TypeError` (panic) | `UserError` (`!`), or total (no failure) |
+| Failure kind | `TypeError` (panic) | declarable error (`!`), or total (no failure) |
 | Needs `!`? | Never | Yes if fallible (`parseInt`), no if total (`toString`) |
 
 This split is why `as` keeps its clean "never `!`" property: everything that can fail with a

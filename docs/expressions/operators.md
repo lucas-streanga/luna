@@ -46,7 +46,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `A \| B` | type | union | type union ("one of"; **type position**) | types |
 | `@P & @Q` | type | intersection | protocol-wearer intersection ("all of"; **infix, type position**; distinct from prefix `&` reference) | types, protocols |
 | `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |
-| `T!` | type | errorable | adds the error arm to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
+| `T!` | type | errorable | adds the error arm (`| error`, errors §7) to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
 | `@x` | type | type-of | value position: the value's `type`; type position: wearer-refinement `@P` | type §1.1 |
 | `@@x` | type | protocol-reflect | reflect the protocols a table/view wears | reflection, views |
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |

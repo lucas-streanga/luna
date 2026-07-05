@@ -118,7 +118,7 @@ const person = [
 ## Optionality and errorability, as type suffixes
 
 - **`?` (optional)** adds `null` to a type: `var name?: string` is `string | null`.
-- **`!` (errorable)** adds the error types a value may carry: a `fn!` may raise a `UserError`, and a
+- **`!` (errorable)** adds the error types a value may carry: a `fn!` may raise a declarable error (errors spec §2), and a
   binding written `x!` may hold an error alongside its value. `?` and `!` compose.
 
 These are not special forms; they are shorthands over the same union machinery (`?` is `| null`),

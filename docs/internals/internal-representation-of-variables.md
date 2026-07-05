@@ -206,17 +206,22 @@ freely and order-independently: `string?!` and `string!?` both denote
 
 The concrete error subtype is stored the way any current type is, **as the value's
 current `typeid`** in the high 48 bits. The location declares the coarse
-`string | error`; the value carries the precise subtype (`IOError`, …). Because every
-type is statically declared, that subtype id already exists in the `typetable`; a
-throw introduces no new type (§4.1).
+`string | error`; the value carries the precise subtype (`IOError`, …). Because
+every type is statically declared, that subtype id already exists in the `typetable`;
+a throw introduces no new type (§4.1).
 
-**The error arm of a `try` result is always the base `error`**, written `error` or
+**The error arm of a `try` result is always the root `error`**, written `error` or
 `!`, never a specific subtype. `let myVal: string | IOError = try someFunc()` is a
-compile error. `try` is total: it converts *every* throw into the value, and Luna
-keeps throw types opaque, a call is known to throw, but not *what* (precise throw-set
-inference would have to chase transitive calls and dies at dynamic dispatch). The
-compiler cannot prove `someFunc` throws only `IOError`, so a `string | IOError` result
-would assert an exhaustiveness it cannot verify.
+compile error. `try` is **not total**: it converts every **declarable-error** throw
+(anything outside the `Panic` subtree, errors §2) into the value, and a **`Panic`
+unwinds through it** untouched (errors §8.1), so a panic never dynamically lands in
+the arm even though the arm's spelling, root `error`, statically includes `Panic`,
+the declarable category has no type of its own, so the root is the tightest honest
+spelling (errors §7). Within the caught category, Luna keeps throw types opaque, a
+call is known to throw, but not *what* (precise throw-set inference would have to
+chase transitive calls and dies at dynamic dispatch). The compiler cannot prove
+`someFunc` throws only `IOError`, so a `string | IOError` result would assert an
+exhaustiveness it cannot verify.
 
 No precision is lost. The thrown value's exact subtype is its runtime current
 `typeid`, recovered by narrowing, `catch IOError`, `is IOError`, via the O(1)
@@ -224,14 +229,15 @@ subtype test (§4.2). Coarse in the declared type, precise in the value: the sam
 as everywhere else.
 
 The restriction is scoped strictly to `try`. Error subtypes are otherwise
-**first-class**: they may be constructed (`IOError('disk full')`), stored, and named
+**first-class**: declarable ones may be constructed (`IOError('disk full')`; `Panic`
+types are runtime-minted only, errors §9), and any error value may be stored and named
 in ordinary declared types, `let e: IOError = IOError('disk full')`, or a function
 that returns `IOError`. Only the arm *introduced by catching a throw* is pinned to the
-base `error`, because only there is the thrown type unknown. The two `try` rules
+root `error`, because only there is the thrown type unknown. The two `try` rules
 together make that arm **exactly** `| error` (or `!`): it must be *present*, a `try`
 into a non-errorable type is a compile error, since the error must be handled, and it
-may not be *narrower*, since the thrown subtype cannot be known. Neither less nor more
-specific than base `error`.
+may not be *narrower*, since the thrown subtype cannot be known. Neither less nor
+more specific than the root.
 
 There is no `void`. Every function returns a value; a function with no `return`, or one that
 specifies no return type, returns **`undefined`** (undefined spec §4), the absence sentinel, because
@@ -239,7 +245,7 @@ a void function has no meaningful result and using a result that does not exist 
 `undefined` reports by panicking on use). A void call needs no `_ =` discard, since there is nothing
 to drop, and the compiler knows this statically from the `undefined` return type (undefined spec
 §4.1). A throwing function whose success carries nothing therefore has success type `undefined`, and
-`try f()` on it collapses the `UserError` arm as usual. This keeps a single answer to "what did this
+`try f()` on it collapses the error arm as usual. This keeps a single answer to "what did this
 give back?" and two distinct absences: **`undefined` for a structural absence (missing key, void
 return), `null` for an explicit, chosen nothing.**
 

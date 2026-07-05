@@ -43,8 +43,8 @@ program at the point the wrong value would have been produced.
 
 Because overflow is a **`Panic`** (ambient, undeclarable, errors §2), arithmetic does **not**
 make a function `!`: `a + b` returns a plain `int`, and functions doing arithmetic keep clean
-signatures. The panic is still real and catchable (§3); it simply is not a declarable
-`UserError`, so it does not infect every arithmetic-using signature with `!`. This is the same
+signatures. The panic is still real and catchable at a `try`/`catch` block (§3); it simply is not a declarable
+declarable error, so it does not infect every arithmetic-using signature with `!`. This is the same
 treatment as `TypeError` and out-of-bounds access.
 
 ### 2.1 The performance cost is negligible for Luna
@@ -59,26 +59,32 @@ saturation is actually the intended arithmetic, it is available explicitly (§4)
 
 ---
 
-## 3. Detecting overflow: `try`, not a checked-add function
+## 3. Detecting overflow: the `try`/`catch` block, not a checked-add function
 
-Because overflow is a `Panic` and `try` is **total** (it converts every throw, from either
-subtree, into a value, errors §8.1), detecting overflow needs no dedicated `checkedAdd`
-function. `try` on the arithmetic expression catches the overflow:
+Because overflow is a `Panic`, the `try` **expression** does **not** catch it: `try` catches
+declarable errors only (everything outside the `Panic` subtree), and a panic unwinds
+through it (errors §8.1). `let sum! = try
+bigA + bigB` is therefore **not** an overflow check, the `try` there can only ever catch a
+declarable error from a callee, never the `OverflowError`, and code anticipating overflow that way
+is wrong. Anticipated overflow is handled where every panic is handled, at a **`try`/`catch`
+block** (errors §8.2), which catches everything:
 
 ```
-let sum! = try bigA + bigB;      // sum : int | error; the error arm is the OverflowError if it overflowed
-if (sum is error) {
-  // handle the overflow
-} else {
-  // sum is a valid int here
+try {
+  let sum = bigA + bigB;         // may panic with OverflowError
+  process(sum);                   // success path stays inside the block
+} catch OverflowError e {
+  // handle the anticipated overflow: fall back, clamp, or fail the unit of work
 }
 ```
 
-`try bigA + bigB` yields `int | error` (`int!`): the sum on success, or the caught
-`OverflowError` on overflow. So "add these and tell me if it overflowed" is the ordinary
-`try`-expression pattern, not a special arithmetic API. This is why there is no `checkedAdd`:
-`try` already provides checked semantics for **every** operation uniformly, addition,
-subtraction, multiplication, and the rest.
+This is the correct shape for the two-category design: overflow is an invariant violation, so
+absorbing it must be a deliberate, block-sized act at a real boundary, not something a
+one-token `try` (whose job is *expected* errors) can do by accident (errors §8.1). The block
+provides checked semantics for **every** operation uniformly, addition, subtraction,
+multiplication, and the rest, which is why there is still no dedicated `checkedAdd`: where
+overflow is *anticipated as a possibility to detect*, write the block; where an alternative
+result is *intended arithmetic*, use the explicit wrapping/saturating operations (§4).
 
 ---
 

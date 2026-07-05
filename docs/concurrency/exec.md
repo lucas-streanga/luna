@@ -128,7 +128,7 @@ failed `run` from being silently ignored.
 ## 4. `commandError` and pipefail
 
 A command or pipeline fails when any stage exits non-zero (for `run`) or cannot be spawned
-(for either function). Failure is a `commandError`, a `UserError` subtype (errors §4):
+(for either function). Failure is a `commandError`, a declarable error type (errors §4):
 
 ```
 commandError = error {

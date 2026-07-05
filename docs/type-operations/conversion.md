@@ -36,7 +36,7 @@ Conversions split by direction, and the two directions have opposite failure pro
   producing a string never errors.
 - **Parsing in (a `string` to a value) is fallible.** Not every string denotes a valid value of
   the target type (`"abc"` is not an `int`, `"maybe"` is not a `bool`), so `parseX` / `fromString`
-  returns a fallible `T!` (a `UserError` on a string that does not denote a `T`, errors spec).
+  returns a fallible `T!` (a declarable error on a string that does not denote a `T`, errors spec).
 
 This asymmetry is inherent: rendering has the full value in hand and only formats it (always
 possible), while parsing must *recover* a value from text that may not encode one (sometimes
