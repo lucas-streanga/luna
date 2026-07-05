@@ -109,10 +109,14 @@ comptime fn attributes(t: type): table
 comptime fn constraintPredicate(t: type): fn
 ```
 
-- **`fields(t)`**, for a table or record type, its fields, as a **list of tables**, each of shape
-  `['name' => string, 'type' => type, 'attributes' => table]`. This is the primary serialization
-  primitive: walk the fields, read each field's type and attributes, emit code. `comptime` because
-  it walks structure and reads attributes (which are compile-time-only, attributes spec).
+- **`fields(t)`**, for a **protocol-typed** table (a `@P` type, protocols §5.4), its **declared
+  element members**, as a **list of tables**, each of shape `['name' => string, 'type' => type,
+  'attributes' => table]`. Fields come from the protocol's declaration, the only place a table's
+  per-key types are declared (Luna has **no shape types** and no record type, so a **bare `table`**
+  has no declared fields and `fields(table)` is the **empty list**). This is the primary
+  serialization primitive: walk the fields, read each field's type and attributes, emit code.
+  `comptime` because it walks structure and reads attributes (which are compile-time-only,
+  attributes spec).
 - **`variants(t)`**, for an enum type, its variants, as a **list of tables**, each of shape
   `['name' => string, 'payloadType' => type?]` (payload `null` for a payload-less variant). Drives
   exhaustive code generation over an enum.
@@ -206,8 +210,10 @@ not take it. This is not a gap; it is a consequence of the type model, protocol-
 
 Reflecting "a table wearing `P`" therefore **decomposes** along the two axes it actually is:
 
-- **The table** is reflected by ordinary type reflection: `@t` gives the table type, `kind(@t)` is
-  `table`, `fields(@t)` gives its fields.
+- **The table** is reflected by ordinary type reflection: `@t` gives the table type and `kind(@t)`
+  is `table`. A bare `table` type has **no declared fields** (no shape types), so `fields(@t)` is
+  the **empty list**; a table's per-key types are declared by a protocol, so they surface through
+  the protocol reflection below, not through `@t`.
 - **The protocols** are reflected via `@@t` (the protocols the value wears, views spec §7), each a
   `proto` reflected by §3.4.
 

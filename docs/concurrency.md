@@ -347,9 +347,14 @@ impossible**, not merely discouraged:
   (§2.1): copyable values are copied, frozen `const` values are shared read-only (with no lazy
   initialization, so a read is never a hidden write), stateful values (streams, builders) transfer
   sole ownership (enforced by the moved-from state, §2.3), capabilities are immutable, promises are
-  confined, and `&` references cannot cross. This rests on one runtime obligation: **the copy-on-write
-  machinery and any structure reachable from multiple tasks must be thread-safe** (atomic refcounting
-  and splits), which the runtime must provide.
+  confined, and `&` references cannot cross. This rests on the **copy discipline, not on locking**:
+  because every task's mutable data is sole-owned, copy-on-write refcounts are touched
+  single-threaded and are **non-atomic** (§2, value-representation §6.1). The only cross-task
+  sharing is **frozen `const`s**, which are immutable and carry **no refcount** (§2), so they are
+  safe to read concurrently with no synchronization. The one runtime obligation is therefore that
+  the **spawn and await boundaries act as synchronization points** (where the eager copy and the
+  moved-from mark, §2.3, are established); the runtime interiors need no atomic refcounting or
+  locks.
 - **No deadlocks.** There are no locks (aggregation is return-and-fold, §5, not shared-memory
   locking), so no lock-ordering deadlock exists. Awaiting cannot deadlock either: promises are
   confined so the await graph is a **DAG** (§3.1, no await cycles); every task's death resolves its

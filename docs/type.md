@@ -210,8 +210,10 @@ per-value reflection cost.
 
 **Comptime-only (the deeper reflection surface, the `comptime fn` tier of the reflection spec):**
 
-- **Field enumeration** (`fields(t)`), for a table or record type, its fields and their types (what
-  serialization and attribute-driven generation walk, attributes spec §4, reflection spec §3.2).
+- **Field enumeration** (`fields(t)`), for a **protocol-typed** table, its protocol-declared
+  element members and their types (what serialization and attribute-driven generation walk,
+  attributes spec §4, reflection spec §3.2). There is no record type and no shape types, so a bare
+  `table` has no declared fields and `fields(table)` is empty.
 - **Attributes** (`attributes(t)`), readable only at comptime (attributes spec).
 - **Enum variants** (`variants(t)`), for an enum type, its variant set and payload types
   (compile-time exhaustiveness uses this, match spec §9).
