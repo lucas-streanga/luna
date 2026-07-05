@@ -5,7 +5,9 @@
       "camelcase": "Luna",
       "scope": "source.luna",
       "path": ".",
-      "file-types": ["luna"],
+      "file-types": [
+        "luna"
+      ],
       "injection-regex": "^luna$"
     }
   ],
@@ -14,7 +16,7 @@
     "license": "MIT",
     "description": "Highlighting-grade tree-sitter grammar for the Luna programming language",
     "links": {
-      "repository": "file:///home/lucas/projects/luna/tooling/tree-sitter-luna"
+      "repository": "https://github.com/YOURNAME/tree-sitter-luna"
     }
   }
 }
