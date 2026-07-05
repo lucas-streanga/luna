@@ -302,7 +302,7 @@ Inside an `apply` body:
   key `status`, whose name is statically known (a `.`-member is always a literal
   identifier; Luna has no `.dynamicName`). The machinery pre-checked `status` in step 1
   of §4.1, so this write is collision-safe by construction.
-- **A `[expr]` write installs a dynamic member.** `tab['new' . suffix] = value` writes a
+- **A `[expr]` write installs a dynamic member.** `tab["new$suffix"] = value` writes a
   computed key, whose name is not known until runtime. The machinery cannot pre-check
   it, so a dynamic write during application carries **install semantics**: it fails if
   the key already exists, unless an explicit replacing form is used. The author must
@@ -405,7 +405,7 @@ same elision as constraints (constraints §9.5). A write is **statically dischar
 check) when the site knows all three of: the value's protocol set (a `@person`-typed binding), the
 key (a static `.` key), and the RHS type (a value statically of the declared type). So the common
 case, `p.name = "Lucas"` on `p: @person`, is free; `p.name = 5` is a **compile error** (`int`
-disjoint from `string`); and a runtime check remains only for a **dynamic key** (`p['na' . 'me']`),
+disjoint from `string`); and a runtime check remains only for a **dynamic key** (`p["na${x}me"]`),
 an **RHS of unknown type** (`p.name = someAny`), or a **write through a binding that does not
 statically know the protocol** (the bare-`table` `&`-alias). `.` vs `[]` therefore decides *key
 knowledge* (an input to elision, tables §3.2), not whether enforcement happens.

@@ -130,7 +130,7 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
 - **Remainder sign follows the dividend**, pairing with truncated division: `-7 % 2` is `-1`.
 - **Division by zero panics** (a `Panic`, errors §2): `5 / 0` and `5 % 0` stop the program;
   ints have no NaN or infinity to yield.
-- **`INT_MIN / -1` panics**: the mathematical result 2^63 does not fit in a signed 64-bit int,
+- **`INT_MIN / -1` panics**, and so does unary negation of `int.min` (`-x` where `x == int.min`), the same missing +2^63: the mathematical result does not fit in a signed 64-bit int,
   so this edge case is an **overflow** and panics like any other (§2).
 
 The through-line matches overflow: arithmetic never silently produces a wrong or undefined

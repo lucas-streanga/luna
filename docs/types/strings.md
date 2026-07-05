@@ -332,7 +332,7 @@ the two functions below exist precisely because Luna does not do what C assumes.
 fn cString(str: string): string
 ```
 Returns a string with a single NUL byte appended. It is defined to be exactly
-`str . "\0"` (see §11 for the `.` concatenation operator), nothing more: no scanning,
+`"$str\0"` (one interpolation, §13), nothing more: no scanning,
 no de-duplication of existing NULs, just an appended terminator so the result is safe
 to hand to C. Because the terminator is a real, counted byte, the result's
 `byteLength` is `str.byteLength + 1`.
@@ -361,25 +361,24 @@ in the presence of interior NULs, which is the whole reason `cStringLength` exis
 
 ---
 
-## 11. Concatenation operators
+## 11. There is no concatenation operator
 
-Two operators build strings by joining:
+An infix `.` concatenation (and its `.=` compound) existed in earlier drafts and is
+**removed**, vestigial (operators §0.1). Two reasons beyond redundancy: infix ` . `
+collides gramatically with member access `a.b`, making whitespace load-bearing at a parser
+choice point, and its implicit `toString` coercion of both operands was the one silent
+coercion in a language that forbids them. Luna joins strings with exactly two mechanisms,
+each already the better tool at its scale:
 
-- **`.`** concatenation. `a . b` is a new string with `b`'s bytes after `a`'s. Both
-  operands are coerced via `toString`, so `"n=" . 42` is `"n=42"`. O(n + m).
-- **`.=`** append-assign. `s .= x` is `s = s . x`. Because strings are immutable this
-  is a rebind, not an in-place mutation, so it requires a **`var`** binding; on a `let`
-  or `const` it is a `ReassignmentError` (variables §1.1), rebinding is exactly what
-  those forbid.
+- **Interpolation** (§13) for a fixed, small number of joins: `"n=$x"`, `"hi $name!"`,
+  `"${a}${b}"`. Conversion is visible (interpolation renders via `toString`, conversion
+  spec, by stated rule rather than operator side-effect), and the join is one allocation.
+- **The builder** (§12) for accumulation, and **`join`** (§8) for a known collection; a
+  loop of pairwise concatenations was O(n^2) under the old operator and the builder is the
+  answer the old section already pointed at.
 
-`.` is not `+`. Arithmetic `+` stays numeric; a distinct concatenation operator keeps
-`"3" + 4` from being ambiguous and matches the PHP/Perl lineage the interpolation rules
-(§13) come from.
-
-**`.` and `.=` do not scale to accumulation.** Each `.` allocates and copies the full
-result, so a loop of `s .= piece` is O(n^2) in the total length. For building a string
-piece by piece, use the builder (§12); for joining a known collection, use `join`
-(§8). Reach for `.` / `.=` only for a fixed, small number of joins.
+Arithmetic `+` stays strictly numeric: `"3" + 4` is a compile error, never a concat and
+never a coercion.
 
 ---
 

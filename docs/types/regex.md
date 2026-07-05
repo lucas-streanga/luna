@@ -251,7 +251,7 @@ fn escape(s: string): string        // in the regex module; escapes all regex me
 of `name` rather than treating its metacharacters as pattern syntax. `regex.escape` is a pure
 function, so it stays comptime-evaluable and preserves the compile-time-compilation guarantee
 inside a literal. It is also the tool for escaping a runtime string before `regex()`, e.g.
-`regex(regex.escape(userText) . "\\d+")`. No new syntax is needed: bare `${expr}` composes
+`regex("${regex.escape(userText)}\\d+")`. No new syntax is needed: bare `${expr}` composes
 (raw source), `${regex.escape(expr)}` escapes (literal text). The string API exposes a
 delegating convenience, `string.regexEscape` (string-api §5), for reaching this from
 string-land.

@@ -46,14 +46,20 @@ recursing, so patterns stay simple and conditions live in the guard (§3):
   (§7) and match is an expression whose information leaves through its result value, not through
   leaked names. To use a bound value outside the match, return it from the arm body (the value
   escapes as the match result; the name does not).
-- **Type pattern** `@T` (optionally binding: `@T name`): matches iff the value **is** of type
-  `T` (`value is T`), and **narrows** it to `T`. You match a value always; to match on a type you
-  use `@` (the type-of operator), so `@string` is the type as a value to match against. `match
-  (@x) { @int => ..., @string => ... }` dispatches on `x`'s type. Appending a name binds the
-  matched value: **`@int n`** is the concise **typed binding**, "an `int`, bound to `n`" (narrowed
-  to `int` in the guard and body), and it composes with a guard: `@int n where n > 10`. So `@T`
-  type-checks without binding, and `@T name` type-checks and binds, both building on the same `@`
-  rather than a separate `as` or `:` form.
+- **Type pattern** `T` (optionally binding: `T name`): the pattern is a **type expression**,
+  written exactly as in any type position, bare `int`, a union `int | string`, a constraint
+  `byte`, a wearer refinement `@stringBuilder` or `@P & @Q`, and it matches iff the value **is**
+  of that type (the single meaning of `is`, is spec §2, running the two-tier check /
+  worn-set test as the type dictates), **narrowing** to it. Appending a name binds the matched
+  value: **`int n`** is the typed binding, "an `int`, bound to `n`", composing with a guard,
+  `int n where n > 10`. Pattern-type position **is type position**, so `@` there means what it
+  means in every type position, the wearer refinement, and **`@int` is a compile error** by the
+  existing rule (`@X` on a non-protocol type, protocols spec), never a type pattern; earlier
+  drafts spelled type patterns `@int n`, which read `@` as the type-of operator, but `@int` as
+  an *expression* is `typeof(int)`, the type `type`, so that spelling never meant what it
+  claimed. Dispatching on a value's type is done by matching **the value** with type patterns
+  (`match (x) { int n => ..., string s => ... }`); matching a **type value** itself is the rare
+  reflective case and uses a guard (`t where t == int`, one typeid compare, equality §3).
 - **Table / list pattern** (`['k' => sub]`, `[sub, sub]`): matches the value's **shape**
   structurally, recursing into sub-patterns (§4).
 
@@ -234,9 +240,11 @@ than adding a new construct:
   Alternation is a **pattern**, not a set value: it means "any of these sub-patterns match," so
   no set-literal type or comma-separated value list is involved (a comma would collide with the
   list-pattern separator). If alternatives **bind**, they must bind the **same names** so the
-  body's scope is well-defined: `@int n | @double n` is valid (both bind `n`), while `@int n |
-  @string s` (inconsistent bindings) is an error. A name bound in several alternatives has the
-  **union** of its per-alternative types: in `@int n | @double n`, `n` is `int | double` in the
+  body's scope is well-defined: `int n | double n` is valid (both bind `n`), while `int n |
+  string s` (inconsistent bindings) is an error. At pattern top level `|` is **always** the
+  or-pattern separator; a union *type* pattern inline requires parentheses, `(int | string) n`,
+  which is equivalent to the or-pattern spelling and rarely needed (associativity §4). A name bound in several alternatives has the
+  **union** of its per-alternative types: in `int n | double n`, `n` is `int | double` in the
   guard and body.
 
 ---

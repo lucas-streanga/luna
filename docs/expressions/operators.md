@@ -53,6 +53,8 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
 | `A & B` | type | intersection | the type meet, canonical and total (**infix, type position**; distinct from prefix `&` reference) | type §3.1 |
+| `await p` | concurrency | await | park until the task completes; move its result out; consume the promise (word prefix) | await |
+| `a += b` (and `-=` `*=` `/=` `%=` `??=`) | assignment | compound assign | `a = a op b`, target evaluated once; `??=` assigns only when `a` is null | associativity §1 |
 | `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | reflection §3.2 |
 | `...x` | reference | spread / rest | spread a table/stream into elements, or collect rest | spread, destructuring |
 | `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |

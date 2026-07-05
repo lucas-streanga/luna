@@ -211,7 +211,7 @@ everywhere a table is accessed, not only inside protocol `apply` bodies:
   compile-time-known name.
 - **`tab[expr]` is a dynamic key.** The key is the runtime value of `expr`. This is the
   form for integer keys (`tab[0]`), non-identifier string keys (`tab['has space']`),
-  and any computed key (`tab[k]`, `tab['row' . i]`).
+  and any computed key (`tab[k]`, `tab["row$i"]`).
 
 `tab.name` is exactly `tab['name']` when `name` is an identifier; `.` is sugar for the
 static-string case. Keys that are not identifier-shaped (integers, strings with spaces

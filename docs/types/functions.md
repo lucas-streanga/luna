@@ -109,7 +109,7 @@ function mutate a caller's value, the caller passes `&var` at call time (variabl
 §5.1); mutation is an argument, never an ambient capture.
 
 ```
-const greet = fn (name: string) use (io) => { io->println("hi " . name); };
+const greet = fn (name: string) use (io) => { io->println("hi $name"); };
 ```
 
 A function cannot silently close over `io`: value capture of a `nocopy` value is
@@ -385,6 +385,38 @@ tolerated. (This is the precise sense in which "more parameters" can be fine, it
 not an exception to the deficit rule.)
 
 ---
+
+### 3.4 UFCS: `x.f(args)` is `f(x, args)`, resolved statically by shape
+
+Uniform function-call syntax lets any free function be called method-style: the receiver
+becomes the **first argument** (the convention every std surface already follows, strings
+spec, `s.trim()` is `trim(s)`). The resolution rule is **positional and static**, no runtime
+probing, no shape types needed:
+
+- **`x.name(` , with a call, is UFCS.** `name` resolves as a **free function** by ordinary
+  lexical and import scope (modules spec), exactly as `name(x, ...)` would; there is one
+  function per name (no overloading), so resolution is name lookup, nothing more. This holds
+  for every receiver type, tables included.
+- **`x.name` , without a call, is what `.` otherwise means for the receiver**: element access
+  on a table (tables §3.2), the member surface of other types. It never falls back to a
+  function value.
+- **Calling a *stored* function element is spelled explicitly**: `t['handler'](x)` or
+  `(t.handler)(x)`. `t.handler(x)` is UFCS and resolves `handler` in scope; if the intent was
+  the element, the parenthesized or indexed form says so. The split is deliberate: a bare
+  `table` declares no members statically (no shape types), so "does this table hold a
+  function under this key" is a runtime fact, and a resolution rule may not depend on one.
+  Shape decides, at the parser, every time.
+- **`->` is untouched**: protocol members are reached only through the qualified view form
+  (`b->stringBuilder.append(...)`, protocols §3.3, conversion §3), never through UFCS, and
+  UFCS never searches protocol meta pools. The two channels stay disjoint by operator.
+
+One consequence to hold the std surface to: **UFCS plus no-overloading means one signature
+per name, receiver first**. Where earlier drafts implied per-receiver variants (`toInt` on
+`string` returning `int!` and on `bool` returning `int`; `join`'s receiver position
+wandering), those are either **one function with union parameters** (the documented pattern:
+"no overloading; unions instead", strings spec) or **distinct names**; the exact signatures
+are std-shaping work, flagged, not silently decided here, but the rule they must satisfy is
+fixed: one name, one signature, first parameter is the receiver.
 
 ## 4. Errorability
 

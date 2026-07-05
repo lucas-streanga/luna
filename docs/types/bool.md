@@ -28,13 +28,13 @@ are not implicitly treated as true or false.
 if (count > 0) { ... }        // ok: a bool
 if (count) { ... }             // ERROR: int is not a bool
 if (name != "") { ... }        // ok: write the comparison
-if (handle !== null) { ... }   // ok: explicit null check
+if (handle != null) { ... }    // ok: explicit null check
 ```
 
 This is deliberate and consistent with the language's no-magic stance: `if (count)` is ambiguous
 (is `0` false? a negative? an empty string?), and every language that coerces has to answer those
 awkwardly. Luna answers by not coercing, you state the condition you mean (`count > 0`, `name !=
-""`, `x !== null`), so the boolean is always explicit and there is never a hidden truthiness rule
+""`, `x != null`), so the boolean is always explicit and there is never a hidden truthiness rule
 to remember.
 
 ---

@@ -68,7 +68,7 @@ To obtain a value of the tested type, produce a **new binding**, with `as` or a 
 
 ```
 if (x is int) { const n = x as int; foo(n); }   // explicit
-match (x) { @int n => foo(n) }                    // idiomatic
+match (x) { int n => foo(n) }                     // idiomatic
 ```
 
 This is a deliberate consequence of the no-control-flow-analysis guarantee (compiler spec §1.4.1):
