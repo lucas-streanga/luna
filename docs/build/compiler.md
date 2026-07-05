@@ -31,6 +31,53 @@ platform-relative surfaces (`std.platform`, the `path` predicate, the errno grou
 abstractly against all of them. Widening the target set revisits exactly those named
 surfaces and nothing else.
 
+## 0.1 The `luna` binary: flags and composition
+
+One binary, the complete suite. Known flags:
+
+| Flag | Long | Function |
+|-|-|-|
+| *(none)* | | `luna someProgram`: **run**, via the binary cache (below) |
+| `-c` | `--compile` | AOT compile to a binary artifact |
+| `-o` | `--output` | output path for `-c`; an error without `-c` |
+| `-t` | `--test` | run the program's tests (tests spec §5); accepts a name filter |
+| `-f` | `--format` | format every file discovered by module resolution (formatter spec pending) |
+| `-l` | `--lsp` | run the language server on stdio |
+| `-d` | `--debugger` | run the program under the debugger |
+
+**Run mode and the binary cache.** `luna someProgram` compiles (if needed) and runs. Builds
+are **content-addressed**: the cache key is a hash over the resolved module set's sources
+plus the compiler version, so unchanged programs skip straight to execution, and the
+determinism that comptime already guarantees (§ the comptime evaluator; functions §5.5) is
+what makes the cache sound, same inputs, same binary, always.
+
+**`-c` and the output name.** With `-o`, the artifact goes exactly there. Without it, the
+output name is the program name (extension dropped). If that path already exists, it is an
+**error, never a silent overwrite**, with one refinement: a Luna-built binary embeds a build
+marker, and an existing file *bearing the marker* is fair to replace (otherwise every
+recompile would trip on its own previous output); a foreign file is never clobbered.
+
+**Composition.** Flags compose where the composition means something, and the canonical
+pipeline order is fixed regardless of flag order on the command line:
+
+```
+format  ->  build  ->  test  ->  (on success) artifact / run / debug
+```
+
+- **`-t`, `-f`, `-c` compose freely**: `luna -f -t -c prog` formats, builds, tests, and
+  emits the artifact only if the tests pass (tests spec §5, `luna -t -c`).
+- **`-d` composes with `-c`** (a debug session compiles first anyway; `-c` additionally
+  keeps the artifact, built with debug info) and excludes `-l`. Debugging a single test
+  (`-d -t 'name'`) is attractive and deferred with the debugger spec.
+- **`-l` composes with nothing.** The language server is a long-running JSON-RPC process
+  that **owns stdio** and never terminates on its own; it is launched by an editor, not by
+  people, and combining it with any batch-mode flag is incoherent, an error. (The server
+  itself is a large deferred spec; the phase pipeline's error-tolerant analysis, §1.4, is
+  its foundation.)
+
+Both `-l` and `-d` details, and the formatter, are pending their own specs; this table is
+the stable surface they will slot into.
+
 ## 1. The phase pipeline
 
 ```

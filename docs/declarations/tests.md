@@ -24,9 +24,9 @@ test 'reads the fixture file' use (io) {
   name in one program are a **compile error** (duplicate key, caught at compile time); the
   empty string is an error. String names are the point, `'openFile panics on a closed fd'`
   reads as the specification line it is.
-- **Zero parameters.** The runner has nothing meaningful to pass; fixtures are ordinary
-  bindings and helpers. (A parameter list implies a caller contract nobody holds; revisit
-  only if fixture injection earns it, §6.)
+- **Zero parameters, ruled, final.** The runner has nothing meaningful to pass; a
+  parameter list implies a caller contract nobody holds; fixtures are ordinary bindings and
+  helpers, full stop.
 - **The return type is `undefined!`, implicitly, always.** `undefined` because a test's
   result is its completion (nothing to return, nothing to `_ =`); errorable because
   **throwing is how a test fails**, and every originating `throw` requires errorability
@@ -90,21 +90,26 @@ invoking rather than catching the panic.
 `luna -t` (`luna --test`) compiles the program with its tests, runs them per §3, and
 reports per test: name, pass/fail, and the collected throw (type, message, stack) on
 failure. Exit status is nonzero iff any test failed. Ordering of the report is
-declaration order; execution order is the scheduler's. Filtering (`luna -t 'lexer*'`),
-and whether test declarations are stripped from non-test builds (they should be, dead
-weight otherwise), are runner details for the build spec.
+declaration order; execution order is the scheduler's. **`luna -t -c someProgram`**
+composes testing with compilation as one build step, run the tests, then (on success)
+produce the build; this is the "tests at compile time" story, a **pipeline composition,
+not a comptime feature**, the tests are ordinary runtime programs under the runner's
+grant and the comptime sandbox is uninvolved. Filtering (`luna -t 'lexer*'`), and whether
+test declarations are stripped from non-test builds (they should be, dead weight
+otherwise), are runner details for the build spec.
 
-## 6. Open questions
+## 6. Rulings and the one deferral
 
-- **Discovery and file conventions**: whether tests live anywhere in the build set
-  (current assumption: yes, any module) or `*_test` files get special treatment; build
-  spec territory.
-- **Fixtures and parameters**: zero-arg is the ruling; if shared expensive setup demands
-  injection, revisit, likely as ordinary `const` comptime values first.
-- **Per-test temp resources**: a `std.test` helper for isolated temp paths, pending
-  `std.system`.
-- **Assertion helpers**: `throw error(...) if (cond)` is workable today; whether a
-  dedicated `assert` (with expression capture in the message) earns keyword or std status,
-  pending use.
-- **comptime tests**: whether a test may be comptime-eligible and run at build time as a
-  static check, attractive, deferred.
+Four of the five original questions are ruled (R40):
+
+- **Discovery: any module.** Tests live wherever they are declared, no special file
+  treatment, no `*_test` magic; naming conventions are the codebase's business.
+- **Fixtures: never parameters.** Zero-arg is final (§1); shared setup is ordinary
+  bindings.
+- **`assert`: not necessary.** `throw error('...') if (cond)` is the idiom, one existing
+  mechanism instead of a new keyword; expression-capture niceties do not outweigh a
+  second way to fail.
+- **Compile-time testing is `luna -t -c`** (§5), pipeline composition, no language
+  feature.
+- **Per-test temp resources: deferred** by decision, pending `std.system`; until then,
+  tests manage their own paths.
