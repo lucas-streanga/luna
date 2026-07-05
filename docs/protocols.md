@@ -44,8 +44,10 @@ present.
 
 ```
 myProto = proto {
-  // a declared element member, with an optional type and permissions
-  status?: string;
+  // declared element members, with an optional type, permissions, and default:
+  name: string;                 // REQUIRED  (no default): absent at apply ⇒ apply fails
+  status: string = 'active';    // DEFAULTED (has default): absent at apply ⇒ default installed
+  note?: string = null;         // optional type (string | null), defaulted to null
 
   // a meta member: protocol-private state, addressed only inside this protocol
   meta buffer: bytes;
@@ -60,10 +62,25 @@ A protocol is a value, so it binds like any other (`myProto = proto { ... }`, us
 `const`). Modules export variables, so a protocol is exported by exporting the
 variable it is bound to. There is no separate protocol-declaration namespace.
 
+**Required vs. defaulted is decided by the presence of a default, not a keyword.** A
+declared element member with **no default expression** is **required**: applying the
+protocol to a table that lacks the key fails (§4.1). A member **with a default** is
+**defaulted**: a missing key is filled with the default. This is the same distinction a
+function's required vs. defaulted parameters draw (functions §3.3.1), by the same means (a
+`= value`), so there is no `required` / `optional` keyword. Note this is **orthogonal to
+`?`**: `?` sets the member's *type* (`note?: string` is `string | null`); the default sets
+whether a missing key is filled or is an error. The four combinations are all meaningful,
+and `status?: string = null` is the idiomatic "optional, defaults to null." A default is
+**checked against the declared type at proto-definition time** (`status: string = 'active'`
+verifies `'active' : string` then), which is what makes installing it a plain typed write at
+apply, needing no runtime check (§4.1, §5.4).
+
 The block contains:
 
-- **Declared element members** (`status?: string`), naming keys the protocol installs
-  or requires in element space, with optional type and permission annotations (§5).
+- **Declared element members** (`name: string`, `status: string = 'active'`), naming keys
+  the protocol installs or requires in element space, with optional type, permission, and
+  **default** annotations; the presence of a default makes a member defaulted rather than
+  required (§4.1, §5).
 - **Meta members** (`meta buffer: bytes`), protocol-private state (§3.3).
 - **Meta functions** (`name = meta fn (...) => ...`), the behavior (§3).
 - **`identityEquality`** (optional), a declaration that tables wearing this protocol compare by
@@ -192,24 +209,49 @@ errorability rule above.
    - A declared **meta function** name that would be ambiguous is not a problem, meta
      functions are always protocol-qualified (see views), so two protocols may share a
      meta function name and coexist; there is nothing to reject here.
-   - A declared **element member** name (`status`) that already exists in the table's
+   - A declared **element member** name (`name`) that already exists in the table's
      element space is a **collision** if it was installed by a *different* protocol,
      because element space is flat and un-namespaced (§5). It is **not** a collision if
      this same protocol installed it on a prior application: re-applying a protocol is
      idempotent for its own declared members, so re-apply does not fail the pre-check on
      members it already owns.
-2. **Attach the protocol** to the table's applied-protocol set, and install its meta
+2. **Resolve each declared element member**, one of three outcomes per member, decided by
+   whether the key is already present and whether the member is defaulted (§2):
+   - **Present** → **check, do not overwrite.** The existing value is validated against the
+     member's declared type; if it conforms, it is kept unchanged (installing the default
+     over a caller-supplied value would be data loss). If it does **not** conform, the whole
+     application **fails** (`TypeError` / `ApplyError`, §4.2), table unchanged. The default,
+     if any, is irrelevant when the key is present.
+   - **Absent + defaulted** → **install the default.** The default was type-checked at
+     proto-definition time (§2), so this is a plain typed write with **no runtime check**,
+     which is why installing is cheaper than checking a present value (whose type is not
+     statically known on a runtime-shaped table).
+   - **Absent + required** → **fail.** A required member with no value to supply cannot be
+     satisfied, so application fails; this is why an empty (or under-populated) table cannot
+     always take a protocol (§4.2, §7.4). This is exactly what makes the read guarantee
+     (§5.4) true by construction: apply never produces a `@P` missing a required member.
+3. **Attach the protocol** to the table's applied-protocol set, and install its meta
    functions and meta members (the latter initialized as the block specifies).
-3. **Run the `apply` body**, if present, for any custom setup, including dynamic member
+4. **Run the `apply` body**, if present, for any custom setup, including dynamic member
    installation (§5.1).
 
 If any step fails, `apply` returns the error and the table is unchanged (application is
-all-or-nothing).
+all-or-nothing). Because every branch of step 2 ends with each declared member **present and
+of its declared type** (validated, or installed from a typed default) or the application
+**failed**, a table that successfully wears `P` provably satisfies every one of `P`'s
+declared members, which §5.4's typed access relies on.
 
 ### 4.2 Failure modes
 
-- **Reapply / element collision:** a declared element member already present, or the
-  `apply` body detecting a prior application, throws (typically `ApplyError`, see §5.2).
+- **Missing required member:** a declared element member with no default is absent from the
+  table (§4.1 step 2). A **compile error** where the table shape is statically known (§7.4),
+  an `ApplyError` at runtime otherwise.
+- **Present member type mismatch:** a declared element member is present but its value does
+  not satisfy the member's declared type (§4.1 step 2). A **compile error** on a static shape
+  with a known value type, a `TypeError` at runtime otherwise.
+- **Reapply / element collision:** a declared element member already present *from a different
+  protocol*, or the `apply` body detecting a prior application, throws (typically `ApplyError`,
+  see §5.2).
 - **Incompatible table:** the table does not satisfy something the protocol requires.
 - **Dynamic-install collision:** an `install` of a computed key that already exists,
   unless the body chose a replacing variant (§5.1).
@@ -305,32 +347,68 @@ default-no rule is the protocol's encapsulation of its declared keys.)
 
 ### 5.4 Declared element types are enforced, and give typed access
 
-When a protocol declares an element member's **type** (`status?: string`, `name: string`,
-`age: int`), that type is an **enforced invariant**, not an advisory hint. A write of a
-non-conforming value to that key on a conforming table is rejected (a `TypeError`, errors
-§9). So a table known to wear the protocol **provably** has each declared element member at
-its declared type: a `@person` genuinely has a `string` `name`.
+A declared element member's type (`name: string`, `age: int`, `note?: string`) is a **per-key
+value constraint** (constraints spec), active on a table **while it wears the protocol**. It is
+an **enforced invariant**, not an advisory hint, and it is enforced by the same value-carried
+discipline as any constraint (constraints §9): **checked on write, trusted on read, keyed on the
+value.** So a table known to wear the protocol **provably** has each declared element member at
+its declared type: a `@person` genuinely has a `string` `name`. Two mechanisms establish that
+guarantee, at construction and at every subsequent write, and one consumes it, on read.
 
-This enforcement is what makes element access **typed** on a value whose type names the
-protocol. Because a `@person`'s `name` is guaranteed to be a `string`, the compiler types
-`p.name` (and `['name' => n] = p`) as `string`, reading the type off the protocol's
-declaration, in O(1), with no shape inference (Luna has no shape types) and no runtime
-check. The guarantee comes from the type `@person` plus this enforcement, not from
-inspecting the value.
+**At construction:** apply installs or validates every declared member (§4.1 step 2), so a table
+that *starts* wearing `P` already satisfies `P`'s declared types (or the apply failed).
 
-The typing follows the **declared type of the value, never the runtime value's actual
-protocols**, because protocol application is dynamic (§4) and statically invisible:
+#### 5.4.1 Typed reads follow the declared type (no runtime check)
 
-- A value typed **`@person`** (or an intersection `@person & @stringBuilder`, §7.2) has
-  typed element access to each named protocol's declared members: `.name` is `string`.
-- A value typed bare **`table`** has element access typed **`any`**, even if it happens to
-  wear `person` at runtime, because the declared type does not say so. Recover typed access
-  by narrowing (`as @person` / `is @person`), one O(1) runtime protocol-tag check.
+Because a `@person`'s `name` is guaranteed to be a `string`, the compiler types `p.name` (and
+`['name' => n] = p`) as `string`, reading the type off the protocol's declaration, in O(1), with
+no shape inference (Luna has no shape types) and **no runtime check on the read**. The read is free
+precisely because every *write* was checked (§5.4.2) and construction validated the initial value:
+the guarantee comes from the type `@person` plus write-enforcement, not from inspecting the value
+on read.
+
+The **read type** follows the **binding's declared type, not the value's runtime protocols**,
+because protocol application is dynamic (§4) and statically invisible:
+
+- A value typed **`@person`** (or an intersection `@person & @stringBuilder`, §7.2) reads each
+  named protocol's declared members at their declared type: `.name` is `string`.
+- A value typed bare **`table`** reads element access as **`any`**, even if it happens to wear
+  `person` at runtime, because the declared type does not say so. Recover typed access by narrowing
+  (`as @person` / `is @person`), one O(1) runtime protocol-tag check.
 
 So a function that wants to hand typed data to its caller **declares the richer return type**
-(`fn (): person`, not `fn (): table`); declaring `table` erases the protocol at the boundary
-and callers get `any`. The declaration is the knob that propagates typed access; enforcement
-is what keeps it sound.
+(`fn (): person`, not `fn (): table`); declaring `table` erases the protocol at the boundary and
+callers get `any`. The declaration is the knob that propagates typed *reads*.
+
+#### 5.4.2 Write enforcement follows the value, not the binding
+
+A read losing precision to `any` is safe (it under-promises). A **write** cannot be allowed the
+same latitude: if a write through a bare-`table` binding could put a non-`string` into the `name`
+of a value that wears `person`, then a `@person` read of that value (§5.4.1, no runtime check)
+would return a non-`string`, type confusion. So **write-enforcement keys off the value's runtime
+worn-protocol set (the `@@` axis, views spec), not the writing binding's declared type**, exactly
+as constraint enforcement keys off the value's typeid (constraints §9.4):
+
+> A write to key `K` checks: does the value **wear** a protocol declaring `K: T`? If so, is the
+> incoming value a `T`? A non-conforming write is rejected (`TypeError`, errors §9), value
+> unchanged.
+
+This closes the widening / `&`-alias path. Widening a `@person` to bare `table` (or passing
+`&p` to a `fn (&t: table)`) does **not** strip the contract from the *value*; the value still
+wears `person`, so a write to `t.name` (or `t['name']`) is still checked against `string`, even
+though the writing site sees only `table`. Handing a callee a genuinely unconstrained table is
+explicit, `copy` it (variables §5.2) or rebuild a bare table (`values()`), both of which produce
+a value wearing no protocol (flag propagation, §7.1).
+
+The runtime cost lands **only on writes, and only where the site cannot prove them safe** — the
+same elision as constraints (constraints §9.5). A write is **statically discharged** (no runtime
+check) when the site knows all three of: the value's protocol set (a `@person`-typed binding), the
+key (a static `.` key), and the RHS type (a value statically of the declared type). So the common
+case, `p.name = "Lucas"` on `p: @person`, is free; `p.name = 5` is a **compile error** (`int`
+disjoint from `string`); and a runtime check remains only for a **dynamic key** (`p['na' . 'me']`),
+an **RHS of unknown type** (`p.name = someAny`), or a **write through a binding that does not
+statically know the protocol** (the bare-`table` `&`-alias). `.` vs `[]` therefore decides *key
+knowledge* (an input to elision, tables §3.2), not whether enforcement happens.
 
 ---
 
@@ -474,26 +552,35 @@ which they must not. So static apply is dynamic apply plus a compile-time collis
 minus the errorability that check removes, plus a sharpened result type, never minus the
 `apply` body.
 
-### 7.4 Compile-time collision checking
+### 7.4 Compile-time collision and member checking
 
-Static application onto a **statically-known table shape** is collision-checked at
-compile time. A table *literal* has statically-known keys, so the check applies even when
-the literal is non-empty, not only for the fresh `[]` case:
+Static application onto a **statically-known table shape** is checked at compile time, for
+three things: **collision**, **present-member type**, and **required-member presence**. A table
+*literal* has statically-known keys and value types, so all three apply even when the literal is
+non-empty, not only for the fresh `[]` case:
 
 ```
 var l: @stringBuilder = ['collision' => "value"] apply stringBuilder;
 // compile error if stringBuilder declares an element member `collision`
+
+var p: @person = ['name' => 42] apply person;   // person declares name: string
+// compile error: present member `name` is int, not string (§4.1 step 2, §4.2)
+
+var q: @person = [] apply person;                // person declares required name: string
+// compile error: required member `name` is absent and has no default (§4.1 step 2, §4.2)
 ```
 
-The compiler sees the literal's keys (`collision`) and the protocol's declared element
-members, and rejects the application if they intersect, exactly the §7.2 check, now
-between a concrete table shape and a protocol rather than between two protocols. A fresh
-`[]` is the special case with no keys, so it can never collide on declared members.
+The compiler sees the literal's keys and value types and the protocol's declared members, and
+rejects the application if a key collides with a *different* protocol's member (the §7.2 check,
+now between a concrete shape and a protocol), if a present member's value type is disjoint from
+its declared type, or if a required (no-default) member is absent. A fresh `[]` can never collide,
+but it **can** fail the required-member check, which is why an empty table cannot always take a
+protocol (§4.1). Defaulted members that are absent are filled, not errors.
 
-Only application onto a table whose shape is **not** statically known (a runtime `var`
-table, a table built at runtime) defers this check to runtime. There, a declared-member
-collision is a runtime possibility, because whether the runtime table already holds the
-key is runtime information.
+Only application onto a table whose shape is **not** statically known (a runtime `var` table, a
+table built at runtime) defers these checks to runtime. There, a declared-member collision, a
+mistyped present member, or a missing required member are runtime possibilities, because whether
+the runtime table already holds the key, and with what value, is runtime information.
 
 ### 7.5 Errorability, and `!self`-gated dynamic installation
 
@@ -501,7 +588,9 @@ Whether constructing a protocol-typed value can fail depends on two things, and 
 independent of the type's well-formedness:
 
 1. **Is the table shape statically known?** A literal or known shape is compile-checked
-   (§7.4). An unknown runtime shape can collide on declared members at runtime.
+   (§7.4): collisions, mistyped present members, and missing required members are all caught
+   at compile time. An unknown runtime shape can, at apply time, collide on a declared member,
+   hold a mistyped value for one, or be missing a required one, all runtime failures.
 2. **Does any constituent protocol's `apply` throw?** A protocol with **no `apply`**, or
    a **non-throwing `apply`** (`: self` / `: table`), cannot throw at application: an
    apply-less protocol runs no code, and a non-throwing body (logging, non-dynamic
@@ -529,9 +618,10 @@ does not carry the errorability; the `apply` does.
 
 The precise residual picture:
 
-- **Fresh or literal table, non-throwing protocols:** compile-time sound, non-errorable.
-- **Existing or runtime-shaped table:** runtime-fallible on declared-member collision,
-  even for non-throwing protocols.
+- **Fresh or literal table, non-throwing protocols:** compile-time sound (collision,
+  present-member type, and required-member presence all checked, §7.4), non-errorable.
+- **Existing or runtime-shaped table:** runtime-fallible on a declared-member collision, a
+  mistyped present member, or a missing required member (§4.2), even for non-throwing protocols.
 - **Any protocol with `!self` apply (dynamic installation):** adds a runtime failure
   source, declared in the type so callers see it.
 

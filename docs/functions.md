@@ -264,20 +264,61 @@ not an exception to the deficit rule.)
 
 ## 4. Errorability
 
-A function that can throw declares an errorable result with `!` (value-representation
-error model):
+A function that can throw a `UserError` **declares** it with `!` on the result type
+(value-representation error model):
 
 ```
-const parseInt = fn (s: string): !int => { ... };   // may throw
-const double   = fn (n: int): int => n * 2;          // cannot throw
+const parseInt = fn (s: string): !int => { ... };   // declared throwing
+const double   = fn (n: int): int => n * 2;          // not throwing
 ```
 
-Errorability is part of the function type. It is computed for a function from its body
-(a function that throws, or calls a throwing function without handling it, is throwing)
-and may be declared for contract stability. A caller must handle a throwing function's
-result with `try` or an errorable binding; a non-throwing function's result needs
-neither. This is the same errorability the protocol `apply` uses (`: !self`) and the same
-that static protocol application inherits (protocols spec §7.5).
+**Errorability is declared, never inferred.** A function is throwing **iff** its signature
+says `!`; the compiler reads `!`-ness off the **signature** and **never computes it from the
+body or propagates it up the call graph**. A function that can throw but omits `!` is a
+**compile error**, not a function silently promoted to `fn!` (never spec §5). This mirrors
+nullability: `!` is a declared type suffix the reader sees and the compiler *verifies*, exactly
+as `?` is, not an effect the compiler *discovers*.
+
+What the compiler verifies is a **local, syntactic containment check** on the body, **not**
+control-flow analysis (compiler §1.4.1). In a function **not** declared `!`, every call to a
+`!`-declared function, and every direct `throw`, must be **lexically enclosed in a handler** (a
+`try` expression, a `try` / `catch` block, or an errorable binding that resolves the error,
+errors spec). An unhandled throwing call or a bare `throw` in a non-`!` function is a **compile
+error**; the fix is to add `!` to the signature, or a handler at the call site. In a function
+declared `!`, unhandled throwing calls and direct `throw`s are exactly what the `!` licenses.
+
+Three properties keep this local and predictable:
+
+- **The check reads callee *signatures*, not callee bodies.** "Can `g` throw?" is answered by
+  `g`'s declared signature; `g`'s body was already checked against `g`'s own signature when `g`
+  was compiled. So there is **no fixpoint, no propagation, and no order dependence**: each
+  function is checked in isolation against the declarations of what it calls. This is why
+  errorability is **not** a call-graph fixpoint the way comptime-eligibility and capabilities
+  are (§5.1); it is a per-function local check, which sits more cleanly beside the no-whole-
+  program-analysis stance (compiler §1.4.1).
+- **The check is per-call-site and lexical, never path-sensitive.** A throwing call handled on
+  one branch and unhandled on another is judged **per site**: the unhandled one requires `!` (or
+  its own handler), regardless of whether another path happens to handle it. The compiler never
+  asks "is this handled on *every* path" (that would be the flow analysis Luna does not do,
+  compiler §1.4.1); it asks only "is *this* call lexically inside a handler." That is stricter
+  and predictable, in the same family as the `use`-clause and `undefined`-on-use checks.
+- **Panics are exempt.** `!` governs only the `UserError` channel. Any function may raise a
+  `Panic` (overflow, a failed `as`, an `ArityError`) without being `fn!` (errors spec §7, §9),
+  so the containment check applies to `UserError`-throwing calls, never to panics.
+
+A caller must handle a throwing function's result with `try` or an errorable binding; a
+non-throwing function's result needs neither. This is the same errorability the protocol `apply`
+uses (`: !self`) and the same that static protocol application inherits (protocols spec §7.5).
+
+**`main` is no exception.** If `main` can throw and does not handle it, `main` **must be declared
+`fn!`**, exactly as any other function that lets an error escape. A `fn!` `main` is the deliberate,
+signature-visible statement "**`main` may error and end the program, and that is fine**": there is
+no caller above `main`, so an escaped `UserError` reaches the **runtime**, which terminates the
+program with the error reported (errors §8). A `main` that is *not* `fn!` is therefore statically
+guaranteed to have handled every `UserError` internally. `main` gets no inferred `!` and no special
+pass, the compiler will not add `!` for it any more than for a leaf function, and (like every
+function) it cannot declare panics, which remain ambient (errors §7). So whether the program can end
+on a declared error is readable off one line: `main`'s signature.
 
 ---
 
@@ -301,7 +342,9 @@ only be reached through `use`).
 
 "Every function it calls is comptime-eligible" is transitive, but it is computed **once,
 for the whole program**, as a single fixpoint over the call graph, the same pass and
-cost as errorability propagation:
+cost as **capability propagation** (capabilities spec §5). (Errorability is **not** such a
+fixpoint, §4: it is a per-function local check against callee *signatures*, not a propagated
+computation.)
 
 ```
 f.comptimeEligible = (f has no `use` clause) AND (every g that f calls is comptimeEligible)

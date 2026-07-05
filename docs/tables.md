@@ -59,7 +59,10 @@ list <: table          // every list is a table; not every table is a list
 
 This is the same is-a relationship `IOError` has to `error` or `reveal` to `capability`. A
 `list` is usable **anywhere a `table` is expected** with no ceremony (widening is implicit,
-`as` spec); the reverse, treating a `table` as a `list`, is a narrowing (§2.3).
+`as` spec); the reverse, treating a `table` as a `list`, is a narrowing (§2.3). `list` is the
+built-in instance of a **table-level constraint** (§8), a constraint that refines `table` by its
+**structure** rather than by any stored value; it is special only in that its membership is
+maintained as an O(1) bit (§2.2) rather than tested by a predicate scan.
 
 The empty table `[]` is the empty list (zero keys vacuously satisfies "keys are `0..n-1`"),
 so `let xs: list = []` is statically a list. A table literal whose shape is visibly a list
@@ -517,6 +520,40 @@ offending element from this one operation.
 The per-method `onNoGet` / `onNoSet` parameters are listed with each entry in
 **table-api.md §2**.
 
+### 6.4 Protocol contracts are value-carried, and enforced on write
+
+Both kinds of contract a protocol places on a key, its **access grant** (`get` / `set`, §6) and
+the **declared type** of the value (protocols §5.4), are properties of the **value's worn-protocol
+set** (the `@@` axis, views spec), not of the binding through which the value is reached. They are
+enforced the same way constraints are (constraints §9.4): **checked on write, keyed on the value,
+trusted on read.**
+
+The consequence that matters is that **widening cannot launder them.** Widening a protocol-wearing
+table to bare `table`, or passing `&t` to a `fn (&t: table)`, relaxes the *static* view to `any`
+element access (§6.1, protocols §5.4.1) but does **not** strip the protocol from the *value*. So a
+write through that bare-`table` binding is still checked against the value's actual contracts:
+
+- a write to a key the worn protocol does not grant `set` still raises `TableMutationViolationError`;
+- a write of a value that violates the key's declared type still raises `TypeError` (protocols
+  §5.4.2).
+
+This is the exact parallel of constraint collapse (constraints §9.2): a `list` widened to `table`
+is still checked as a `list` on mutation, because the value carries `list`; a `@person` widened to
+`table` is still checked as a `person` on mutation, because the value carries `person`. In both, the
+check reads the value, so the widened static view is a loss of *precision on reads*, never a loss of
+*enforcement on writes*.
+
+The **bare-table-literal** rule of §6.1 is unchanged and consistent with this: a table wearing **no**
+protocol has no contracts to enforce, so it is fully accessible to its holder. §6.1 is about a value
+that wears nothing; §6.4 is about a value that wears a protocol but is *seen through* a bare-`table`
+binding, a different thing. To obtain a genuinely contract-free table from a protocol-wearing one,
+derive a fresh one (`copy`, variables §5.2, or a transformer, §7.1), which is born wearing only the
+built-in protocol.
+
+As with constraints, the runtime cost is confined to **writes the compiler cannot prove safe**: a
+write is statically discharged where the site knows the protocol set, the key, and the value type
+(protocols §5.4.2), so the common typed-binding write pays nothing.
+
 ---
 
 ## 7. Flag & permission propagation
@@ -563,6 +600,82 @@ Under `&`-write-back the **target's** current permissions govern the write. Beca
 key-preserving transforms carry permissions along, source and target normally agree;
 they diverge only when the target conforms to a protocol the source did not, in which
 case the target's contract wins.
+
+---
+
+## 8. Table-level constraints
+
+A constraint (constraints spec) whose **base type is `table`** refines a table by its
+**structure**, the key set, the counts, the relationships between entries, rather than by any
+single stored value. `list` (§2.1) is the built-in instance; this section specifies the general
+form, of which `list` is the cheap special case.
+
+A **value constraint** (`byte`, `port`) restricts what a single value may be, and when a table's
+element is typed by one, it restricts that one element. A **table-level constraint** is different
+in kind: it does **not** act on a value at a key, it acts on **the table as a whole**. So the two
+occupy different slots, a value constraint types an element; a table-level constraint types the
+table, and never conflict.
+
+### 8.1 Declaring one
+
+A table-level constraint is an ordinary `constraint {}` (constraints spec §1) with base `table`
+and a pure predicate over the whole table:
+
+```
+const pair    = constraint { table as t where t->count() == 2 };
+const sorted  = constraint { table as t where isSorted(t->values()) };
+const tagged  = constraint { table as t where t.kind is string };
+```
+
+The predicate is **any pure boolean expression over the table** (constraints §2, purity is enforced
+by the form): it may read counts, inspect keys, compare entries, or `match` the table's shape, as
+the author wants. `list` is exactly `constraint { table as t where <keys are 0..n-1> }`, with a
+maintained-bit implementation instead of a scan.
+
+### 8.2 It tests the whole table, and that is the cost
+
+Because the predicate ranges over the table, checking a table-level constraint means **running it
+over the table** — potentially O(n). This lands on the constraint model's timing (constraints §7):
+the predicate runs **on entry** (a bare table becomes constrained by construction, assignment to a
+constrained slot, or `as`) and **on every key mutation** that could break it, since any key write
+can change the structure the predicate ranges over. So a table-level constraint pays its check on
+each mutation, which is the deliberate price of the guarantee, exactly the "checked on every key
+mutation, no exceptions" rule (constraints §7), here at whole-table granularity.
+
+`list` avoids the O(n) cost only because its particular predicate (contiguous keys from zero) is
+maintainable as an **O(1) derived bit** (§2.2): each mutation updates the bit rather than rescanning.
+A general table-level constraint has no such shortcut unless its predicate happens to be similarly
+maintainable, so its per-mutation check is as expensive as its predicate. This cost is a **ceiling**:
+the compiler elides the check at any mutation site it can prove invariant-preserving (constraints
+§9.5), and an author who needs a cheaper check writes a cheaper (or maintainable) predicate.
+
+### 8.3 Enforcement is value-carried, like every constraint
+
+A table-level constraint mints its own typeid, placed in `table`'s subtype interval, and the
+constrained table **carries that typeid** (constraints §9). Two consequences that matter for tables
+specifically:
+
+- **The constraint travels with the value.** Widening a `pair`-constrained table to plain `table`
+  (collapse, constraints §9.2) does not strip the constraint from the value; it only relaxes the
+  static demand. So a mutation reached through a `&t: table` reference to a `pair` still re-runs the
+  `pair` predicate and **panics if the write would break it** (constraints §9.4), even though the
+  mutating site sees only `table`. Handing a callee a genuinely unconstrained table is explicit,
+  `copy` it (variables §5.2) or rebuild with `values()`.
+- **A violating mutation panics and leaves the table unchanged** (`TypeError`, errors §9); it never
+  silently downgrades the binding's type (Luna does no flow-narrowing, `as` spec §7).
+
+### 8.4 The one-key degenerate case is allowed
+
+Nothing requires a table-level constraint's predicate to actually inspect the whole table. A
+predicate may look at a **single key** (`where t.kind is string`) and ignore the rest. This is
+**permitted**: the language does not police how much of the table a predicate reads. It is, however,
+**poor form and marginally more expensive** than the alternative, because a single-key contract is
+usually better expressed as a **value constraint on that element** (which is checked only when that
+one key is written), whereas a table-level constraint fires its check on **every** key mutation, even
+mutations to keys the predicate ignores. So a one-key table-level constraint works and is sound; it
+just pays the whole-table trigger for a value-constraint job. Prefer a value constraint on the
+element when the contract is really about one key, and reserve table-level constraints for genuine
+whole-table structure.
 
 ---
 

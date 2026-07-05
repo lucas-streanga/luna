@@ -145,17 +145,32 @@ at declaration and no predicate-implication reasoning ever.
 
 ## 7. When the check runs
 
-A constraint is checked **on entry** (when a base value becomes a constrained value) and
-**trusted on use**:
+A constraint is checked on **every operation that could make the value violate it**, and
+**trusted everywhere else**. Concretely:
 
 - **On entry:** construction, assignment to a constrained slot, and `as` narrowing run the
-  predicate. This is the one place an unconstrained value becomes constrained.
-- **On use:** reading a value already typed as the constraint runs no check, because entry
-  guaranteed the invariant. A `byte` read from a `bytes` buffer is known to be `0..255` because
-  every write checked it (bytes spec).
+  predicate. This is where an unconstrained value becomes constrained.
+- **On mutation (mutable-base constraints only):** a constrained value with a mutable interior,
+  a table constrained as `list` or by a user table-level constraint (tables §8), or a `bytes`
+  buffer, re-checks the invariant on **every mutation that could break it** (every key write for
+  a table, every element write for `bytes`). The check reads the value's **own constraint
+  typeid** (§9.4), so it fires regardless of whether the mutating binding is statically typed as
+  the constraint or as its **widened base**: a mutation reached through a `&t: table` reference
+  to a `list` still checks `list`-ness, because the value is a `list`. A violating mutation
+  **panics** (`TypeError`, errors §9) and leaves the value unchanged; it never silently widens
+  the binding's type (which would need the flow-narrowing Luna refuses, `as` spec §7).
+  **Immutable-base** constraints (`byte` and the sized ints over `int`, a `string` constraint)
+  have no interior to mutate, so **entry is their only check**.
+- **On read:** reading a value already typed as the constraint runs **no check**, because entry
+  and mutation together maintain the invariant. A `byte` read from a `bytes` buffer is known to
+  be `0..255` because every write checked it (bytes spec).
 
 This is the same checked-on-write, trusted-on-read discipline as protocol element types
-(protocols §5.4): validate at the boundary, rely on it afterward.
+(protocols §5.4), with "write" spanning **both entry and interior mutation**: validate wherever
+the value could change, rely on it everywhere else. The per-mutation cost of a table-level
+constraint is the price of that guarantee (tables §8); `list` keeps it O(1) by maintaining
+membership as a bit rather than rescanning (tables §2.2), and the compiler elides checks it can
+prove redundant (§9.5, §11).
 
 ---
 
@@ -174,30 +189,111 @@ type-reflection API is deferred.
 
 ---
 
-## 9. Built-in instances
+## 9. Representation and value-carried enforcement
 
-- **`byte`** = `constraint { int as i where i >= 0 && i <= 255 }`. The element type of `bytes`
-  (bytes spec).
-- **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). `list` is
-  conceptually a constraint on `table`, though its membership is maintained as an O(1) property
-  rather than re-checked by a predicate scan (tables §2.2); it is the same refinement idea with
-  a specialized, cheaper implementation.
+A constraint is **not a flag on a base value**; it **mints its own typeid**, and that typeid is
+what a constrained value carries. Everything about how constraints compare, travel, widen, and are
+enforced follows from this one representational fact, and it is what keeps type comparison a single
+integer compare even in the presence of constraints.
 
-General user-defined constraints (ports, percentages, non-empty, and so on) use the same
-`constraint {}` form.
+### 9.1 A constraint mints a typeid, placed in its base's subtype interval
+
+Each declared constraint (`byte`, `port`, `list`) is assigned **exactly one typeid** at compile
+time. The type universe is closed (value-representation §4.1) and canonicalization mints one id per
+distinct type (type spec §3), so `byte` and `int` are **different typeids** (§1), never one id plus
+a "constrained?" bit. Each constraint's id is placed **inside its base type's subtype interval**
+(value-representation §4.2): `byte`, `i8..i32`, and `port` lie within `int`'s interval; `list` lies
+within `table`'s. So "is this constrained value usable as its base", the widening, `is`, `<:`, and
+`as` questions of §5, is the **O(1) interval check on the id alone**, with no flag to decode and no
+identity to reconstruct. The subtype relation §5 relies on is the interval, not a per-value bit.
+
+### 9.2 The value carries the constrained typeid
+
+A constrained value's `lval` carries its constraint typeid in the ordinary type tag
+(value-representation §1), exactly as any value carries its type. There is **no separate
+"constrained?" bit** and no base-plus-annotation encoding.
+
+- **`@` is one uint compare.** `@someByte` is `byte`; `@a == @b` compares the constrained typeids
+  directly (type spec §3), a single integer comparison, never a decode.
+- **The typeid travels with the value through every channel**, because it *is* the value's type
+  and a value has only one: a `&` reference points at the same `lval` (same typeid), a passed
+  argument carries its typeid, and table storage keeps it. Widening the **binding's declared
+  type** to the base (**collapse**) never rewrites the **value's** typeid: pass a `byte` to `int`
+  or a `list` to `table` and the value is still a `byte` / a `list` at runtime, only the static
+  demand relaxes. So `@` stays `byte` / `list` while `declared` becomes `int` / `table` (type
+  spec §4), the ordinary current-vs-declared split, now carrying the constraint.
+
+### 9.3 The predicate lives in the typetable, off the value
+
+The constraint's predicate (§2) hangs off its typeid in the **comptime `typetable`** (type spec
+§6), **not** in the `lval`. A distinct typeid per constraint therefore costs **one index**; the
+predicate it points to is shared, static, and never stored per value. So value size is unchanged by
+constraints, and a program has exactly as many constraint typeids as it has **declared**
+constraints (a source-bounded count, canonicalized once), the same way it has one typeid per
+declared union or enum.
+
+### 9.4 Enforcement reads the value's typeid, not the mutating site's static type
+
+The runtime check (§7) keys off the **value's typeid**, found in its `lval`, **not** off the static
+type of the binding performing the mutation. This is what makes constraints survive the collapse of
+§9.2: a value widened to its base still carries its constraint typeid, so a mutation reached through
+a **base-typed** binding is still checked against the value's **actual** constraint.
+
+- **Consequence (deliberate):** a function taking `&t: table` may **panic on a write that would be
+  legal for a bare table**, because the value it was handed is a constrained table and the write
+  would break the constraint. This is the honest cost of *collapse-carries-constraints* (§9.2); the
+  alternative, constraints evaporating on widening, is the unsound one. To hand a callee a genuinely
+  unconstrained table, `copy` it (variables §5.2) or rebuild a bare table (`values()`, tables spec),
+  both explicit.
+
+### 9.5 Compile-time knowledge fixes the catalog and enables elision; membership stays runtime
+
+Two facts do **different** jobs, and both survive:
+
+- **The catalog is closed and known.** Constraints cannot be added at runtime, so the predicate (or
+  interval test) for any typeid is baked into the emitted code, there is no runtime registry of
+  "what does `byte` mean." This is what §1's "distinct type identity" buys at the representation
+  level.
+- **Membership under mutation is a runtime fact.** Whether *this value* still satisfies its
+  constraint after an arbitrary mutation, possibly reached through a widened alias, is the
+  flow-sensitive question Luna refuses to compute statically (compiler §1.4.1), so it is checked at
+  runtime, on every mutation (§7).
+
+The per-mutation runtime cost is therefore a **ceiling** the compiler knocks down by **elision**
+(§11): where a single mutation site is trivially invariant-preserving (appending at the end of a
+`list`, writing a literal `byte`, a freshly-produced constrained value), the check is elided, a
+local, single-site judgment that needs no control-flow analysis. Elision never changes meaning; it
+only removes a check the compiler can prove redundant.
 
 ---
 
-## 10. Open questions
+## 10. Built-in instances
+
+- **`byte`** = `constraint { int as i where i >= 0 && i <= 255 }`. The element type of `bytes`
+  (bytes spec). An **immutable-base** constraint: checked on entry only (§7).
+- **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). `list` is a
+  **table-level** constraint (tables §8): it refines `table` by structure, not by a stored value.
+  Its membership is maintained as an **O(1) bit** (tables §2.2) rather than re-checked by a
+  predicate scan, so it is the cheap, specialized instance of the general table-level constraint,
+  checked on entry *and* on every key mutation (§7) at O(1) rather than O(n).
+
+General user-defined constraints (ports, percentages, non-empty, sorted, and so on) use the same
+`constraint {}` form; those over `table` are table-level constraints (tables §8).
+
+---
+
+## 11. Open questions
 
 - **Predicate expressiveness:** exactly which pure expressions a `where` may contain (calls to
   pure user functions, references to `const` values), and whether any are restricted to keep
   checks cheap.
-- **Static elision (optimization, not semantics):** eliding a runtime check where the compiler
-  can trivially prove it (a literal `byte`, a value freshly produced as a `byte`), as an
-  optimization that never changes meaning, distinct from the rejected static-verification model.
+- **Static elision (optimization, not semantics):** the precise set of mutation sites at which the
+  compiler elides a runtime check because it can trivially prove the invariant preserved (§9.5),
+  distinct from the rejected static-verification model. The mechanism is fixed (§9.5); the exact
+  provable cases are open.
 - **Constraint over constrained base:** whether a constraint's base may itself be a constrained
   type (`byte`-based constraint), stacking refinements, and how that interacts with the
   base-match rule (§6).
-- **Constraints on other bases:** constraints over `string` (e.g. non-empty, matches-a-regex),
-  `float`, and compound types, and any base-specific concerns.
+- **Constraints on other bases:** constraints over `string` (e.g. non-empty, matches-a-regex) and
+  `float`, and any base-specific concerns. Constraints over `table` are specified as table-level
+  constraints (tables §8); `list` and user structural refinements are their instances.

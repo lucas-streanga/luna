@@ -132,25 +132,33 @@ is performed:
 - **No reachability or divergence analysis.** A `fn (): never` that actually returns is not caught
   statically (that would be the halting problem in general); it panics at runtime (never spec).
 - **No move, linearity, or use-after-consume analysis.** Single-pass stream consumption, builder
-  transfer, and promise use are **runtime** properties: an exhausted stream, a transferred builder,
-  or a spent promise fails at runtime, not through static move-tracking. (Optional, purely additive
-  lints over obvious straight-line cases may be added later; they are never required for the core
-  compile and never gate it.)
+  transfer, and promise use are **runtime** properties: an exhausted stream, a **moved-from** stream
+  or builder (transferred across a spawn boundary, concurrency §2.3), or a spent promise fails at
+  runtime, not through static move-tracking. Ownership transfer marks the value's **referent**
+  moved-from (value-representation §2.1) and any later access through any alias panics, a runtime
+  referent check, precisely because proving "the spawner stopped using it on this path" would be the
+  move-tracking this guarantee forgoes. (Optional, purely additive lints over obvious straight-line
+  cases may be added later; they are never required for the core compile and never gate it.)
 
 The positive principle underneath: **every static fact Luna checks lives in a type**, errorability
-(`!`), capabilities (`use`), nullability (`?`), union and constraint membership, computed by
-structural rules or **call-graph fixpoints** (functions spec §2, §5) that read declared signatures,
-never by path-sensitive analysis. Every fact that *would* require path-sensitivity is instead either
+(`!`), capabilities (`use`), nullability (`?`), union and constraint membership, established by
+structural rules, by **local per-function checks** (errorability and nullability, both declared
+type suffixes verified against the body, not inferred, functions spec §4), or by **call-graph
+fixpoints** (comptime-eligibility and capabilities) that read declared signatures, never by
+path-sensitive analysis. Every fact that *would* require path-sensitivity is instead either
 **dissolved by construction** (mandatory initialization removes the unassigned state; new-binding
 narrowing removes the path-dependent type) or made a **runtime property** checked at the point of
 violation (divergence, stream consumption, the branch-dependent write-once flag, variables spec
 §1.2). Facts live in **types** or in **runtime state**, never in "what is true on this path," which
 is precisely the thing control-flow analysis computes and Luna does not.
 
-The call-graph fixpoints for errorability, comptime-eligibility, and capabilities are **not** an
+The call-graph fixpoints for **comptime-eligibility and capabilities** are **not** an
 exception to this. They are monotone least-fixpoint computations over the static call graph that read
 each callee's declared signature; they do not track intra-function paths or path-sensitive state, so
-they are ordinary type-level propagation, not flow analysis.
+they are ordinary type-level propagation, not flow analysis. **Errorability is not among them:** it is
+**declared, never inferred**, and verified by a **local, syntactic containment check** per call site
+(functions spec §4, errors spec §7), which reads callee signatures but performs no propagation,
+simpler than a fixpoint and equally free of path-sensitivity.
 
 ### 1.5 Lower to Luna IR
 
@@ -301,7 +309,7 @@ see, which is the reason the IR must exist.
 - **Comptime evaluation** (§6). Evaluate comptime-eligible subtrees and replace them with their
   computed constants (folded values, fully-built `const` tables). This is both an optimization and
   a language feature (functions spec §5).
-- **Constraint-check elision** (constraints spec §10). At a constraint boundary (§4), if the
+- **Constraint-check elision** (constraints spec §11). At a constraint boundary (§4), if the
   compiler can trivially prove the value already satisfies the predicate, a literal in range, a
   value freshly produced as that constrained type, drop the runtime predicate call. This never
   changes meaning (it removes a check that would always pass); it is distinct from the rejected

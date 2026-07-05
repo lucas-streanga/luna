@@ -319,13 +319,22 @@ Errorability is declared with `!`, the error-analogue of `?` (value-representati
 `!` on a result type means "or error": `string!` is `string | error`, and the two
 capacities compose freely (`string?!` is `string | null | error`).
 
-A function's type records whether it can raise a declarable error:
+A function's type records whether it can raise a declarable error, and it does so **by
+declaration, not inference** (functions spec §4, never spec §5):
 
-- A function is **`fn!`** iff it can raise a **`UserError`**, by throwing one directly or
-  by calling an `fn!` function without handling it.
-- A function is **`fn`** (not `!`) iff no `UserError` can escape it. This is a real
-  guarantee: a caller of a non-`!` function need not handle any declared error, because
-  none can emerge.
+- A function is **`fn!`** iff its signature **declares** `!`. The `!` is **required, and
+  verified**, whenever the body can raise a `UserError`, by a direct `throw` or by an
+  **unhandled** call to an `fn!` function (an `fn!` call not lexically enclosed in a `try` /
+  `catch` or resolved by an errorable binding). The compiler **checks** that a declared `!` is
+  justified and that a missing `!` is safe; it never **adds** `!` for you. A function that can
+  throw but omits `!` is a **compile error**, not a silent promotion to `fn!`.
+- A function is **`fn`** (not `!`) iff it declares no `!`, which the compiler admits only when
+  **no `UserError` can escape it**, every throwing call is handled. This is a real guarantee: a
+  caller of a non-`!` function need not handle any declared error, because none can emerge.
+
+The check is the **local, syntactic containment check** of functions spec §4 (per call site,
+lexical, not control-flow analysis), not a call-graph propagation: "can `g` throw?" is read off
+`g`'s **signature**, so errorability is never computed transitively.
 
 **Panics are ambient and undeclarable.** Any function may raise a `Panic` (an `OutOfMemory`,
 a `TypeError`, an `ArityError`) without being `fn!`. So `fn` guarantees "no `UserError`
@@ -437,6 +446,27 @@ boundary wraps its work in `try`/`catch` and catches everything, then decides (l
 fail the one unit) based on what it got. A single mechanism catches all errors at the boundary, so
 there is no need for two separate constructs to "catch everything in `main`"; the block form already
 does.
+
+**`main` is an ordinary function for errorability, with no special exemption or requirement**
+(functions §4, never §5). It is special only as the execution entry (modules §3), not in how `!`
+applies to it, so it has exactly the two choices any function has:
+
+- **Non-`!` `main`** handles every `UserError` internally (the supervisor pattern above), and its
+  signature promises so. Then the program provably exits with a `UserError` **only via a panic**,
+  never via an unhandled declared error, the whole declarable-error surface was closed inside the
+  program.
+- **`fn!` `main`** declares `!` (`fn (...): !int`) and may let a `UserError` reach the top. There is
+  no caller to catch it, so **the runtime is `main`'s top handler**: an escaped `UserError`
+  terminates the program (nonzero exit, the error and its `stacktrace` / `cause` reported, §6),
+  mechanically like an unhandled panic reaching the top but arriving through the declared channel and
+  visible in `main`'s signature. `main` must still **declare** the `!` if it can throw, the compiler
+  will not add it (functions §4); a throwing `main` that omits `!` is a compile error like any other.
+
+And like every function, **`main` cannot declare panics** (§7): panics are ambient and undeclarable,
+so a panic reaching `main`'s boundary is stopped only by an explicit `try` / `catch` there (the
+supervisor pattern), never by anything in `main`'s signature. So the runtime terminates on an
+unhandled panic out of `main` exactly as it does on an escaped declared error out of a `fn!` `main`,
+the two channels stay distinct all the way to the top.
 
 Because the block catches both categories and they share the `error` root, a boundary that wants to
 treat them differently distinguishes by type in the `catch` (§8.3): catch `UserError` and `panic`
