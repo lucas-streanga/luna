@@ -10,6 +10,31 @@ what they say: strict equality, explicit conversion, panics instead of silent wr
 concurrency with no shared mutable state, and a small surface where keywords are reused rather than
 multiplied. It is heavily inspired by Raku, Lua, PHP, and Go.
 
+## A taste
+
+```
+const exitCode = ['success' => 0, 'usage' => 64];   // named codes: a const table of ints
+
+const main = fn () use (io, argv): int! => {
+  let arguments = args();                      // argv is a capability (capabilities §9)
+  die('no files given') if arguments.empty();
+
+  foreach (name in arguments) {
+    var fd = openFile(name as path);           // file!: inside this fn!, failure propagates
+    defer close(&fd);                          // released at each iteration's scope exit
+
+    println("${name}: ${fd.byteSize} bytes");
+    println("${lineNumber}: ${line}") foreach (lineNumber => line in fd.lines());
+  }
+
+  return exitCode.success;
+};
+```
+
+Note the shapes on display: functions are values bound to names; effects on the outside world
+(`io`) are reached only through an explicit `use` clause; iteration binds with `in`; and a statement
+can carry a trailing `if` guard.
+
 The intended distribution is a single `luna` binary that is the whole toolchain, runner, compiler,
 formatter, and language server, and a static library for embedding. No implementation exists yet;
 this repository is the language's design.
@@ -131,6 +156,7 @@ table is a map.
 | Keywords | `keywords.md` | The reserved-word inventory, contextual keywords, predeclared names, and flagged definition gaps. |
 | Any | `any.md` | The top type: universal operations vs narrow-first, the F22 rule. |
 | Spread | `spread.md` | `...x`: literals, streams, call arguments, interpolation; one level, always. |
+| Examples | `examples/` | Worked programs: the one-billion-row challenge, log scanning, serialization, testing. |
 | Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
 | Associativity | `associativity.md` | Precedence and associativity: the expression and type grammars, word-prefix binding, resolved drift, parser-blocking questions. |

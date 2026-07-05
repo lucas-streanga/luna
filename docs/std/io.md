@@ -125,8 +125,11 @@ closed file **panics** (misuse, an invariant violation, the same category as wro
 §8). The idiom is `defer`:
 
 ```
-var fd = try openFile('log.txt', {append});
+// inside an errorable (fn!) context: a bare call propagates failure to the caller
+var fd = openFile('log.txt', {append});
 defer close(&fd);
+// to HANDLE the failure here instead, `try` recovers it as a value:
+// let opened = try openFile(...);   // opened : file | error, match on it (errors §8)
 ```
 
 `flush` forces any buffered writes to the external sink; `close` implies it. A file never
@@ -200,7 +203,7 @@ modules (`fromJson(j: json): table!` in std.json §3; siblings in std.csv, std.y
 std.xml), and file-to-table is one expression:
 
 ```
-let t = try fromJson(readAll(fd) as json);
+let t = fromJson(readAll(fd) as json);   // table!: propagates in an fn!; `try` to recover
 ```
 
 The `as json` narrows `readAll`'s `string | bytes` union and runs the format validation in

@@ -21,28 +21,10 @@ Two commitments shape everything else:
 
 ## A taste
 
-```
-const main = fn () use (io, argv): int => {
-  let arguments = args();                      // argv is a capability (capabilities §9)
-  die('no files given') if arguments.empty();
+The canonical first program lives at the front of the spec (index); the shapes it shows,
+functions as values, `use`-declared effects, `in`-bound iteration, postfix modifiers, are
+this document's subject.
 
-  const files = arguments.map(fn (name: string): file! => openFile(name as path));
-
-  foreach (file in files) {
-    println("file size: ${file.byteSize}");
-    foreach (lineNumber => line in file.lines()) {
-      println("${lineNumber}: ${line}");
-    }
-    file.close();
-  }
-
-  return ExitCodes.success;
-};
-```
-
-Note the shapes on display: functions are values bound to names; effects on the outside world
-(`io`) are reached only through an explicit `use` clause; iteration binds with `in`; and a statement
-can carry a trailing `if` guard.
 
 ## The type set
 

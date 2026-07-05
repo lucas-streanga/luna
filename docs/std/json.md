@@ -77,7 +77,7 @@ export const fromJson = fn (j: json): table!;
 - **Pure and comptime-eligible**: `const cfg = fromJson('{"port": 8080}' as json)` is a
   build-time constant.
 - **Any source.** File-to-table is a composition with `std.io`, not an export here:
-  `try fromJson(readAll(fd) as json)`, the `as json` narrowing `readAll`'s
+  `fromJson(readAll(fd) as json)` (propagating; `try` to recover), the `as json` narrowing `readAll`'s
   `string | bytes` union and running the format entry in one visible step at the seam.
 
 ## 4. Open questions
