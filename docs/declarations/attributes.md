@@ -248,9 +248,11 @@ the value, nor its type, nor its assignability, nor anything at runtime.
 
 ---
 
-## 6. Open questions
+## 6. Resolved, ruled, and open
 
-- ~~**Comptime introspection surface, and the keying problem**~~, **resolved** (reflection spec
+### 6.1 Resolved
+
+- **Comptime introspection surface, and the keying problem**, resolved (reflection spec
   §3.2): attributes are read through `comptime fn` queries and nowhere else. For **named**
   declarations (typeid and declaration 1:1), `fields(t)` and `attributes(t)` on the `type` work
   directly; for **anonymous** shapes, where same-shape declarations share one `typeid` (§1), the
@@ -260,11 +262,19 @@ the value, nor its type, nor its assignability, nor anything at runtime.
   it). Equality semantics are identical in both phases, provenance is invisible to `==`, for
   values and for `type` values alike; the comptime/runtime difference lives only in the
   provenance sidecar and this one API.
-- **Attribute targets and validation.** Whether an attribute declaration may restrict what it can
-  be applied to (only fields, only functions, only bindings), and whether misapplication or
-  duplicate application of the same attribute on one declaration is an error, pending use.
-- **Attributes on other declaration forms.** Whether enum variants, protocol members, or constraint
-  declarations may carry attributes, beyond variable and table-field declarations, pending a
-  concrete need.
-- **Payload richness.** Whether an attribute payload may hold more than a flat table of scalars
-  (nested tables, enum values, lists) as generation use cases grow, pending those cases.
+### 6.2 Ruled (R42)
+
+- **Attributes cannot declare targets.** An attribute declaration carries no restriction on
+  what it may be applied to; any attribute attaches to any declaration site (§3.1), and
+  "misapplication" therefore cannot exist, the consumer (a comptime generator) simply reads
+  or ignores what it finds.
+- **Payloads may be arbitrarily nested plain data.** Tables in tables, lists, enum values;
+  a payload is an ordinary comptime-known value, and nothing about the machinery (§1, §4)
+  cared about flatness in the first place.
+
+### 6.3 Open
+
+- **Duplicate application** of the same attribute on one declaration (error, last-wins, or
+  a list), pending use.
+- **Attributes on other declaration forms** (enum variants, protocol members, constraint
+  declarations), deferred by decision pending a concrete need.

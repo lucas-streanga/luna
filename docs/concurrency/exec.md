@@ -177,17 +177,30 @@ home for shell-string execution and why it is unsafe.
 
 ---
 
-## 6. Open questions
+## 6. Rulings and remaining questions
 
-- **Streaming output:** whether `run` / `capture` also have streaming variants that yield
-  stdout as a `stream` rather than a buffered `string`, for large or long-running output,
-  pending the stream spec.
-- **Environment, cwd, stdin:** how environment variables, working directory, and a fixed
-  stdin input attach to a run, as methods on the `command` value (command spec open
-  questions) or as options to `run` / `capture`.
-- **Concurrency:** running commands from multiple tasks, and whether `exec` exposes a
-  spawn-and-await form distinct from the synchronous `run` / `capture`, pending the
-  concurrency model.
-- **`capture` and spawn failure:** confirm the boundary that a process which *ran* yields a
-  `commandResult` for any exit code, while a process that *could not start* yields a
-  `commandError`, once the exec implementation details are settled.
+Ruled (R42):
+
+- **Streaming output: yes.** A streaming variant yields stdout as a `stream` for large or
+  long-running output (exact signature pending, alongside the buffered `capture`); it is
+  the natural producer for `|>`-composition on the consumer side.
+- **Environment variables: a new capability, secret-valued.** Reading the environment is
+  gated by its own capability, **`env`**, and the surface is one function returning
+  `key => secret` entries:
+
+  ```
+  export const env = capability;
+  export const envVars = fn () use (env): table;   // 'PATH' => secret, 'HOME' => secret, ...
+  ```
+
+  The **values are `secret`** (secret spec), so enumeration and *reading* are separately
+  gated: `use (env)` lists what exists, and extracting a value's content requires `reveal`,
+  the double gate falling out of machinery that already exists. (Module home, here or a
+  `std.env`, flagged with `std.system`'s boundary.)
+- **`commandResult` / `commandError` split: confirmed.** A process that **ran** yields a
+  `commandResult` for any exit code (an exit code is data, not an error); a process that
+  **could not start** yields a `commandError` (declarable, the expected environmental
+  failure). The obvious boundary, now ruled rather than assumed.
+
+Deferred: **concurrency** (multi-task command execution and a spawn-and-await exec form),
+and **cwd / fixed stdin** attachment (the unruled remainder of the environment question).

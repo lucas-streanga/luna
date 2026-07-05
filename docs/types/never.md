@@ -31,7 +31,7 @@ halts the thread, or loops forever. The statement after such a call is unreachab
 unconditional failure helper, an event loop that never terminates.
 
 ```
-const exit = fn (code: int): never use (io) => { io->exit(code); };
+const exit = fn (code: int): never use (system) => { exitProcess(code); };   // std.system, deferred
 const loop = fn (): never => { while (true) { tick(); } };
 ```
 

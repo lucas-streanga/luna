@@ -419,3 +419,17 @@ Open:
 - **Backpressure and scheduling controls.** Whether spawning over a large collection bounds
   concurrency (a limit on simultaneously-running tasks) or spawns unboundedly, and how backpressure
   from a slow consumer propagates through an opt-in-parallel stream, pending the scheduler design.
+
+---
+
+## Deferred by decision, and one ruling (R42)
+
+- **Capability scoping at spawn: none.** A spawned function's requirement set must be held
+  by the **spawner** (the check at `spawn`, capabilities §3.1); there is no
+  narrowing-or-widening mechanism at the boundary, a task runs under exactly the grants its
+  spawner could give, which is the grants the spawner declared. One rule, the call rule.
+- **Channels: deferred**, not necessary; tasks communicate by arguments in (deep-copied)
+  and results out (moved at `await`), and the collecting surface is `await` over a stream
+  (await §1.1).
+- **Backpressure and scheduler tuning: deferred**; the Go scheduler underneath is the
+  alpha's answer.

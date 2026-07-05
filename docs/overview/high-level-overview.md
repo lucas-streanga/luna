@@ -22,15 +22,16 @@ Two commitments shape everything else:
 ## A taste
 
 ```
-const main = fn (argv: list) use (io): int => {
-  die('no files given') if argv.empty();
+const main = fn () use (io, argv): int => {
+  let arguments = args();                      // argv is a capability (capabilities §9)
+  die('no files given') if arguments.empty();
 
-  const files = argv.map(fn (name: string): file => openFile(name, File.modeRead));
+  const files = arguments.map(fn (name: string): file! => openFile(name as path));
 
   foreach (file in files) {
-    io->println("file size: ${file.byteSize}");
+    println("file size: ${file.byteSize}");
     foreach (lineNumber => line in file.lines()) {
-      io->println("${lineNumber}: ${line}");
+      println("${lineNumber}: ${line}");
     }
     file.close();
   }

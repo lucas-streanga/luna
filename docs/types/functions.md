@@ -109,7 +109,7 @@ function mutate a caller's value, the caller passes `&var` at call time (variabl
 §5.1); mutation is an argument, never an ambient capture.
 
 ```
-const greet = fn (name: string) use (io) => { io->println("hi $name"); };
+const greet = fn (name: string) use (io) => { println("hi $name"); };
 ```
 
 A function cannot silently close over `io`: value capture of a `nocopy` value is
@@ -161,9 +161,10 @@ fn (params) : result             // base shape
 fn (params) : result!            // errorable (§4)
 ```
 
-Two functions differ in type if they differ in parameters, result, errorability (§4), or
-comptime-eligibility (§5). These are not per-value flags; they are part of the type
-identity, so the type system checks them at assignment and call (§7). A `fn` value of one
+Two functions differ in type if they differ in parameters, result, or errorability (§4),
+and in **nothing else**: the function typeid is signature plus errorability, checked at
+assignment and call (§7). Comptime-eligibility left the typeid (R43, below), joining
+capabilities on the value. A `fn` value of one
 type is not assignable where an incompatible function type is required, e.g. a throwing
 function is not accepted where a non-throwing one is demanded.
 
@@ -182,21 +183,24 @@ rides a return value**, it is data flowing to the caller, so it must be in the t
 smuggles (§4, §7); **a capability is authority**, it flows nowhere, so it confines
 instead (capabilities §3.1).
 
-Comptime-eligibility being type-distinguishing has two consequences worth stating, since a
-function that is comptime and one that is not are genuinely different kinds of value:
+**Comptime-eligibility is a value fact, not a type fact** (R43), and a *derived* one: a
+function value is eligible iff its **requirement set is empty** (capabilities §3.1, every
+ineligibility source is a capability, §5.5, the standing audit assumption recorded in
+capabilities §10). Consequences:
 
-- **Type comparison respects it.** `@f != @g` when one is comptime-eligible and the other is
-  not, they are different function types. (Value equality is separate: `fn` compares by
-  **identity**, equality spec, so `f == g` never consults the signature; the comptime
-  distinction lives in the *type*, `@f`, not the value.)
+- **Type comparison ignores it.** `@f == @g` for same-signature functions regardless of
+  eligibility; the fact lives where the requirement set lives, on the value, readable at
+  any boundary that needs it. (Value equality is separate as before: `fn` compares by
+  **identity**, equality spec.)
 - **The substitution rule is one-directional**, and it turns on the difference between
   **foldability** (a function *can* run at compile time) and **runtime-absence** (a function exists
   *only* at compile time). These are two different properties, and only the first coerces:
 
   - **An eligible plain `fn` may be used where a `comptime fn` is expected.** A comptime-fn context
     requires that the function be **foldable**, and a comptime-*eligible* plain `fn` is exactly that.
-    The compiler already computes eligibility (§5.1), so at the boundary it checks: if the passed
-    function is eligible, it is **accepted** (an automatic coercion, no runtime cost); if it is not
+    The boundary check reads the value's requirement set (empty = foldable, one word,
+    capabilities §3.1): if the passed function is eligible, it is **accepted** (no runtime
+    cost); if it is not
     eligible (it has a `use` clause or calls ineligible code), it is a **compile error** at that
     call site. This gating is what makes the coercion both safe and ergonomic, you need not annotate
     a function `comptime` merely to hand it to a comptime-fn parameter; the compiler resolves it.

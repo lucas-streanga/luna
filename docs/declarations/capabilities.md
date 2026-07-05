@@ -379,41 +379,46 @@ adds no separate mechanism.
 
 ## 9. Known capabilities
 
-| Capability | Tier | Authority | Spec |
-|-|-|-|-|
-| `io` | implicit | Input/output (files, streams, console) | (io / stdlib, deferred) |
-| `exec` | explicit | Spawn and run a structured `command` | exec |
-| `reveal` | explicit | Reveal a `secret`'s payload | secret |
-| `system` | explicit | Safe syscalls (clock, `getpid`, `stat`, ...) | (system, deferred) |
-| `unsafeFfi` | explicit | Call foreign (native) code | (ffi, deferred) |
-| `unsafeSystem` | explicit | Dangerous syscalls, shell-string execution | (unsafeSystem, deferred) |
+| Capability | Authority | Spec |
+|-|-|-|
+| `io` | Input/output (files, streams, console) | std.io |
+| `exec` | Spawn and run a structured `command` | exec |
+| `reveal` | Reveal a `secret`'s payload | secret |
+| `env` | Enumerate environment variables (`envVars()`, values are `secret`, reading them needs `reveal`) | exec §6 |
+| `argv` | Read the program's arguments (`args() use (argv): list`) | (module home flagged with std.system) |
+| `system` | Safe syscalls (clock, `getpid`, `stat`, ...) | (system, deferred) |
+| `unsafeFfi` | Call foreign (native) code | (ffi, deferred) |
+| `unsafeSystem` | Dangerous syscalls, shell-string execution | (unsafeSystem, deferred) |
 
-`argv` is **not** here: it is nocopy immutable data passed to `main`, not a capability (§3,
-§7). The set will grow; each new authority is a `capability` (explicit unless deliberately
+(The tier column is gone with the `implicit` modifier, R33: every capability is explicit.)
+`argv` **is** a capability (ruled, R43, reversing the earlier call): program arguments are
+program *input*, and there is no reason an arbitrary function, or an arbitrary dependency,
+should read them unbidden; the surface mirrors `env`'s, one gated function returning the
+data, and `main` reads arguments by declaring `use (argv)` like any other authority. The set will grow; each new authority is a `capability` (explicit unless deliberately
 `implicit`), `use`-gated, comptime-unreachable, and auditable by the absence of its `use`
 clause.
 
 ---
 
-## 10. Open questions
+## 10. Rulings (were open questions)
 
-- **`argv` and other program inputs:** confirming `argv` (and environment, working directory)
-  are nocopy data rather than capabilities, versus treating some as authorities to thread; the
-  current call is data for `argv`.
-- **Capability set declaration:** the exact form for declaring a capability set (§7.1), pending
-  the module system.
-- **Reusing `implicit` elsewhere:** the `implicit` modifier (silent-inference opt-in) may
-  generalize to other declarations beyond capabilities; its general meaning is left open.
-- ~~**Capability-set polymorphism**~~, **resolved by §3.1**: a higher-order function never
-  receives a capability-holding value, so there is no forwarded authority to be polymorphic
-  over. Authority moves only down the named call graph (`use` propagation, §5) and across
-  `spawn`.
-- **Comptime-eligibility may leave the typeid.** Every ineligibility source is intended to be
-  a capability (functions §5.5: everything reaching outside the program is `use`-gated), and
-  under §5.1/§8 capability reasoning is creation-site and existence-based, never needed at an
-  indirect call. If that intent holds exhaustively, eligibility stops being information a
-  *caller* needs from a *type*, and the eligibility bit can come out of the function typeid
-  (functions §3, §5.2, §7), shrinking the type surface and retiring the written-syntax
-  canonicalization question. Pending an audit that no ineligibility source exists outside the
-  capability system (candidates to check: allocation limits, nondeterminism not yet gated,
-  `unsafe` conventions).
+All five ruled or resolved (R43):
+
+- **`argv` is a capability** (reversing the earlier data call): program input is authority
+  like any other, arbitrary code and arbitrary dependencies have no business reading it
+  unbidden. Surface mirrors `env`'s: `args() use (argv): list` (§9); `main` declares
+  `use (argv)`. `env` likewise sits in the table (§9, exec §6).
+- **Capability set declaration: already defined** (§7.1 as it stands); nothing further
+  pending.
+- **`implicit`: gone** (R33); the generalization question died with the modifier.
+- **Capability-set polymorphism: resolved**, and re-grounded, the old resolution cited the
+  repealed second-class rule; the standing one is R39's: no polymorphism annotation can be
+  needed because the requirement set never appears in a *type*, it rides the **value** and
+  is checked at the call against the ambient grant, so a higher-order function is
+  transparently "polymorphic" over authorities it never sees.
+- **Comptime-eligibility has left the typeid** (functions §3, R43): eligibility is a
+  *derived value fact*, requirement set empty, over the same one-word set R39 installed, so
+  the function typeid is signature plus errorability and nothing else. The **standing audit
+  assumption** this rests on, recorded rather than hidden: every ineligibility source is a
+  capability (functions §5.5); candidates to keep honest as std grows, allocation limits,
+  ungated nondeterminism, the `unsafe` conventions.

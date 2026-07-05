@@ -35,6 +35,25 @@ let result = await p;            // park until done; result MOVED out
   like its siblings: `await p ?? fallback` is `await (p ?? fallback)`; write
   `(await p) ?? fallback` for the other reading, or lean on `try` when the arm is an error.
 
+### 1.1 Collecting many: `await` over a stream
+
+The result-collecting surface is not a combinator zoo; it is **`await` applied to a
+stream of promises**, yielding a **lazy stream of results**:
+
+```
+let results = await promises;        // promises: a stream of promise values
+foreach (r in results) { ... }       // each pull awaits the next task
+let all = [...await promises];       // force everything: spread materializes (spread §2)
+```
+
+Each pull awaits one promise (taking it, §1) and yields its value; laziness composes with
+pipelines and `take`, and eager collection is one spread away, streams can always be
+forced to a table. One consequence of the stream setting, stated: a stream has no error
+channel (std.io §8), so a task that **failed** surfaces as a **panic at the pull**; when
+per-task error handling matters, await the promises **individually** (`try await p`),
+where the declarable channel exists. Timeouts and racing remain deferred with
+cancellation (§3, §4).
+
 ## 2. Never awaited
 
 A promise that is never awaited is legal: the task runs to completion regardless (spawn is
