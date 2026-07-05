@@ -381,15 +381,19 @@ A function may be evaluated at compile time, `const c = comptime someFn();`, onl
 is **comptime-eligible**. Eligibility is a type-level property with a single local rule,
 propagated over the call graph:
 
-> A function is comptime-eligible iff it has **no `use` clause** and every function it
-> calls is comptime-eligible.
+> A function is comptime-eligible iff **every capability it uses is declared `comptime`**
+> and every function it calls is comptime-eligible.
 
 The reasoning: `use` (reference capture) is the only way a function reaches mutable
-outside state, so a `use`-free function has no outward effects through capture, and a
-`use`-free function that only calls other `use`-free functions has none transitively.
-With no outward effects, it is safe to run in the compile-time context, where there is no
-runtime world to affect (no live references, no real `io`, which is `nocopy` and so can
-only be reached through `use`).
+outside state, so what matters is *which* capabilities it reaches. A **non-comptime**
+capability authorizes outside effects (real `io`, the filesystem, the network), so using
+one makes the function ineligible. A **`comptime`** capability is zero-data and, by its
+declaration rule, can compose only other `comptime` capabilities (capabilities §1, §7.1), so
+it is provably not a path to any outside effect, holding one at compile time is harmless. A
+function that uses only `comptime` capabilities, and calls only comptime-eligible functions,
+therefore has no outward effect and is safe to run at compile time, where there is no runtime
+world to affect. `io` is **not** declared `comptime`, so any function that reaches it is
+ineligible, and the sandbox holds by construction.
 
 ### 5.1 It is transitive, but cheap
 
@@ -400,14 +404,15 @@ fixpoint, §4: it is a per-function local check against callee *signatures*, not
 computation.)
 
 ```
-f.comptimeEligible = (f has no `use` clause) AND (every g that f calls is comptimeEligible)
+f.comptimeEligible = (every capability f uses is `comptime`) AND (every g that f calls is comptimeEligible)
 ```
 
 This is O(functions + call-edges), linear, and handles recursion by the standard
-monotonic fixpoint (assume eligible, remove eligibility for any function with a `use` or
-an ineligible callee, iterate to a fixed point). A `comptime f()` site is then an **O(1)**
-read of `f`'s eligibility bit; the transitivity was paid once, globally, not per call
-site. This is not a parse-time concern, it is a post-resolution analysis pass.
+monotonic fixpoint (assume eligible, remove eligibility for any function that uses a
+**non-comptime** capability or has an ineligible callee, iterate to a fixed point). A
+`comptime f()` site is then an **O(1)** read of `f`'s eligibility bit; the transitivity was
+paid once, globally, not per call site. This is not a parse-time concern, it is a
+post-resolution analysis pass.
 
 ### 5.2 It lives in the function type, so indirect calls stay checkable
 
@@ -438,9 +443,9 @@ may be called in `comptime` without annotation. A function may also be **declare
 
 - **`comptime` as an eligibility contract on an ordinary function.** Annotating a normal
   function `comptime` requires the compiler to enforce eligibility at its definition, so
-  that a later edit adding a `use` clause becomes a compile error at the function rather
-  than silently breaking distant `comptime` callers. The function is still an ordinary
-  runtime function; the annotation only *guarantees* it stays comptime-eligible.
+  that a later edit adding a `use` of a **non-comptime** capability becomes a compile error at
+  the function rather than silently breaking distant `comptime` callers. The function is still an
+  ordinary runtime function; the annotation only *guarantees* it stays comptime-eligible.
 
 - **`comptime fn` as an always-comptime declaration.** A binding declared
   `const f = comptime fn (...) => ...` is a function that is **always** evaluated at
@@ -509,19 +514,26 @@ the budgets below provide *availability* (comptime cannot hang or crash the buil
 
 **The capability sandbox (security).** Every operation that reaches outside the program,
 I/O, filesystem, network, syscalls, the clock, is a `nocopy` capability (protocols spec)
-reached only through a `use` reference capture (§2). Comptime-eligibility forbids a `use`
-clause (§5). Therefore **comptime code can hold no capability at all**: holding one would
-require `use`, which would make the function comptime-ineligible. A comptime function can
-allocate, compute, throw, and return a value, and nothing else. It categorically cannot
-exfiltrate data or execute effects on the build machine, because it has no capability to
-do so.
+reached only through a `use` reference capture (§2). Comptime-eligibility forbids using any
+**non-comptime** capability (§5). Therefore **comptime code can hold no non-comptime
+capability**: reaching one would require a `use` of it, which would make the function
+comptime-ineligible. A comptime function may hold `comptime` capabilities, zero-data tags
+that authorize only comptime-safe operations and provably compose no non-comptime capability
+(capabilities §1, §7.1), and may allocate, compute, throw, and return a value, and **nothing
+that reaches outside**. It categorically cannot exfiltrate data or execute effects on the build
+machine, because every outside-reaching operation is gated by a non-comptime capability it
+cannot hold.
 
 This is an *invariant*, not a feature to maintain per capability: any new outside-reaching
 operation (an `http` module, a `system` syscall interface) is automatically comptime-safe
-the moment it is defined as a `nocopy` capability, with no comptime-specific code. The
-corresponding obligation: **adding an outside-reaching operation that is not a `nocopy`
-capability is a soundness bug in the sandbox.** The rule must be total, no ambient
-authority anywhere, or comptime could reach it.
+the moment it is defined as a `nocopy` capability, because **non-comptime is the default**, a
+capability is comptime-unreachable unless someone deliberately declares it `comptime`, and that
+opt-in is checked to compose only other `comptime` capabilities (capabilities §1). So the
+failsafe direction holds: forgetting the modifier leaves an authority *out* of comptime, never
+smuggled in. The corresponding obligations: **adding an outside-reaching operation that is not a
+`nocopy` capability is a soundness bug in the sandbox** (no ambient authority anywhere), and
+**declaring an outside-reaching capability `comptime` is likewise a bug**, `comptime` is only for
+authority whose operations are themselves comptime-safe.
 
 **Liveness guards (availability).** Capability-absence stops exfiltration but not
 denial-of-service: a malicious or buggy comptime can still loop forever, recurse without

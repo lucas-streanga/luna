@@ -21,18 +21,35 @@ same way a protocol or error type is declared (`proto {...}`, `error {...}`):
 ```
 const reveal = capability;
 const exec   = capability;
-const io     = implicit capability;      // opt into silent inference (§6)
+const io     = implicit capability;             // opt into silent inference (§6)
+const cfg    = comptime capability;             // opt into comptime use (§8); non-comptime is the default
+const webApp = capability { caps.io, caps.net };  // a composed set: grants io and net together (§7.1)
 ```
 
-- **No body, no braces.** Unlike `proto {}` and `error {}`, whose braces delimit a body, a
-  capability has **no body and can never have one**: it is zero-data by form. So it is
-  written bare, with no `{}`, and `capability { ... }` with any content is a syntax error.
+- **Bare declares a leaf; braces compose a set.** A bare `capability` (no braces) declares a
+  single new authority. **Braces declare a composed capability**, a *set* (§7.1) whose members
+  are the listed capabilities: `capability { A, B }` grants the authority of `A` and `B`
+  together, and `use`-ing it requires and propagates each member. The braces are legible here
+  precisely *because* a capability is zero-data: they can only be reading a **set of member
+  capabilities**, never a data body, so there is no confusion with `proto {}` / `error {}`,
+  whose braces delimit state. A capability still has **no body and can never carry data**; only
+  capabilities may appear inside the braces (`capability { 5 }` or any non-capability content is
+  a syntax error), and there is no `union` to consider, the braces are a **set** of members, not
+  a choice among them.
 - **Each declaration is a distinct type.** `const reveal = capability` declares `reveal` as a
   **distinct capability type**, just as `myError = error {}` declares a distinct error type.
   `reveal` and `io` are *different types*, which is what lets `use (caps.reveal)` demand the
   reveal authority specifically and nothing else.
 - **The `implicit` modifier** marks a capability as silently inferable (§6). Its absence is
   the default: a plain `capability` must be declared wherever it is required.
+- **The `comptime` modifier** marks a capability as usable in comptime code (§8, functions
+  §5.5). Its absence is the default: a capability is **non-comptime** unless declared `comptime`,
+  so it cannot be held at compile time, which keeps the sandbox failsafe (a forgotten modifier
+  leaves a capability *out* of comptime, never smuggled in). A composed `comptime capability
+  { A, B }` requires **every member to be `comptime` as well**; listing a non-comptime member
+  (e.g. `io`) is a **compile error**, decidable at the declaration, and this is exactly what
+  prevents a comptime capability from smuggling a non-comptime one into the sandbox. `comptime`
+  and `implicit` are orthogonal: a capability may be neither, either, or both.
 - **Always `const`.** A capability binding is always `const`, never `var` or `let`. Nothing
   else makes sense: a capability is a fixed, unforgeable token of authority, so rebinding it
   (`var`) or leaving it reassignable serves no purpose and would only invite confusion.
@@ -240,8 +257,25 @@ surface off one line, and the type system guarantees it cannot lie.
 Threading many capabilities is eased by **capability sets**: a named bundle of capabilities
 usable in a `use` clause as one name, so common groups need not be listed individually. A set
 is an ergonomic grouping over the `caps` module; it changes nothing about the guarantees
-(using a set still requires and propagates each member). The exact declaration form for a set
-is deferred with the module system.
+(using a set still requires and propagates each member). A set is declared with the
+**braced form** of the capability declaration (§1):
+
+```
+const webApp = capability { caps.io, caps.net, caps.fs };   // grants io, net, and fs together
+const query  = fn (sql: string) use (webApp): !rows => { ... };
+// use (webApp) requires and propagates io, net, and fs, exactly as if all three were listed
+```
+
+The braces list **members**, other capabilities, never data, so a set is still zero-data and
+inert (§1); it only names a group. Membership is a **set**, not a union: holding the set is
+holding *all* its members, and there is no "one-of" reading to consider.
+
+A set's **comptime** status is **not derived**; like any capability it is non-comptime unless
+declared `comptime` (§1, §8). A `comptime capability { ... }` set additionally requires **every
+member to be a `comptime` capability**, so a set that lists a non-comptime member (e.g. `io`) can
+never be `comptime`, listing one under `comptime` is a **compile error**, decidable at the
+declaration. This is the whole of the anti-smuggling guarantee for sets: a comptime set provably
+grants only comptime authority, so it cannot be a path to a non-comptime effect at compile time.
 
 ### 7.2 User-declared capabilities
 
@@ -282,11 +316,17 @@ user code and gate user-defined boundaries. Same mechanism, different root.
 
 ## 8. Comptime, and the `unsafe-` convention
 
-**Comptime** code cannot hold any capability, because comptime forbids `use` (functions §5.5)
-and a capability is reachable only through `use`. So comptime is capability-free by
-construction: it can compute but cannot reach the network, spawn a process, reveal a secret,
-or call foreign code. This extends automatically to every capability, including ones not yet
-defined; any new `capability` is comptime-unreachable the moment it exists.
+**Comptime** code cannot hold any **non-comptime** capability, because comptime-eligibility
+forbids using one (functions §5.5) and a capability is reachable only through `use`. So comptime
+is free of outside authority by construction: it can compute, and hold `comptime` capabilities
+(zero-data tags that authorize only comptime-safe operations, §1, §7.1), but it cannot reach the
+network, spawn a process, reveal a secret, or call foreign code, all of which are gated by
+**non-comptime** capabilities. This extends automatically to every such capability, including
+ones not yet defined: **non-comptime is the default**, so any new `capability` is
+comptime-unreachable the moment it exists unless it is deliberately declared `comptime`, and that
+opt-in is checked to compose only other `comptime` capabilities, so it can never be a path to an
+outside effect. The failsafe direction is preserved, forgetting the modifier leaves an authority
+*out* of comptime, never smuggled in.
 
 The **`unsafe-` convention** (functions §5.6): a capability whose use *suspends* Luna's
 guarantees (by reaching untrusted native code) is marked with an `unsafe-` prefix
