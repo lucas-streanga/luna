@@ -28,6 +28,18 @@ struct lval {
 Copying a variable copies the 16-byte `lval` and nothing else. The payload is
 duplicated only when copy-on-write is triggered by a mutation.
 
+**Referencing an inline scalar.** A reference (`&`, or a `use`-capture of a `var`,
+variables §5.1) to a heap-backed value shares the `lval`'s pointer, which already names a
+stable object. An inline scalar (`int`, `double`, `bool`) has no separate object, its payload
+*is* the `dataPtr` word, so a reference to it is a **pointer to the binding's `lval` slot**.
+For a synchronous call this needs no allocation (the caller's frame outlives the call); only an
+escaping `use`-capture **boxes** the scalar so binding and closure share one cell. The compiler
+emits a pointer to the binding and defers the stack-vs-heap decision to the Go backend's escape
+analysis, so no Luna-level escape analysis is required (compiler §1.4.1). A reference **shares**
+the slot, it never **moves** it: a scalar is copyable and so is never *moved-from* (§2.1,
+concurrency §2.3), and references cannot cross a spawn boundary anyway (concurrency §2.1), so a
+referenced or boxed scalar is always confined to one task.
+
 ### 1.1 Logical model vs. physical layout under Go's GC
 
 The struct above is the **logical** model: a 16-byte value whose second word is a
@@ -92,7 +104,7 @@ remaining bits are reserved for future per-value state.
 
 ### 2.1 What deliberately is *not* a flag
 
-Three properties that look flag-like belong elsewhere, because they are not
+Four properties that look flag-like belong elsewhere, because they are not
 per-value:
 
 - **Nullability** (declared `T?`) is a property of the **declared type**, identical
@@ -104,6 +116,17 @@ per-value:
 - **Error-ness** is **derivable** from the `typeid`: a value is an error iff its
   current type descends from the error type. Storing it as a flag denormalizes that
   and invites disagreement with the id.
+- **Moved-from** (a stream or builder transferred across a spawn boundary, concurrency
+  §2.3) is a property of the **shared referent**, not of an individual `lval`. A stream
+  can be aliased by several `lval`s at once, a binding and a table slot both referring to
+  the one stream (stream §6.1), and a transfer must invalidate **all** of them; a
+  per-`lval` flag would mark only the slot handed to `spawn` and leave the aliases live and
+  dangling. So moved-from lives in the referent's heap state (beside the stream's cursor or
+  the builder's buffer), where every alias dereferences it, the same reason error-ness lives
+  in the `typeid` rather than a flag: one shared fact must not have per-slot copies that can
+  disagree. `taken(x)` (concurrency §2.3) reads this referent state; **using** a moved-from
+  value panics. This is distinct from `isUndefined`, which is a genuine per-slot fact (one
+  binding is absent) and so *does* belong in the flag byte.
 
 This keeps the flag byte to genuinely dynamic, non-derivable, per-value bits, which
 is a small and slow-growing set.

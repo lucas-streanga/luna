@@ -44,8 +44,15 @@ This covers both channels by which data could enter a task, and both obey the ru
   reference).
 - **Captures** of a spawned closure are deep-copied too (a closure's captured environment is the
   sneaky path by which state could be shared, so it is copied on the same rule as arguments,
-  functions spec §2). A captured `const` is shared by reference; a captured `var` or `let` is
-  copied (the task sees a snapshot, not the spawner's live binding).
+  functions spec §2). How a capture crosses depends on *how it was captured* and *what it is*:
+  - an **auto (value) capture** of a `var` or `let` is **copied**, the task sees a **snapshot**,
+    not the spawner's live binding;
+  - a **`use`-capture of a `const` or a capability** is **shared by reference** (immutable, no
+    slot to race on), which is how a task comes to hold `io` (§2.1, capabilities §8);
+  - a **`use`-capture of a `var`** cannot be spawned at all, it is a **compile error** (§2.1),
+    because it would share a mutable slot; snapshotting it silently would instead break the
+    reference semantics the `use` asked for, so the language rejects it rather than quietly
+    changing its meaning. A `const` capture is always shared (it is deep-frozen either way).
 
 So a task's inputs are an isolated copy, and there is **no shared mutable state** between tasks or
 between a task and its spawner. That is the whole safety story: no shared mutable state means no
@@ -82,11 +89,16 @@ sharing mutable state:
   Because such values can never be `const`, they can never ride the const-share path into
   *multiple* tasks, so the "stateful value shared through a frozen container" race cannot arise.
 - **Promises**, **confined** (§3): a promise cannot cross a spawn boundary in either direction.
-- **`&` references**, **forbidden**. Passing `&t` into a task would give the task a mutable
-  reference to the spawner's binding, shared mutable state, a race. So a `&` reference may not be
-  passed as a spawn argument or captured into a spawned closure; it is a compile error. Mutation
-  visible to the spawner is expressed by the task **returning** a value the spawner uses (§2.2),
-  never by a shared reference.
+- **References to mutable bindings**, **forbidden**. A reference that shares a `var`, whether a
+  `&` argument (`spawn f(&t)`) or a `use`-capture of a `var` by the spawned closure, would give
+  the task a mutable reference to the spawner's binding, shared mutable state, a race. So **neither
+  a `&` argument nor a `use(var)` capture may cross a spawn boundary**; both are compile errors.
+  Mutation visible to the spawner is expressed by the task **returning** a value the spawner uses
+  (§2.2), never by a shared reference. This restriction is on **mutable** references only: a
+  `use`-capture of an **immutable-shareable**, a `const` or a **capability**, *does* cross (that is
+  exactly how a task comes to hold `io`, capabilities §8), because an immutable value shared by
+  reference has no slot to race on, the same reason `const` and capabilities cross by reference
+  above. The seam is mutability, not the `use` operator.
 
 The result: no live mutable value is ever reachable from two tasks at once. Copyable values are
 copied, frozen values are shared read-only, stateful values transfer sole ownership, capabilities
