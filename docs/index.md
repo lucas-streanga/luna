@@ -58,3 +58,110 @@ $ luna -f myprogram.luna        # or --format
 ```
 
 Runs the built-in formatter over the program and, recursively, its imported modules.
+
+## Spec index
+
+Every spec in this repository, grouped by area. Each spec is authoritative for its own topic; this
+table is a map.
+
+### Orientation
+
+| Spec | File | What it is |
+|-|-|-|
+| High-level overview | `high-level-overview.md` | A map of the language's shape, commitments, and full type set. |
+| Types | `types.md` | The compact index of every type and where each is specified. |
+
+### Value & primitive types
+
+| Spec | File | What it is |
+|-|-|-|
+| Int | `int.md` | The 64-bit signed integer primitive (inline, overflow panics). |
+| Double | `double.md` | The 64-bit IEEE 754 float primitive (Inf/NaN, never panics). |
+| Bool | `bool.md` | The two-valued `true`/`false` primitive, with no truthiness. |
+| String API | `strings.md` | The programmer-facing surface of the immutable UTF-8 `string` type. |
+| Bytes | `bytes.md` | The packed, mutable, growable byte buffer type. |
+| Regex | `regex.md` | The compiled regular-expression type and its `/.../` literal. |
+| Command | `command.md` | The structured, inert program/pipeline type built from a backtick literal. |
+| Secret | `secret.md` | The self-redacting sensitive-payload type, read only via `reveal`. |
+| Type | `type.md` | The `type` type: a type as a first-class, comparable value. |
+| Undefined | `undefined.md` | The language-produced absence sentinel (missing key / void return). |
+| Numeric tower | `numeric-tower.md` | The complete numeric type set and the widening/conversion rules relating them. |
+
+### Structured & composite types
+
+| Spec | File | What it is |
+|-|-|-|
+| Tables | `tables.md` | The core concepts of the table type: keys, value semantics, sealing, permissions. |
+| Table API | `table-api.md` | The operation catalogue for tables (the built-in protocol's methods). |
+| Views | `views.md` | The `view` type that pairs a table with one applied protocol and redirects access to it. |
+| Functions | `functions.md` | The `fn` value: capture, errorability, and comptime-eligibility. |
+| Stream | `stream.md` | The lazy, single-pass sequence type and its two defining properties. |
+| Stream API | `stream-api.md` | The operation surface of `stream` (inspect, transform, collect, consume). |
+| String builder | `stringBuilder.md` | The mutable string accumulator that avoids O(n²) concatenation. |
+| Enum | `enum.md` | The discriminated union (tagged sum) declaration form. |
+
+### Declaration forms & the type system
+
+| Spec | File | What it is |
+|-|-|-|
+| Protocols | `protocols.md` | How behavior and per-key contracts attach to tables (Luna's object model). |
+| Constraints | `constraints.md` | Refinement types: a base type narrowed by a pure runtime-checked predicate. |
+| Errors | `errors.md` | The sealed error type hierarchy and the error model. |
+| Capabilities | `capabilities.md` | Unforgeable authority tokens gating outside-reaching effects. |
+| Attributes | `attributes.md` | Static, comptime-only declaration metadata tags. |
+| Never | `never.md` | The bottom type: no values, the identity for `|`, the non-returning result type. |
+
+### Type operators & narrowing
+
+| Spec | File | What it is |
+|-|-|-|
+| `as` | `as.md` | The checked narrowing operator (runtime-checked, panics on mismatch). |
+| `is` | `is.md` | The total boolean type-test operator (never panics, never narrows). |
+| Match | `match.md` | The pattern/guard selection expression, in valued and open-ended forms. |
+| Equality | `equality.md` | Strict `==`: same type and same value, no coercion. |
+| Conversion | `conversion.md` | Value conversion via functions, and how it differs from `as`. |
+| Reflection | `reflection.md` | Built-in functions that ask questions about a `type`. |
+
+### Values, bindings & access
+
+| Spec | File | What it is |
+|-|-|-|
+| Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
+| Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
+| Spread | `spread.md` | Expanding one table's entries into a table literal (`...`). |
+| Optional access & coalescing | `optional-access-and-coalescing.md` | Semantics of `?.`, `??`, `???` and their compound-assignment forms. |
+| Wildcard | `wildcard.md` | The `_` operator: a deliberate unnamed blank, resolved by context. |
+| Range | `range.md` | The `lo..hi` syntactic construct (a stream, a slice bound, a match test). |
+
+### Operators & control flow
+
+| Spec | File | What it is |
+|-|-|-|
+| Operators | `operators.md` | The master catalogue of every operator and the rules governing all of them. |
+| Numeric operators | `numeric-operators.md` | The arithmetic operators in detail (`+ - * / %`, unary `-`) and their edges. |
+| Control flow | `control-flow.md` | The `foreach`, `while`, and `if` constructs. |
+| Pipeline | `pipeline.md` | The `|>` dataflow operator over streams and commands. |
+| Defer | `defer.md` | Deterministic block-exit cleanup on any exit path, including panic. |
+
+### Concurrency & effects
+
+| Spec | File | What it is |
+|-|-|-|
+| Concurrency | `concurrency.md` | Green threads: `spawn`, `promise`, `await`, and shared-nothing isolation. |
+| Exec | `exec.md` | Running a `command` as a capability-gated, error-governed effect. |
+
+### Modules, tooling & implementation
+
+| Spec | File | What it is |
+|-|-|-|
+| Modules | `modules.md` | The file-is-a-module system: static, DAG-shaped imports bringing names into scope. |
+| Compiler | `compiler.md` | The compiler's phase pipeline, IR, optimization passes, and Go emission. |
+| Incremental compilation & build cache | `incremental-compilation-build-cache.md` | The per-module artifact cache and its correctness/reuse rules. |
+| Tooling | `tooling.md` | The compiler-provided formatter, language server, and debugger. |
+
+### Internal representation
+
+| Spec | File | What it is |
+|-|-|-|
+| Value representation | `internal-representation-of-variables.md` | Runtime storage: the `lval`, the `typetable`, and where per-value/type/binding state lives. |
+| String representation | `internal-representation-of-strings.md` | Runtime storage of the `string` payload an `lval` points at. |
