@@ -1,0 +1,257 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Luna",
+  "scopeName": "source.luna",
+  "fileTypes": [
+    "luna"
+  ],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#attributes"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#commands"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#functions"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.luna",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "name": "meta.attribute.luna",
+          "begin": "#\\\\[",
+          "end": "\\\\]",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.attribute.luna"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.attribute.luna"
+            }
+          },
+          "patterns": [
+            {
+              "name": "entity.name.function.attribute.luna",
+              "match": "[a-zA-Z_][a-zA-Z0-9_]*"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#numbers"
+            }
+          ]
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.luna",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.luna",
+              "match": "\\\\\\\\."
+            },
+            {
+              "name": "meta.interpolation.luna",
+              "begin": "\\\\$\\\\{",
+              "end": "\\\\}",
+              "beginCaptures": {
+                "0": {
+                  "name": "punctuation.section.interpolation.begin.luna"
+                }
+              },
+              "endCaptures": {
+                "0": {
+                  "name": "punctuation.section.interpolation.end.luna"
+                }
+              },
+              "patterns": [
+                {
+                  "include": "source.luna"
+                }
+              ]
+            },
+            {
+              "name": "meta.interpolation.simple.luna",
+              "match": "\\\\$(\\\\.\\\\.\\\\.)?[a-zA-Z_][a-zA-Z0-9_]*",
+              "captures": {
+                "0": {
+                  "name": "variable.other.interpolated.luna"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.luna",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.luna",
+              "match": "\\\\\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "commands": {
+      "patterns": [
+        {
+          "name": "string.interpolated.command.luna",
+          "begin": "`",
+          "end": "`",
+          "patterns": [
+            {
+              "name": "meta.interpolation.luna",
+              "begin": "\\\\$\\\\{",
+              "end": "\\\\}",
+              "patterns": [
+                {
+                  "include": "source.luna"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.double.luna",
+          "match": "\\\\b[0-9][0-9_]*\\\\.[0-9][0-9_]*\\\\b"
+        },
+        {
+          "name": "constant.numeric.integer.luna",
+          "match": "\\\\b[0-9][0-9_]*\\\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "storage.type.luna",
+          "match": "\\\\b(var|let|const|fn|constraint|proto|enum|error|capability|attribute|meta|export|import|test)\\\\b"
+        },
+        {
+          "name": "keyword.control.luna",
+          "match": "\\\\b(if|else|foreach|while|in|break|continue|return|yield|match|where|defer|try|catch|throw|by)\\\\b"
+        },
+        {
+          "name": "keyword.operator.word.luna",
+          "match": "\\\\b(copy|spawn|await|comptime|comptype|is|as|apply|declared|use)\\\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.luna",
+          "match": "\\\\b(int|double|bool|string|bytes|table|list|stream|promise|view|never|any|regex|command|type|byte|number|json|csv|yaml|xml|path|file|secret|panic)\\\\b"
+        },
+        {
+          "name": "support.type.refinement.luna",
+          "match": "@@?[a-zA-Z_][a-zA-Z0-9_]*"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.luna",
+          "match": "\\\\b(true|false|null|undefined|self)\\\\b"
+        },
+        {
+          "name": "variable.language.wildcard.luna",
+          "match": "\\\\b_\\\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.compound.luna",
+          "match": "(\\\\?\\\\?\\\\?=|\\\\?\\\\?=|\\\\+=|-=|\\\\*=|/=|%=)"
+        },
+        {
+          "name": "keyword.operator.coalescing.luna",
+          "match": "(\\\\?\\\\?\\\\?|\\\\?\\\\?|\\\\?\\\\.)"
+        },
+        {
+          "name": "keyword.operator.pipeline.luna",
+          "match": "\\\\|>"
+        },
+        {
+          "name": "keyword.operator.arrow.luna",
+          "match": "(=>|->)"
+        },
+        {
+          "name": "keyword.operator.range.luna",
+          "match": "(\\\\.\\\\.<|\\\\.\\\\.\\\\.|\\\\.\\\\.)"
+        },
+        {
+          "name": "keyword.operator.comparison.luna",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.logical.luna",
+          "match": "(&&|\\\\|\\\\||!)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.luna",
+          "match": "(\\\\+|-|\\\\*|/|%)"
+        },
+        {
+          "name": "keyword.operator.other.luna",
+          "match": "(&|\\\\||\\\\?|=|:)"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.call.luna",
+          "match": "\\\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\\\()"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+# One-shot containerized tree-sitter generation (no local npm/node needed).
+# Used by regen-grammar.sh: `podman compose build` then `run --rm treesitter ...`.
+# The Containerfile pins tree-sitter-cli, so generation is reproducible and
+# nothing downloads at runtime. Bind mount is :z for SELinux hosts (harmless
+# elsewhere); under rootless podman container root maps to your user, so
+# generated files come out owned by you.
+
+services:
+  treesitter:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/luna-treesitter:latest
+    working_dir: /work
+    volumes:
+      - ./tree-sitter-luna:/work:z

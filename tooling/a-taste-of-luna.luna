@@ -1,0 +1,17 @@
+const exitCode = ['success' => 0, 'usage' => 64];
+
+const main = fn () use (io, argv): int! => {
+  let arguments = args();             // argv is a capability
+  die('no files given') if arguments.empty();
+
+  foreach (name in arguments) {
+    var fd = openFile(name as path);    // file!: failure propagates
+    defer close(&fd);                   // closed at each iteration's end
+
+    println("${name}: ${fd.byteSize} bytes");
+    println("${lineNumber}: ${line}")
+      foreach (lineNumber => line in fd.lines());
+  }
+
+  return exitCode.success;
+};

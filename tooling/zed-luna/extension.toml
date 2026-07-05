@@ -5,7 +5,12 @@ schema_version = 1
 authors = ["Luna spec"]
 description = "Syntax highlighting for the Luna programming language."
 
+# THIS FILE IS GENERATED: run tooling/regen-grammar.sh, which fills repository
+# from `git remote get-url origin` and rev from `git rev-parse HEAD`, then
+# commits. The placeholder below is deliberately invalid so a non-generated
+# copy fails obviously instead of fetching a plausible-but-wrong branch.
+
 [grammars.luna]
-repository = "https://github.com/lucas-streanga/luna"
-rev = "626ed3496d713ad9df8c4c0f3e3fc49a652241dc"
+repository = "RUN-tooling/regen-grammar.sh"
+rev = "0000000000000000000000000000000000000000"
 path = "tooling/tree-sitter-luna"

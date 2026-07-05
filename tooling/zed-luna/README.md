@@ -90,7 +90,9 @@ practice, three causes cover it, most likely first:
    `zed-luna/grammars/<name>` during dev installs; after changing the
    `repository` URL, the leftover clone from the old URL blocks the install
    ("already exists, but is not a git clone of ..."). Fix:
-   `rm -rf tooling/zed-luna/grammars`, reinstall. **Only for URL changes**: after
+   `rm -rf tooling/zed-luna/grammars`, reinstall; regen-grammar.sh also does this
+   automatically, but only when it detects the clone's origin differs from the
+   url it is writing (routine regens leave the live clone alone). **Only for URL changes**: after
    install this directory holds the live compiled grammar Zed loads in place,
    and deleting it during routine regeneration breaks the language ("failed to
    load language Luna: No such file or directory") until reinstall; the regen
