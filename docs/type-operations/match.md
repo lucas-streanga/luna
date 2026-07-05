@@ -395,7 +395,7 @@ is evaluated. `use` on a match means what `use` means everywhere, **capabilities
 by name:
 
 ```
-let v = match use (caps.io) {
+let v = match use (io) {
   _ where confirm(io) => ...,     // a guard that reaches io must hold it, like any body
 };
 ```

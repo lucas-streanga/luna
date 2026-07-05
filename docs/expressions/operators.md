@@ -32,7 +32,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `a < b`, `a > b`, `a <= b`, `a >= b` | comparison | ordering | relational comparison; operands must share a type (widening within a numeric family is implicit, crossing families needs an explicit conversion, as with arithmetic). Numbers order numerically; strings lexicographically by the total order | equality (total order) |
 | `a && b` | logical | and | short-circuiting logical and (both operands `bool`) | bool |
 | `a \|\| b` | logical | or | short-circuiting logical or (both operands `bool`) | bool |
-| `!a` | logical | not | logical negation (**prefix**; distinct from postfix `!` errorable) | bool |
+| `a!` | logical | not | logical negation (**prefix**; distinct from postfix `!` errorable) | bool |
 | `x.key` | access | static key | compile-checked element access on a table (**infix, right operand an identifier**) | tables §3.2 |
 | `x[k]` | access | dynamic key | runtime element access (miss yields `undefined`) | tables §3.2 |
 | `x->name` | access | meta | protocol / meta-space navigation and method call | tables §3.3, views |

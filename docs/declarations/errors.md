@@ -383,7 +383,7 @@ meaningful (it tracks the failures you can locally anticipate and handle) withou
 every allocating or calling function to be `!` for failures nobody can locally prevent
 (§9).
 
-This is the same `fn` / `fn!` distinction the function spec defines, and the same `!self`
+This is the same `fn` / `fn!` distinction the function spec defines, and the same `self!`
 a protocol's `apply` carries when it can throw (protocols §7.5).
 
 ---
@@ -499,7 +499,7 @@ applies to it, so it has exactly the two choices any function has:
   its signature promises so. Then the program provably exits with a declarable error **never**,
   never via an unhandled declared error, the whole declarable-error surface was closed inside the
   program.
-- **`fn!` `main`** declares `!` (`fn (...): !int`) and may let a declarable error reach the top.
+- **`fn!` `main`** declares `!` (`fn (...): int!`) and may let a declarable error reach the top.
   There is no caller to catch it, so **the runtime is `main`'s top handler**: an escaped declarable
   error
   terminates the program (nonzero exit, the error and its `stacktrace` / `cause` reported, §6),

@@ -9,7 +9,7 @@ one means "you may do this"; not holding one means, checkably, that you cannot.
 Capabilities underpin several guarantees relied on elsewhere: they sandbox comptime (comptime
 cannot hold one, functions §5.5), they make effects auditable (a function's `use` clause is
 its capability manifest), and they let the *absence* of a capability be a guarantee (a
-function without `use (caps.reveal)` cannot reveal a secret, secret spec).
+function without `use (reveal)` cannot reveal a secret, secret spec).
 
 ---
 
@@ -23,7 +23,7 @@ const reveal = capability;
 const exec   = capability;
 const io     = implicit capability;             // opt into silent inference (§6)
 const cfg    = comptime capability;             // opt into comptime use (§8); non-comptime is the default
-const webApp = capability { caps.io, caps.net };  // a composed set: grants io and net together (§7.1)
+const webApp = capability { io, net };  // a composed set: grants io and net together (§7.1)
 ```
 
 - **Bare declares a leaf; braces compose a set.** A bare `capability` (no braces) declares a
@@ -38,7 +38,7 @@ const webApp = capability { caps.io, caps.net };  // a composed set: grants io a
   a choice among them.
 - **Each declaration is a distinct type.** `const reveal = capability` declares `reveal` as a
   **distinct capability type**, just as `myError = error {}` declares a distinct error type.
-  `reveal` and `io` are *different types*, which is what lets `use (caps.reveal)` demand the
+  `reveal` and `io` are *different types*, which is what lets `use (reveal)` demand the
   reveal authority specifically and nothing else.
 - **The `implicit` modifier** marks a capability as silently inferable (§6). Its absence is
   the default: a plain `capability` must be declared wherever it is required.
@@ -57,9 +57,9 @@ const webApp = capability { caps.io, caps.net };  // a composed set: grants io a
   instance for stdlib capabilities; a user capability's instance is minted where it is declared
   (§7.2).
 
-Capabilities live in the **`caps` module** (accessed `caps.reveal`, `caps.io`), a light,
+Capabilities live in the **modules that define them** (`io` exported by `std.io`, `reveal` by `std.secret`), imported and named like any binding (§4), a light,
 dataless module, so that capability names never collide with ordinary function names. `reveal`
-the function (secret spec) and `caps.reveal` the capability coexist because they are in
+the function (secret spec) and `reveal` the capability coexist because they are in
 different namespaces (the exact namespacing mechanism is the module system's, deferred).
 
 ---
@@ -116,7 +116,7 @@ through any value-carrying channel. It does not, because it is nocopy (and alway
 - **Not a parameter.** `fn (c: reveal) { ... }` is illegal: passing an argument copies it into
   the parameter slot, and a capability cannot be copied. So a capability cannot be smuggled in
   as a function argument (the hole this closes: otherwise a function could reveal without
-  declaring `use (caps.reveal)`, voiding the absence guarantee).
+  declaring `use (reveal)`, voiding the absence guarantee).
 - **Not a binding.** `let c = reveal` is illegal (nocopy). **Aliasing** an existing capability to
   a new name is likewise **not permitted**: it would copy a nocopy value, and there is no use for
   the alias anyway, since a `use` clause names the capability's declared type, not an alias.
@@ -146,7 +146,7 @@ capability-holding function value is **second-class**:
 
 - **Not a binding**: `let f = println;` is a **compile error** if `println` requires a
   capability. A capability-holding function has exactly one name, the one its **literal**
-  was bound to at the declaration (`const println = fn ... use (caps.io) ...`, the
+  was bound to at the declaration (`const println = fn ... use (io) ...`, the
   creation site, §5.1). Binding the literal is how such a function comes into being;
   binding the already-named *value* again is aliasing, and is rejected, the same
   literal-versus-existing distinction §1 draws for declaring a capability itself.
@@ -178,20 +178,27 @@ mechanisms.
 
 ---
 
-## 4. `use` and the `caps` namespace
+## 4. `use` and where capabilities come from
 
 A capability is acquired through **`use`** (functions §2.2), the referential-capture operator,
 the same `use` that captures any nocopy value. There is no separate keyword: capability
 acquisition *is* referential capture, so it is spelled `use`, not a distinct `require`.
 
+There is **no `caps` namespace and no capability registry**: a capability is an ordinary
+`const` declaration (§1) that its defining **module `export`s** like any other binding
+(modules spec), `std.io` exports `io`, `std.secret` exports `reveal`, and a `use` clause names
+the **imported binding**. Modules are unnamed and resolved at compile time, so the name in a
+`use` clause is unambiguous the same way every imported name is; auditing "what can exercise
+X" is a search for `use (X)` against the one canonical declaration the import resolves to.
+
 ```
-const authenticate = fn (s: secret) use (caps.reveal): !response => {
+const authenticate = fn (s: secret) use (reveal): response !=> {
   let raw = reveal(s);          // permitted: this function holds the reveal capability
   ...
 };
 ```
 
-A `use` clause may name several capabilities (`use (caps.io, caps.exec)`), and capability
+A `use` clause may name several capabilities (`use (io, exec)`), and capability
 *sets* (§7) bundle common groups under one name to keep clauses short.
 
 ---
@@ -202,9 +209,9 @@ Capability requirements **propagate transitively up the call graph**: calling a 
 requires a capability requires the caller to hold it too.
 
 ```
-const println = fn (s: string) use (caps.io) { ... };        // holds io
+const println = fn (s: string) use (io) { ... };        // holds io
 
-const greet = fn () use (caps.io) { println("hi"); };        // must hold io: it calls println
+const greet = fn () use (io) { println("hi"); };        // must hold io: it calls println
 
 const broken = fn () { println("hi"); };                     // COMPILE ERROR: calls println,
                                                              // which needs io, but declares none
@@ -217,18 +224,18 @@ without holding it.
 
 This transitivity is what makes capability-absence a **deep** guarantee rather than a shallow
 one. Because a callee cannot secretly exercise an authority the caller does not hold, "no
-`use (caps.io)` in this signature" means "no io happens anywhere in this call tree," not just
+`use (io)` in this signature" means "no io happens anywhere in this call tree," not just
 "this body does no io." So:
 
 ```
-// Guaranteed not to reveal s: no use(caps.reveal) anywhere in its call tree.
+// Guaranteed not to reveal s: no use(reveal) anywhere in its call tree.
 const forward = fn (s: secret, dest: command): command => attachAuth(dest, s);
 ```
 
-Auditing "what can exercise authority X" is a search for `use (caps.X)`, which finds every
+Auditing "what can exercise authority X" is a search for `use (X)`, which finds every
 function *able* to, transitively. The honest limit: a capability governs **reaching** an
 authority, not what happens to a value **after** a permitted use. Once a function that holds
-`use (caps.reveal)` reveals a secret, it has a plain value the type system no longer tracks.
+`use (reveal)` reveals a secret, it has a plain value the type system no longer tracks.
 The capability boundary is the last point the type system can help.
 
 ### 5.1 The creation-site check
@@ -272,7 +279,7 @@ filled silently.** This is the `explicit` / `implicit` distinction:
   `reveal`, `exec`, and the `unsafe-` capabilities are explicit.
 - **`implicit` (opt in, `implicit capability`).** A required-but-undeclared use is **fine**;
   inference fills it silently. The requirement is still tracked (and tooling can show it), but
-  it need not clutter every signature. `io` is `implicit`, because threading `use (caps.io)`
+  it need not clutter every signature. `io` is `implicit`, because threading `use (io)`
   through every function that logs would be noise for a low-stakes, ubiquitous effect.
 
 Inference runs either way; `implicit` only changes whether a *missing* declaration is an error
@@ -301,14 +308,14 @@ every other function obtains a capability only by receiving it transitively from
 downward.
 
 ```
-main = fn () use (caps.io, argv) { ... };
+main = fn () use (io, argv) { ... };
 ```
 
 Here `io` is a capability the runtime grants; `argv` is nocopy immutable data (the program's
 arguments), reached by `use` because it is nocopy, but **not** a capability (§3).
 
 The consequence is powerful: **`main`'s `use` clause is a complete, machine-checked upper
-bound on the whole program's authority.** If `main` names only `caps.io`, the program can do
+bound on the whole program's authority.** If `main` names only `io`, the program can do
 io and nothing else, no network, no process spawning, no ffi, no secret revelation, because
 those capabilities were never handed in at the root and cannot be forged (nocopy) or conjured
 (only the runtime holds the instances). A reviewer reads the program's entire permission
@@ -318,13 +325,13 @@ surface off one line, and the type system guarantees it cannot lie.
 
 Threading many capabilities is eased by **capability sets**: a named bundle of capabilities
 usable in a `use` clause as one name, so common groups need not be listed individually. A set
-is an ergonomic grouping over the `caps` module; it changes nothing about the guarantees
+is an ergonomic grouping of exported capabilities; it changes nothing about the guarantees
 (using a set still requires and propagates each member). A set is declared with the
 **braced form** of the capability declaration (§1):
 
 ```
-const webApp = capability { caps.io, caps.net, caps.fs };   // grants io, net, and fs together
-const query  = fn (sql: string) use (webApp): !rows => { ... };
+const webApp = capability { io, net, fs };   // grants io, net, and fs together
+const query  = fn (sql: string) use (webApp): rows !=> { ... };
 // use (webApp) requires and propagates io, net, and fs, exactly as if all three were listed
 ```
 
@@ -348,7 +355,7 @@ guarantees:
 ```
 const dbAccess = capability;
 
-const query = fn (sql: string) use (dbAccess): !rows => { ... };   // only holders may query
+const query = fn (sql: string) use (dbAccess): rows !=> { ... };   // only holders may query
 ```
 
 Now "which parts of the app can touch the database" is a checkable property: a function
@@ -362,7 +369,7 @@ no authority.** A capability is a zero-data, inert boundary token; it *does* not
 own. Real authority (io, process spawning, secret revelation) comes from the runtime-held
 instances handed to `main` (§7), which a user declaration never touches. So a user capability
 can only *gate* functions, not *empower* them. And because every capability is a distinct type
-(§1), a user capability cannot impersonate or breach a standard one: `use (caps.reveal)` still
+(§1), a user capability cannot impersonate or breach a standard one: `use (reveal)` still
 demands the real reveal type, which only the runtime hands out. Declaring `dbAccess` gives you
 no more access to anything than you already had; it only lets you *require* it.
 

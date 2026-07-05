@@ -75,7 +75,7 @@ stringBuilder = proto {
   append          = meta fn (&b: table, value: any): self => { ... };
   appendAll       = meta fn (&b: table, items: stream | table): self => { ... };
   appendCodepoint = meta fn (&b: table, cp: int): self => { ... };
-  appendUtf8Bytes = meta fn (&b: table, bytes: bytes): !self => { ... };
+  appendUtf8Bytes = meta fn (&b: table, bytes: bytes): self !=> { ... };
   reserve         = meta fn (&b: table, bytes: int): self => { ... };
   byteLength      = meta fn (b: table): int => { ... };
   isEmpty         = meta fn (b: table): bool => { ... };
@@ -125,7 +125,7 @@ It preserves the always-valid invariant by validating at the call:
   complete, they are appended. If they are invalid, or end mid-codepoint (a split
   sequence), `appendUtf8Bytes` **throws** at the call site, near the cause, and appends
   nothing.
-- It is therefore the **only errorable** builder operation (`: !self`). Every other append,
+- It is therefore the **only errorable** builder operation (`: self!`). Every other append,
   and `build`/`take`, remain non-errorable, because the buffer they see is always valid.
 
 The cost (an O(slice) UTF-8 scan of the appended bytes) is paid only by callers who opt

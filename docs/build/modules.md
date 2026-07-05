@@ -15,34 +15,34 @@ declaration:
 
 - The file's **path is its identity** (§3). A module is never given a name; naming would be
   redundant with the path and could disagree with it, so it is not allowed.
-- **Top-level `pub` declarations are the module's exports**; top-level declarations without
-  `pub` are private to the module.
+- **Top-level `export` declarations are the module's exports**; top-level declarations without
+  `export` are private to the module.
 
 ```
 // file: text/strings.luna   , this file is the module `text.strings`
-pub const parse = fn (...) => ...;      // exported
-pub const split = fn (...) => ...;      // exported
+export const parse = fn (...) => ...;      // exported
+export const split = fn (...) => ...;      // exported
 const helper = fn (...) => ...;         // private
 ```
 
 The file with the `main` function is the **main module**, implicitly; it needs no declaration
 either, and it defines the project root (§3).
 
-### 1.1 `pub` on the root module is allowed, dormant on an app root
+### 1.1 `export` on the root module is allowed, dormant on an app root
 
-`pub` means the same thing everywhere: "exported if this module is imported." On a **library
-root** (§9.1), `pub` is essential, it is exactly how the library exposes its API to consumers.
-On an **application root** (the `main` file), nothing imports the module, so a `pub` binding is
+`export` means the same thing everywhere: "exported if this module is imported." On a **library
+root** (§9.1), `export` is essential, it is exactly how the library exposes its API to consumers.
+On an **application root** (the `main` file), nothing imports the module, so a `export` binding is
 exported to no one: a harmless **no-op**, not an error.
 
-This is deliberate. `pub` is not *wrong* in the app root, it is merely **dormant in this
+This is deliberate. `export` is not *wrong* in the app root, it is merely **dormant in this
 configuration**, its inertness following from the fact that nothing imports the root, not from
 anything broken in the code. Erroring would special-case the keyword by module role and create a
 refactoring wall (extracting the file into a library, or removing `main`, would flip the same
-`pub` between error and required). So the rule is uniform: `pub` marks exports everywhere, and an
+`export` between error and required). So the rule is uniform: `export` marks exports everywhere, and an
 export goes nowhere when nothing imports the module. Hard errors are reserved for genuinely
 broken code (unresolved names, type errors, cycles), not for inert-but-harmless declarations,
-and there is no warning either, dormant `pub` is simply allowed and ignored.
+and there is no warning either, dormant `export` is simply allowed and ignored.
 
 ---
 
@@ -124,20 +124,20 @@ a fixed compile-time fact rather than something that depends on runtime control 
 
 ## 5. Importing brings public names into scope
 
-`import` brings a module's `pub` names into the current scope. It does **not** create a module
+`import` brings a module's `export` names into the current scope. It does **not** create a module
 object or a namespace construct; Luna is data-focused, and where a namespace is wanted, an
 ordinary **table** serves (§6). The forms:
 
 ```
 import { parse, split } from text.strings          // bring in parse and split
 import { parse as strParse } from text.strings      // bring in with a rename
-import * from text.strings                          // bring in every pub name
+import * from text.strings                          // bring in every export name
 ```
 
 - **Selective** (`{ names }`): brings the named exports into scope. The common form.
 - **Aliased** (`{ name as newName }`): renames on import, the tool for resolving collisions
   (§8).
-- **Glob** (`* from`): brings **all** `pub` names into scope. Available but used sparingly,
+- **Glob** (`* from`): brings **all** `export` names into scope. Available but used sparingly,
   since it couples the importer to the module's entire (and future) export surface.
 
 Each of these is a **statement that dumps names**; none produces a value. A namespace, when
@@ -148,22 +148,22 @@ wanted, is a table (§6).
 ## 6. Collecting a module into a table
 
 To get a namespaced handle instead of loose names, **assign a glob import**, which collects the
-module's `pub` exports into an ordinary **table**:
+module's `export` exports into an ordinary **table**:
 
 ```
-const strings = import * from text.strings;    // strings : table, holding all pub exports
+const strings = import * from text.strings;    // strings : table, holding all export exports
 strings.parse(x);                                    // ordinary table access
 ```
 
 - The glob import **in assignment position** yields a `table` whose fields are the module's
-  `pub` exports. `strings` is that table.
+  `export` exports. `strings` is that table.
 - Its type is `table`, annotatable (`const strings: table = import * from ...`) and inferable.
   This is the proof that **a module is not a value or a type**: what you get is a plain table,
   not a "module object." After compilation the module itself is gone (§9); only this table, if
   you built one, remains, as data.
 
 So there are two ways to get namespaced access, and they are the author's or the importer's
-choice: the **author** exports a single table (`pub const strings = { parse: ..., ... }`, then
+choice: the **author** exports a single table (`export const strings = { parse: ..., ... }`, then
 `import { strings } from ...`), or the **importer** collects loose exports with `const ns =
 import * from ...`. Both yield `ns.parse`; both are just table access. No module-namespace
 mechanism is needed because tables already are namespaces.
@@ -284,13 +284,13 @@ in whether the root is a starting point for execution or for consumption.
 
 ### 9.2 Visibility is exactly two levels
 
-A binding is either `pub` (exported) or unmarked (module-private). There is **no third level**:
+A binding is either `export` (exported) or unmarked (module-private). There is **no third level**:
 no package-private, no per-module selective exposure, no re-export. This is deliberate, the
 public/private binary is the whole visibility model.
 
-- **Re-exports are not provided.** A module exports only its own `pub` declarations; it cannot
-  re-export another module's names. To re-expose something, define it `pub` in the module that
-  should own it. (A facade `pub import` form is additive if a real need appears.)
+- **Re-exports are not provided.** A module exports only its own `export` declarations; it cannot
+  re-export another module's names. To re-expose something, define it `export` in the module that
+  should own it. (A facade `export import` form is additive if a real need appears.)
 - **Selective cross-module exposure is not provided.** A binding is not "private except to
   module B." A need to share internals between modules almost always means the boundary is in the
   wrong place, the shared part should be its own module both import, or the two should be one
@@ -311,7 +311,7 @@ and the difference is exactly language-versus-library.
 
 - **Builtins are ambient in every module, always, and are not optional.** The primitive types
   and their full APIs, `string`, `int`, `double`, `table`, `regex`, `command`, `bytes`, `secret`,
-  and ambient facilities like `caps`, are available everywhere with no import. Builtin-ness
+  are available everywhere with no import; capabilities are not among them, they are ordinary module exports (capabilities §4). Builtin-ness
   follows the **type**: a builtin type's API is builtin regardless of how large it is, so the
   extensive `string` API is builtin because `string` is. There is no builtin-free build mode,
   builtins are what the language *is*, not a library that could be omitted, so "without builtins"

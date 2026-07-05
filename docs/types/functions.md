@@ -109,7 +109,7 @@ function mutate a caller's value, the caller passes `&var` at call time (variabl
 §5.1); mutation is an argument, never an ambient capture.
 
 ```
-const greet = fn (name: string) use (caps.io) => { io->println("hi " . name); };
+const greet = fn (name: string) use (io) => { io->println("hi " . name); };
 ```
 
 A function cannot silently close over `io`: value capture of a `nocopy` value is
@@ -158,7 +158,7 @@ properties that govern how it may be used:
 
 ```
 fn (params) : result             // base shape
-fn (params) : !result            // errorable (§4)
+fn (params) : result!            // errorable (§4)
 ```
 
 Two functions differ in type if they differ in parameters, result, errorability (§4), or
@@ -228,7 +228,7 @@ partly from the `use` clause.
 A bare **`fn`** (no signature) is the type "any **non-errorable** function." It erases
 parameters and result, so nothing about a value's *signature* is statically checked
 through a bare-`fn` slot, but it does **not** erase errorability: a throwing function
-(`fn (...): !R`) does not fit a bare-`fn` slot. The errorable wildcard is **`fn!`**,
+(`fn (...): R!`) does not fit a bare-`fn` slot. The errorable wildcard is **`fn!`**,
 "any function, which may error":
 
 ```
@@ -253,11 +253,11 @@ prepared to handle it.
 The subtype ladder is the usual asymmetry, with errorability widening one way only:
 
 - **`fn (A): R <: fn`** , implicit (a specific non-throwing function *is* one).
-- **`fn (A): !R <: fn!`** , implicit, likewise.
+- **`fn (A): R! <: fn!`** , implicit, likewise.
 - **`fn <: fn!`** , implicit: a function that cannot fail is acceptable wherever
-  fallibility is already handled (the same direction as `R <: !R`, i.e. `R <: R | error`,
+  fallibility is already handled (the same direction as `R <: R!`, i.e. `R <: R | error`,
   §3.2).
-- **`fn (A): !R` into `fn`** , **never**, this is the laundering the split forbids.
+- **`fn (A): R!` into `fn`** , **never**, this is the laundering the split forbids.
 - **`fn` into `fn (A): R`** , not implicit; requires `as` (the erased signature is not
   statically known, so asserting it is a checked narrowing, `as` spec).
 
@@ -392,7 +392,7 @@ A function that can throw a declarable error (errors §2) **declares** it with `
 (value-representation error model):
 
 ```
-const parseInt = fn (s: string): !int => { ... };   // declared throwing
+const parseInt = fn (s: string): int !=> { ... };   // declared throwing
 const double   = fn (n: int): int => n * 2;          // not throwing
 ```
 
@@ -433,7 +433,7 @@ Three properties keep this local and predictable:
 
 A caller must handle a throwing function's result with `try` or an errorable binding; a
 non-throwing function's result needs neither. This is the same errorability the protocol `apply`
-uses (`: !self`) and the same that static protocol application inherits (protocols spec §7.5).
+uses (`: self!`) and the same that static protocol application inherits (protocols spec §7.5).
 
 **`main` is no exception.** If `main` can throw and does not handle it, `main` **must be declared
 `fn!`**, exactly as any other function that lets an error escape. A `fn!` `main` is the deliberate,
@@ -664,7 +664,7 @@ capabilities are doors out of them.
 
 - **`unsafe-ffi`** , the foreign-function interface. Native code can do anything, so the
   guarantees end at the boundary. Named `unsafe-ffi` (not `ffi`) so both callers and
-  callees see the danger at every `use (caps.unsafe-ffi)` site.
+  callees see the danger at every `use (unsafe-ffi)` site.
 - **`system` vs `unsafe-system`** , syscalls split by the same test. Safe syscalls that
   respect the process (reading the clock, `getpid`, `stat`) are `system`, an ordinary
   capability. Syscalls that can corrupt the process or hand back memory outside Luna's
@@ -744,7 +744,7 @@ recorded in its `typeinfo` and encoded into its `typeid`, not in the function va
   and let a flag disagree with the `typeid`, the same reason error-ness is derived from
   the typeid rather than flagged (value-representation §2.1).
 
-So `fn (int): int` and `fn (int): !int` are distinct types with distinct typeids, and the
+So `fn (int): int` and `fn (int): int!` are distinct types with distinct typeids, and the
 comptime-eligible and comptime-ineligible variants likewise. A function value's `lval` is
 unchanged by any of this: `typeid` (the specific function type) plus `dataPtr` (the
 closure). The caller reads errorability and eligibility from the callee's type in O(1),

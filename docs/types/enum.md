@@ -126,6 +126,17 @@ let c: Shape = {point};                  // variant point, no payload
 The payload is written as an ordinary value: a table value (`['radius' => 5]`), a primitive
 (`"hello"`), and so on. A no-payload variant is just `{point}`.
 
+**Which enum a fenced literal belongs to is the expected type at its position.** A variant
+literal names a variant, not an enum, so the enum is supplied by context: the annotation
+(`let c: Shape = {point}`), the parameter's declared type (`openFile('x', {read})`, where the
+parameter is typed `enum {read, write, append}`), the assignment target, the match scrutinee's
+type. Anonymous enums intern structurally (value-representation §4.1), so an inline
+`enum {read, write, append}` in a signature is one canonical type wherever it is written, and
+the context always resolves the literal to exactly one enum. With **no** enum-typed context
+(`let x = {read};`), the literal is a **compile error**, name the enum or annotate. This is
+the same expected-type checking every literal already gets against a declared target; nothing
+is inferred *from* the literal upward.
+
 ### 3.1 Payload shape is closed and checked, statically when possible
 
 A variant's declared payload shape is a **closed contract**: a construction must supply

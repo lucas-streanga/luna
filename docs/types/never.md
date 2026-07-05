@@ -31,7 +31,7 @@ halts the thread, or loops forever. The statement after such a call is unreachab
 unconditional failure helper, an event loop that never terminates.
 
 ```
-const exit = fn (code: int): never use (caps.io) => { io->exit(code); };
+const exit = fn (code: int): never use (io) => { io->exit(code); };
 const loop = fn (): never => { while (true) { tick(); } };
 ```
 
@@ -75,7 +75,7 @@ the ordinary `!` suffix, and its meaning ("only ever an error, never a value") i
 composition says.
 
 ```
-const fail = fn (msg: string): never! => { throw error(msg); };   // always throws, never returns a value
+const die = fn (msg: string): never! => { throw error(msg); };   // always throws, never returns a value
 ```
 
 ### 2.1 `never!` (the throw case) **is** checked

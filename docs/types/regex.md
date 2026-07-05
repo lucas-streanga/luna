@@ -184,11 +184,11 @@ A `/.../ ` literal is compiled at compile time. To compile a pattern known only 
 (from configuration, or from user input), use the constructor:
 
 ```
-fn regex(pattern: string, flags: string = ""): !regex
+fn regex(pattern: string, flags: string = ""): regex!
 ```
 
 - `regex(userPattern)` compiles `userPattern` into a `regex` at runtime.
-- It is **errorable** (`!regex`): a malformed pattern, or one that exceeds the compile-size
+- It is **errorable** (`regex!`): a malformed pattern, or one that exceeds the compile-size
   limit (§5.1), throws, so the caller handles a bad pattern with `try` or an errorable
   binding.
 - `flags` supplies the same flags as a literal (`"i"`, `"im"`, `"b"`, and so on) as a
@@ -200,7 +200,7 @@ let r = try regex(config.pattern, "i");    // compile a user pattern, handle fai
 
 Because the default engine is safe on both axes (§5.1), compiling and matching an untrusted
 runtime pattern is safe: the worst a malicious pattern can do is fail to compile (caught by
-`!regex`) or match in linear time. A runtime pattern that requests `b` opts into the
+`regex!`) or match in linear time. A runtime pattern that requests `b` opts into the
 backtracking engine and its step budget like any other `b` pattern.
 
 ---

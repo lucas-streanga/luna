@@ -60,7 +60,7 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
   `Panic`, user-defined errors) are members, related by single inheritance.
 - **`capability`** is the union of all capabilities; a specific capability (`reveal`, `io`) is
   a member. Capabilities are zero-data, nocopy, and reached only through `use`. They live in
-  the `caps` module (`caps.reveal`), and a capability may be marked `implicit` to opt into
+  its defining module's exports (`reveal` from `std.secret`), and a capability may be marked `implicit` to opt into
   silent inference (capabilities spec).
 
 A related declaration form is **`constraint`**, which refines a base type by a pure predicate

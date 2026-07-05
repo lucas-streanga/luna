@@ -36,7 +36,7 @@ log and error), and `exec` reveals it once, at the syscall, so the raw value nev
 user-visible output.
 
 ```
-const countLines = fn (path: string) use (caps.exec): !int => {
+const countLines = fn (path: string) use (exec): int !=> {
   let out = try exec.run(`wc -l ${path}`);
   return parseFirstInt(out);
 };
@@ -47,7 +47,7 @@ const countLines = fn (path: string) use (caps.exec): !int => {
 ## 2. `run`: stdout, or throw on failure
 
 ```
-fn run(cmd: command): !string
+fn run(cmd: command): string!
 ```
 
 `run` executes `cmd`, and:
@@ -57,7 +57,7 @@ fn run(cmd: command): !string
 - **On failure (any non-zero exit),** throws a **`commandError`** (§4) carrying the failing
   stage, its exit code, and its stderr.
 
-`run` is errorable (`!string`): a caller handles failure with `try` or an errorable binding.
+`run` is errorable (`string!`): a caller handles failure with `try` or an errorable binding.
 This is the common form, "run it, give me the output, and if it fails, fail", and it makes a
 failed command impossible to ignore, because failure propagates as an error rather than
 sitting in a return value to be checked (contrast the `$?`-inspection footgun of shell
@@ -77,7 +77,7 @@ The exit code is **not** in `run`'s success result, because a successful `run` a
 ## 3. `capture`: the full result, never throwing on non-zero
 
 ```
-fn capture(cmd: command): !commandResult
+fn capture(cmd: command): commandResult!
 ```
 
 `capture` executes `cmd` and returns a **result value** describing what happened, **without
@@ -103,7 +103,7 @@ noMatch()            if (r.exitCode == 1);      // 1: no match (not an error)
 throw error('grep failed') if (r.exitCode > 1); // >1: a real failure, the caller's call
 ```
 
-`capture` still errors (`!commandResult`) for failures that are **not** just a non-zero exit,
+`capture` still errors (`commandResult!`) for failures that are **not** just a non-zero exit,
 the process could not be spawned at all (program not found, permission denied). Those are
 `commandError`s like any other; a non-zero *exit* is not, because the process ran and
 reported a status. So the split is precise: **a process that ran and exited is always a

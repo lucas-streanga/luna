@@ -98,10 +98,10 @@ This is the exception, not the rule:
   // optional: only when the protocol needs attach-time code
   apply = meta fn (&tab: table): self => { ... };       // non-throwing
   // or, if it installs dynamic members or otherwise throws:
-  apply = meta fn (&tab: table): !self => { ... };      // throwing (§5.1, §7.5)
+  apply = meta fn (&tab: table): self !=> { ... };      // throwing (§5.1, §7.5)
 ```
 
-Whether a protocol has an `apply`, and if so whether it is throwing (`!self`), is what
+Whether a protocol has an `apply`, and if so whether it is throwing (`self!`), is what
 determines the errorability of applying it, and it is readable directly from the block
 (§7.5).
 
@@ -170,7 +170,7 @@ runs as part of application; if it does not, application is pure machinery and r
 user code.
 
 ```
-fn apply(&tab: table, protocol: proto): table | !table
+fn apply(&tab: table, protocol: proto): table | table!
 ```
 
 Application **mutates the table in place**, so it takes the table by reference and, by
@@ -185,14 +185,14 @@ same on the protocol side and the caller side:
   applies **non-errorably**: the only possible failure is a declared-member collision,
   which is compile-checked on a statically-known table (§7.4) and a runtime check
   otherwise. This is the common case (§2).
-- A protocol with a **throwing `apply`** (`: !self`, one that installs dynamic members or
+- A protocol with a **throwing `apply`** (`: self!`, one that installs dynamic members or
   otherwise throws, §5.1) applies **errorably**, and the caller must handle it with `try`
   or an errorable binding.
 
 ```
 var tab = [];
 tab->apply(myPlainProto);               // non-errorable: no apply, or non-throwing apply
-try tab->apply(myThrowingProto);        // errorable: the protocol's apply is : !self
+try tab->apply(myThrowingProto);        // errorable: the protocol's apply is : self!
 ```
 
 This section describes **dynamic** (runtime) application. There is also a **static**
@@ -314,7 +314,7 @@ The check is one AST-node-kind test on the assignment target, gated by the lexic
 of being inside an `apply` body. No dataflow analysis is required.
 
 ```
-apply = meta fn (&tab: table): !self => {   // : !self, because it installs a dynamic member (§7.5)
+apply = meta fn (&tab: table): self !=> {   // : self!, because it installs a dynamic member (§7.5)
   tab.status = 'active';                 // declared: pre-checked, safe
   if (has(tab, computedKey)) {
     throw ApplyError('key exists');      // author acknowledges the dynamic collision
@@ -532,7 +532,7 @@ var l: @stringBuilder            = [] apply stringBuilder;
 var m: @stringBuilder & @tagged  = [] apply stringBuilder, tagged;
 ```
 
-Dropping the parens is not cosmetic: `apply(...)` is a runtime call returning `!table`
+Dropping the parens is not cosmetic: `apply(...)` is a runtime call returning `table!`
 (it may fail, handled with `try`), while `apply` as an operator is a compile-time-checked
 construction whose result type is the precise protocol type. Static `apply` is syntax,
 not a callable value.
@@ -582,7 +582,7 @@ table built at runtime) defers these checks to runtime. There, a declared-member
 mistyped present member, or a missing required member are runtime possibilities, because whether
 the runtime table already holds the key, and with what value, is runtime information.
 
-### 7.5 Errorability, and `!self`-gated dynamic installation
+### 7.5 Errorability, and `self!`-gated dynamic installation
 
 Whether constructing a protocol-typed value can fail depends on two things, and they are
 independent of the type's well-formedness:
@@ -596,8 +596,8 @@ independent of the type's well-formedness:
    apply-less protocol runs no code, and a non-throwing body (logging, non-dynamic
    initialization) runs but is declared not to throw. A protocol that installs a
    **dynamic** element member (an `[expr]` write during `apply`, §5.1) must declare its
-   `apply` as `!self` (a throwing apply). So the throwing case is exactly "the protocol
-   has a `: !self` apply", readable straight from the `proto` block.
+   `apply` as `self!` (a throwing apply). So the throwing case is exactly "the protocol
+   has a `: self!` apply", readable straight from the `proto` block.
 
 From these, the errorability tiers:
 
@@ -607,13 +607,13 @@ From these, the errorability tiers:
   no `try` and no `!`. This is the common case, since most protocols have no `apply` (§2).
   Note that a **non-throwing `apply` body still runs** (§7.3); it simply cannot make
   construction errorable.
-- **Errorable:** static application where any constituent protocol's `apply` is `!self`,
+- **Errorable:** static application where any constituent protocol's `apply` is `self!`,
   or where the table shape is not statically known. Construction may fail, so the binding
   must handle it.
 
 The independence is the key rule: **`@P & @Q` well-formedness (disjoint declared members)
 and the errorability of constructing one are separate.** `@P & @Q` can be a perfectly
-well-formed type whose construction is errorable because Q's `apply` is `!self`. The type
+well-formed type whose construction is errorable because Q's `apply` is `self!`. The type
 does not carry the errorability; the `apply` does.
 
 The precise residual picture:
@@ -622,11 +622,11 @@ The precise residual picture:
   present-member type, and required-member presence all checked, §7.4), non-errorable.
 - **Existing or runtime-shaped table:** runtime-fallible on a declared-member collision, a
   mistyped present member, or a missing required member (§4.2), even for non-throwing protocols.
-- **Any protocol with `!self` apply (dynamic installation):** adds a runtime failure
+- **Any protocol with `self!` apply (dynamic installation):** adds a runtime failure
   source, declared in the type so callers see it.
 
 Declared (`.member`) installation is always statically collision-checkable and needs no
-`!self`; only dynamic (`[expr]`) installation does. This keeps the common case, a
+`self!`; only dynamic (`[expr]`) installation does. This keeps the common case, a
 protocol with a fixed declared schema, entirely non-throwing, and confines errorability
 to protocols that genuinely compute their members.
 
@@ -715,7 +715,7 @@ stringBuilder = proto {
 
   apply = meta fn (&b: table): self => {
     // no declared element members to install, and no dynamic installation,
-    // so apply is non-throwing (: self, not : !self); buf is a meta member, auto-present
+    // so apply is non-throwing (: self, not : self!); buf is a meta member, auto-present
     return self;
   };
 };

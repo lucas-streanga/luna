@@ -127,7 +127,9 @@ table is a map.
 
 | Spec | File | What it is |
 |-|-|-|
-| Serialization | `serialization.md` | The `json` constraint and the `toJson` / `toJsonDynamic` entry points. |
+| std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
+| std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
+| std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
 | Spread | `spread.md` | Expanding one table's entries into a table literal (`...`). |

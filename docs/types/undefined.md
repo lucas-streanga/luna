@@ -168,7 +168,7 @@ value, one with no `return`, or a body that completes without producing a value,
 **`undefined`**, not `null`.
 
 ```
-const log = fn (msg: string) use (caps.io) => { io->println(msg); };   // returns undefined
+const log = fn (msg: string) use (io) => { io->println(msg); };   // returns undefined
 ```
 
 `undefined` is the right choice (over `null`) for a void return because the meanings line up

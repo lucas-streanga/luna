@@ -47,7 +47,7 @@ The boolean operators take and produce `bool`:
   evaluated only if needed (`a && b` skips `b` when `a` is false; `a || b` skips `b` when `a` is
   true). Short-circuiting matters when the right operand has effects or could fail, it is not
   evaluated unless reached.
-- **`!`** (logical not), `!true` is `false`.
+- **`!`** (logical not), `true!` is `false`.
 
 All three require `bool` operands (no truthiness, §1) and yield a `bool`. Comparisons (`==`,
 `!=`, `<`, `>`, and so on) yield a `bool`, and are how non-boolean values enter boolean logic (a
