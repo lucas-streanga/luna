@@ -722,15 +722,34 @@ stringBuilder = proto {
 
 // dynamic application onto a var table:
 var b = [];
-b apply stringBuilder;                     // static form: b now has type @stringBuilder,
-                                           // non-errorable (fresh table, non-throwing apply)
-let sb = b->stringBuilder;                 // a view of stringBuilder (views document)
+b apply stringBuilder;                     // STATEMENT form: a runtime wearer mutation.
+                                           // b's static type is UNCHANGED (still `table`);
+                                           // the applied set is a value fact on the @@ axis (§9)
+let sb = b->stringBuilder;                 // dynamically checked: a view if b wears the
+                                           // protocol, a PANIC if it does not (views spec)
 sb.append("Hello, ").append(name);         // chained meta calls on the view
 let greeting = sb.build();                 // an immutable string; sb still usable
 
-// or construct with a static protocol type directly:
-var c: @stringBuilder = [] apply stringBuilder;   // non-errorable, checked at compile time
+// or, the EXPRESSION form: apply at a declaration, and the compiler can check:
+var c: @stringBuilder = [] apply stringBuilder;   // c is @stringBuilder-typed; accesses
+                                                  // through c are checked at compile time
 ```
+
+**The two forms of `apply`, and why neither is flow typing.** In **expression** position,
+`apply` yields a value whose static type is the `@P` refinement, so a *declaration*
+initialized with it is statically protocol-typed, facts in types, checked at compile time.
+In **statement** position, `apply` is an ordinary runtime mutation of the value's worn set
+(the `@@` axis, §9): it changes **no static type**, the binding stays whatever it was
+declared, and the compiler makes **zero control-flow attempt** to learn from it. Subsequent
+protocol access through a non-`@P`-typed binding (`b->stringBuilder`) is resolved against
+the value's worn set **at runtime** and **panics** if the protocol is absent, facts in
+runtime state, checked when used. This is the same fact/promise split as everywhere else
+(constraints §7.1): the statement form records a fact, the declared form makes a promise,
+and no fact ever silently upgrades into a static assumption, which is exactly the
+no-flow-typing rule (`as` spec §7, tables §5.2.1) holding here too. The split is **sound
+with no check on `apply` itself** because application is **monotone**, it only ever adds to
+the worn set, so no `@P` promise anywhere can be broken by someone else's later apply (see
+§12, Removal, for the condition this rests on).
 
 `b` remains element-empty throughout; `buf` is meta state, never an element. `build` is
 a snapshot (it does not consume the builder), so `sb` may be appended to and built again.
@@ -751,4 +770,10 @@ static construction on a fresh table needs no `try`.
 - **Cross-protocol meta member access:** confirmed *impossible* by design (§3.3); noted
   in case a reflective escape hatch is ever wanted (it should not be).
 - **Removal:** whether a protocol can be un-applied (`unapply`?), and what that does to
-  meta members and installed element members. Deferred.
+  meta members and installed element members. Deferred, **with one condition now on
+  record** (§10): the soundness of unchecked statement-`apply` rests on application being
+  **monotone**. If removal is ever added, a `@P` **declaration becomes a breakable
+  promise**, and removal must get invariant-constraint treatment (constraints §7.1),
+  panic on removing a protocol from a value reachable through a `@P`-declared position,
+  value-carried like every invariant check (constraints §9.4). Removal cannot be added as
+  a free mutation without reopening the flow-typing hole this section closes.
