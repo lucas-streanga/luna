@@ -1,35 +1,26 @@
 /**
  * Luna syntax highlighting for Astro/MDX via Shiki.
  *
- * SETUP:   npm i -D shiki
- *          (shiki is a transitive dep of Astro, present at runtime; installing it
- *          directly is what gives TypeScript the `LanguageRegistration` type and
- *          resolves TS2307 on the import below. Dev-only: the import is type-only,
- *          erased at build.)
+ * SETUP:   npm i -D shiki        (type-only dep; Astro ships the runtime)
+ * WIRING:  markdown.shikiConfig.langs: [lunaGrammar] in astro.config.mjs,
+ *          then ```luna fences highlight. Astro's <Code> also accepts this
+ *          object directly as `lang`.
  *
- * WIRING (astro.config.mjs):
- *
- *   import { defineConfig } from 'astro/config';
- *   import mdx from '@astrojs/mdx';
- *   import { lunaGrammar } from './tooling/shiki-luna';
- *
- *   export default defineConfig({
- *     integrations: [mdx()],
- *     markdown: {
- *       shikiConfig: {
- *         langs: [lunaGrammar],      // registers ```luna fences in .md and .mdx
- *       },
- *     },
- *   });
- *
- * Then fence code blocks with ```luna. That is the whole integration: Shiki
- * accepts TextMate grammars as plain objects, and highlighting is lexical, so
- * this file is generated from the ratified lexical surface (keywords.md,
- * operators.md, associativity.md) and needs no LSP. The LSP, when it exists,
- * adds *semantic* tokens in editors through its own channel; docs never need it.
- *
- * Source of truth: keywords.md (R32-R47), operators.md (R29), strings §13.
- * Regenerate by hand when those change; the sets below cite their sections.
+ * SOURCE OF TRUTH: docs/build/lexer.md (the lexer specification, G-rulings
+ * revision) + keywords.md. This file is DERIVED from the lexer's token
+ * inventory (§2 comments, §3 keywords, §4 literals, §5 operators, §6
+ * interpolation, §7 identifiers); span patterns use the spec's unrolled-loop
+ * form verbatim. Now-ruled facts this grammar embodies (were assumptions):
+ * `from` is reserved (G1); block comments exist and do NOT nest, so the
+ * begin/end pair is the complete rule (G3); command literals have NO escape
+ * sequences, backslash is an ordinary byte and literal backticks arrive via
+ * interpolation (G5, command §2.2); identifiers are formal ASCII over UTF-8
+ * sources (G6, lexical-structure §1-2); `match!` is one token (G7). The
+ * vscode-luna tmLanguage is extracted from THIS file (CHANGES R59): edit
+ * here, then regenerate. Highlighting-grade caveats: the F2 regex/division
+ * ambiguity is approximated with a lookbehind heuristic (oniguruma has
+ * lookbehind; the real lexer uses prev-token state), and interpolation
+ * inside regex bodies is not sub-highlighted.
  */
 
 import type { LanguageRegistration } from 'shiki';
@@ -40,6 +31,8 @@ export const lunaGrammar: LanguageRegistration = {
   fileTypes: ['luna'],
   patterns: [
     { include: '#comments' },
+    { include: '#bytes' },
+    { include: '#regex' },
     { include: '#attributes' },
     { include: '#strings' },
     { include: '#commands' },
@@ -53,21 +46,41 @@ export const lunaGrammar: LanguageRegistration = {
   repository: {
     comments: {
       patterns: [
-        { name: 'comment.line.double-slash.luna', match: '//.*$' },
+        { name: 'comment.line.double-slash.luna', match: '//[^\\n]*' },
+        { name: 'comment.block.luna', begin: '/\\*', end: '\\*/' },
       ],
     },
 
-    // #[jsonTag('user_name')]  — attributes spec §3
+    bytes: {
+      patterns: [
+        { name: 'string.quoted.double.bytes.luna', match: 'b"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"' },
+        { name: 'string.quoted.single.bytes.luna', match: "b'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'" },
+      ],
+    },
+
+    regex: {
+      patterns: [
+        {
+          name: 'string.regexp.luna',
+          match: '(?<![\\w)\\]])(/[^/\\\\*][^/\\\\]*(?:\\\\.[^/\\\\]*)*/)([imsxb]*)',
+          captures: {
+            '1': { name: 'string.regexp.body.luna' },
+            '2': { name: 'keyword.other.regexp-flags.luna' },
+          },
+        },
+      ],
+    },
+
     attributes: {
       patterns: [
         {
           name: 'meta.attribute.luna',
           begin: '#\\[',
           end: '\\]',
-          beginCaptures: { 0: { name: 'punctuation.definition.attribute.luna' } },
-          endCaptures: { 0: { name: 'punctuation.definition.attribute.luna' } },
+          beginCaptures: { '0': { name: 'punctuation.definition.attribute.luna' } },
+          endCaptures: { '0': { name: 'punctuation.definition.attribute.luna' } },
           patterns: [
-            { name: 'entity.name.function.attribute.luna', match: '[a-zA-Z_][a-zA-Z0-9_]*' },
+            { name: 'entity.name.function.attribute.luna', match: '[A-Za-z_][A-Za-z0-9_]*' },
             { include: '#strings' },
             { include: '#numbers' },
           ],
@@ -75,7 +88,6 @@ export const lunaGrammar: LanguageRegistration = {
       ],
     },
 
-    // Double quotes interpolate ($ident and ${expr}); single quotes are plain. strings §13.
     strings: {
       patterns: [
         {
@@ -88,31 +100,29 @@ export const lunaGrammar: LanguageRegistration = {
               name: 'meta.interpolation.luna',
               begin: '\\$\\{',
               end: '\\}',
-              beginCaptures: { 0: { name: 'punctuation.section.interpolation.begin.luna' } },
-              endCaptures: { 0: { name: 'punctuation.section.interpolation.end.luna' } },
+              beginCaptures: { '0': { name: 'punctuation.section.interpolation.begin.luna' } },
+              endCaptures: { '0': { name: 'punctuation.section.interpolation.end.luna' } },
               patterns: [{ include: 'source.luna' }],
             },
             {
-              // "$x", "$...args" (spread §5)
               name: 'meta.interpolation.simple.luna',
-              match: '\\$(\\.\\.\\.)?[a-zA-Z_][a-zA-Z0-9_]*',
-              captures: { 0: { name: 'variable.other.interpolated.luna' } },
+              match: '\\$(\\.\\.\\.)?[A-Za-z_][A-Za-z0-9_]*',
+              captures: { '0': { name: 'variable.other.interpolated.luna' } },
             },
           ],
         },
         {
           name: 'string.quoted.single.luna',
-          begin: "'",
-          end: "'",
-          patterns: [{ name: 'constant.character.escape.luna', match: '\\\\.' }],
+          match: "'[^'\\\\]*(?:\\\\.[^'\\\\]*)*'",
         },
       ],
     },
 
-    // `grep -n foo` command literals, with ${} interpolation. command spec §2, §4.
     commands: {
       patterns: [
         {
+          // No escape sub-pattern, by ruling (G5, command §2.2): backslash is
+          // an ordinary byte inside command literals.
           name: 'string.interpolated.command.luna',
           begin: '`',
           end: '`',
@@ -130,25 +140,26 @@ export const lunaGrammar: LanguageRegistration = {
 
     numbers: {
       patterns: [
-        { name: 'constant.numeric.double.luna', match: '\\b[0-9][0-9_]*\\.[0-9][0-9_]*\\b' },
-        { name: 'constant.numeric.integer.luna', match: '\\b[0-9][0-9_]*\\b' },
+        { name: 'constant.numeric.hex.luna', match: '\\b0x[0-9a-fA-F](?:_?[0-9a-fA-F])*\\b' },
+        { name: 'constant.numeric.binary.luna', match: '\\b0b[01](?:_?[01])*\\b' },
+        { name: 'constant.numeric.double.luna', match: '\\b[0-9](?:_?[0-9])*\\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?\\b' },
+        { name: 'constant.numeric.double.luna', match: '\\b[0-9](?:_?[0-9])*[eE][+-]?[0-9]+\\b' },
+        { name: 'constant.numeric.integer.luna', match: '\\b[0-9](?:_?[0-9])*\\b' },
       ],
     },
 
     keywords: {
       patterns: [
+        { name: 'keyword.control.luna', match: '\\bmatch!' },
         {
-          // declaration keywords — keywords.md §1
           name: 'storage.type.luna',
-          match: '\\b(var|let|const|fn|constraint|proto|enum|error|capability|attribute|meta|export|import|test)\\b',
+          match: '\\b(var|let|const|fn|constraint|proto|enum|error|capability|attribute|meta|export|import|from|test)\\b',
         },
         {
-          // control flow — keywords.md §2
           name: 'keyword.control.luna',
           match: '\\b(if|else|foreach|while|in|break|continue|return|yield|match|where|defer|try|catch|throw|by)\\b',
         },
         {
-          // word operators — keywords.md §3
           name: 'keyword.operator.word.luna',
           match: '\\b(copy|spawn|await|comptime|comptype|is|as|apply|declared|use)\\b',
         },
@@ -158,15 +169,10 @@ export const lunaGrammar: LanguageRegistration = {
     types: {
       patterns: [
         {
-          // predeclared type names — keywords.md §5 (identifiers, not reserved; styled anyway)
           name: 'support.type.luna',
-          match: '\\b(int|double|bool|string|bytes|table|list|stream|promise|view|never|any|regex|command|type|byte|number|json|csv|yaml|xml|path|file|secret|panic)\\b',
+          match: '\\b(int|double|bool|string|bytes|table|list|stream|promise|view|never|any|regex|command|type|byte|number|json|csv|yaml|xml|path|file|secret|panic)!?',
         },
-        {
-          // @P application refinements and @@ protocol reflection — protocols §9
-          name: 'support.type.refinement.luna',
-          match: '@@?[a-zA-Z_][a-zA-Z0-9_]*',
-        },
+        { name: 'support.type.refinement.luna', match: '@@?[A-Za-z_][A-Za-z0-9_]*' },
       ],
     },
 
@@ -179,7 +185,6 @@ export const lunaGrammar: LanguageRegistration = {
 
     operators: {
       patterns: [
-        // longest-first, per the catalogue (operators §0) and tiers (associativity §1)
         { name: 'keyword.operator.assignment.compound.luna', match: '(\\?\\?\\?=|\\?\\?=|\\+=|-=|\\*=|/=|%=)' },
         { name: 'keyword.operator.coalescing.luna', match: '(\\?\\?\\?|\\?\\?|\\?\\.)' },
         { name: 'keyword.operator.pipeline.luna', match: '\\|>' },
@@ -194,8 +199,7 @@ export const lunaGrammar: LanguageRegistration = {
 
     functions: {
       patterns: [
-        // name( — call or UFCS (functions §3.4); styled as a call either way
-        { name: 'entity.name.function.call.luna', match: '\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\()' },
+        { name: 'entity.name.function.call.luna', match: '\\b[A-Za-z_][A-Za-z0-9_]*(?=\\()' },
       ],
     },
   },
