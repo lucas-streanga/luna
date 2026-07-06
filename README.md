@@ -32,8 +32,6 @@ const main = fn () use (io, argv): int! => {
 ```
 
 # Syntax highlighting (zed)
-Requires `podman`, `podman compose`, and `git`
-
 ```bash
 git clone https://lucas-streanga/luna
 ```
