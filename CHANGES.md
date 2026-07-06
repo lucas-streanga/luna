@@ -1221,6 +1221,16 @@ remotely, R73's conditional clone-cache reconciliation, regenerate
 extension.toml, marked generated-do-not-copy, recommit, push, print the Zed
 reload step).
 
+**R76 — the phantom dependency removed.** The spec repo has no node_modules, so
+the `import type { LanguageRegistration } from 'shiki'` was a permanent TS2307 in
+any editor opening the repo, flagging a dependency that was only ever
+documentation. Replaced with a local structural type (TmRule plus LunaGrammar),
+Shiki accepts grammars structurally, so the file is now self-contained and
+editor-quiet everywhere, and the real type check relocates to the one place shiki
+actually exists, the website, via an optional documented one-liner
+(`const _check: LanguageRegistration = lunaGrammar;`). The extraction pipeline is
+unaffected, it parses the object literal, not the types.
+
 ---
 
 ## Not changed (out of scope of these rulings, still open from the review)

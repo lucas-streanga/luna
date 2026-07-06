@@ -23,9 +23,34 @@
  * inside regex bodies is not sub-highlighted.
  */
 
-import type { LanguageRegistration } from 'shiki';
+// No import from 'shiki': this repo has no node_modules, and the type was only
+// documentation. Shiki accepts grammars STRUCTURALLY, so a minimal local type
+// keeps this file self-contained and editor-quiet everywhere. On the website
+// (where shiki is installed), an optional one-liner restores the real check:
+//   import type { LanguageRegistration } from 'shiki';
+//   const _check: LanguageRegistration = lunaGrammar;
 
-export const lunaGrammar: LanguageRegistration = {
+type TmRule = {
+  name?: string;
+  match?: string;
+  begin?: string;
+  end?: string;
+  captures?: Record<string, { name: string }>;
+  beginCaptures?: Record<string, { name: string }>;
+  endCaptures?: Record<string, { name: string }>;
+  patterns?: TmRule[];
+  include?: string;
+};
+
+export type LunaGrammar = {
+  name: string;
+  scopeName: string;
+  fileTypes: string[];
+  patterns: TmRule[];
+  repository: Record<string, { patterns: TmRule[] }>;
+};
+
+export const lunaGrammar: LunaGrammar = {
   name: 'luna',
   scopeName: 'source.luna',
   fileTypes: ['luna'],
