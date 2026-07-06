@@ -3,6 +3,34 @@ The Luna Programming Language
 
 At the time of writing, no implementation exists. Only a spec and some barebones tooling exists.
 
+# A taste
+
+```js
+import std.io;
+import std.json;
+
+const exitCode = ['success' => 0, 'usage' => 64];
+
+const main = fn () use (io, argv): int! => {
+  let arguments = args();                        // argv is a capability (capabilities §9)
+  die('usage: taste <config.json>') if (arguments.count() != 1);
+
+  var fd = openFile(arguments[0] as path);       // file!: inside this fn!, failure propagates
+  defer close(&fd);
+
+  let config = fromJson(readAll(fd) as json);    // table!: malformed JSON propagates too
+
+  match (config['server']) {
+    ['host' => string h, 'port' => int p] => println("serving on http://$h:$p"),
+    ['port' => int p]                     => println("serving on http://localhost:$p"),
+    undefined => die('config has no server section'),
+    _         => die('unrecognized server shape'),
+  };
+
+  return exitCode.success;
+};
+```
+
 # Syntax highlighting (zed)
 Requires `podman`, `podman compose`, and `git`
 
