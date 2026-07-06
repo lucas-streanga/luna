@@ -1,0 +1,14 @@
+{
+  "name": "tree-sitter-luna",
+  "version": "0.0.1",
+  "description": "Highlighting-grade tree-sitter grammar for Luna",
+  "main": "bindings/node",
+  "tree-sitter": [
+    {
+      "scope": "source.luna",
+      "file-types": [
+        "luna"
+      ]
+    }
+  ]
+}

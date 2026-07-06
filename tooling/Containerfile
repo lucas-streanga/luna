@@ -1,0 +1,11 @@
+# Build image for tree-sitter grammar generation (used via compose.yaml).
+# Pins the CLI version so generated src/ is reproducible from repo state alone:
+# npx-at-runtime floats the version, and the CLI version shapes the parser.
+# trixie (Debian 13, glibc 2.41), not bookworm (Debian 12, glibc 2.36):
+# tree-sitter-cli 0.26's prebuilt binary requires GLIBC_2.39 and fails on
+# bookworm-based node:22-slim with "version `GLIBC_2.39' not found".
+FROM docker.io/library/node:22-trixie-slim
+
+RUN npm install -g tree-sitter-cli@0.26.10
+
+WORKDIR /work

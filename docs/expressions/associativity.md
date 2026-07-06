@@ -1,0 +1,95 @@
+# Associativity and precedence
+
+The binding table the parser implements. Sources: the operator catalogue (operators §0), the
+positional dual-role rule (operators: `&`, `!`, `@`, `error`, `comptype` resolved by
+position), and the rulings in the specs cited per row. Expression grammar and **type
+grammar** are separate tables, because type position is its own grammatical world (operators
+§0, type spec §3.1).
+
+## 1. Expression precedence, tightest to loosest
+
+| Tier | Operators | Associativity | Notes |
+|-|-|-|-|
+| 1 postfix | `f(...)` `x[...]` `x.name` `x->P` `x->P.m` `x?.name` | left | one chainable postfix tier: `a->P.b(c)[d]` parses left-to-right; `x.name(` is UFCS, `x.name` is access (functions §3.4) |
+| 2 prefix, symbolic | `!x` `-x` `@x` `@@x` | right (stack) | `!` is logical not, prefix, expression position only (operators §0; the postfix `T!` lives in the type grammar) |
+| 3 multiplicative | `*` `/` `%` | left | |
+| 4 additive | `+` `-` | left | `+` is numeric only; there is **no** concat operator (strings §11), interpolation joins |
+| 5 range | `..` `..<` `by` | **none** | non-chainable: `a..b..c` is a parse error; arithmetic binds tighter, so `0..n-1` is `0..(n-1)` and `0..n by k+1` steps by `k+1`; `by` is part of the range production (range §3, §4a), one per range |
+| 6 comparison | `<` `<=` `>` `>=` `is` `as` | **none** | non-chainable, `a < b < c` is a compile error, comparisons yield `bool` and re-comparing a bool to a number is a base mismatch anyway (equality §1); `is`/`as` take a **type expression** on the right (table §2), so no right-side ambiguity, and they sit here so `x is int == y` demands parens |
+| 7 equality | `==` `!=` | **none** | non-chainable; there is **no** `===` / `!==` (§4, resolved) |
+| 8 conjunction | `&&` | left | short-circuits |
+| 9 disjunction | `\|\|` | left | short-circuits |
+| 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
+| 11 pipeline | `\|>` | left | dataflow connection over streams and commands (pipeline spec); loose enough that `a \|> f(x) \|> g` chains whole call expressions, tight enough that word prefixes wrap the whole pipe |
+| 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` | right | see §3: word prefixes bind the **whole expression** below assignment |
+| 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (strings §11) |
+
+Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
+control-flow spec) are statement grammar, not operators, and sit outside this table; `where`
+exists only inside `match` arms (match §3); `=>` is arrow/arm punctuation, not an operator;
+string interpolation is lexical, not an operator; `...` is pattern punctuation (destructuring §1.2), never an expression operator.
+
+## 2. Type-position precedence, tightest to loosest
+
+| Tier | Forms | Associativity | Notes |
+|-|-|-|-|
+| 1 postfix | `T!` `T?` | left, stackable | `string?!` ≡ `string!?` ≡ `string \| null \| error` (errors §7, value-representation §3.1), order-independent by canonicalization |
+| 2 refinement | `@P` | prefix | application refinement; `@X` on a non-protocol is a compile error (protocols spec) |
+| 3 intersection | `&` | left, canonical | commutative after interning (`@Q & @P` ≡ `@P & @Q`, type §3.1) |
+| 4 union | `\|` | left, canonical | `&` binds tighter than `\|`: `@P & @Q \| null` is `(@P & @Q) \| null`; the overview's parenthesized spelling stays as the readable convention |
+| 5 fn | `fn (params): T` | , | the result type extends greedily right through tiers 1-4: `fn (): int \| string` returns the union; parenthesize the `fn` type itself to embed it in a union |
+
+Position decides which table applies: `&x` in an argument is a reference (variables §5.1),
+`A & B` in an annotation is the meet; `!x` in an expression negates, `T!` in a type adds the
+error arm; same rule as `error` and `comptype` (dual keyword/type, errors §3, reflection
+§3.2).
+
+## 3. Word-prefix binding, the one designed decision in this file
+
+Symbolic prefixes (tier 2) bind tight, as everywhere. **Word prefixes bind loose**: `copy`,
+`try`, `spawn`, `comptime`, `comptype`, `throw` take the **entire expression** to their
+right, down to (but not including) assignment and statement punctuation. So `try a + b` is
+`try (a + b)`; `copy t.name` is `copy (t.name)` (postfix is inside the expression);
+`spawn f(x)` spawns the call; `_ = try cleanup()` reads as errors §8.1 wrote it. Rationale:
+a word reads like a clause head, and the alternatives are worse, tight binding would make
+`try a + b` mean `(try a) + b`, adding an error-typed value to `b`, a base-mismatch error
+that would *usually* be caught but is a trap where it isn't. Nesting is by parentheses:
+`try (copy t)` and `copy (try f())` both parse.
+
+## 4. Resolved drift, and open questions
+
+**Resolved here** (each previously inconsistent between specs):
+
+- **`===` / `!==` do not exist.** bool.md used `!==` for null checks while the catalogue
+  never defined it (the F11 drift). Under erasure equality (equality §1) `!= null` is exact
+  and total, and an identity operator would duplicate what `==` already means for identity
+  types (equality §2); bool.md is fixed to `!=`.
+- **No infix `.`**, no `.=` (strings §11): removes the whitespace-sensitive collision with
+  member access at tier 1.
+- **`@int` in a pattern is a compile error** (match §1): pattern-type position is type
+  position, table §2 applies.
+
+**Resolved by ruling (were open):**
+
+- **Compound assignments exist**: `+=` `-=` `*=` `/=` `%=` `??=` `???=`, tier 13 above, sugar with
+  single evaluation of the target. `&&=`/`||=` excluded for now (no demonstrated need;
+  addable later without breakage).
+- **Ranges never reverse.** `a..b` with `b < a` is the **empty range**, total and loop-safe;
+  the counterexample that decides it is `0..n-1` at `n == 0`, which under implicit-descending
+  would silently iterate `0, -1` in the most common loop header in the language. Descending
+  iteration is **explicit**: a negative step, `10..0 by -2` (range §3, landed in R47, the
+  "possible later" of this note), or `reverse(r)` for an existing stream. `0..-1` parses as `0..(-1)`
+  (tier 2 inside tier 5) and is empty, consistently. Companion ruling: **unary negation of
+  `int.min` panics** as overflow, joining `INT_MIN / -1` in int §overflow.
+- **`&` outside argument position is a semantic error**, not a grammar production: the parser
+  accepts prefix `&` uniformly and semantic analysis rejects non-argument uses (variables
+  §5.1), keeping the grammar regular and the diagnostic precise.
+- **`await` is defined** (concurrency/await.md): word prefix, tier 12; parks the green
+  thread, moves the result out, consumes the promise, surfaces the task's error or panic at
+  the collection point.
+- **`throw ... if (...)` parses** as tier-12 prefix under a statement modifier; pinned.
+- **Pattern grouping**: at pattern top level, **`|` is always the or-pattern separator**; an
+  inline union *type* pattern requires parentheses, `(int | string) n`. This keeps the
+  pattern grammar LR(1) with one-token decisions, and costs almost nothing: match's
+  or-pattern binding rule already types `int n | string n` as `n: int | string`, so the
+  parenthesized spelling is the rare form of what the idiom expresses (match §1, §5).
