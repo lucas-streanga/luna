@@ -1,17 +1,23 @@
+import std.io;
+import std.json;
+
 const exitCode = ['success' => 0, 'usage' => 64];
 
 const main = fn () use (io, argv): int! => {
-  let arguments = args();             // argv is a capability
-  die('no files given') if arguments.empty();
+  let arguments = args();                        // argv is a capability (capabilities §9)
+  die('usage: taste <config.json>') if (arguments.count() != 1);
 
-  foreach (name in arguments) {
-    var fd = openFile(name as path);    // file!: failure propagates
-    defer close(&fd);                   // closed at each iteration's end
+  var fd = openFile(arguments[0] as path);       // file!: inside this fn!, failure propagates
+  defer close(&fd);
 
-    println("${name}: ${fd.byteSize} bytes");
-    println("${lineNumber}: ${line}")
-      foreach (lineNumber => line in fd.lines());
-  }
+  let config = fromJson(readAll(fd) as json);    // table!: malformed JSON propagates too
+
+  match (config['server']) {
+    ['host' => string h, 'port' => int p] => println("serving on http://$h:$p"),
+    ['port' => int p]                     => println("serving on http://localhost:$p"),
+    undefined => die('config has no server section'),
+    _         => die('unrecognized server shape'),
+  };
 
   return exitCode.success;
 };

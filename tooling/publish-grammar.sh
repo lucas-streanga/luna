@@ -11,9 +11,16 @@ cd "$root"
 GRAMMAR="tooling/tree-sitter-luna"
 EXT="tooling/zed-luna"
 
-# 1) Commit the grammar and push, so the rev we pin exists remotely.
+# 1) Commit the grammar (if generation actually changed anything) and push, so
+#    the rev we pin exists remotely. An unchanged grammar is NORMAL (a fresh
+#    machine regenerating an already-committed parser) and must not abort the
+#    script (R83): the repoint below is exactly what a new machine needs.
 git add "$GRAMMAR"
-git commit -m 'regenerated tree-sitter-luna'
+if ! git diff --cached --quiet; then
+  git commit -m 'regenerated tree-sitter-luna'
+else
+  echo "grammar unchanged: nothing to commit"
+fi
 git push
 
 rev="$(git rev-parse HEAD)"
@@ -48,9 +55,13 @@ rev = "$rev"
 path = "$GRAMMAR"
 TOML
 
-# 4) Commit the repoint and push.
+# 4) Commit the repoint (if it changed; already-current is fine) and push.
 git add "$EXT"
-git commit -m 'point zed-luna at regenerated grammar'
+if ! git diff --cached --quiet; then
+  git commit -m 'point zed-luna at regenerated grammar'
+else
+  echo "extension.toml already current: nothing to commit"
+fi
 git push
 
 echo
