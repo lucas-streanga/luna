@@ -1,1 +1,19 @@
 *.zip
+# --- generated / cache: never committed ---
+
+# Zed clones grammars into the extension folder during dev installs; scratch space.
+tooling/zed-luna/grammars/
+
+# tree-sitter-cli via npx
+node_modules/
+
+# tree-sitter build artifacts (generated src/ IS committed; wasm/builds are not)
+*.wasm
+tooling/tree-sitter-luna/build/
+
+# archive built by make-archive.sh
+luna-spec.zip
+
+# --- environment noise ---
+.DS_Store
+*.log
