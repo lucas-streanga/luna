@@ -1231,6 +1231,69 @@ actually exists, the website, via an optional documented one-liner
 (`const _check: LanguageRegistration = lunaGrammar;`). The extraction pipeline is
 unaffected, it parses the object literal, not the types.
 
+**R77 — the website grammar sync.** The website's copy of shiki-luna.ts stops
+being a fork: `tooling/sync-luna-grammar.sh` (templated here, lives in the
+website's scripts/) shallow-clones the luna repo on `npm run dev`/`build` via
+package.json pre-scripts and overwrites the website copy, stamping it with a
+GENERATED header naming source, rev, and syncing script (the R71 lesson applied
+forward). Two safety refinements over the raw proposal: `--depth 1`, and an
+offline fallback that keeps the existing copy with a warning when the repo is
+unreachable, hard-failing only when no copy exists, so no-wifi never blocks the
+dev server. Committing the synced file recommended (generated-but-vendored, the
+tree-sitter src/ precedent): fresh clones and offline CI always build, and
+upstream grammar changes surface as reviewable diffs.
+
+**R78 — the sync script rewritten for the containerized website; multi-arch
+answered.** The website's Containerfile revealed node:22-slim, which ships
+neither git nor curl, so R77's bash+git script could not run where npm runs;
+replaced by `sync-luna-grammar.mjs`, pure Node built-in fetch (>=18), raw-URL
+fetch with a best-effort GitHub-API sha for the GENERATED stamp, DEST corrected
+to src/lib/, an unchanged-content short-circuit so watch-mode tooling stays
+quiet, the same offline fallback semantics, and a 10s timeout on every fetch
+because the image's CMD makes a hung predev a hung container, the failure class
+the user just killed. The luna tooling template swapped to the .mjs; the
+standalone file delivered for the astro repo. Multi-arch ruled possible as-is:
+node:22-slim is a multi-arch manifest (amd64+arm64), podman machine on Apple
+silicon runs linux/arm64 natively and pulls the right variant, and the compose
+file's anonymous-volume node_modules mask already gives each machine its own
+in-container native binaries, the classic cross-arch trap dodged by structure;
+avoid --platform emulation, unnecessary and slow.
+
+**R79 — gated secrets: per-capability secret authority, zero new machinery.** The
+hole named by the user, one `reveal` capability opening every secret, closed at the
+effect site. Ratified signature (the user's variadic insight, corrected):
+`secret(raw: string|bytes, ...gates: type): secret`, gates are capability
+**typeids** (`@dbCred`, tokens stay confined, the `&capability` params in the
+sketch would have violated §3.1), zero gates means the default `[@reveal]` with no
+spelling for an empty set, multiple gates are **AND**. The gate set rides the
+value, and `reveal`/`revealBytes` drop their static `use (reveal)` for the dynamic
+check, gate set ⊆ executing frame's grant, panic on shortfall: the **third
+application of the one R39 check** (value-mediated calls, spawn, now secrets),
+same bitmask word, same subset test. The laundering theorem extends verbatim;
+the audit becomes per-gate (`use (dbCred)` lists exactly who can see the database
+password) and `use (reveal)` is demoted to the default gate's key; `gatesOf(s)`
+for check-before-reveal; re-gating is reveal-then-rewrap so changing gates
+requires authority over the current ones by construction; `as secret` ≡
+`secret(raw)`. The user's original constraint-based proposal (`can` inside
+`where`) rejected for the reason now made a stated principle in constraints:
+**predicates are functions of the value alone**, frame state is an illegal input,
+because checked constraints become facts that ride values across frames and
+frame-dependent truth would mint facts that stop being true in transit. The
+`can` expression outside constraints deferred on YAGNI; compiler-sandboxing
+recorded in-chat as latent (restricted root grant + the R39 check binds even
+smuggled closures; missing pieces are an embedding API and resource limits).
+
+**R80 — `can` scrapped entirely; sandboxing's mechanical core recorded.** The
+`can` expression, left half-open by R79's YAGNI deferral, is now scrapped in every
+form: no frame-inspecting operator exists anywhere in the language, grants stay
+invisible to programs and are checkable only by exercising them (constraints,
+principle paragraph updated). Compiler-driven capability revocation deferred with
+its CLI/embedding API undecided, but the mechanical core is on the record in
+capabilities: **the compiler modifies `main`'s `use` set and everything falls out
+for free**, static propagation refuses what the root never granted, R39's dynamic
+check binds smuggled closures, R79's gates cover secrets, no second enforcement
+mechanism needed; resource limits remain the genuinely separate missing piece.
+
 ---
 
 ## Not changed (out of scope of these rulings, still open from the review)

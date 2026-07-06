@@ -92,6 +92,29 @@ else (§6).
 
 ---
 
+### 3.1 Gated construction: `secret(...)` (R79)
+
+Beyond `as secret` (the default form), the **constructor** attaches gates:
+
+```
+const secret = fn (raw: string|bytes, ...gates: type): secret
+
+const a = raw as secret;                     // ≡ secret(raw): gated by the default, [@reveal]
+const b = secret(raw, @dbCred);              // gated by dbCred
+const c = secret(raw, @dbCred, @prodAccess); // gated by BOTH (AND, §5)
+```
+
+- Each `gates` element is a **capability's typeid** (`@dbCred`), pure data, never the token
+  itself, which stays confined (capabilities §3.1); a non-capability `type` **panics** at
+  construction (compile error where statically evident).
+- **Zero gates means the default set `[@reveal]`**, and there is deliberately no spelling
+  for an *empty* set: an ungated secret is a contradiction.
+- **Wrapping requires no capability**: hiding data hurts nobody. The gate set rides the
+  **value** (like a function's requirement set, capabilities §3.1), not the typeid; all
+  secrets are type `secret`.
+- **Re-gating is reveal-then-rewrap** (`secret(reveal(s), @newGate)`), so changing a
+  secret's gates requires authority over its current ones, by construction.
+
 ## 4. Redaction: secret hides itself everywhere it displays
 
 The core behavior: a `secret` renders as a redaction marker, never its contents, on **every**
@@ -115,16 +138,26 @@ The underlying value is obtained only through `reveal` (for a secret string) or 
 (for a secret bytes):
 
 ```
-fn reveal(s: secret) use (reveal): string        // the underlying string; compile error on a secret-bytes
-fn revealBytes(s: secret) use (reveal): bytes     // the underlying bytes;  compile error on a secret-string (deferred)
+fn reveal(s: secret): string          // the underlying string; compile error on a secret-bytes
+fn revealBytes(s: secret): bytes      // the underlying bytes;  compile error on a secret-string (deferred)
+fn gatesOf(s: secret): list           // the gate set, as typeids: check before revealing
 ```
 
-- **`reveal` requires the `reveal` capability** (`use (reveal)`, capabilities spec). This is
-  what makes non-revelation a *guarantee*, not a hope: a function without `use (reveal)` in
-  its signature **cannot** reveal a secret it holds, so "this code does not expose secrets"
-  is read off the type (the absence of the capability), not trusted. A secret can be threaded
-  through capability-free functions and provably never read; only functions that declare
-  `use (reveal)` can expose it, and those are the audit surface (grep for `use (reveal)`).
+- **`reveal` checks the secret's gate set against the executing frame's grant** (R79):
+  every gate in `gatesOf(s)` must be held (AND), **panic** on any shortfall. This is the
+  secrets application of the one check the runtime already runs, requirement-set ⊆
+  frame-grant, the same one-word bitmask test that guards value-mediated calls and `spawn`
+  (capabilities §3.1), sourced from the secret instead of a function value. The check sits
+  at the **effect site**, in the frame doing the revealing, so there is nothing to cache
+  and nothing to smuggle: a gated secret can travel anywhere as inert data, and the
+  laundering theorem extends verbatim, every actual reveal of a `@dbCred`-gated secret
+  occurs under a declared `use (dbCred)` on the executing path.
+- **The audit is now per-gate, which is the point**: grep `use (dbCred)` and you have the
+  complete list of functions that can see *that* secret, not the list that can see
+  everything. `use (reveal)` is demoted from skeleton key to the **default gate's** key: it
+  opens `as secret` / `secret(raw)` values and nothing gated tighter. A function with no
+  relevant grant **cannot** reveal a secret it holds, so "this code does not expose this
+  secret" is still read off signatures, just precisely now.
 - **`reveal` / `revealBytes` are the only way** to get a payload out. They are named loudly,
   so every exposure of a secret is a visible `reveal` in the source. Getting a secret's value
   is always a deliberate act, never incidental. Reached by call or UFCS: `reveal(token)` or

@@ -160,6 +160,21 @@ callback-taking APIs (`map`, handlers in tables, the test table, tests spec §4)
 effectful functions with no special cases, their effects gated by the ambient grant at the
 point of invocation.
 
+**Sandboxing is latent, deferred by decision (R80).** Compiler-driven capability
+revocation, compiling untrusted source under restricted authority, needs exactly **one
+mechanical act: the compiler modifies `main`'s `use` set**, and everything else falls out
+for free, static propagation refuses what the root never granted, the R39 dynamic check
+binds even smuggled closures, and R79's gates keep restricted code out of gated secrets, no
+second enforcement mechanism exists or is needed. The CLI/embedding API is undecided and
+deferred; resource limits (CPU, memory, spawn) are the genuinely separate missing piece.
+
+**The same check has a third application (R79): gated secrets.** A `secret` value carries a
+**gate set** of capability typeids (secret §3.1), and `reveal` runs requirement-set ⊆
+frame-grant against it at the effect site, so per-secret authority (`use (dbCred)` opens the
+database password, and only it) costs zero new machinery: one field on the value, the one
+check redirected. The laundering theorem covers it verbatim, possession of a gated secret is
+possession of inert data, never of exposure.
+
 The asymmetry with errors (`!`) is deliberate and principled (functions §3, §7): **an
 error is data**, it rides the return value into the caller, so it must be carried in the
 type or it smuggles; **a capability is authority**, it rides nothing, so it is confined

@@ -16,6 +16,18 @@ flow-sensitive proof obligation, and type-checking stays decidable. The price is
 check at the boundary (cheap, one predicate call) and no reasoning about predicate implication
 (§6).
 
+**The frame-independence principle (R79).** A constraint's predicate must be a **function of
+the value alone**: frame state, capability grants, task identity, and every other ambient
+fact are illegal inputs. This is not style, it is what the fact model *requires*: a checked
+constraint becomes a fact riding the value (§7.1), and facts travel across frames, so a
+predicate whose truth varies by frame would mint facts that stop being true in transit,
+authority laundered into a type. This is why a `can` operator inside `where` (proposed and
+rejected, R79) cannot exist: "the current frame may call f(s)" is the paradigm ambient fact,
+and gating secrets by capability is done soundly on the secret's value at the effect site
+instead (secret §3.1, §5). The frame-inspecting `can` *expression* is likewise **scrapped
+entirely** (R80): no form of `can` exists anywhere in the language, in or out of constraint
+position, and grants stay invisible to programs, checkable only by exercising them.
+
 ---
 
 ## 1. Declaring a constraint
