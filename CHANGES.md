@@ -1294,6 +1294,53 @@ for free**, static propagation refuses what the root never granted, R39's dynami
 check binds smuggled closures, R79's gates cover secrets, no second enforcement
 mechanism needed; resource limits remain the genuinely separate missing piece.
 
+**R81 — the front-page example rewritten: fromJson plus match.** "A taste" now
+reads a JSON config through the composition idiom (`fromJson(readAll(fd) as
+json)`, bare-propagating in the errorable main) and dispatches on the result with
+a four-arm `match` demonstrating the ratified semantics, type pattern with binder
+(`table t`), `where` guards refining structure, a literal `undefined` arm for the
+missing key, and `_` for chosen exhaustiveness, first-match-wins noted in prose.
+The shapes-on-display note rewritten to name what the example now shows. En
+route, one drift fixed, the old example's postfix `if arguments.empty()` lacked
+the parentheses the `if` grammar requires (R46's desugar is `expr if (c);`).
+The user's ask, "match on the table structure", surfaced a real gap now flagged
+in match §12: structural table patterns in arms would slot in syntactically via
+the R35 grammar but not semantically, destructuring's absent-key-binds-undefined
+rule would make `['host' => h]` match hostless tables, so arms need a presence
+rule before it lands, and the guard form is the recorded idiom meanwhile. The
+canonical snippet regenerated; the website picks it up on its next sync.
+
+**R82 — the R81 flag retracted; shape patterns were already ruled; the front page
+gets them.** The user's challenge forced the review R81 skipped, and match.md §4
+("Table and shape patterns") had ruled everything the flag worried about, all
+along: presence semantics for named keys (§4.3's one deliberate difference, with
+the extract-vs-test duality stated verbatim), keyed-partial with extras ignored,
+unbounded nesting with clean fall-to-next-arm, literals and typed binders in
+value position, as-patterns deliberately omitted. Flag retracted in §12 with the
+honest reason, raised without reviewing the very spec it flagged. The forced
+review paid twice: §4's summary line still said sub-patterns may be "`@T`
+(type-tested)", pre-R27 drift (F14 ruled `@int` a compile error, type patterns
+are bare types), fixed; and §4.3's "noted in both specs" claim was half-true,
+the destructuring side's cross-note now exists. One nuance kept and flagged
+rather than silently changed: the user's "for lists, partial works the same way"
+diverges from §4's positional-exact rule, where prefix matching is spelled
+explicitly (`[a, b, ..._]`), strictly more expressive since exactly-two remains
+sayable; standing rule kept pending override. The front page upgraded to the
+structural arms the example always wanted (`['host' => string h, 'port' => int
+p]`), the shapes note rewritten, the snippet regenerated.
+
+**R83 — publish-grammar.sh survives no-op regeneration.** Diagnosed from the new
+laptop's transcript: `set -e` plus an empty commit, generation reproduced the
+already-committed parser byte-for-byte (pinned CLI doing its job), `git commit`
+exited nonzero on the empty stage, and the script died **before the
+extension.toml write**, which is precisely what a fresh machine needs even when
+the grammar is a no-op. Both commit steps now guard on `git diff --cached
+--quiet` and announce the no-op; the extension.toml regeneration is reached
+unconditionally, which also self-heals the committed placeholder that full-
+archive syncs reintroduce (the R71 hazard in sync form). Secondary note from the
+transcript: the retired R75 monolith `regen-grammar.sh` was still being run;
+delete it, the pair is `generate-grammar.sh` then `publish-grammar.sh`.
+
 ---
 
 ## Not changed (out of scope of these rulings, still open from the review)

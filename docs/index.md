@@ -12,28 +12,40 @@ multiplied. It is heavily inspired by Raku, Lua, PHP, and Go.
 
 ## A taste
 
-```
-const exitCode = ['success' => 0, 'usage' => 64];   // named codes: a const table of ints
+```luna
+import std.io;
+import std.json;
+
+const exitCode = ['success' => 0, 'usage' => 64];
 
 const main = fn () use (io, argv): int! => {
-  let arguments = args();                      // argv is a capability (capabilities §9)
-  die('no files given') if arguments.empty();
+  let arguments = args();                        // argv is a capability (capabilities §9)
+  die('usage: taste <config.json>') if (arguments.count() != 1);
 
-  foreach (name in arguments) {
-    var fd = openFile(name as path);           // file!: inside this fn!, failure propagates
-    defer close(&fd);                          // released at each iteration's scope exit
+  var fd = openFile(arguments[0] as path);       // file!: inside this fn!, failure propagates
+  defer close(&fd);
 
-    println("${name}: ${fd.byteSize} bytes");
-    println("${lineNumber}: ${line}") foreach (lineNumber => line in fd.lines());
-  }
+  let config = fromJson(readAll(fd) as json);    // table!: malformed JSON propagates too
+
+  match (config['server']) {
+    ['host' => string h, 'port' => int p] => println("serving on http://$h:$p"),
+    ['port' => int p]                     => println("serving on http://localhost:$p"),
+    undefined => die('config has no server section'),
+    _         => die('unrecognized server shape'),
+  };
 
   return exitCode.success;
 };
 ```
 
-Note the shapes on display: functions are values bound to names; effects on the outside world
-(`io`) are reached only through an explicit `use` clause; iteration binds with `in`; and a statement
-can carry a trailing `if` guard.
+Note the shapes on display: functions are values bound to names; effects (`io`) and program
+inputs (`argv`) are reached only through explicit `use` clauses; an errorable `main` lets
+`openFile` and `fromJson` propagate bare, no ceremony on the happy path; `as` narrows at
+boundaries (`path`, `json`); `defer` pairs the close with the open; and `match` dispatches
+on the data's **shape**, structural patterns naming the keys they require (absent key, arm
+fails; extra keys, nobody's business, match §4) with typed binders inside, a literal
+`undefined` arm for the missing section, and `_` because this match chooses to be exhaustive.
+First matching arm wins, top to bottom.
 
 The intended distribution is a single `luna` binary that is the whole toolchain, runner, compiler,
 formatter, and language server, and a static library for embedding. No implementation exists yet;

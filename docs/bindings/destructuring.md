@@ -127,7 +127,9 @@ pattern, the **bare targets** consume implicit integer keys `0, 1, 2, ...` in th
 appearance, and each **`key =>` entry** binds its key independently; the positional part
 follows §1's rules (exact length over the integer keys by default, a trailing rest to relax
 it), the keyed part follows §2's (absent keys bind `undefined`, unmentioned keys are
-ignored). Mixing is expected to be rare, a source shaped that way is usually two reads, but
+ignored); note the same syntax in a **match arm** has
+**require-presence** semantics instead, an absent named key fails the arm rather than binding
+`undefined` (match §4.3), extract-what-is-there here, test-that-it-is-there there. Mixing is expected to be rare, a source shaped that way is usually two reads, but
 what the literal can build, the pattern can take apart.
 
 ---

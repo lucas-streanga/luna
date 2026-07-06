@@ -149,8 +149,9 @@ The rules follow destructuring exactly, so shape matching and destructuring stay
   hot paths.
 
 So a shape pattern is destructuring where positions may be **literals** (matched) as well as
-**names** (bound), `@T` (type-tested), or nested patterns, with keyed-partial and list-exact
-semantics inherited unchanged.
+**names** (bound), **type patterns** (`'x' => int x`, written as bare types exactly as in §2,
+the `@T` spelling of earlier drafts is the ruled-out one, R27), or nested patterns, with
+keyed-partial and list-exact semantics inherited unchanged.
 
 ### 4.1 A nested pattern that fails just falls to the next arm
 
@@ -414,9 +415,3 @@ match either, scrutinize it as the subject or pass it through a binding pattern,
 functions §2.3.
 
 ---
-
-## 12. Open questions
-
-Match itself is settled. Range patterns (§5) now follow the **range spec**: `..` is inclusive,
-`..<` excludes the top, and a range pattern is a membership test over the inclusive (or
-top-exclusive) bounds. No open match-specific questions remain.
