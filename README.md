@@ -3,7 +3,7 @@ The Luna Programming Language
 
 At the time of writing, no implementation exists. Only a spec and some barebones tooling exists.
 
-# A taste
+# A Taste
 
 ```js
 import std.io;
@@ -31,7 +31,7 @@ const main = fn () use (io, argv): int! => {
 };
 ```
 
-# Syntax highlighting (zed)
+# Syntax Highlighting (zed)
 ```bash
 git clone https://lucas-streanga/luna
 ```
@@ -40,7 +40,7 @@ git clone https://lucas-streanga/luna
 - Run `zed: install extension` and choose `luna/tooling/zed-luna` as the folder.
 - You're done!
 
-# Directory structure:
+# Directory Structure:
 - `spec/` - contains the specification of the luna language, in depth.
   - This is not intended to be user-facing, as it's very in-depth.
   - The directory is segmented by the part of the language it targets. `build`, `internals`, `std`, etc.
