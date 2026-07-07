@@ -163,12 +163,16 @@ the cursor: a `const` stream cannot be consumed. Any mutation attempt through a 
 compile error where the target is statically known, and otherwise raises a table-protocol violation
 at runtime.
 
-This immutability is `const`'s own compile-time guarantee; it is **not** a runtime seal applied to
-the value (the former runtime `freeze` / `close` seal machinery is either removed, for mutation
-sealing, or a separate table-level growth concern; tables spec §5). Because a `const` table is known
-immutable at compile time, the compiler can specialize it (perfect-hashing, inlining; compiler spec),
-and, as concurrency relies on, it can be shared by reference across tasks without copying, since it
-can never change.
+This immutability is `const`'s own **compile-time** guarantee, a property of the *binding*, **not a
+revocable runtime seal** on the value: it is neither the removed `freeze` / `thaw` mutation-seal
+machinery nor the separate, program-settable growth seals `close` / `neverOpen` (tables §5). The
+runtime arm of the sentence above is therefore not a `const` flag being tested: where a mutation
+reaches a `const` value through a dynamic path the compiler could not rule out statically, the value
+is already in its **permanently-immutable representation** — frozen storage with no mutation
+machinery at all (tables Amendment A) — so the write meets an ordinary table-protocol violation and
+the value still never changes. Because a `const` table is known immutable at compile time, the
+compiler can specialize it (perfect-hashing, inlining; compiler spec), and, as concurrency relies on,
+it can be shared by reference across tasks without copying, since it can never change.
 
 ```
 const config = ['db' => ['host' => 'localhost']];
@@ -176,9 +180,9 @@ config.db.host = 'remote';         // error: const is deeply immutable
 config.timeout = 30;               // error: const admits no new keys either
 ```
 
-`const` binds an **independent** value; it never seals a value still in use
+`const` binds an **independent** value; it never freezes a value still in use
 elsewhere. Const-binding a value that is currently shared conceptually copies it to
-the new binding and seals the copy, leaving the original untouched:
+the new binding and makes *that copy* deeply immutable, leaving the original untouched:
 
 ```
 var original = ['count' => 0];
@@ -381,7 +385,7 @@ See the types spec for the full `type` surface.
 | `reassignmentError` | Rebinding a `let` / `const`; assigning a spent write-once optional | compile (runtime when branch-dependent) |
 | `WriteOnceViolationError` | Second write to a write-once optional on a runtime path | runtime |
 | `incompatibleTypeError` | Assigning a value outside the binding's declared type | compile |
-| (const immutability) | Adding a key to, or overwriting a value in, a `const` (deeply immutable) table | compile where the target is static; otherwise a table-protocol violation at runtime (table spec) |
+| (const immutability) | Adding a key to, or overwriting a value in, a `const` (deeply immutable) table | compile where the target is static; on a dynamic path, a table-protocol violation at runtime (tables §5) |
 
 (Reference-of-`let` and out-of-scope use are compile errors without dedicated names
 here.)

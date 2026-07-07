@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(read f *)",
+      "Bash(:)",
+      "Bash(grep -nE '^#{1,4} ' docs/types/tables.md)",
+      "Bash(node *)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }

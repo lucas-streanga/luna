@@ -588,7 +588,7 @@ wraps the whole pipe. The soundness challenge found the operator sound in four o
 dimensions, pipeline.md had pre-empted general-application redundancy (UFCS owns
 `f(x)`), cross-kind laundering (closed over kind, bridging is explicit `exec`), hidden
 effects (inert construction), and unbounded memory (pull-driven), and one real flaw,
-created by this session's own rulings: piping was "a discipline, not an enforced move"
+created by these rulings: piping was "a discipline, not an enforced move"
 while R20/R28/concurrency §2.3 made enforced moved-from the house style for every other
 single-owner resource, and the soft version was worse than stale style, the piped-from
 handle and the pipeline shared a live cursor, so interleaved pulls made elements
@@ -805,7 +805,7 @@ files are never clobbered), `-t/--test`, `-f/--format` (formatter spec pending),
 `-l/--lsp`, `-d/--debugger`. Composition ruled with a fixed canonical pipeline order
 (format → build → test → artifact/run/debug) regardless of flag order: `-t -f -c`
 compose freely with the artifact gated on test success; `-d` composes with `-c` (debug
-builds compile first anyway, per the user's own reconsideration) and excludes `-l`;
+builds compile first anyway, on reconsideration) and excludes `-l`;
 **`-l` composes with nothing**, advised: a language server is a long-running JSON-RPC
 process owning stdio, editor-launched, so batch-flag combination is incoherent by
 nature, not by policy. Debugging a single test (`-d -t 'name'`) flagged as attractive,
@@ -906,8 +906,8 @@ keyword (keywords.md); the associativity range tier, its R28 resolution note, an
 operator catalogue row updated.
 
 **R48 — bounds-implied descending: the rejection recorded.** The `10..0 → by -1`
-desugar was probed a second time (its mechanics were never the issue) and the user
-retracted it after the consequences analysis; range §4 now carries the full rejection
+desugar was probed a second time (its mechanics were never the issue) and it was
+retracted after the consequences analysis; range §4 now carries the full rejection
 record so a third probe reads instead of re-derives: the silent, data-dependent return
 of the `0..n-1` bug; runtime-opaque direction for non-literal bounds; the
 bounds-vs-sign conflict rule the current design never needs; and the frequency
@@ -950,101 +950,17 @@ canonical `main`, its `const exitCode` companion, and the shapes-on-display note
 relocated from the overview to `index.md`, directly under the opening paragraph, first
 thing a reader sees; the overview keeps a one-line pointer in its place.
 
-**R52 — Shiki grammar for Astro/MDX highlighting.** New `tooling/shiki-luna.ts`: a
-TextMate grammar as a Shiki `LanguageRegistration`, wired via
-`markdown.shikiConfig.langs` in astro.config (the wiring is in the file header),
-enabling ```luna fences in .md/.mdx with no plugin and no LSP, highlighting is
-lexical and the lexical surface is fully ratified, so the grammar is *generated from*
-keywords.md's four keyword sets, the operator catalogue longest-first, interpolated
-strings with `$x`/`${expr}`/`$...xs`, backtick command literals, `#[attributes]`,
-`@P`/`@@` refinements, and the predeclared type names (styled though not reserved,
-keywords §5). Each pattern group cites its governing section so regeneration tracks
-the spec. The LSP remains the ceiling above this, semantic tokens in editors through
-its own channel, irrelevant to static docs.
-
-**R53 — the TS2307 fix and the `<LunaCode>` component.** The error is the
-transitive-dependency gap: shiki ships inside Astro at runtime but TypeScript needs
-it as a direct dependency for the `LanguageRegistration` type, so `npm i -D shiki`
-(dev-only, the import is type-erased); noted in the grammar's header. New
-`tooling/LunaCode.astro`: a self-contained code frame using Astro's built-in `<Code>`
-component, which accepts the grammar object directly as `lang`, so the component
-needs **zero config** (fences remain the config path; the component is the props
-path, for code arriving as data). Deliberately quiet chrome: optional filename
-caption, hover-revealed Copy button (active-voice label, Copied confirmation),
-CSS-custom-property theming with defaults so the host site restyles it without
-edits, `:focus-visible` outline and `prefers-reduced-motion` respected. Usage
-documented in the component header.
-
-**R54 — `.luna` files as strings.** Vite's `?raw` suffix already does this at
-runtime for any extension (`import hello from './hello.luna?raw'`); new
-`tooling/luna-files.d.ts` supplies the ambient `*.luna?raw` module declaration that
-makes TypeScript agree (place beside env.d.ts or add to tsconfig include), documents
-the `import.meta.glob(..., { query: '?raw' })` bulk pattern for an examples index
-page, and deliberately declares **no** bare `*.luna` module, a raw-less import has no
-defined meaning until a compiler-backed loader exists, and staying untyped keeps that
-mistake loud instead of silently `any`. LunaCode.astro's header now shows the
-file-import path as the primary usage.
-
-**R55 — `<LunaCode name="...">`.** The component now loads snippets itself: a
-root-absolute eager `?raw` glob over `/src/assets/snippets/*.luna` (immune to page
-depth and to where the component lives, the exact failure mode of the ENOENT just
-hit), so pages write `<LunaCode name="a-taste-of-luna" />` with no import at all.
-Title defaults to the filename; exactly one of `name`/`code` is enforced; an unknown
-name **fails the build** with the available snippet names listed, an error that says
-what to do next. Explicit `code` retained for one-off inline snippets.
-
-**R56 — LunaCode restyled to the host theme; dual-theme highlighting.** github-dark
-replaced with the **everforest-light / everforest-dark** pair (matched to the site's
-sage-green/warm-brown palette; one word to swap). Automatic light/dark switching uses
-the site's own mechanism rather than JS: Shiki renders with `themes` + `defaultColor:
-false`, emitting `--shiki-light`/`--shiki-dark` per token with no hardcoded colors,
-and one rule, `color: light-dark(var(--shiki-light), var(--shiki-dark))`, follows
-`color-scheme`, which the site's `html[data-theme]` rules already set, so the toggle,
-the system preference, and the code blocks stay in lockstep by construction. Frame
-chrome rewritten onto the site's tokens with standalone fallbacks (`--color-border`,
-`--color-surface-sunken`, `--color-text-muted`, `--radius`, `--space-*`, `--shadow`,
-`--text-sm`); the custom focus outline and reduced-motion block dropped in favor of
-the site's global rules, which already cover both.
-
-**R57 — the monochrome fix.** Diagnosis from the render: Astro's `<Code>` renames
-Shiki's `.shiki` class to `.astro-code`, so R56's `light-dark()` routing rule matched
-nothing, and with `defaultColor: false` the token colors live *only* in custom
-properties until CSS reads them, every span stayed colorless and the site's inline-
-`code` color inherited through (the salmon monotone). Fixed by selecting **elements,
-not classes**: `pre`/`span` under the component's own body scope, immune to whatever
-Shiki or Astro names the wrapper, with the site's `code` styling explicitly
-neutralized inside the frame (`background: none`, inherit font/color) and the pre
-forced to full width (`max-width: none`) so prose styles cannot narrow the code
-surface, the dead right gutter in the render.
-
-**R58 — the contrast fix.** The worry is measurable: everforest-light's string
-tokens are olive-yellow on cream, roughly 2.4:1, far under WCAG AA's 4.5:1. Light
-theme swapped to **vitesse-light**, which keeps the green-keyword brand identity on a
-near-white ground with token inks around 4.5-5:1; dark mode keeps everforest-dark,
-which renders on its own background where contrast is fine and whose warmth fits the
-site's brown dark theme. Rationale left as a comment beside the theme choice, with
-the honest caveat that comments stay muted by design in every theme and the
-maximal-legibility alternative (github-light-high-contrast) named for if that ever
-matters. The principle recorded: contrast is fixed by theme choice, not CSS surgery,
-token palettes are tuned to their own backgrounds.
-
-**R59 — the cutoff trimmed at the source; editor highlighting shipped.** The
-apparent truncation was two things at once: the pre scrolls (macOS hides the
-scrollbar) and, more honestly, the taste snippet's comment column was aligned for the
-spec's wide fixed-width context, forcing ~100 columns onto a ~72-column web frame;
-the index example's comments trimmed and the long postfix line broken, and the
-canonical snippet extracted to `tooling/a-taste-of-luna.luna` for copying into
-`src/assets/snippets/` verbatim. The zero-highlighting observation identified
-correctly as **editor**-side (the site render is fully tokenized): inline fences
-would not help, the editor knows `luna` no better than `.luna`. New
-`tooling/vscode-luna/` extension, no marketplace, no build, copy the folder into
-`~/.vscode/extensions/` and reload: contributes the language id (so `.luna` files
-*and* markdown ```luna fences highlight in the editor, VS Code builds fence patterns
-from registered ids), a language configuration (comments, brackets, auto-close), and
-a tmLanguage **generated from `shiki-luna.ts`** by a small extraction script, one
-grammar as source of truth, site and editor in lockstep by regeneration rather than
-discipline (the extractor needed a real quote-tokenizer; regexes paired apostrophes
-across contexts, a fitting way for this session to end up writing a lexer after all).
+**R59 — the canonical snippet extracted; editor highlighting shipped.** The
+canonical `main` snippet was extracted to `tooling/a-taste-of-luna.luna` (its
+comment column trimmed and the long postfix line broken so it fits a narrow frame),
+the single copy of the front-page example. Syntax highlighting then shipped to
+editors as well as static docs: new `tooling/vscode-luna/` extension, no
+marketplace, no build, copy the folder into `~/.vscode/extensions/` and reload: it
+contributes the language id (so `.luna` files *and* markdown ```luna fences
+highlight in the editor, VS Code builds fence patterns from registered ids), a
+language configuration (comments, brackets, auto-close), and a tmLanguage
+**generated from `shiki-luna.ts`** by a small extraction script, one grammar as
+source of truth, docs and editor in lockstep by regeneration rather than discipline.
 
 **R60 — Zed support.** Zed highlights via tree-sitter, not TextMate, so vscode-luna
 cannot port; two paths shipped. The 30-second stopgap: Zed's `file_types` mapping
@@ -1060,7 +976,7 @@ commit the generated parser to a repo, point extension.toml's repository/rev at 
 interpolation inside strings, and the compiler's real parser remains a separate
 artifact with a different job.
 
-**R61 — tree-sitter.json.** Generation succeeded on the user's machine with the
+**R61 — tree-sitter.json.** Generation succeeded with the
 CLI's no-manifest warning (ABI 14 fallback, harmless, Zed accepts it);
 `tooling/tree-sitter-luna/tree-sitter.json` added (the 0.24+ manifest: grammar name,
 scope, file-types, injection regex, metadata) so regeneration produces ABI 15
@@ -1074,7 +990,7 @@ never generates; and ABI 15 (which R61's manifest now produces) requires a recen
 Zed, with `generate --abi 14` as the compatibility move. `zed: open log` named as
 the source of the real error text.
 
-**R63 — the file:// URL fix.** The user's failure diagnosed from the config
+**R63 — the file:// URL fix.** The failure diagnosed from the config
 itself: `file://home/...` parses the first path segment as a hostname (three
 slashes needed for absolute paths), and the URL pointed at `src/` rather than the
 repo root, which Zed clones before resolving `src/parser.c`, so the clone failed and
@@ -1085,14 +1001,14 @@ macOS) written in.
 
 **R64 — monorepo grammar option.** Answered: the grammar can live in the main repo
 via the grammar config's optional `path` field (the tree-sitter-typescript
-monorepo precedent), with the user's specific trap named, their nested `.git`
+monorepo precedent), with the specific trap named: a nested `.git`
 makes the outer repo's commits contain no grammar files (gitlink), so the inner
 repo must be removed and the grammar committed into the main repo before the
 outer sha can serve as `rev`; regeneration becomes a main-repo commit plus rev
 bump, and a separate repo stays the recommended shape if the grammar is ever
 published. README's install section gains the monorepo block.
 
-**R65 — the stale-clone triage entry.** The user's log identified the real failure:
+**R65 — the stale-clone triage entry.** The log identified the real failure:
 Zed clones grammars into the extension's own `grammars/` directory during dev
 installs, and a leftover clone from the earlier `file://` attempts blocked the
 retry against the new GitHub URL. Fix is `rm -rf tooling/zed-luna/grammars` and
@@ -1109,10 +1025,9 @@ anonymously), regenerates `extension.toml` whole with the fresh sha and the
 monorepo `path`, recommits and pushes; runnable from anywhere in the repo, ends by
 naming the Zed reload command. Root `.gitignore` added: the Zed scratch dir,
 node_modules, wasm/build artifacts (generated `src/` explicitly *is* committed, the
-comment says so), the make-archive zip, and environment noise. File-retention
-question answered in-chat: shiki-luna.ts **stays** (source of truth for the
-tmLanguage extraction and the canonical machine-readable lexical surface);
-luna-files.d.ts and LunaCode.astro are website-scoped and safe to delete here.
+comment says so), the make-archive zip, and environment noise. File retention
+ruled: shiki-luna.ts **stays** (source of truth for the tmLanguage extraction and
+the canonical machine-readable lexical surface).
 
 **R67 — containerized regeneration.** regen-grammar.sh no longer touches local
 npm: generation runs as a one-shot `podman compose run --rm` against a new
@@ -1125,7 +1040,7 @@ compose comments (container root maps to the invoking user, generated files come
 out correctly owned). Host requirements are now podman and git, nothing else.
 
 **R68 — node:22-slim.** The compose image swapped from alpine to Debian-based
-node:22-slim per the ruling, matching the website's own base image and avoiding
+node:22-slim per the ruling, avoiding
 musl's occasional misbehavior with native tooling; comment updated with the
 rationale. First run after the switch re-pulls and re-warms the npm cache volume;
 everything else is unchanged.
@@ -1134,7 +1049,7 @@ everything else is unchanged.
 convention: npx-at-runtime floats the tree-sitter-cli version, and the CLI version
 shapes the generated parser, so generation was not reproducible from repo state.
 New `tooling/Containerfile` (`FROM node:22-slim`, `npm install -g
-tree-sitter-cli@0.26.10`, the version the user's own successful run resolved);
+tree-sitter-cli@0.26.10`, the version a known-good run resolved);
 compose.yaml switches from a bare image to `build:` with a named local image, the
 npm cache volume deleted (nothing downloads at runtime anymore), and the script's
 step 2 becomes `podman compose build` (cached, instant when unchanged, and the
@@ -1153,9 +1068,9 @@ the directory (comment explains why, pointing at triage §5 for the URL-change
 case); README's entry five rewritten to scope the nuke to URL changes with the new
 error text quoted; recovery is one `zed: install dev extension`.
 
-**R71 — the template made obviously invalid.** The user's "failed to fetch
-revision main" (their branch is master) traced to the archive's extension.toml
-template still carrying the original `rev = "main"` placeholder, which their
+**R71 — the template made obviously invalid.** A "failed to fetch
+revision main" error (the branch is master) traced to the archive's extension.toml
+template still carrying the original `rev = "main"` placeholder, which the
 drop-in of updated tooling files copied over the script-generated sha version, a
 plausible-looking placeholder failing later and stranger than an invalid one
 would. The template is now explicitly generated-file-marked with deliberately
@@ -1165,29 +1080,27 @@ README triage entry one gains the fetch-revision symptom and the
 extension.toml-is-generated-never-copied warning. Immediate recovery: run
 regen-grammar.sh, reinstall.
 
-**R72 — website files pruned; the glibc fix.** LunaCode.astro and luna-files.d.ts
-deleted from tooling/ per the ruling (website-scoped, live copies are on the site;
-shiki-luna.ts stays as source of truth), index row updated. The container failure
-diagnosed from the error text: tree-sitter-cli 0.26's prebuilt binary requires
-GLIBC_2.39, and node:22-slim is bookworm-based (Debian 12, glibc 2.36); base image
-switched to **node:22-trixie-slim** (Debian 13, glibc 2.41), same node major, same
-slim variant, rationale committed as a Containerfile comment with the exact error
-quoted for grepability. The base-image change busts the build cache automatically,
-so the script's `podman compose build` step rebuilds without intervention; note
-that `podman compose up` is not part of this flow, the pipeline is build plus
-one-shot `run --rm`.
+**R72 — the glibc fix.** The container failure diagnosed from the error text:
+tree-sitter-cli 0.26's prebuilt binary requires GLIBC_2.39, and node:22-slim is
+bookworm-based (Debian 12, glibc 2.36); base image switched to
+**node:22-trixie-slim** (Debian 13, glibc 2.41), same node major, same slim
+variant, rationale committed as a Containerfile comment with the exact error quoted
+for grepability. The base-image change busts the build cache automatically, so the
+script's `podman compose build` step rebuilds without intervention; note that
+`podman compose up` is not part of this flow, the pipeline is build plus one-shot
+`run --rm`.
 
 **R73 — the conditional nuke, reconciling R65 and R70.** The stale-clone error
-returned legitimately: the user's install history crossed a url change (file:// to
+returned legitimately: an install history that crossed a url change (file:// to
 the origin-derived GitHub url), the exact case R65's nuke existed for and R70's
 removal re-exposed. Both were half-right; the script now holds the synthesis: it
 compares the existing clone's `remote get-url origin` against the url it is about
 to write and clears the cache **only on mismatch**, announcing the repoint, so
 routine regens preserve the live grammar and url changes self-heal, with the
 manual command remaining documented for installs outside the script. Immediate
-user fix this once: manual nuke plus reinstall.
+fix, once: manual nuke plus reinstall.
 
-**R74 — the Shiki grammar rederived from the lexer spec.** The user delivered a
+**R74 — the Shiki grammar rederived from the lexer spec.** A
 full lexer specification (token inventory, modes, maximal-munch ordering, RE2
 targeting, non-regularity flags); shiki-luna.ts regenerated against it as the new
 source-of-truth citation, gaining what the approximation lacked: hex, binary, and
@@ -1199,11 +1112,11 @@ RE2 does not; the caveat is in the header); block comments; `match!` as a unit
 (its own pattern, since a trailing `\b` after `!` cannot match); `from`; and the
 spec's unrolled-loop span forms adopted verbatim for portability. The vscode
 tmLanguage re-extracted in the same pass, so both derived artifacts track the
-lexer spec through one file. Noted in-chat: build/lexer.md is the natural home
-for the spec document itself, on the user's word.
+lexer spec through one file. Separately, build/lexer.md is the natural home
+for the spec document itself.
 
 **R75 — canonical tree adopted; grammar promoted to the G-rulings; the script
-split.** The user's uploaded zip is the working copy now: specs under `docs/`,
+split.** The canonical zip is the working copy now: specs under `docs/`,
 their `make-archive.sh` (git-ls-files-driven, gitignore-respecting) replaces mine,
 the root and zed-luna .gitignores restored (zip tools drop dotfiles), CHANGES.md
 carried forward. **Grammar**: shiki-luna.ts regenerated against
@@ -1226,42 +1139,14 @@ the `import type { LanguageRegistration } from 'shiki'` was a permanent TS2307 i
 any editor opening the repo, flagging a dependency that was only ever
 documentation. Replaced with a local structural type (TmRule plus LunaGrammar),
 Shiki accepts grammars structurally, so the file is now self-contained and
-editor-quiet everywhere, and the real type check relocates to the one place shiki
-actually exists, the website, via an optional documented one-liner
+editor-quiet everywhere, and the real type check relocates to wherever shiki is
+actually installed, via an optional documented one-liner
 (`const _check: LanguageRegistration = lunaGrammar;`). The extraction pipeline is
 unaffected, it parses the object literal, not the types.
 
-**R77 — the website grammar sync.** The website's copy of shiki-luna.ts stops
-being a fork: `tooling/sync-luna-grammar.sh` (templated here, lives in the
-website's scripts/) shallow-clones the luna repo on `npm run dev`/`build` via
-package.json pre-scripts and overwrites the website copy, stamping it with a
-GENERATED header naming source, rev, and syncing script (the R71 lesson applied
-forward). Two safety refinements over the raw proposal: `--depth 1`, and an
-offline fallback that keeps the existing copy with a warning when the repo is
-unreachable, hard-failing only when no copy exists, so no-wifi never blocks the
-dev server. Committing the synced file recommended (generated-but-vendored, the
-tree-sitter src/ precedent): fresh clones and offline CI always build, and
-upstream grammar changes surface as reviewable diffs.
-
-**R78 — the sync script rewritten for the containerized website; multi-arch
-answered.** The website's Containerfile revealed node:22-slim, which ships
-neither git nor curl, so R77's bash+git script could not run where npm runs;
-replaced by `sync-luna-grammar.mjs`, pure Node built-in fetch (>=18), raw-URL
-fetch with a best-effort GitHub-API sha for the GENERATED stamp, DEST corrected
-to src/lib/, an unchanged-content short-circuit so watch-mode tooling stays
-quiet, the same offline fallback semantics, and a 10s timeout on every fetch
-because the image's CMD makes a hung predev a hung container, the failure class
-the user just killed. The luna tooling template swapped to the .mjs; the
-standalone file delivered for the astro repo. Multi-arch ruled possible as-is:
-node:22-slim is a multi-arch manifest (amd64+arm64), podman machine on Apple
-silicon runs linux/arm64 natively and pulls the right variant, and the compose
-file's anonymous-volume node_modules mask already gives each machine its own
-in-container native binaries, the classic cross-arch trap dodged by structure;
-avoid --platform emulation, unnecessary and slow.
-
 **R79 — gated secrets: per-capability secret authority, zero new machinery.** The
-hole named by the user, one `reveal` capability opening every secret, closed at the
-effect site. Ratified signature (the user's variadic insight, corrected):
+hole named, one `reveal` capability opening every secret, closed at the
+effect site. Ratified signature (the variadic form, corrected):
 `secret(raw: string|bytes, ...gates: type): secret`, gates are capability
 **typeids** (`@dbCred`, tokens stay confined, the `&capability` params in the
 sketch would have violated §3.1), zero gates means the default `[@reveal]` with no
@@ -1274,13 +1159,13 @@ the audit becomes per-gate (`use (dbCred)` lists exactly who can see the databas
 password) and `use (reveal)` is demoted to the default gate's key; `gatesOf(s)`
 for check-before-reveal; re-gating is reveal-then-rewrap so changing gates
 requires authority over the current ones by construction; `as secret` ≡
-`secret(raw)`. The user's original constraint-based proposal (`can` inside
+`secret(raw)`. The original constraint-based proposal (`can` inside
 `where`) rejected for the reason now made a stated principle in constraints:
 **predicates are functions of the value alone**, frame state is an illegal input,
 because checked constraints become facts that ride values across frames and
 frame-dependent truth would mint facts that stop being true in transit. The
 `can` expression outside constraints deferred on YAGNI; compiler-sandboxing
-recorded in-chat as latent (restricted root grant + the R39 check binds even
+recorded as latent (restricted root grant + the R39 check binds even
 smuggled closures; missing pieces are an embedding API and resource limits).
 
 **R80 — `can` scrapped entirely; sandboxing's mechanical core recorded.** The
@@ -1303,15 +1188,15 @@ missing key, and `_` for chosen exhaustiveness, first-match-wins noted in prose.
 The shapes-on-display note rewritten to name what the example now shows. En
 route, one drift fixed, the old example's postfix `if arguments.empty()` lacked
 the parentheses the `if` grammar requires (R46's desugar is `expr if (c);`).
-The user's ask, "match on the table structure", surfaced a real gap now flagged
+The ask to match on the table structure surfaced a real gap now flagged
 in match §12: structural table patterns in arms would slot in syntactically via
 the R35 grammar but not semantically, destructuring's absent-key-binds-undefined
 rule would make `['host' => h]` match hostless tables, so arms need a presence
 rule before it lands, and the guard form is the recorded idiom meanwhile. The
-canonical snippet regenerated; the website picks it up on its next sync.
+canonical snippet regenerated.
 
 **R82 — the R81 flag retracted; shape patterns were already ruled; the front page
-gets them.** The user's challenge forced the review R81 skipped, and match.md §4
+gets them.** A challenge forced the review R81 skipped, and match.md §4
 ("Table and shape patterns") had ruled everything the flag worried about, all
 along: presence semantics for named keys (§4.3's one deliberate difference, with
 the extract-vs-test duality stated verbatim), keyed-partial with extras ignored,
@@ -1322,31 +1207,47 @@ review paid twice: §4's summary line still said sub-patterns may be "`@T`
 (type-tested)", pre-R27 drift (F14 ruled `@int` a compile error, type patterns
 are bare types), fixed; and §4.3's "noted in both specs" claim was half-true,
 the destructuring side's cross-note now exists. One nuance kept and flagged
-rather than silently changed: the user's "for lists, partial works the same way"
+rather than silently changed: the "for lists, partial works the same way" reading
 diverges from §4's positional-exact rule, where prefix matching is spelled
 explicitly (`[a, b, ..._]`), strictly more expressive since exactly-two remains
 sayable; standing rule kept pending override. The front page upgraded to the
 structural arms the example always wanted (`['host' => string h, 'port' => int
 p]`), the shapes note rewritten, the snippet regenerated.
 
-**R83 — publish-grammar.sh survives no-op regeneration.** Diagnosed from the new
-laptop's transcript: `set -e` plus an empty commit, generation reproduced the
-already-committed parser byte-for-byte (pinned CLI doing its job), `git commit`
-exited nonzero on the empty stage, and the script died **before the
-extension.toml write**, which is precisely what a fresh machine needs even when
-the grammar is a no-op. Both commit steps now guard on `git diff --cached
---quiet` and announce the no-op; the extension.toml regeneration is reached
-unconditionally, which also self-heals the committed placeholder that full-
-archive syncs reintroduce (the R71 hazard in sync form). Secondary note from the
-transcript: the retired R75 monolith `regen-grammar.sh` was still being run;
-delete it, the pair is `generate-grammar.sh` then `publish-grammar.sh`.
+**R83 — publish-grammar.sh survives no-op regeneration.** Diagnosed on a fresh
+checkout: `set -e` plus an empty commit, generation reproduced the already-committed
+parser byte-for-byte (pinned CLI doing its job), `git commit` exited nonzero on the
+empty stage, and the script died **before the extension.toml write**, which is
+precisely what a fresh checkout needs even when the grammar is a no-op. Both commit
+steps now guard on `git diff --cached --quiet` and announce the no-op; the
+extension.toml regeneration is reached unconditionally, which also self-heals the
+committed placeholder that full-archive syncs reintroduce (the R71 hazard in sync
+form). Secondary note: the retired R75 monolith `regen-grammar.sh` was still being
+run; delete it, the pair is `generate-grammar.sh` then `publish-grammar.sh`.
+
+**R84 — the `const` "runtime seal" tension in variables.md resolved.** Three
+passages read as a contradiction: §3 called `const` immutability "not a runtime
+seal," yet the same section and §7's error table said a mutation "raises a
+table-protocol violation at runtime," and §3 also described const-binding as
+"sealing the copy." The conflict was wording, not design. `const` is a
+**compile-time property of the binding** (tables §5.2, Amendment A); its runtime arm
+is not a `const` flag being tested but the value already sitting in its
+**permanently-immutable representation** — frozen storage with no mutation machinery
+— so a dynamic-path write meets an ordinary table-protocol violation and the value
+still never changes. "Not a runtime seal" is sharpened to "not a *revocable*
+runtime seal," explicitly separated from the removed `freeze`/`thaw` machinery and
+the program-settable `close`/`neverOpen` growth seals; "seals the copy" reworded to
+"makes that copy deeply immutable"; §7's arm reworded to "on a dynamic path."
+Swept: variables.md §3 (two paragraphs) and §7. The sweep was local — no other file
+asserted a const *runtime* seal, and concurrency's "deep-frozen `const`, shared by
+reference" and tables' "the const seal" already use freeze/seal in the compile-time
+sense.
 
 ---
 
-## Not changed (out of scope of these rulings, still open from the review)
+## Still open (out of scope of these rulings)
 
- `list` drift vs
-panic (F4); `as` algebra exceptions (F6); union subtyping vs interval
-test (F9); `any` pipelines (F22); view interior mutability (F25). The variables.md-internal
-tension (§3 "not a runtime seal" vs "seals the copy" vs the runtime arm in §7's error
-table) is also left for a ruling.
+A handful of contradictions surfaced by the review remain deliberately unresolved,
+each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
+exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
+and view interior mutability (F25).
