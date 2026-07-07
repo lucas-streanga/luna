@@ -1,0 +1,56 @@
+# Claude Code in rootless Podman on Fedora Asahi Remix.
+#
+#   podman compose build
+#   podman compose run --rm claude          # interactive Claude Code in ./
+#   LUNA_DIR=/path/to/luna podman compose run --rm claude
+#   podman compose run --rm claude bash     # shell in the sandbox
+#
+# SELinux: the workspace is a HOST bind mount, so it carries ':z' to relabel it
+# container_file_t (shared — host + other containers can still read it). The claude
+# config is a Podman-MANAGED named volume, which is already labeled correctly and must
+# NOT get ':z'. Never put ':z' on your whole $HOME — only on dirs you mean to share.
+
+services:
+  claude:
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        UID: "1000"
+        GID: "1000"
+    image: localhost/claude-asahi:latest
+    hostname: claude-asahi
+
+    # Map your host user into the container so workspace files stay yours instead of
+    # coming out root-owned. Assumes host UID/GID 1000 (default first Fedora user);
+    # if yours differs, change it here and in the build args above.
+    userns_mode: "keep-id"
+
+    stdin_open: true
+    tty: true
+    working_dir: /luna
+
+    volumes:
+      # Luna repo -> /luna. ':z' = SELinux relabel (shared). Host bind mount.
+      - "${LUNA_DIR:-.}:/luna:z"
+      # Persisted auth/config across rebuilds. Named volume: no ':z'; survives
+      # `podman compose down`, cleared only by `down -v`.
+      - "claude-config:/home/dev/.claude"
+
+    environment:
+      DISABLE_AUTOUPDATER: "1"
+      # API-key auth instead of browser login? Pass it through from your shell,
+      # don't hardcode it:
+      # ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+
+    # --- Network egress control ---
+    # Rootless shares your user's netns via pasta/slirp4netns. Enforce an egress
+    # allowlist on the HOST (nftables) rather than inside the container. Anthropic's
+    # reference in-container iptables firewall needs NET_ADMIN/NET_RAW, which is awkward
+    # rootless; only uncomment if you deliberately run this one container rootful:
+    # cap_add:
+    #   - NET_ADMIN
+    #   - NET_RAW
+
+volumes:
+  claude-config:
