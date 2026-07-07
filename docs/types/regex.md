@@ -47,6 +47,9 @@ let word   = /[A-Za-z_]\w*/;
   the rest) follow the engine's syntax (§5).
 - A malformed pattern (`/[/`) fails to compile **at the literal**, a compile error, because
   the literal is compiled at compile time.
+- An **empty pattern** is written `/(?:)/`, not `//`: a bare `//` is a line comment (lexer
+  §2, §8), so the empty matcher uses an explicit empty group — the spelling JavaScript
+  adopted for the same reason. `regex("")` is the runtime equivalent (§6).
 
 Flags follow the closing delimiter (§3).
 

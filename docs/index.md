@@ -203,6 +203,8 @@ table is a map.
 
 | Spec | File | What it is |
 |-|-|-|
+| Lexical structure | `lexical-structure.md` | Source encoding, identifiers, and comments — the rules that apply before tokenizing. |
+| Lexer | `lexer.md` | The token inventory: lexer modes, per-lexeme RE2 patterns, and maximal-munch ordering. |
 | Modules | `modules.md` | The file-is-a-module system: static, DAG-shaped imports bringing names into scope. |
 | Compiler | `compiler.md` | The compiler's phase pipeline, IR, optimization passes, and Go emission. |
 | Incremental compilation & build cache | `incremental-compilation-build-cache.md` | The per-module artifact cache and its correctness/reuse rules. |

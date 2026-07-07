@@ -1243,6 +1243,60 @@ asserted a const *runtime* seal, and concurrency's "deep-frozen `const`, shared 
 reference" and tables' "the const seal" already use freeze/seal in the compile-time
 sense.
 
+**R85 — comment syntax stays `//` + `/* */`; the `#`-comment switch rejected; shebang
+and empty-regex ruled.** The open question: `//` names both a line comment and an empty
+regex literal, indistinguishable in isolation. The proposal weighed was to retire `//` as a
+comment in favor of `#` (freeing `//` for the empty regex, and buying `#!` shebang), which
+would force attributes off `#[`. Rejected, for three reasons. **First, it targets the wrong
+cost.** The genuinely hard part of the `/` overload is regex-vs-division, which needs
+previous-significant-token lexer state (lexer F2), and `/*` block comments keep `/`
+three-way regardless; dropping `//`-as-comment removes only the cheapest, already-settled
+sub-case and leaves the state machine intact. **Second, the stated blocker was false.** `#`
+line comments and `#[…]` attributes coexist lexically by the same attempt-order lever §8
+already uses for `//` over `/*` (try `#[` before the `#`-comment), so attributes would need
+no new spelling; the real objection is aesthetic (no established language pairs `#` comments
+with `#[]` attributes, and `#[` becomes a jarring exception to "`#` starts a comment") and
+not worth a surface change. **Third, the price is a 59-file, 4-grammar sweep**
+(tree-sitter, VSCode, Zed, Shiki all encode `//`) against settled syntax, for a marginal
+gain. The `//`-empty-regex clash was already resolved the right way (F2, §8: the comment
+wins); this ruling makes the consequence explicit — an **empty pattern is `/(?:)/`** (an
+explicit empty group, RE2-accepted, the spelling JavaScript adopted for exactly this
+reason) or `regex("")`, never `//`. The two independent wins the proposal bundled are taken
+**without** the switch: a **first-line `#!` is a shebang**, recognized only at byte offset 0
+and only as `#!` (a bare `#` elsewhere stays a lex error, so `#[` and the shebang are the
+sole uses of `#`), giving a directly-executable `.luna` script; and the empty-regex hatch
+above. Swept: regex.md §2 (empty-pattern note), lexer.md §2 (shebang token + rule), §5 (the
+bare-`#` note now excepts the shebang), §8 (shebang tried first, only at offset 0), and F2
+(comment-wins sharpened, `/(?:)/` named, the rejected `#` path cited). **Companion work,
+deferred to its own ruling:** the lexer cites a *`lexical-structure §1–§3`* authority for
+encoding, identifiers, and comments that **has no file**; a new `comments.md` will become
+the comment authority and retire the dead citation, and the **block-comment nesting**
+question (currently non-nesting, G3) is reopened there — both out of scope here.
+
+**R86 — `lexical-structure.md` created; the dangling encoding/identifier/comment authority
+resolved; block-comment nesting deferred.** R85 deferred the comment authority to "a new
+`comments.md`"; on inspection the lexer's dead citations were to *`lexical-structure §1–§3`*
+and spanned **three** topics — encoding (§1), identifiers (§2), comments (§3) — so a
+comments-only file would have left §1 and §2 dangling. The broader file is the right fix and
+is what R85's forward reference should have named. `lexical-structure.md` now exists with
+those exact three sections, so every `lexical-structure §N` citation in lexer.md resolves
+unchanged (no lexer edits needed). Its content **consolidates already-ruled facts** rather
+than inventing: UTF-8 required and checked at ingress (string-representation §8's discipline),
+ASCII-only identifiers with no Unicode and hyphen = subtraction (G6, functions §5.6, keywords
+§6), `_` the discard (wildcard spec), predeclared ≠ reserved (keywords §5), `//` plus
+non-nesting `/* */` with documentation carried by attributes (G3), and the offset-0 `#!`
+shebang (R85). Three small decisions were made where the corpus was silent: a **UTF-8 BOM is
+forbidden** (a leading U+FEFF is an ordinary codepoint, not stripped, hence a lex error,
+which keeps byte offset 0 meaningful for the shebang); **casing carries no semantics** (the
+compiler enforces no capitalization, consistent with shadowable predeclared names — the
+builtin error-type *convention* stays open, keywords §6); and the **regex/comment invariant**
+is stated outright (§3.1): because `//` and `/*` are decided on the two-char prefix before the
+regex-vs-division rule (lexer F2), a `regex` literal can never begin with `/` or `*`, so
+`/**/` is an empty block comment and the two forms never contend. Block-comment **nesting** is
+recorded as **deferred, not rejected** (§3), by decision — cheap to build (a depth counter)
+but it changes the failure mode, and the need has not arisen. Swept: `docs/index.md` gained a
+*Lexical structure* row and a *Lexer* row (the latter was missing from the map entirely).
+
 ---
 
 ## Still open (out of scope of these rulings)

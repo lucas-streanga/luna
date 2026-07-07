@@ -6,7 +6,11 @@
       "Bash(:)",
       "Bash(grep -nE '^#{1,4} ' docs/types/tables.md)",
       "Bash(node *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Read(//proc/1/**)",
+      "Bash(grep -n \"\\\\.md\\\\`\" docs/index.md)",
+      "Bash(echo \"exit $?\")",
+      "Bash(git -C /luna status --short)"
     ]
   }
 }
