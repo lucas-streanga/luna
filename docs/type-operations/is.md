@@ -45,12 +45,15 @@ v is @drawable        // protocol: true if v is a table with the applied drawabl
 
 Because Luna's type universe is statically closed and each value carries its type
 (value-representation spec), the test is a cheap runtime check on the value's current `typeid`,
-which is always **concrete**, a current type is never a union, so the check is the two-tier rule
-of value-representation §4.2: an **interval check** when `T` is a tree node (a named type, a
-constraint, an error), **member decomposition** when `T` is a union (one interval check per flat,
-canonicalized member), and the applied-set membership test for a `@P` refinement (protocols §9). It
-does not evaluate the value's contents beyond what the type requires (a constraint runs its
-predicate, constraints §7).
+which is always **concrete**, a current type is never a union, so the check is dispatched by the
+shape of `T` (value-representation §4.2): an **interval check** when `T` is a tree node (a named
+type, a constraint, an error, and also bare `fn` / `fn!`, whose ladder is a tree, functions §3.1),
+**member decomposition** when `T` is a union (one interval check per flat, canonicalized member),
+the applied-set membership test for a `@P` refinement (protocols §9), and a **pairwise-table lookup**
+when `T` is a function **signature**, whose subtyping is a DAG rather than a tree and whose relation
+is therefore folded once at link time. It does not evaluate the value's contents beyond what the type
+requires (a constraint runs its predicate, constraints §7), and it never *runs* a function to decide
+`f is fn (A): R`, it compares the reified signature (functions §3).
 
 ## 3. `is` does not narrow
 
@@ -89,8 +92,8 @@ function (reflection spec §3.1), not by a written operator.
 
 So the whole surface of the subtype relation is: **`is`** (does this value have this type, at
 runtime), **`as`** (narrow this value to this type, or panic), **declarations** (state the
-relationships), and **`isSubtype`** (compare two types, in comptime reflection). `is` is the common
-one.
+relationships), and **`isSubtype`** (compare two `type` values, a runtime reflection function,
+reflection §3.1). `is` is the common one.
 
 ---
 
@@ -105,4 +108,5 @@ one.
 - It does **not** narrow the tested binding; narrowing is a separate new-binding step (`as` /
   `match`), per the no-CFA guarantee.
 - There is **no `<:` operator**; the type-to-type subtype relation is compiler machinery, surfaced through
-  `is` / `as` / declarations and, for comptime, the `isSubtype` reflection function.
+  `is` / `as` / declarations and, for two `type` values in hand, the `isSubtype` reflection function
+  (reflection §3.1, the runtime tier).

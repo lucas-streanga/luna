@@ -1407,6 +1407,127 @@ ruling. Also unchanged: the builtin error types' casing (`OverflowError`, `Arity
 `typeError`, `ioError`), already flagged at keywords §6; and the tree-sitter grammar, which is
 highlighting-only and carries no pattern rules.
 
+**R88 — function narrowing: obligations eagerly, values per call; `is` on a signature is a
+pairwise table.** The rationale the corpus gave for deferring a function `as` to each call was
+false. It said a function's conformance to `fn (A): R` is "observable only when it runs" (as §5.1,
+functions §3.2), but **function types are not erased**: the typeid is *signature plus errorability
+and nothing else* (functions §3), so the real parameters, the real result, and whether the function
+throws are all in hand the moment the `as` runs. Deferral was never forced by ignorance. `as` defers
+because **`as` is licensed to assert a claim that is not a subtype relation**, which functions §3.2
+already said out loud ("allowed *optimistically*") three lines below the false rationale, and such a
+claim can only be tested against the calls that occur. The license has exactly one boundary, and it
+is the ruling: **`as` may be optimistic about *values*, never about *obligations*.** An argument type
+and a result type are beliefs about the calls that will occur, and being wrong is caught at the call.
+Errorability is a caller obligation: you cannot believe a function will not throw and be checked
+afterwards, because the check would arrive after the throw. A `&` parameter is an obligation too, a
+write channel, and the calls that occur bound what a callee reads, never what it writes back. So
+**kind, errorability, reference positions, and hopelessness are eager**; **argument and result
+conformance are deferred**. Locality tightens with it: hopelessness is detectable at the `as` even
+through an erased `fn`, since the typeid knows the real signature, so it panics **there** rather than
+at some first call that may never come; the "an optimistic narrowing never called never panics" grace
+survives, for optimistic narrowings only.
+
+**Hopelessness is a disjunction, and the old gloss was wrong twice.** functions §3.2 made a
+statically-known narrowing a compile error only when parameters *and* results were disjoint. That let
+`fn (): int as fn (): string` through (a zero-parameter function has no disjoint parameters at all)
+and `fn (int | string): R as fn (double): R` too, both of which panic on every call. **Or**, not
+**and**: a narrowing is hopeless when *any* position is, a disjoint parameter, a disjoint result, a
+differing `&` position, or a **required** parameter of the real function beyond the claimed arity
+(§3.3.1's defaults decide it). The gloss "no function could inhabit both" is separately wrong: a
+function value has exactly one signature typeid, so *any* two distinct signatures are value-set
+disjoint, including the `fn (int): int` / `fn (int): int | string` pair the optimistic rule exists to
+permit. The criterion is "no **call** could satisfy," never "no value could inhabit." New functions
+§3.2.1 carries the narrowing table, headed by the fact that inverts most first guesses: **widening a
+parameter narrows the function type**, so `fn (int | string): R as fn (int): R` and `... as fn` are
+free widenings that can never fail, while the two forms that look harmless, widening a claimed
+parameter and narrowing a claimed result, are the real narrowings and are exactly the ones that defer.
+
+**`is` on a signature needs a third shape, and it is the one value-representation §4.2 already
+names.** R87 made a pattern's typed binder `is T`, total and non-panicking, so `match (f) { g: fn
+(int): string => ... }` must **decide** conformance rather than assert it. The wildcard ladder is a
+tree (`fn (A): R <: fn <: fn!`, with `fn (A): R! <: fn!` alone), so function typeids occupy one
+contiguous region with the non-errorable signatures as a prefix and `is fn` / `is fn!` stay interval
+checks. The **leaves** are a DAG: signature subtyping is structural and contravariant in the
+parameters, so `fn (int | string): (int | string)` is a subtype of both `fn (int): (int | string)` and
+`fn (int | string): any`, which are incomparable, exactly the multiple-supertype shape §4.2 says
+laminar intervals cannot encode. **The resemblance to errors is superficial and is refused outright**:
+errors carry subtype rules too, but they are *single inheritance by construction*, a nominal tree
+declared node by node, which is why the interval numbering serves them to the leaves; nothing about a
+function type is declared, signatures being interned structurally, so there is no tree to number.
+Signatures therefore take the other escape §4.2's own parenthetical names, a **pairwise table**: the
+type universe is closed, function types are interned, so a program's distinct function typeids are a
+finite set `F` enumerable at link time, `S <: T` is folded once structurally, and the runtime test is
+one indexed load. `F` counts distinct written signatures, not call sites; a thousand of them is 125 KB.
+Rejected: **typeid identity**, O(1) and trivially wrong, since it contradicts is §2's own definition
+("is `x`'s current type a subtype of `T`") and would make `match` *weaker* than `as`, failing to match
+an `f: fn (int | string): int` genuinely usable as a `fn (int): int`.
+
+**The payoff, and its two boundaries** (new match §2.3). `as` claims and pays per call; `is` decides.
+When `g: fn (int): string` matches, `real <: claim` holds, so the argument is within the claimed
+parameter which the real parameter accepts by contravariance, the result is within the real result
+which is within the claim by covariance, arity and errorability agree, and `&` positions are identical:
+**every per-call signature check folds away.** A bare `g: fn` buys nothing, there being no signature in
+the type to decide, so calls through it keep all four. And **no pattern discharges the capability
+check**: a function's requirement set rides the value, not the typeid, so `is` never inspected it, and
+a call through any `fn`-typed slot still verifies *requirement set ⊆ the executing frame's grant*, one
+bitmask compare, panicking on shortfall. Narrowing a signature is a claim about **data**; authority is
+not data. Capabilities and comptime-eligibility are confirmed **erased from the typeid** and borne on
+the value, reflection-visible in principle; the laundering worry closes as capabilities §3.1's
+**laundering theorem** already stated, a closure travels through capability-free code as inert data,
+never as exercisable authority, and the shortfall panic fires at the **indirect call**, before the
+body runs, never at the `use` inside it. Possession of the value is not possession of the grant.
+
+**Two unswept rulings surfaced across four sites, one of them denying the panic this ruling
+documents.** **R39** left residue in three places. *functions §3.1* asserted that capability-holding
+values "cannot enter a `fn`, `fn!`, or signed slot at all, so every value reaching any function-typed
+slot is capability-free": the pre-R39 second-class rule, repealed ninety lines earlier in the same
+file. *capabilities §5.1*, which §3.1 **cites** as the authority for "fixed at creation," still said
+"after creation, no further check ever runs," "an indirect call needs no check at all, because a
+capability-holding value cannot enter a slot," and "no runtime capability state anywhere", all three
+false under R39, and the second is precisely the dynamic frontier this ruling relies on. *capabilities
+§8* propped the comptime sandbox on the same repealed rule ("a slot could not hold a capability-holding
+value even at runtime"); the sandbox conclusion never depended on it, and R39's own argument is
+stronger, at comptime the executing frame's grant is empty, so a requirement-carrying value invoked
+there fails the dynamic check **vacuously**. The check's ordering is now stated where it belongs
+(capabilities §5.1): a shortfall panics **before the callee's body begins**, so it refuses an
+unauthorized call at the boundary rather than halting an effect in progress, which is what makes the
+laundering theorem a safety property and not merely a detection one. **R43** left residue in one place.
+*functions §5.2* was headed "It lives in the function type"
+and said "the eligibility bit is part of the `fn` type," contradicting §3's post-R43 "comptime
+eligibility left the typeid, joining capabilities on the value." R43 is also the only sound reading:
+were eligibility in the typeid, `f as comptime fn (int): int` would be an optimistic claim about an
+obligation, which this ruling forbids; being *derived* from the requirement set, which lives on the
+value where `as` cannot reach it, it is un-launderable for free, and it needs no place in the type
+because a comptime call requires a statically-known `const` callee in any case (§5.2's own next
+sentence), so the compiler always holds the function itself.
+
+**A corpus-wide check for the newly-ruled facts paid a sixth time.** Three specs asserted that *the*
+subtype test is the interval check, which value-representation §4.2 has never said (unions decompose)
+and which R88 makes doubly false (signatures index a table): `reflection.md`'s `isSubtype` was "the
+interval check," `compiler.md` said "subtype tests compile to the two integer comparisons of the
+interval check," both now dispatch by the shape of the target. Two specs claimed **`is` narrows**,
+which is.md §3's headline denies and which R87 §2.2 and as §7 depend on: `exec.md`'s "`is`-narrowing"
+and `errors.md` §8.3's "(`is SomeType`, or a following `catch`)" for recovering a concrete subtype;
+both now name `as`, a typed `catch` clause, or a match arm as the narrowing form, with `is` as the
+boolean gate. `is.md` placed `isSubtype` "in comptime reflection" two lines after citing reflection
+**§3.1, the runtime tier**, and reflection.md and type.md both agree it is runtime; is.md is corrected.
+And `pipeline.md` §5.2's **heading** still read "Stages are effect-free by construction" while its own
+body, swept at R39, said that claim "rested on the repealed second-class rule" and weakened to the
+ambient check; the heading is retitled. Nothing in the corpus now contradicts either ruling.
+
+Swept: `functions.md` (§3.1's R39 residue, §3.2 rewritten, §3.2.1 added, §5.2 rewritten);
+`as.md` (§5.1 rewritten and retitled); `capabilities.md` (§5.1 and §8, both R39 residue);
+`internal-representation-of-variables.md` (§4.2 gains the function-signature shape);
+`is.md` (§2's dispatch is by shape, not "two-tier"; §4 and §5's `isSubtype` tier);
+`type.md` (§7.1 gains the wildcard-callable and function-signature rows; its R87 "open" flag retired);
+`match.md` (§2 wording, new §2.3); `reflection.md` (`isSubtype`'s dispatch); `compiler.md` (typetable
+emission); `exec.md` and `errors.md` (`is` does not narrow); `pipeline.md` (§5.2's heading).
+
+Not changed, and flagged: **reflection has no named query for a function's requirement set.**
+functions §3 says the fact is "readable at any boundary that needs it" and this ruling leans on that
+for the capability story, but reflection §3's runtime tier lists `typeName`, `kind`, `isNullable` and
+nothing else. Also unchanged: the builtin error types' casing (keywords §6), still open since R87.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -1414,6 +1535,6 @@ highlighting-only and carries no pattern rules.
 A handful of contradictions surfaced by the review remain deliberately unresolved,
 each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
 exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
-view interior mutability (F25); and, newly, **function-type patterns plus the wrong
-rationale for `as`'s per-call signature deferral** (R87's tail, as §5.1, functions §3.2,
-type §7.1).
+view interior mutability (F25); the builtin error types' casing (keywords §6); and,
+newly, **a reflection query for a function value's capability requirement set** (R88's
+tail, functions §3, reflection §3).

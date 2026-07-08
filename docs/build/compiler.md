@@ -487,8 +487,11 @@ The `typetable` (value-representation §4) is emitted as **static Go data**: a g
 `typeinfo` values built at compile time, holding nullability, attributes, error ancestry with the
 preorder `enter`/`size` interval numbering (value-representation §4.2), and protocol metadata.
 Because the type universe is closed at compile time (value-representation §4.1), this table is
-fully known during emission and never grows at runtime, subtype tests compile to the two integer
-comparisons of the interval check.
+fully known during emission and never grows at runtime: subtype tests **over the nominal tree**
+compile to the two integer comparisons of the interval check, unions and intersections decompose
+over their statically tiny member lists, and function **signatures** index a pairwise assignability
+table folded at link time, their relation being a DAG the interval numbering cannot encode
+(value-representation §4.2).
 
 ### 7.3 Control, errors, and cleanup
 

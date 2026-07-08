@@ -60,7 +60,8 @@ lives in the guard (§3):
 - **Typed binding** `name: T`: the value is tested against the **type expression** `T`, written
   exactly as in any type position, bare `int`, a union `int | string`, a constraint `byte`, an
   application refinement `@stringBuilder` or `@P & @Q`, and iff the value **is** of that type (the
-  single meaning of `is`, is spec §2, running the two-tier check / applied-set test as the type
+  single meaning of `is`, is spec §2, running whichever check the type's shape dictates, interval,
+  union decomposition, applied-set, constraint predicate, or signature table, as the type
   dictates) the arm matches and `name` is bound **at `T`**, narrowed. So a bare binder *inherits* a
   type and a typed binder *tests and supplies* one; the two are different jobs and both are needed
   (§2.2). It composes with a guard: `n: int where n > 10`.
@@ -165,6 +166,34 @@ check: no value is ever seated in an `x: T` that is not a `T`, whether the misma
 compile time (a declaration) or by falling to the next arm (a pattern). An annotation never lies in
 either position. Position decides which reading applies, as it already does for `@`, `&`, `!`,
 `error`, and `comptype` (type §1.1, associativity §2).
+
+### 2.3 Deciding a function's signature discharges its per-call checks
+
+The `is`-not-`as` rule of §2.2 has one consequence sharp enough to name, and it is where `match` and
+`as` visibly part. `as` on a **function type** is *optimistic*: it may assert a signature that is not
+a subtype of the real one, and it pays for the claim on **every call**, checking arguments against the
+callee's real parameters and the result against the caller's claim (functions §3.2). A pattern's test
+is `is`, which is total, so it never claims, it **decides**.
+
+When `g: fn (int): string` matches, `real <: claim` holds, and every per-call **signature** check folds
+away: the argument is statically within the claimed parameter, which the real parameter accepts by
+contravariance; the returned value lies within the real result, which lies within the claim by
+covariance; the real function has no required parameter beyond the claimed arity; errorability agrees;
+`&` positions are identical. So a signature-bound function is called with **no argument check, no
+return check, no `ArityError`, and no laundering check**, where an `as`-narrowed one carries all four.
+`match` is the fast door as well as the total one, and this is the same `is`/`as` relationship that
+holds everywhere else in the language.
+
+Two boundaries keep the claim honest.
+
+- **A bare `g: fn` decides nothing about the signature**, because there is none in the type to decide
+  (functions §3.1). Calls through it keep all four checks, exactly as an `as fn (A): R` would. Only a
+  **signature** pattern discharges them. What the binder buys is precisely what the type carries.
+- **No pattern discharges the capability check.** A function's requirement set rides the **value**, not
+  the typeid (functions §3, capabilities §3.1), so `is` never inspected it and no narrowing can reach
+  it. A call through any `fn`-typed slot still verifies *requirement set ⊆ the executing frame's
+  granted set*, one bitmask compare, panicking on shortfall. Narrowing a signature is a claim about
+  **data**; authority is not data, and it is discharged where it is exercised, never where it is typed.
 
 ---
 

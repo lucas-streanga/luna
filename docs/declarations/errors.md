@@ -572,10 +572,11 @@ expression, which makes the split for free (§8.1).
 
 Each `catch` selects a subtree by the O(1) subtype test; an error is caught by the first
 clause whose type is an ancestor of it. A narrow catch that does not match lets the error
-continue unwinding. Narrowing after a `try` expression uses the same subtype machinery
-(`is SomeType`, or a following `catch`), recovering the concrete subtype the base-`error`
-arm erased (a `try` expression's arm is spelled root `error`, though only declarable errors land
-there, §8.1).
+continue unwinding. Narrowing after a `try` expression uses the same subtype machinery through the
+ordinary narrowing forms, `e as someType` or a `match` arm's typed binder (`e: someType`), with
+`e is someType` as the boolean test that gates them; `is` never narrows (is spec §3), the binder or
+the `as` does. Either recovers the concrete subtype the base-`error` arm erased (a `try` expression's
+arm is spelled root `error`, though only declarable errors land there, §8.1).
 
 ---
 

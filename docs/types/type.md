@@ -330,17 +330,27 @@ one:
   is what carries the `->P`-present guarantee, and it is a table, not a view (§7),
 - a **constraint** (`byte`), the constraint predicate (constraints spec),
 - a **union** (`int | double`), "is the current type one of the members,"
-- an **enum variant** (`{circle ...}`), the variant-tag (refinement `typeid`) check (enum spec §8).
+- an **enum variant** (`{circle ...}`), the variant-tag (refinement `typeid`) check (enum spec §8),
+- a **wildcard callable** (`fn`, `fn!`), an interval check over the function typeid region; the
+  wildcard ladder is a tree (functions §3.1), so `_: fn` matches every non-errorable function and
+  `_: fn!` every function at all, which makes an errorability dispatch out of two arms,
+- a **function signature** (`fn (int): string`), per-position assignability (functions §3.2) against
+  the value's reified signature: contravariant parameters, covariant result, `&` positions by
+  identity, arity against defaults. This is the one test whose relation is a **DAG**, not a tree, so
+  it is decided by a pairwise table folded at link time rather than by an interval
+  (value-representation §4.2). Still O(1) at runtime, one indexed load.
 
 The **syntax is uniform** (every arm is `pattern => result`); the **test differs by the type's
 kind**, chosen at compile time. So matching a protocol reads like any other typed binding, while
 doing the right thing (a protocol-membership check) underneath. The cost of a typed binding is
 therefore exactly the cost of `is` for that kind, and the bind itself is free (match §2.2).
 
-**Open: function types.** Bare `fn` / `fn!` (functions §3.1's subtype ladder) and a full signature
-(`fn (int): string`) are missing from this table, and the signature case is the one `is` that is not
-O(1). It interacts with `as`'s per-call deferral (as spec §5.1, functions §3.2), whose stated
-rationale is itself wrong, so both are pending one ruling.
+The **function signature** row is where `match` and `as` visibly part, and the divergence is the point.
+`as` on a function type is *optimistic*: it may claim a signature that is not a subtype of the real
+one, and pays for the claim on every call (functions §3.2). A pattern's test is `is`, which is total,
+so it never claims, it **decides**. A signature-bound function therefore needs **no per-call signature
+checks at all** (match §2.2), where an `as`-narrowed one carries four. `match` is the fast door as well
+as the total one.
 
 ---
 

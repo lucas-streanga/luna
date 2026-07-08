@@ -243,26 +243,41 @@ authority, not what happens to a value **after** a permitted use. Once a functio
 `use (reveal)` reveals a secret, it has a plain value the type system no longer tracks.
 The capability boundary is the last point the type system can help.
 
-### 5.1 The creation-site check
+### 5.1 The creation-site check, and the one check that outlives it
 
 A function value's capability set is a property of the **value**, fixed once, where the
 literal is evaluated: it is the literal's own `use` clause unioned with the requirements
 of everything the body calls (§5, computed by the same inference as §6). The compile-time
 check anchors there: **a function literal is legal exactly where the enclosing scope
-holds every capability in that set.** After creation, no further check ever runs,
-because none is needed:
+holds every capability in that set.** From there:
 
 - a **direct call** by declared name is checked against the caller's own set (§5), which
-  is the same creation-site rule applied one level up;
-- an **indirect call**, through any function-typed slot, needs no check at all, because
-  a capability-holding value cannot enter a slot (§3.1), so the called value's set is
-  empty by construction. This is what keeps §6's one-pass inference exact rather than
-  approximate: an indirect call contributes nothing, and that is the truth, not an
-  assumption.
+  is the same creation-site rule applied one level up. Static, and the overwhelmingly
+  common case;
+- an **indirect call**, through any function-typed slot, is checked **dynamically** (§3.1,
+  R39): the called value's requirement set must be a subset of the executing frame's
+  granted set, one bitmask compare, **panicking on shortfall before the callee's body
+  begins**. The ordering is the point, not an implementation detail. A shortfall therefore
+  produces **no partial effect**: the arguments were evaluated in the caller's frame, but
+  nothing inside the callee has run, so the panic cannot arrive mid-way through a `use`d
+  operation. It is a call the frame was never authorized to make, refused at the boundary,
+  not an effect halted in progress. The check still contributes **nothing** to §6's one-pass
+  inference, which stays exact rather than approximate, but for the honest reason: a callee
+  reached through an `fn`-typed slot is invisible to the caller's signature (no capability
+  information appears in any function *type*, functions §3), so its requirements are
+  discharged where they are **exercised**, at the call, rather than folded into a set that
+  could never have seen them.
 
-So the whole system is checked at two kinds of place only, creation sites and named
-calls, both fully static, with no capability information in any function type and no
-runtime capability state anywhere.
+So the system is checked at three kinds of place: creation sites and named calls, both
+static, and the **dynamic frontier** where a function value is invoked through an `fn`-typed
+slot. The only runtime capability state anywhere is the requirement bitmask on the function
+value, compared against the frame's grant, which is what the laundering theorem (§3.1) rests
+on: possession of the value is not possession of the grant.
+
+(Before R39, capability-holding function values could not enter a value slot at all, so an
+indirect call "needed no check, the called value's set being empty by construction," and this
+section concluded that no runtime capability state existed. R39 repealed the confinement and
+supplied the check; the pre-R39 sentences stood here until R88.)
 
 ---
 
@@ -376,12 +391,17 @@ outside effect. The failsafe direction is preserved, forgetting the modifier lea
 With capability sets living on values (§5.1), the sandbox also holds **by existence**, not
 only by rule: capability instances are minted by the runtime at `main` (§7), so at comptime
 **no non-comptime capability instance exists yet**. There is nothing for a comptime-created
-closure's creation-site check to bind against, so every function value reachable at comptime
-is capability-free by construction, including through any function-typed parameter of a
-comptime function, since a slot could not hold a capability-holding value even at runtime
-(§3.1) and runtime values do not exist yet besides. Higher-order comptime code therefore
-needs no capability reasoning at all: the eligibility rule above and this existence argument
-reach the same verdict independently, a belt over a brace.
+closure's creation-site check to bind against, so no function value *created* at comptime can
+carry a non-comptime requirement. A requirement-carrying value that arrived some other way, say
+through a function-typed parameter of a comptime function, buys nothing either, and here the
+argument is R39's rather than the repealed confinement's: invoking any value through an
+`fn`-typed slot runs the dynamic check (§3.1, §5.1) against the **executing frame's grant**,
+and at comptime that grant is empty, so the check **fails vacuously** and the call panics before
+any body runs. Higher-order comptime code therefore needs no capability reasoning at all: the
+eligibility rule above, the existence argument, and the dynamic check reach the same verdict
+independently, a belt over a brace over a bolt. (This paragraph used to argue instead that "a
+slot could not hold a capability-holding value even at runtime," the pre-R39 second-class rule,
+repealed at §3.1 and swept out here at R88. The conclusion never depended on it.)
 
 The **`unsafe` convention** (functions §5.6): a capability whose use *suspends* Luna's
 guarantees (by reaching untrusted native code) is marked with an `unsafe` prefix

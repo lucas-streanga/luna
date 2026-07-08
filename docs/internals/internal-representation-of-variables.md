@@ -361,6 +361,37 @@ their `typeinfo` records the canonical protocol set, their `valueBase` is `table
 statically tiny lists, with pairs between statically-known types foldable at compile time
 (§4.1).
 
+**Function signatures are the second DAG, and they take the parenthetical's other escape.** The
+wildcard tier stays in the interval test: function typeids occupy **one contiguous region**,
+non-errorable signatures numbered before errorable ones, so `fn!` is the whole region and `fn` its
+non-errorable prefix (functions §3.1's ladder is a tree: `fn (A): R <: fn <: fn!`, with
+`fn (A): R! <: fn!` alone). `is fn` and `is fn!` are therefore ordinary interval checks. The
+**leaves** are the problem. Signature subtyping is structural and **contravariant in the parameters**,
+so `fn (int | string): (int | string)` is a subtype of both `fn (int): (int | string)` (narrow the
+parameter) and `fn (int | string): any` (widen the result), and those two are incomparable: two
+supertypes, no single parent, exactly the shape laminar intervals cannot encode, for exactly the
+reason a union cannot be. So an interval check must **never** decide a signature target; among the
+leaves the sibling relation carries no subtype information at all.
+
+The resemblance to errors is superficial and worth refusing outright. Errors carry subtype rules too,
+but they are **single inheritance by construction** (errors §2), a nominal tree declared node by node,
+which is precisely why the interval numbering serves them to the leaves. Nothing about a function type
+is declared: signatures are interned structurally, so there is no tree to number.
+
+Function signatures therefore take the other option this section's parenthetical names, a **pairwise
+table**. It is affordable because the type universe is closed at compile time (§4.1) and function types
+are interned: a program's distinct function typeids form a finite set **F**, enumerable at link time,
+and `S <: T` over them is decided once, structurally, by functions §3.2's per-position assignability,
+errorability (an errorable `S` demands an errorable `T`), arity against defaults (functions §3.3.1),
+each parameter **contravariantly**, each `&` position by **identity**, the result **covariantly**,
+recursing into nested function positions and bottoming out on the tiers above. Store the `F × F` bits,
+or memoize lazily on `(S, T)`. `F` counts *distinct written signatures*, not call sites, so it is in the
+hundreds; a thousand of them is 10^6 bits, 125 KB. Runtime `x is fn (A): R` is then a single indexed
+load.
+
+Honest cost, restated: **O(1) for tree edges and for function signatures** (the latter after a link-time
+`O(F² · arity)` fold), **O(members) for unions and intersections**.
+
 Under **single inheritance** a subtype's fields are laid out as a **prefix** of its
 supertype's, so a pointer to an `IOError` is already a valid pointer to `error`:
 upcast to the declared type is a no-op, and the `typeid` discriminates for downcast.

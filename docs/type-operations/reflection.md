@@ -90,10 +90,13 @@ fn constraintBase(t: type): type?
   `kind` is a record-like table, `variants` only when it is an enum).
 - **`isNullable(t)`**, whether the type admits null (`T?` vs `T`), a flag read (value-representation
   §2).
-- **`isSubtype(t, of)`**, whether `t <: of`, the interval check (value-representation §4.2) as a
-  function over two `type` **values**, and the **only** type-to-type form: there is no subtype
-  operator (is spec §4). `is` covers the common case, a *value* against a type; this function is
-  for when both operands are `type` values in hand, the rare reflective need.
+- **`isSubtype(t, of)`**, whether `t <: of`, the subtype test of value-representation §4.2 as a
+  function over two `type` **values**, dispatched by the shape of `of` exactly as `is` is (an
+  interval check for a tree node, member decomposition for a union, the conjunction for an
+  intersection, a pairwise-table lookup for a function signature, whose relation is a DAG rather
+  than a tree, functions §3.2). It is the **only** type-to-type form: there is no subtype operator
+  (is spec §4). `is` covers the common case, a *value* against a type; this function is for when
+  both operands are `type` values in hand, the rare reflective need.
 - **`unionMembers(t)`**, for a union type, the list of its member types (`unionMembers(int |
   double)` is `[int, double]`); for a non-union, the single-element list `[t]`. This is runtime-tier
   because union membership is a flat `typetable` fact, not a structural walk. It makes `declared`

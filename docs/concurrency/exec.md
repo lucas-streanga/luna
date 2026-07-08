@@ -147,8 +147,9 @@ explicit in the source, the failing stage is precisely reportable.
 
 This maps shell exit-code checking onto Luna's error model: a failed stage **throws** (under
 `run`) and propagates like any error, rather than leaving a status code to be inspected and
-forgotten. `try` / `catch` and `is`-narrowing (errors §8) handle a `commandError` exactly
-like any other error.
+forgotten. `try` / `catch (e: commandError)` and `as`-narrowing (errors §8) handle a
+`commandError` exactly like any other error. (`is` tests and never narrows, is spec §3; the
+narrowed binding comes from `as`, a typed `catch` clause, or a `match` arm.)
 
 ---
 
