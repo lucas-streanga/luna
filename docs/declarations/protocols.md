@@ -642,8 +642,8 @@ forms:
 ```
 try {
   var l: @stringBuilder & @someThrowingProto = [] apply stringBuilder, someThrowingProto;
-} catch error {
-  // handle the apply failure
+} catch (_: error) {
+  // handle the apply failure (the value is not wanted, so the binder is `_`)
 }
 
 var l!: @stringBuilder & @someThrowingProto = try [] apply stringBuilder, someThrowingProto;

@@ -117,7 +117,7 @@ merely a stale-read hazard: the piped-from handle and the pipeline shared a live
 interleaved pulls made elements silently vanish from one consumer into the other, the
 aliased-mutable-cursor bug single ownership exists to prevent.
 
-### 5.2 Stages are effect-free by construction, and panic on failure
+### 5.2 Stage effects are checked at the pull, and a failing stage panics
 
 A transformer argument (`map(f)`, `filter(p)`) is an ordinary function value, so the
 capability rules already decide two properties, worth surfacing:

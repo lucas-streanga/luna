@@ -35,7 +35,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `return` | function return | functions |
 | `yield` | generator suspension (`yield v`, `yield k => v`); a function containing `yield` is a generator | stream §2 |
 | `match` | pattern dispatch (valued and open-ended) | match |
-| `where` | guard (match arms) **and** predicate clause (constraints); two homes, one meaning, "holds when" | match §3, constraints §2 |
+| `where` | guard (match arms) **and** predicate clause (constraints); two homes, one meaning, "holds when"; never part of a type, which is what lets it terminate one | match §3, constraints §1 |
 | `defer` | scope-exit statement | defer |
 | `by` | range step clause (`lo..hi by s`, contextual: only after a range) | range §3, §4a |
 | `try` / `catch` | error recovery expression / block | errors §8 |
@@ -52,7 +52,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `comptime` | compile-time evaluation | functions §5 |
 | `comptype` | declaration descriptor operator **and** its type (dual, like `error`) | reflection §3.2 |
 | `is` | value-against-type test (tier 6; the single meaning) | is |
-| `as` | checked narrowing (tier 6) | as |
+| `as` | checked narrowing (tier 6); also the import alias (`import { parse as jsonParse }`). **Never a binder**: the constraint form is `constraint { i: int where ... }`, not `int as i` (R87) | as, modules §8 |
 | `apply` | protocol application (expression: `@P`-typed value; statement: runtime applied-set mutation) | protocols §10 |
 | `declared` | a binding's declared type | type §4 |
 | `use` | referential capture; names **capabilities only** | functions §2.2, capabilities §4 |
@@ -64,9 +64,28 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `true` / `false` | booleans | bool |
 | `null` | the chosen nothing | undefined/null |
 | `undefined` | the structural absence | undefined |
+| `nan` | the IEEE not-a-number double value | double §1, §2.2 |
+| `inf` | the IEEE infinity double value (`-inf` is `MINUS KW_INF`; there is no unary `+`) | double §1.1 |
 | `self` | contextual, inside protocol member signatures/bodies: the receiver's view | protocols §10 |
-| `panic` | not a keyword: the lowercase **type** at the root of the sealed panic subtree (like `error`); `catch panic p` is ordinary catch-by-type | errors §9, §6 below |
-| `_` | not a keyword: the discard identifier (`_ =`, match wildcard) | errors §8.1, match |
+| `panic` | not a keyword: the lowercase **type** at the root of the sealed panic subtree (like `error`); `catch (p: panic)` is an ordinary typed binder | errors §9, §6 below |
+| `_` | not a keyword: the discard identifier (`_ =`, match wildcard, `_: T` type test) | errors §8.1, match, wildcard |
+
+The six **value keywords** (`true`, `false`, `null`, `undefined`, `nan`, `inf`) are **keywords by
+lexing and literals by role**, and the distinction is worth stating because it is easy to mistake.
+They are not **literal tokens** (lexer §4): a literal token is recognized by a regex over an
+open-ended set of lexemes (`42`, `3.14`, `"text"`), while these six are a fixed, finite set of
+words that would otherwise lex as `IDENT`. They are not **predeclared identifiers** (§5) either,
+and that is load-bearing rather than tidy: a bare identifier in a pattern position is always a
+fresh binding (match §2.1, R87), so were `nan` an `IDENT`, the arm `match (x) { nan => ... }`
+(double §2.2) would bind rather than match. Reserving them is what keeps them matchable. Type
+names, by contrast, never appear bare in a pattern (they follow a `:`), so they stay ordinary
+shadowable identifiers (§5) with no hazard.
+
+`undefined` is the one **special** member, and only in what a program may *do* with it, never in
+how it lexes: it is language-produced, so a program may compare against it (`x == undefined`, an
+`undefined` match arm) but never conjure it as a value (undefined spec). `nan` and `inf` carry no
+such restriction, they are ordinary producible doubles (`let x = nan;` is fine), and `true`,
+`false`, and `null` likewise.
 
 ## 5. Predeclared names, deliberately not keywords
 
@@ -85,9 +104,9 @@ All seven original flags are ruled (R33):
   scope, ordinary scoping applies, no reserved status (modules spec); `let int = 5;` is
   legal and locally self-punishing.
 - **`panic` is lowercase, the type itself.** The distinguished sealed subtree root is
-  **`panic`**, matching the lowercase root `error`; `catch panic p` is now plain
-  catch-by-type, and the "contextual keyword" entry this file briefly had is gone, there is
-  nothing contextual about it. (Follow-up flag, small: the builtin children remain
+  **`panic`**, matching the lowercase root `error`; `catch (p: panic)` is now an ordinary typed
+  binder (match §2.2, R87), and the "contextual keyword" entry this file briefly had is gone,
+  there is nothing contextual about it. (Follow-up flag, small: the builtin children remain
   PascalCase, `typeError`, `outOfMemory`, while the std families are camelCase, `ioError`,
   `fileNotFound`; the casing convention for builtin error types deserves one ruling.)
 - **`implicit` is scratched** (capabilities §6): every capability is explicit, a

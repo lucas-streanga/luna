@@ -17,7 +17,7 @@ export ioError = error { path: path?, errno: int? };   // the family root
 ```
 
 `path` is the path involved (`null` where none applies); `errno` is the raw value for logs
-and bug reports. Handlers branch by **type** (`catch fileNotFound e`); an `errno`-switch in
+and bug reports. Handlers branch by **type** (`catch (e: fileNotFound)`); an `errno`-switch in
 user code is a design smell the hierarchy exists to prevent.
 
 ## 2. The hierarchy

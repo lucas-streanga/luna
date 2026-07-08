@@ -90,6 +90,10 @@ let label = match (value) {
 };
 ```
 
+`_` also carries an **annotation** in a pattern, `_: int`, which tests the value's type and binds
+nothing (match §2). That is `_` in *binding* position with a type, exactly as `fn (_: int, x)` is
+(§5), not `_` in type position (§7). `_: any` is `_`, because `any` constrains nothing.
+
 As elsewhere, `_` binds nothing, so the default arm cannot refer to the matched value by
 `_`. (A default arm that *needs* the value binds it with a name instead.) Because `_`
 matches anything, it is typically the last arm; arms after it are unreachable.
@@ -136,7 +140,10 @@ naming") from sprawling into unrelated concepts:
 - **Not type inference.** `let x: _ = expr` is not a thing. Type inference is already the
   default (a bare `let x = expr` infers), so `_` in type position would be a redundant
   second spelling, and it would dilute `_` from "a value/binding blank" into "infer this,"
-  a different idea. Inference stays implicit; `_` stays out of type position.
+  a different idea. Inference stays implicit; `_` stays out of type position. This is what
+  `_: T` (a match type test, §4; an unused typed parameter, §5) does **not** violate: there
+  `_` is the thing being typed, on the **left** of the `:`, which is binding position. `_`
+  never appears on the right.
 - **Not a default or natural bound.** `_` does not mean "the default value" or "the natural
   end" of a range or slice. Those are *produced* values, and `_` never produces anything;
   it only marks an omission. Conventions like "`length <= 0` means to the end" (string API)

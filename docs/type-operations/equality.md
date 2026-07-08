@@ -110,19 +110,19 @@ stream, deciding function equivalence, reading a secret) would be wrong, impossi
   (type spec §3), `int | double == double | int` and `number == int | double` are true by a single
   integer compare, no structural walk. This is the cheapest possible comparison.
 - **`double`**, **IEEE 754 semantics**, and therefore **not trivial** (double spec §1.1):
-  - **`NaN != NaN`.** A NaN equals nothing, including itself, so `==` on doubles is **not
+  - **`nan != nan`.** A nan equals nothing, including itself, so `==` on doubles is **not
     reflexive**: `let x = 0.0/0.0; x == x` is **false**.
   - **`-0.0 == +0.0`** is **true**, although the two have distinct bit patterns.
 
   So `double` `==` is IEEE `==`, the least surprising choice for numeric code, and it **cannot** be
-  implemented as a bit compare (bit equality would wrongly make `NaN == NaN` true and `-0.0 == +0.0`
-  false). The cases where IEEE `==` is inconvenient, matching a NaN, treating the two zeros as one,
+  implemented as a bit compare (bit equality would wrongly make `nan == nan` true and `-0.0 == +0.0`
+  false). The cases where IEEE `==` is inconvenient, matching a nan, treating the two zeros as one,
   are served by the **total order** used in `match` and sorting (double spec §2.2, match spec §7),
-  which is reflexive (`NaN` equals `NaN`, both zeros merge). The two relations differ **only** on
-  NaN and signed zero, and each is used where it fits: `==` for semantic equality, the total order
+  which is reflexive (`nan` equals `nan`, both zeros merge). The two relations differ **only** on
+  nan and signed zero, and each is used where it fits: `==` for semantic equality, the total order
   for matching and ordering.
 
-This NaN behavior propagates into `table` equality (§4): a table containing a NaN is not equal to
+This nan behavior propagates into `table` equality (§4): a table containing a nan is not equal to
 itself under `==`, because element comparison is `==`.
 
 ---
@@ -151,7 +151,7 @@ Two consequences of "by `==`" throughout:
   different bases, so unequal (§1), so the tables are unequal. Table equality inherits element
   `==` exactly, including constraint erasure (a table of `byte`s equals a table of the same
   `int`s; a `list` equals an equal-content, equal-order `table`, their bases match, §1) and IEEE
-  NaN (a table with a NaN element is not equal to itself, §3).
+  nan (a table with a nan element is not equal to itself, §3).
 
 ### 4.1 Termination: tables cannot form cycles
 
@@ -248,7 +248,7 @@ become identity-equal by accident: some protocol it has said applied so, in its 
 - **`null`**, `null == null` is **true** (one value, equal to itself). `null` is a value-equality
   value with a single inhabitant.
 - **`undefined`**, `undefined == undefined` is **true** (absence equals absence, reflexively, so
-  that every value equals itself, the sole exception being IEEE NaN, §3). `null == undefined` is
+  that every value equals itself, the sole exception being IEEE nan, §3). `null == undefined` is
   **`false`** (different types, §1): present-nothing is not absent.
 - **`capability`**, identity equality (§2): same capability is equal, a pointer compare. Capabilities
   are immutable, zero-data singletons reached only through `use` (capabilities spec), so identity is
@@ -257,7 +257,7 @@ become identity-equal by accident: some protocol it has said applied so, in its 
   `s == anything` is `false`. A secret is deliberately opaque (secret spec), so whether two secrets
   are equal is *unknowable by design*, and any comparison would be a probing oracle (including a
   timing side channel). So `==` on a secret always yields `false`. This is the **one deliberate
-  exception to reflexivity** (every other value equals itself except IEEE NaN): a secret is not
+  exception to reflexivity** (every other value equals itself except IEEE nan): a secret is not
   introspectable, so "is this secret equal to itself" has no answer the language will give. To
   compare secrets, `reveal` them (an explicit, auditable act) and compare the revealed values.
 - **`command`**, identity equality (§2): a command equals itself (reflexive) but no distinct command,
@@ -283,7 +283,7 @@ erasure, §1, intro). Otherwise, comparison is by the shared base type below. "R
 | Type | `==` compares by | Notes |
 |-|-|-|
 | `int`, `bool`, `byte` | value (integer compare) | trivial, exact; int-based constraints erase to `int` (§1): `someByte == 65` is true when payloads match |
-| `double` | **IEEE 754** | `NaN != NaN` (**not reflexive**); `-0.0 == +0.0`; no bit-compare; total order handles matching/sorting (§3) |
+| `double` | **IEEE 754** | `nan != nan` (**not reflexive**); `-0.0 == +0.0`; no bit-compare; total order handles matching/sorting (§3) |
 | `null` | value | `null == null` true; single inhabitant |
 | `undefined` | value | `undefined == undefined` **true** (needed for absence checks); `null == undefined` false |
 | `string` | contents (length then bytes) | pointer fast-path to `true`; not interned; FFI strings compared by bytes (§5) |
@@ -300,7 +300,7 @@ erasure, §1, intro). Otherwise, comparison is by the shared base type below. "R
 | `regex` | **source** (pattern + flags) | source equality, not behavioral equivalence (undecidable) (§5) |
 | `secret` | **never equal** | `s == s` is **false** (**not reflexive**); opaque by design; `reveal` to compare (§5) |
 
-The two non-reflexive rows are deliberate: **`double`** (IEEE NaN) and **`secret`** (opacity). Every
+The two non-reflexive rows are deliberate: **`double`** (IEEE nan) and **`secret`** (opacity). Every
 other type is reflexive. Strictness throughout: no coercion, exact structure, with conversion
 functions and `match` as the deliberate escapes for cross-type and partial comparison.
 

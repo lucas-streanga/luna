@@ -33,7 +33,7 @@ const main = fn () use (io, argv): int! => {
 
 # Syntax Highlighting (zed)
 ```bash
-git clone https://lucas-streanga/luna
+git clone https://github.com/lucas-streanga/luna
 ```
 
 - Use `ctrl-shift-p` to open the Zed command palette.
@@ -41,8 +41,12 @@ git clone https://lucas-streanga/luna
 - You're done!
 
 # Directory Structure:
-- `spec/` - contains the specification of the luna language, in depth.
-  - This is not intended to be user-facing, as it's very in-depth.
-  - The directory is segmented by the part of the language it targets. `build`, `internals`, `std`, etc.
-- `user-docs/` - user facing documentation (planned).
-  - `user-docs/quick-start` - Quick start guide (planned).
+- `docs/` - the specification, one Markdown file per topic, grouped into subdirectories by the
+  part of the language it targets (`types/`, `expressions/`, `declarations/`, `concurrency/`,
+  `build/`, `std/`, `internals/`, `type-operations/`, `bindings/`, `overview/`, `examples/`).
+  - `docs/index.md` is the authoritative map of every spec file and what it owns; start there.
+  - This is the design itself, not user-facing docs — it is deliberately in-depth.
+- `CHANGES.md` - the design-decision log: a numbered sequence of rulings, each resolving a
+  contradiction or open question with its rationale and the files it swept.
+- `tooling/` - syntax highlighting only (tree-sitter grammar, VSCode extension, Zed extension).
+- `user-docs/` - user-facing documentation (planned; does not exist yet).

@@ -2,7 +2,7 @@
 
 `double` is Luna's floating-point type: a **64-bit IEEE 754** double-precision float, stored
 **inline in the `lval`** (value-representation), like `int`. It follows IEEE semantics
-faithfully, including infinities and NaN, and it is deliberately **not** interchangeable with
+faithfully, including infinities and nan, and it is deliberately **not** interchangeable with
 `int` (no implicit conversion, §7).
 
 ```
@@ -11,7 +11,7 @@ let y = 1.0 / 3.0;         // 0.3333333333333333
 ```
 
 - **64-bit IEEE 754**, roughly 15-17 significant decimal digits, with the usual special values:
-  positive and negative infinity, negative zero, and NaN.
+  positive and negative infinity, negative zero, and nan.
 - **Inline in the `lval`**, copied by value, no allocation.
 
 The name `double` is the 64-bit type; the 32-bit float is a separate primitive named `float`
@@ -24,32 +24,32 @@ The name `double` is the 64-bit type; the 32-bit float is a separate primitive n
 Floating-point overflow, underflow, and invalid operations follow **IEEE**, producing defined
 special values, and **never throw**:
 
-- **Overflow** produces `+Infinity` or `-Infinity` (a value too large to represent becomes
-  infinity, which is itself a usable value: `1.0 / Infinity` is `0.0`, `Infinity > x` for any
+- **Overflow** produces `inf` or `-inf` (a value too large to represent becomes
+  infinity, which is itself a usable value: `1.0 / inf` is `0.0`, `inf > x` for any
   finite `x`).
 - **Underflow** produces subnormals and then `0.0` (a graceful loss of precision toward zero,
   not a cliff).
-- **Invalid operations** produce `NaN`: `0.0 / 0.0`, the square root of a negative, `Infinity -
-  Infinity`, and similar. NaN propagates through further arithmetic (any operation with a NaN
-  operand yields NaN).
+- **Invalid operations** produce `nan`: `0.0 / 0.0`, the square root of a negative, `inf -
+  inf`, and similar. nan propagates through further arithmetic (any operation with a nan
+  operand yields nan).
 
 This is the **opposite** of `int`, which panics on overflow and division by zero (int spec §2,
 §5), and the difference is principled, not inconsistent. Int overflow is always a bug: there is
 no meaningful "bigger than 2^63" result, so panicking catches an error. Float overflow has a
-**meaningful** result (Infinity), and invalid operations have a meaningful sentinel (NaN);
+**meaningful** result (inf), and invalid operations have a meaningful sentinel (nan);
 IEEE was designed precisely so numeric code can run through these cases and inspect results at
-the end rather than trapping mid-computation. So `double` yields Inf/NaN where `int` panics,
+the end rather than trapping mid-computation. So `double` yields inf/nan where `int` panics,
 because floats have defined out-of-range values and ints do not.
 
-### 1.1 Division by zero produces Inf or NaN, not a panic
+### 1.1 Division by zero produces inf or nan, not a panic
 
 Following from §1, floating-point division by zero does **not** panic (unlike int division,
 which does):
 
 ```
-1.0 / 0.0        // +Infinity
--1.0 / 0.0       // -Infinity
-0.0 / 0.0        // NaN
+1.0 / 0.0        // inf
+-1.0 / 0.0       // -inf
+0.0 / 0.0        // nan
 ```
 
 To treat a non-finite result as an error, check it (§2.1) or narrow to `finiteDouble` (§5),
@@ -62,11 +62,11 @@ which converts the IEEE sentinel into a panic at a boundary you choose.
 `double` comparison follows IEEE, which means it does **not** provide the clean equivalence and
 ordering the rest of the language assumes for well-behaved values:
 
-- **`NaN != NaN`.** NaN is equal to nothing, including itself, so `==` on doubles is **not
-  reflexive**. A NaN never equals a NaN.
+- **`nan != nan`.** nan is equal to nothing, including itself, so `==` on doubles is **not
+  reflexive**. A nan never equals a nan.
 - **`-0.0 == +0.0`** is true, though they are distinct bit patterns.
-- **NaN is unordered.** `NaN < x`, `NaN > x`, and `NaN == x` are all false for every `x`. So
-  `<` / `>` do not form a total order when NaN is present.
+- **nan is unordered.** `nan < x`, `nan > x`, and `nan == x` are all false for every `x`. So
+  `<` / `>` do not form a total order when nan is present.
 
 These are inherent to IEEE and are the reason `double` cannot be a table key (§3) and must be
 used carefully in `match` and sorting.
@@ -74,23 +74,23 @@ used carefully in `match` and sorting.
 ### 2.1 Checking for special values
 
 ```
-fn isNan(x: double): bool         // true iff x is NaN (the reliable NaN test, since x == x fails for NaN)
-fn isInf(x: double): bool          // true iff x is +Infinity or -Infinity
-fn isFinite(x: double): bool       // true iff x is neither NaN nor Infinity
+fn isNan(x: double): bool         // true iff x is nan (the reliable nan test, since x == x fails for nan)
+fn isInf(x: double): bool          // true iff x is inf or -inf
+fn isFinite(x: double): bool       // true iff x is neither nan nor inf
 ```
 
-`isNan` is the correct way to test for NaN, because `x == NaN` and even `x == x` do not work
-(the latter is a NaN detector only by accident and reads as a bug). Sorting and pattern matching
+`isNan` is the correct way to test for nan, because `x == nan` and even `x == x` do not work
+(the latter is a nan detector only by accident and reads as a bug). Sorting and pattern matching
 do not use IEEE `==` or IEEE ordering (both partial); they use the **total order** of §2.2.
 
 ### 2.2 The total order (for `sort` and `match`)
 
 IEEE `==` and IEEE ordering are not well-behaved (§2), so anything that needs a well-behaved
 relation over doubles, **sorting** and **`match` value-patterns** (match spec), uses a **total
-order** instead, defined over every double including the infinities and NaN:
+order** instead, defined over every double including the infinities and nan:
 
 ```
--Infinity  <  negative finite  <  0.0  <  positive finite  <  +Infinity  <  NaN
+-inf  <  negative finite  <  0.0  <  positive finite  <  inf  <  nan
 ```
 
 with two deliberate rules:
@@ -99,19 +99,19 @@ with two deliberate rules:
   semantically the same number to a human, so they sort together and match together: `match
   (-0.0) { 0.0 => ... }` matches. (This merges the two zeros, a humane deviation from strict
   IEEE `totalOrder`, which distinguishes them.)
-- **NaN is the single greatest value**, greater than `+Infinity`. **All NaNs are equal** to each
-  other (NaN payloads are not ordered), forming one equivalence class at the top. So NaN sorts
-  to the end of an ascending sort, and `match (x) { NaN => ... }` catches any NaN.
+- **nan is the single greatest value**, greater than `inf`. **All nans are equal** to each
+  other (nan payloads are not ordered), forming one equivalence class at the top. So nan sorts
+  to the end of an ascending sort, and `match (x) { nan => ... }` catches any nan.
 
-The total order and `==` differ in **exactly one way**: under the total order NaN is a normal,
-greatest, self-equal value, while under `==` NaN equals nothing (not even itself). They agree on
+The total order and `==` differ in **exactly one way**: under the total order nan is a normal,
+greatest, self-equal value, while under `==` nan equals nothing (not even itself). They agree on
 everything else (both treat the two zeros as equal). So the rule to remember is: **`==` is
-IEEE semantic equality (NaN unequal to all); the total order makes NaN a well-behaved greatest
-value.** `sort` and `match` use the total order (so NaN is sortable and matchable); explicit
-`==` keeps IEEE semantics (so arithmetic code sees the standard NaN behavior).
+IEEE semantic equality (nan unequal to all); the total order makes nan a well-behaved greatest
+value.** `sort` and `match` use the total order (so nan is sortable and matchable); explicit
+`==` keeps IEEE semantics (so arithmetic code sees the standard nan behavior).
 
 A total-order comparison function is provided for explicit use (sorting with a custom
-comparator, placing NaN deliberately); `sort` uses it by default for doubles.
+comparator, placing nan deliberately); `sort` uses it by default for doubles.
 
 ---
 
@@ -119,7 +119,7 @@ comparator, placing NaN deliberately); `sort` uses it by default for doubles.
 
 A `double` **cannot** be a table key. This follows from the key-type rule (keys are `string`
 or `int`, tables spec) and is reinforced by §2: a key needs a well-behaved equivalence relation,
-and IEEE equality is not one. A NaN key could never be looked up (`NaN != NaN`), distinct
+and IEEE equality is not one. A nan key could never be looked up (`nan != nan`), distinct
 doubles that print alike could collide, and `-0.0`/`+0.0` would key inconsistently with `==`.
 Rather than paper over these, `double` is simply excluded as a key.
 
@@ -142,8 +142,8 @@ rounding. A constraint filters which doubles are valid; it cannot reduce precisi
 Constraints on `double` instead restrict the **value set**, which is useful:
 
 ```
-const probability   = constraint { double as x where x >= 0.0 && x <= 1.0 };
-const finiteDouble   = constraint { double as x where isFinite(x) };       // excludes NaN and Infinity
+const probability   = constraint { x: double where x >= 0.0 && x <= 1.0 };
+const finiteDouble   = constraint { x: double where isFinite(x) };       // excludes nan and inf
 ```
 
 So constraints give ranges and finiteness, not reduced precision.
@@ -152,18 +152,18 @@ So constraints give ranges and finiteness, not reduced precision.
 
 ## 5. `finiteDouble`: opt-in strictness
 
-`finiteDouble` (§4) is the antidote to IEEE's silent NaN/Infinity: a `double` guaranteed to be
+`finiteDouble` (§4) is the antidote to IEEE's silent nan/inf: a `double` guaranteed to be
 a real, finite number. Because it is an ordinary constraint (constraints spec), narrowing to it
-runs the check and **panics** (a `typeError`) on a NaN or Infinity:
+runs the check and **panics** (a `typeError`) on a nan or inf:
 
 ```
-let r = someComputation();          // r : double, possibly NaN or Infinity
-let f = r as finiteDouble;          // panics here if r is NaN or Infinity
+let r = someComputation();          // r : double, possibly nan or inf
+let f = r as finiteDouble;          // panics here if r is nan or inf
 // f is known finite from here
 ```
 
 So `as finiteDouble` is the float analogue of catching int overflow: IEEE's default is to run
-through NaN/Infinity silently, and `as finiteDouble` is where you assert "this must be a real
+through nan/inf silently, and `as finiteDouble` is where you assert "this must be a real
 number," turning the silent sentinel into a loud, checked failure **at a boundary you choose**.
 Between the IEEE default (never throws) and `finiteDouble` (throws on demand), you pick per use
 whether non-finite values are tolerated or rejected, with no special float-exception machinery.
@@ -195,7 +195,7 @@ fn toInt(d: double): int!          // double to int; truncates toward zero; fall
 - **`int` to `double`** is total but **lossy for large magnitudes**: a `double`'s 52-bit
   mantissa cannot exactly represent every 64-bit int, so ints beyond 2^53 lose low bits. The
   function succeeds but the result may be rounded.
-- **`double` to `int`** truncates toward zero and is **fallible** (`int!`): NaN, the infinities,
+- **`double` to `int`** truncates toward zero and is **fallible** (`int!`): nan, the infinities,
   and values outside the int range have no int result, so the conversion throws (a declarable error
   to handle, or a panic, matching how out-of-range narrowing behaves). Truncation of an
   in-range finite double is exact.
@@ -217,9 +217,9 @@ leading point is allowed) is specified with the literal grammar.
 ## 9. Open questions
 
 - **`==` and `match` on doubles:** `==` is raw IEEE equality (§2) and `match` value-patterns use
-  the total order (§2.2, so NaN matches NaN); what remains open is whether a stricter total
+  the total order (§2.2, so nan matches nan); what remains open is whether a stricter total
   equality is *also* offered as an explicit operator alongside IEEE `==`, and any further `match`
-  NaN-scrutinee subtleties (match spec).
+  nan-scrutinee subtleties (match spec).
 - **`float` semantics:** the full 32-bit `float` spec (§6), and the exact double/float
   conversion functions.
 - **Fused and rounding operations:** whether fused multiply-add, explicit rounding modes, and

@@ -10,8 +10,11 @@
 # config is a Podman-MANAGED named volume, which is already labeled correctly and must
 # NOT get ':z'. Never put ':z' on your whole $HOME — only on dirs you mean to share.
 
+x-node-env: &node-env
+  UV_USE_IO_URING: "0"
 services:
   claude:
+    profiles: ["cli"]
     build:
       context: .
       dockerfile: Containerfile
@@ -26,9 +29,12 @@ services:
     # if yours differs, change it here and in the build args above.
     userns_mode: "keep-id"
 
+    init: true
     stdin_open: true
     tty: true
     working_dir: /luna
+    security_opt: ["seccomp=unconfined"]
+    entrypoint: ["claude"]
 
     volumes:
       # Luna repo -> /luna. ':z' = SELinux relabel (shared). Host bind mount.

@@ -90,10 +90,13 @@ fn constraintBase(t: type): type?
   `kind` is a record-like table, `variants` only when it is an enum).
 - **`isNullable(t)`**, whether the type admits null (`T?` vs `T`), a flag read (value-representation
   §2).
-- **`isSubtype(t, of)`**, whether `t <: of`, the interval check (value-representation §4.2) as a
-  function over two `type` **values**, and the **only** type-to-type form: there is no subtype
-  operator (is spec §4). `is` covers the common case, a *value* against a type; this function is
-  for when both operands are `type` values in hand, the rare reflective need.
+- **`isSubtype(t, of)`**, whether `t <: of`, the subtype test of value-representation §4.2 as a
+  function over two `type` **values**, dispatched by the shape of `of` exactly as `is` is (an
+  interval check for a tree node, member decomposition for a union, the conjunction for an
+  intersection, a pairwise-table lookup for a function signature, whose relation is a DAG rather
+  than a tree, functions §3.2). It is the **only** type-to-type form: there is no subtype operator
+  (is spec §4). `is` covers the common case, a *value* against a type; this function is for when
+  both operands are `type` values in hand, the rare reflective need.
 - **`unionMembers(t)`**, for a union type, the list of its member types (`unionMembers(int |
   double)` is `[int, double]`); for a non-union, the single-element list `[t]`. This is runtime-tier
   because union membership is a flat `typetable` fact, not a structural walk. It makes `declared`
@@ -278,8 +281,8 @@ Reflecting "a table with `P` applied" therefore **decomposes** along the two axe
   `proto` reflected by §3.4.
 
 And to **dispatch** on whether a value has a protocol applied, the tool is **`match`** (type spec §7):
-matching an application-refinement pattern (`match (x) { @stringBuilder => ... }`) is the protocol-
-membership test. So "reflect an application" is answered by existing machinery, `@` for the table, `@@`
+an application-refinement type test (`match (x) { b: @stringBuilder => ... }`, or `_: @stringBuilder`
+where the table is not wanted) is the protocol-membership test. So "reflect an application" is answered by existing machinery, `@` for the table, `@@`
 for the protocols, `match` to branch on applying, with no unified "application reflection" that would
 recreate the category error of treating `@P` as a `type`.
 
@@ -296,7 +299,7 @@ runtime.
 // Sketch: generate a JSON serializer for a statically-known type T.
 const toJson = comptime fn (t: type): fn => {
   match (kind(t)) {
-    table => {
+    {table} => {                     // TypeKind is an enum, so its variants are `{...}` patterns
       // for each field, read its jsonTag attribute (or fall back to the field name),
       // and emit code that writes  "tag": <serialize field>
       foreach (f in fields(t)) {
@@ -304,7 +307,7 @@ const toJson = comptime fn (t: type): fn => {
         // ... emit writer for f['type'] under key `tag`
       }
     }
-    enumType => {
+    {enumType} => {
       foreach (v in variants(t)) { /* emit a case per variant */ }
     }
     // ... other kinds

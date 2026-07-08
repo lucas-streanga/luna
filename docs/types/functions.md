@@ -275,10 +275,15 @@ The subtype ladder is the usual asymmetry, with errorability widening one way on
 - **`fn` into `fn (A): R`** , not implicit; requires `as` (the erased signature is not
   statically known, so asserting it is a checked narrowing, `as` spec).
 
-Capability-holding values need no wildcard and get none: they cannot enter a `fn`, `fn!`,
-or signed slot at all (§3, capabilities §3.1), so every value reaching any function-typed
-slot is capability-free, and the wildcard tier stays a two-way split on errorability
-alone.
+Capability-holding values need no wildcard and get none, but not because they are excluded: the
+wildcard tier is a two-way split on **errorability alone** because that is all the typeid carries
+besides the signature (§3). A capability-holding function value is **first-class** and enters `fn`,
+`fn!`, and signed slots like any other value (R39, capabilities §3.1); what rides with it is a
+**requirement set on the value**, and a call through an `fn`-typed slot checks that set against the
+executing frame's grant, panicking on shortfall. So authority is confined at the **call**, not
+encoded in the type, and no capability tier is needed. (An earlier draft made capability-holding
+function values second-class, unstorable and unpassable; R39 repealed that, and the sentence
+asserting it survived here until R88.)
 
 ### 3.2 Compatibility is per-position assignability, not a variance system
 
@@ -305,17 +310,63 @@ Where the automatic check is too strict, or the value is a bare `fn` whose signa
 statically known, **`as`** asserts a target signature (runtime-checked), the same escape hatch
 as everywhere.
 
-**What the `as` check does, and when.** Narrowing a function to a signature does **not** verify
-the whole signature at the `as` site, because a function's conformance to `fn (A): R` is a claim
-about *all* its inputs and outputs, observable only when it runs. So `as` defers the signature
-check to **each call**, the faithful analogue of value `as` ("check when you can"): a value's type
-is checkable now, a function's behaviour only on call. Each call through the narrowed value is
-checked in two directions, panicking (a `panic`, errors spec) on a mismatch:
+**What the `as` check does, and when.** Everything about a function value is decidable **at the `as`
+site**: the function typeid is *signature plus errorability*, and nothing else (§3), so the real
+parameters, the real result, and whether the function throws are all in hand the moment the `as`
+runs. Function types are not erased. Deferral is therefore **not forced by ignorance**, and the
+rationale earlier drafts gave for it, that a function's conformance is "observable only when it
+runs," was false.
+
+`as` defers because **`as` is licensed to assert a claim that is not a subtype relation.** Narrowing
+`fn (int): (int | string)` to `fn (int): int` is allowed *optimistically*: no comparison of
+signatures can validate it, because it is not true of the type, only (perhaps) of the returns that
+will actually happen. Such a claim can be tested only against the calls that occur, so that is where
+it is paid for. The license has exactly one boundary, and it is the rule that keeps the model sound:
+
+> **`as` may be optimistic about *values*, never about *obligations*.**
+
+An argument type and a result type are **beliefs** about the calls that will occur; the caller may
+know more than the type system does, and being wrong is caught at the call. **Errorability** is a
+caller **obligation** (§4): you cannot believe a function will not throw and be checked afterwards,
+because the check would arrive *after* the throw. A **`&` parameter** is likewise an obligation, a
+write channel (variables §5.1): the calls that occur bound what a callee *reads*, never what it
+*writes back*, so no belief about them can make an unsound reference position safe. And
+callable-ness is neither belief nor obligation but a precondition.
+
+**Eager**, at the `as`, or at compile time where the source's signature is statically known:
+
+- **Kind.** A `fn` value `as` a non-function type, or a non-callable value `as fn (...)`, is
+  disjoint and fails immediately, exactly like `"h" as int` (`as` spec §5). Being a function at all
+  is checked now.
+- **Errorability.** `fn (A): R!` into `fn`, or into any non-errorable signature, is the laundering
+  the split forbids (§3.1). Where the source's signature is statically known, a **compile error**.
+  Where it is reached through `fn!` or `any`, both of which admit non-errorable values, the
+  narrowing is *not* disjoint and may legitimately succeed, so the typeid decides **at the `as`**
+  and a mismatch is a `typeError` there, never at a call.
+- **Reference positions.** A `&` parameter is **invariant** (above), so a claimed `&` type differing
+  from the real one at all admits no call and is rejected here.
+- **Hopelessness.** A narrowing that **no call could satisfy** is rejected rather than deferred,
+  because it is a bug whether or not it is ever exercised. A narrowing is hopeless when **any** of:
+  a parameter position's claimed and real types are **disjoint** (`fn (int | string): R as
+  fn (double): R`, every call fails on the argument); the **result** position's claimed and real
+  types are disjoint (`fn (): int as fn (): string`, every call fails on the return); a `&` position
+  differs; or the real function has a **required** parameter beyond the claimed arity (§3.3.1), so
+  every call deficits. Any one of these dooms every call, so the condition is a **disjunction**. (An
+  earlier draft required disjoint parameters *and* disjoint results, which let both examples above
+  through, a zero-parameter function has no disjoint parameters at all. It also justified itself as
+  "no function could inhabit both," separately wrong: a function value has exactly one signature
+  typeid, so *any* two distinct signatures are value-set-disjoint, including the `fn (int): int` /
+  `fn (int): int | string` pair the optimistic rule exists to permit. The criterion is "no **call**
+  could satisfy," never "no value could inhabit.")
+
+**Deferred**, to each call through the narrowed value, checked in the two variance directions and
+panicking (a `panic`, errors spec) on a mismatch:
 
 - **Arguments are checked against the callee's *real* parameters** (contravariance). A missing
-  required parameter is a deficit `ArityError` (§3.3); a surplus argument is dropped (§3.3); an
-  argument whose type the real parameter does not accept is a `typeError`. This protects the
-  function body, which runs assuming its declared parameter types.
+  required parameter is a deficit `ArityError` (§3.3); a surplus argument is dropped against the
+  **real** arity, not the claimed one (§3.3); an argument whose type the real parameter does not
+  accept is a `typeError`. This protects the function body, which runs assuming its declared
+  parameter types.
 - **The result is checked against the *claimed* return type** (covariance). A returned value that
   is not of the narrowed result type is a `typeError` **on return**. This protects the caller,
   which consumes the result at the claimed type with no further check, and it is the direction that
@@ -323,12 +374,23 @@ checked in two directions, panicking (a `panic`, errors spec) on a mismatch:
   allowed *optimistically*, and a call that actually returns a `string` panics on return rather
   than seating a `string` in an `int`.
 
-The two runtime checks are exactly the two variance directions above, deferred from compile time to
-the call: arguments against the callee's parameters, result against the caller's claim. Because
-every call is checked this way, **higher-order narrowing is sound with no variance calculus**: a
-function passed to a narrowed function is itself checked when *it* is called, recursively at each
-boundary, so nested function types need no structural variance reasoning (this is what makes the
-"never infers deeper variance" rule above safe).
+Because every call is checked this way, **higher-order narrowing is sound with no variance
+calculus**: a function passed to a narrowed function is itself checked when *it* is called,
+recursively at each boundary, so nested function types need no structural variance reasoning (this
+is what makes the "never infers deeper variance" rule above safe). Errorability is protected at every
+depth by those same two checks: an errorable function in **argument** position is rejected against
+the real parameter, and in **result** position against the claim, so the no-laundering rule holds
+however deep the nesting goes.
+
+**One further check is deferred by necessity, not by license.** A function's **capability requirement
+set rides the value, not the type** (§3, capabilities §3.1), while the *grant* rides the executing
+frame, which the `as` site cannot see. So a call through an `fn`-typed slot checks the two against
+each other and **panics on shortfall, before the callee's body begins** (capabilities §5.1), so a
+shortfall refuses an unauthorized call at the boundary rather than halting an effect in progress.
+That, and not signature conformance, is the one thing about a function that is genuinely observable
+only when it runs, the "check when you can" principle applied to the one fact an `as` genuinely cannot
+know. Where the callee *is* statically known, the check is a compile-time one (capabilities §5) and
+nothing survives to runtime.
 
 **Coercion is the softer alternative to asserting a result.** The result check above *asserts* (it
 panics on a mismatch). Where a panic is not what you want, you need not narrow with `as` at all: a
@@ -340,24 +402,53 @@ can try to coerce it and let the API say what happens when it cannot, rather tha
 `as` and panicking on return. This has always been available and is orthogonal to the `as` rules
 above: `as` gives an assert-and-panic result, a coercion gives a transform-and-handle one.
 
-Two limits keep this consistent with `as` elsewhere:
+### 3.2.1 Reading a narrowing: widening a parameter narrows the function type
 
-- **Kind mismatch is still eager.** `as` between a function and a non-function (a `fn` value
-  `as int`, or a non-callable `as fn (...)`) is disjoint and fails immediately, exactly like
-  `"h" as int` (`as` spec §5). Only *signature* conformance defers; being a function at all is
-  checked now.
-- **Statically-disjoint signatures are a compile error.** When the value's signature is statically
-  known and no function could inhabit both it and the target (disjoint parameters *and* disjoint
-  results, so no call could satisfy either direction), the narrowing is a **compile error**, not a
-  deferred panic (`as` spec §5), for locality. Deferral to per-call checks is for a value whose
-  signature is not statically visible (a bare `fn`) or a compatible-but-not-statically-provable
-  narrowing.
+The single fact that makes function `as` legible, and that inverts most people's first guess:
+**`fn (int | string): R` is a *subtype* of `fn (int): R`.** A slot expecting `fn (int): R` only ever
+passes ints, and a function accepting `int | string` accepts those, so the wider-parameter function
+is usable wherever the narrower-parameter one is. Parameter contravariance. It follows that the
+forms which *look* like narrowings are free widenings, and the forms that look harmless are the real
+narrowings, which are exactly the ones that defer:
 
-One consequence follows from deferral: an optimistic narrowing that is **never called** never
-panics, there is no behaviour to observe, so no confusion to prevent. This is harmless but differs
-from eager value `as`, which panics at the assertion regardless of later use. So function-type
-compatibility is unions plus `as`, consistent with the language's "no solver, runtime checks over
-static cleverness" stance, and there is no variance system to reason about.
+| Written | Relation | What it is | Checked |
+|-|-|-|-|
+| `fn (int \| string): R as fn (int): R` | source **<:** target | **widening** (parameter contravariance) | never; free and implicit, the `as` is a no-op |
+| `fn (int \| string): R as fn` | source **<:** target | **widening** (signature erasure, §3.1) | never; free and implicit |
+| `fn (int): R as fn (int \| string): R` | target <: source | **narrowing**, optimistic | per call, on the **argument** |
+| `fn (int): (int \| string) as fn (int): int` | target <: source | **narrowing**, optimistic | per call, on the **return** |
+| `fn (int \| string): R as fn (double): R` | incomparable | **hopeless**: disjoint parameter | eager |
+| `fn (): int as fn (): string` | incomparable | **hopeless**: disjoint result | eager |
+| `fn (int, string): R as fn (int): R` | incomparable, `string` required | **hopeless**: deficit | eager |
+| `fn (&x: table): R as fn (&x: list): R` | incomparable | **hopeless**: `&` invariance | eager |
+| `fn (int): R! as fn (int): R` | — | **laundering** | eager |
+| `fn (int): R! as fn` | — | **laundering** (§3.1) | eager |
+
+"Eager" means: a **compile error** where the source's signature is statically known, and a
+`typeError` **at the `as`** where it is reached through `fn`, `fn!`, or `any`, since the typeid knows
+the real signature either way. The last six rows are not narrowings at all; each is a claim no call
+could satisfy, and locality demands they fail where they are written.
+
+The deficit row **flips** when the real `string` parameter is *defaulted* (§3.3.1): the source is then
+callable with `(int)` alone, so it *is* a subtype of `fn (int): R`, and the row joins the top of the
+table as a free widening. This is the precise sense in which a function may declare "more parameters"
+than its slot, it is defaults, never an exception to the deficit rule.
+
+One consequence follows from the deferral, and it is **bounded**. An *optimistic* narrowing that is
+**never called** never panics: there is no behaviour to observe, so no confusion to prevent. This is
+harmless, and it differs from eager value `as`, which panics at the assertion regardless of later
+use. A *hopeless* narrowing gets no such grace, because it is a bug independent of whether it is
+exercised, so it is rejected where it is written. So function-type compatibility is unions plus `as`,
+consistent with the language's "no solver, runtime checks over static cleverness" stance, and there
+is no variance system to reason about.
+
+**`match` decides what `as` defers.** A pattern's typed binder tests with `is`, which is total and
+never claims (match §2.2), so `match (f) { g: fn (int): string => ... }` matches only when the real
+signature genuinely **is** assignable to the claim. Every per-call check above then folds away, and a
+signature-bound function is called with no argument check, no return check, no `ArityError`, and no
+laundering check (match §2.3). The optimism, and the per-call price that buys it, belongs to `as`
+alone. What survives both is the **capability** check: the requirement set rides the value, not the
+type (§3), so no narrowing of any kind can discharge it.
 
 ### 3.3 Arity
 
@@ -533,12 +624,20 @@ monotonic fixpoint (assume eligible, remove eligibility for any function that us
 paid once, globally, not per call site. This is not a parse-time concern, it is a
 post-resolution analysis pass.
 
-### 5.2 It lives in the function type, so indirect calls stay checkable
+### 5.2 It lives on the value, and the callee is statically known anyway
 
-The eligibility bit is part of the `fn` type. This is what lets a `comptime` call be
-checked even when the exact callee is not statically obvious: the type carries the
-guarantee. But comptime evaluation additionally requires the callee to be **statically
-known**, so a comptime call must be to a `const` binding (a fixed function), not a `let`
+Eligibility is a fact about the **value**, not the type (§3, R43): a function value is eligible iff
+its requirement set is empty, and that set rides the value as a bitmask beside it (capabilities §3.1),
+never in the typeid, which carries signature and errorability and nothing else. Two consequences. `@f
+== @g` for same-signature functions of differing eligibility, and no `as` can assert it, which is
+exactly what keeps eligibility **un-launderable**: were the bit in the type, `f as comptime fn (int):
+int` would be an optimistic claim, and `as` may be optimistic about values but never about obligations
+(§3.2). Because eligibility is derived from a value fact that `as` cannot reach, there is nothing to
+launder and no check to defer.
+
+It needs no place in the type, because comptime evaluation requires the callee to be **statically
+known** in any case, so the compiler always holds the function itself and reads its requirement set
+directly. A comptime call must therefore be to a `const` binding (a fixed function), not a `let`
 that could be reassigned:
 
 ```

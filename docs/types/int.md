@@ -73,7 +73,7 @@ block** (errors §8.2), which catches everything:
 try {
   let sum = bigA + bigB;         // may panic with OverflowError
   process(sum);                   // success path stays inside the block
-} catch OverflowError e {
+} catch (e: OverflowError) {
   // handle the anticipated overflow: fall back, clamp, or fail the unit of work
 }
 ```
@@ -129,7 +129,7 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
   available for the alternative (floor semantics, remainder following the divisor).
 - **Remainder sign follows the dividend**, pairing with truncated division: `-7 % 2` is `-1`.
 - **Division by zero panics** (a `panic`, errors §2): `5 / 0` and `5 % 0` stop the program;
-  ints have no NaN or infinity to yield.
+  ints have no nan or infinity to yield.
 - **`INT_MIN / -1` panics**, and so does unary negation of `int.min` (`-x` where `x == int.min`), the same missing +2^63: the mathematical result does not fit in a signed 64-bit int,
   so this edge case is an **overflow** and panics like any other (§2).
 
@@ -150,9 +150,9 @@ The narrower signed and unsigned widths all **fit within signed 64-bit**, so the
 **constraints** (constraints spec), shipped as stdlib declarations, not new primitives:
 
 ```
-const u8  = constraint { int as i where i >= 0 && i <= 255 };            // == byte
-const i16 = constraint { int as i where i >= -32768 && i <= 32767 };
-const u32 = constraint { int as i where i >= 0 && i <= 4294967295 };
+const u8  = constraint { i: int where i >= 0 && i <= 255 };            // == byte
+const i16 = constraint { i: int where i >= -32768 && i <= 32767 };
+const u32 = constraint { i: int where i >= 0 && i <= 4294967295 };
 // i8, u16, i32, ... likewise
 ```
 

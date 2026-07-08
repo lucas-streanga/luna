@@ -26,7 +26,9 @@ grammar** are separate tables, because type position is its own grammatical worl
 
 Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
 control-flow spec) are statement grammar, not operators, and sit outside this table; `where`
-exists only inside `match` arms (match §3); `=>` is arrow/arm punctuation, not an operator;
+exists only inside `match` arms (match §3) and `constraint` bodies (constraints §1), and can
+never extend a type expression, which is what lets it terminate the type in `n: int where n > 10`
+(match §2.1); `=>` is arrow/arm punctuation, not an operator;
 string interpolation is lexical, not an operator; `...` is pattern punctuation (destructuring §1.2), never an expression operator.
 
 ## 2. Type-position precedence, tightest to loosest
@@ -42,7 +44,9 @@ string interpolation is lexical, not an operator; `...` is pattern punctuation (
 Position decides which table applies: `&x` in an argument is a reference (variables §5.1),
 `A & B` in an annotation is the meet; `!x` in an expression negates, `T!` in a type adds the
 error arm; same rule as `error` and `comptype` (dual keyword/type, errors §3, reflection
-§3.2).
+§3.2). **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
+tables above, a type occurs in it only after a `:`, and `|` is therefore the union operator
+inside a type and the alternation separator outside one (§4).
 
 ## 3. Word-prefix binding, the one designed decision in this file
 
@@ -66,7 +70,7 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
   types (equality §2); bool.md is fixed to `!=`.
 - **No infix `.`**, no `.=` (strings §11): removes the whitespace-sensitive collision with
   member access at tier 1.
-- **`@int` in a pattern is a compile error** (match §1): pattern-type position is type
+- **`@int` in a pattern is a compile error** (match §2): pattern-type position is type
   position, table §2 applies.
 
 **Resolved by ruling (were open):**
@@ -88,8 +92,12 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
   thread, moves the result out, consumes the promise, surfaces the task's error or panic at
   the collection point.
 - **`throw ... if (...)` parses** as tier-12 prefix under a statement modifier; pinned.
-- **Pattern grouping**: at pattern top level, **`|` is always the or-pattern separator**; an
-  inline union *type* pattern requires parentheses, `(int | string) n`. This keeps the
-  pattern grammar LR(1) with one-token decisions, and costs almost nothing: match's
-  or-pattern binding rule already types `int n | string n` as `n: int | string`, so the
-  parenthesized spelling is the rare form of what the idiom expresses (match §1, §5).
+- **Pattern grouping**: ~~at pattern top level `|` is always the or-pattern separator; an inline
+  union *type* pattern requires parentheses, `(int | string) n`~~. **Retracted, and the question
+  it answered no longer arises.** A type appears in a pattern only after a `:` (match §2.1), so
+  **`|` is the union operator inside a type and the alternation separator everywhere else**, and
+  the two readings never occupy the same position. `n: int | string` is a union; `1 | 2` is an
+  alternation. No parenthesization rule is needed, and the grammar stays LR(1) with one-token
+  decisions for a better reason than a carve-out: at an `IDENT` or `_`, peek for `:`. The
+  parentheses survive only for the rare inverse, using a *typed* pattern as an alternative,
+  `(_: string) | 5` (match §2.1, §5).

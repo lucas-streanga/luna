@@ -35,13 +35,25 @@ position, and grants stay invisible to programs, checkable only by exercising th
 A constraint is declared with the **`constraint` declaration form**, bound to a `const`:
 
 ```
-const byte = constraint { int as i where i >= 0 && i <= 255 };
-const port = constraint { int as i where i >= 1 && i <= 65535 };
+const byte = constraint { i: int where i >= 0 && i <= 255 };
+const port = constraint { i: int where i >= 1 && i <= 65535 };
 ```
 
-- **`base as name`** names the base type and binds the value under test to `name`.
+- **`name: base`** names the base type and binds the value under test to `name`. It is the
+  **typed binder** of the pattern grammar (match §2.1), the same form as a parameter (`fn (i: int)`)
+  and a `let`, because that is what it is: a value of the base type, given a name.
 - **`where <predicate>`** is the predicate: a pure boolean expression over `name`. A value of
   the base type inhabits the constrained type iff the predicate holds.
+
+A constraint body is therefore exactly a match arm's `pattern where guard`, with the pattern
+narrowed to one typed binder and the body dropped, which is why the two share both the `:` and the
+`where`. The narrowing is deliberate: shape, literal, range, and alternation patterns are **not**
+available in a constraint body, so Luna gains no shape types by the back door (tables spec).
+
+Earlier drafts spelled the binder `int as i` (R27 and before). That made `as` a binder, which it is
+nowhere else in the language, and inverted the type-on-the-right order every other binding form
+uses; it is retired (R87). `as` is now purely the checked-narrowing operator (as spec) and the
+import alias (modules §8).
 
 The form **produces a distinct type**. `byte` is a type usable in annotations (`let x: byte`),
 and, because of how types are stored (a constrained type has its own type identity), `int` and
@@ -51,10 +63,13 @@ reflection API for types is fleshed out, that distinction is visible there.
 Multiple `where` clauses are allowed and run in order as a **conjunction** (all must hold):
 
 ```
-const byte = constraint { int as i where i >= 0 where i <= 255 };   // same as i >= 0 && i <= 255
+const byte = constraint { i: int where i >= 0 where i <= 255 };   // same as i >= 0 && i <= 255
 ```
 
-The multi-clause form is sugar for `&&`; order affects only which failure is reported first.
+The multi-clause form is sugar for `&&`; order affects only which failure is reported first. This
+is the **one** place a constraint body diverges from a match arm, which takes a single guard
+(match §3): a constraint *reports which clause failed*, so the clauses are worth keeping apart,
+while a failing arm has nothing to report, it simply falls through.
 
 ---
 
@@ -78,11 +93,11 @@ arbitrary function in a type position: the form is what makes purity enforceable
 
 ## 3. A constraint carries its base type
 
-A constraint names its base inside the form (`int as i`), so the constraint **is** a complete
+A constraint names its base inside the form (`i: int`), so the constraint **is** a complete
 refined type on its own. There is no need to restate the base when using it:
 
 ```
-const byte = constraint { int as i where i >= 0 && i <= 255 };
+const byte = constraint { i: int where i >= 0 && i <= 255 };
 let x: byte = 65 as byte;        // byte is the type directly; no `int where byte` restatement
 ```
 
@@ -131,7 +146,7 @@ Constraints compose by **running predicates**, not by reasoning about them. A na
 used in another's `where` conjoins its predicate:
 
 ```
-const asciiByte = constraint { int as i where byte where i <= 127 };   // byte AND i <= 127
+const asciiByte = constraint { i: int where byte where i <= 127 };   // byte AND i <= 127
 ```
 
 `asciiByte` holds iff `byte`'s predicate holds **and** `i <= 127`. Composition is conjunction,
@@ -146,7 +161,7 @@ evaluated in order. Two rules govern it:
   automatically usable where `int where 0..255` is wanted; converting between them re-runs the
   target predicate via `as`, a runtime check that happens to always pass. Proving implication
   would require the solver Luna refuses to build, so a redundant clause is simply re-executed,
-  not optimized away. `constraint { int as i where byte where i <= 255 }` is sound but
+  not optimized away. `constraint { i: int where byte where i <= 255 }` is sound but
   redundant (the second clause is already implied by `byte`); a *tightening* clause (`i <= 127`)
   is what makes composition useful.
 
@@ -319,7 +334,7 @@ only removes a check the compiler can prove redundant.
 
 ## 10. Built-in instances
 
-- **`byte`** = `constraint { int as i where i >= 0 && i <= 255 }`. The element type of `bytes`
+- **`byte`** = `constraint { i: int where i >= 0 && i <= 255 }`. The element type of `bytes`
   (bytes spec). An **immutable-base** constraint: checked on entry only (§7).
 - **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). An ordinary
   **invariant table-level constraint** (§7.1, tables §8), special only in **cost**: every

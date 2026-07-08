@@ -43,12 +43,19 @@ regex each.
 | Token | Name | Go regex (RE2) |
 |-|-|-|
 | spaces, tabs, newlines | `WHITESPACE` (skipped) | `[ \t\r\n]+` |
+| `#!…` (first line only) | `SHEBANG` (skipped) | `\A#![^\n]*` |
 | `// …` | `LINE_COMMENT` (skipped) | `//[^\n]*` |
 | `/* … */` | `BLOCK_COMMENT` (skipped) | `(?s)/\*.*?\*/` |
 
 Both forms are specified in lexical-structure §3. Block comments are C-style and do
 **not** nest, by ruling, so the non-nesting pattern above is the complete rule (F4). There
 is no doc-comment syntax; documentation rides on attributes.
+
+A **shebang** — `#!` as the first two bytes of the file — is skipped through the next
+newline, so a `.luna` file can be made executable and run directly (R85). It is recognized
+**only** at byte offset 0 (the `\A` anchor) and **only** as `#!`; a bare `#` is never a
+comment (the `#`-for-comments spelling was weighed and rejected, R85), and `#` otherwise
+appears solely in `#[` (attributes §3, §5).
 
 ## 3. Keywords
 
@@ -104,6 +111,8 @@ is given for completeness. All follow the shape `\bword\b`.
 | `false` | `KW_FALSE` | `\bfalse\b` |
 | `null` | `KW_NULL` | `\bnull\b` |
 | `undefined` | `KW_UNDEFINED` | `\bundefined\b` |
+| `nan` | `KW_NAN` | `\bnan\b` |
+| `inf` | `KW_INF` | `\binf\b` |
 | `self` | `KW_SELF` | `\bself\b` |
 
 Notes. `in`, `by`, and `self` are contextual per keywords.md (foreach heads, range steps,
@@ -112,6 +121,13 @@ reserved for the import-source clause (keywords §1, modules §4) — gap G1, no
 `match!` is listed as its own form in operators §0 and is tokenized as one unit here,
 confirmed as the ruling (G7). `panic`, `_`, and every builtin type name (`int`, `string`, `table`, …) are
 **not** keywords (keywords.md §4–§5); they lex as `IDENT`.
+
+`nan` and `inf` are **keywords, not predeclared identifiers**, and this is load-bearing rather
+than cosmetic: a bare identifier in a pattern is always a fresh binding (match §2.1), so if `nan`
+lexed as `IDENT` the arm `match (x) { nan => ... }` (double §2.2, match §7) would bind a fresh
+`nan` instead of matching one. They join `true`, `false`, `null`, and `undefined` as the **value
+keywords**: word-shaped values that must never be shadowable or bindable. Like those four, they
+are lowercase; the reserved set has no capitalized member.
 
 ## 4. Literals
 
@@ -138,9 +154,12 @@ forms accept exactly the same strings.
 Notes. A literal with neither point nor exponent is an `int` (double §8); the `DOUBLE`
 pattern requires a digit on **both** sides of the point, which is what makes `1..5` lex as
 `INT RANGE INT` and `1.toDouble()` as `INT DOT IDENT` with no special cases. Booleans,
-`null`, and `undefined` are keywords (§3), not literal tokens. Minus is never part of a
-numeric token: `-7` is `MINUS INT_DEC` (unary minus, tier 2; `0..-1` parses as `0..(-1)`,
-associativity §4). Regex flags are exactly `i m s x b` (regex §3). The `x`-flag verbose
+`null`, `undefined`, `nan`, and `inf` are keywords (§3), not literal tokens: a literal token is
+recognized by a regex over an open-ended set of lexemes, while these six are a fixed, finite set
+of words. They **denote** literal values all the same; the distinction is lexical, not semantic
+(keywords §4). Minus is never part of a numeric token: `-7` is `MINUS INT_DEC` and `-inf` is
+`MINUS KW_INF` (unary minus, tier 2; `0..-1` parses as `0..(-1)`, associativity §4). There is no
+unary `+`, so positive infinity is written `inf`, never `+inf`. Regex flags are exactly `i m s x b` (regex §3). The `x`-flag verbose
 form spans lines and contains `#` comments; the `REGEX` span pattern is unaffected since
 it only seeks the unescaped closing `/`. Several of the exact numeric rules are open in
 the spec and were resolved by assumption here — see G2.
@@ -204,8 +223,8 @@ patterns survive markdown table rendering byte-for-byte; `\x7c>` ≡ `\|>` to Go
 no unary `+`, no `===`/`!==`, no ternary, no bitwise tokens, and no `&&=`
 /`||=` (numeric-operators §1.1; associativity §4; int §8). `:` serves annotations
 (`x: int`), slice bounds (`xs[1:3]`, `xs[:]`, tables §3), and default-bearing signatures.
-`#` occurs only as part of `ATTR_OPEN` (attributes §3) — a bare `#` in `DEFAULT` mode is a
-lex error. `*` is also the import glob (`import * from m`). `SLASH` and `SLASH_ASSIGN`
+`#` occurs only as part of `ATTR_OPEN` (attributes §3), or as the leading `#!` of a
+first-line shebang (§2) — a bare `#` anywhere else is a lex error. `*` is also the import glob (`import * from m`). `SLASH` and `SLASH_ASSIGN`
 compete with `REGEX` and comments; see F2.
 
 ## 6. Interpolation sub-tokens (modes `DQ_STRING`, `REGEX_BODY`, `COMMAND`)
@@ -244,7 +263,8 @@ boundary, no lookahead needed) so `_foo` still lexes as one `IDENT`.
 
 Attempt order within `DEFAULT` / `INTERP_EXPR`:
 
-1. `WHITESPACE`, `LINE_COMMENT`, `BLOCK_COMMENT` — comments before anything `/`-initial.
+1. `SHEBANG` (only at byte offset 0), then `WHITESPACE`, `LINE_COMMENT`, `BLOCK_COMMENT` —
+   comments before anything `/`-initial.
 2. `BYTES` — before `IDENT`, or `b"…"` lexes as `IDENT(b)` + string.
 3. `REGEX` — only when the regex-allowed flag is set (F2); before `SLASH`/`SLASH_ASSIGN`.
 4. `DOUBLE` (both rows), then `INT_HEX`, `INT_BIN`, then `INT_DEC` — doubles first so
@@ -286,7 +306,10 @@ literal (regex §7, comptime-only) can itself contain `/` — division inside th
 which would falsely terminate the §4 span regex; the `REGEX_BODY` mode handles it. The
 span regex is otherwise sound, including multi-line `/x` verbose patterns, since it only
 hunts the unescaped closing `/`. Note `//` (an empty pattern) is also a line comment,
-which the §8 ordering resolves in favor of the comment.
+which the §8 ordering resolves in favor of the comment — so `//` is **always** a comment,
+never an empty regex; an empty pattern is written `/(?:)/` (regex §2) or built with
+`regex("")`. Moving comments to `#` to free `//` was weighed and rejected (R85): it leaves
+this regex-vs-division state machine untouched and costs a corpus-wide sweep.
 
 **F3 — Command literals with `${expr}` are not regular**, for the same reason as F1: the
 splice is a full expression (command §3) and may contain backticks inside nested strings

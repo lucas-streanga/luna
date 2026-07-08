@@ -309,7 +309,7 @@ vs. extraction:
   `x is Shape.circle`, tests the specific variant; `x is Shape` tests "*any* variant of `Shape`"
   (the subtype/interval check, §8). Neither binds the payload; they only identify.
 - **Which variant, *and* its payload? (value-level, binds.)** `match` discriminates the variant and
-  **extracts its payload together** (`match { {circle ['radius' => r]} => ... }`), so `match` is how
+  **extracts its payload together** (`match (x) { {circle ['radius' => r]} => ... }`), so `match` is how
   you *use* a variant, `@`/`is` is how you *test* one. Same relationship as `is` to `as`/`match`
   throughout the language.
 

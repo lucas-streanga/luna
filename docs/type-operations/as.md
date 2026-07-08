@@ -112,6 +112,16 @@ So a runtime type check is always spelled `as` (never hidden in an annotation), 
 transformation is always a function call (never hidden in `as`). Each operation is visible in
 the source where it happens.
 
+One position reuses the annotation's `:` and does check at runtime: a **pattern's typed binding**,
+`match (x) { s: string => ... }` (match §2.2). This is not an exception to the rule above, because
+nothing is hidden: a pattern's entire job is to be a predicate on the scrutinee, so the arm's
+selection **is** the check, and it is written where it happens. The invariant the rule protects
+holds in both positions, **an annotation never lies**: no value is ever seated in an `x: T` that is
+not a `T`, whether the mismatch is caught at compile time (a declaration, `let s: string = someUnion()`)
+or by falling through to the next arm (a pattern). What a pattern never does is *panic*: its test is
+`is`, not `as` (is spec §1). Which reading `:` takes is fixed by position, as it is for `@`, `&`,
+`!`, `error`, and `comptype` (type §1.1, associativity §2).
+
 ---
 
 ## 5. Incompatible types are a compile error
@@ -130,26 +140,45 @@ it cannot bridge disjoint types (`int` and `string` share no values). Bridging t
 *conversion* (§3), `toString` / `parseInt`, not a narrowing. So `int as string` is a compile
 error (use `toString`), and `string as int` is a compile error (use `parseInt`).
 
-### 5.1 Function narrowing is checked per call, not at the `as`
+### 5.1 Function narrowing: obligations eagerly, values per call
 
-Narrowing to a **function type** splits by *what* is asserted:
+Narrowing to a **function type** splits, and the split is not the one an earlier draft drew.
+Everything about a function value is decidable **at the `as`**: the function typeid is *signature
+plus errorability*, and nothing else (functions §3), so the real parameters, the real result, and
+whether the function throws are all in hand the moment the `as` runs. Function types are not erased.
+Deferral is therefore **not forced by ignorance**, and the rationale this section used to give, that
+a function's conformance is "observable only when it runs," was false.
 
-- **Kind is checked eagerly, here.** A `fn` value `as` a non-function type, or a non-callable
-  value `as fn (...)`, is disjoint and fails immediately, like `"h" as int`. And when the value's
-  signature is statically known and no function could inhabit both it and the target (disjoint
-  parameters *and* disjoint results, so no call could satisfy either direction), the narrowing is a
-  **compile error**, for locality.
-- **Signature conformance is checked per call, not at the `as`.** A function's conformance to
-  `fn (A): R` is a claim about all its inputs and outputs, observable only when it runs, so `as`
-  defers it to each call (functions §3.2). Each call checks arguments against the callee's *real*
-  parameters and the result against the *claimed* return type, panicking on a mismatch. Thus
-  `f as fn (int): int` on an `f` whose result is `int | string` is allowed *optimistically*, and a
-  call that actually returns a `string` panics **on return**, not at the `as`.
+`as` defers because **`as` is licensed to assert a claim that is not a subtype relation.** Narrowing
+`fn (int): (int | string)` to `fn (int): int` is allowed *optimistically*: no comparison of signatures
+can validate it, because it is not a fact about the type, only (perhaps) about the returns that will
+actually happen. Such a claim can be tested only against the calls that occur, so that is where it is
+paid for. The license has exactly one boundary, and it is what keeps the model sound:
 
-This is the one place `as` defers its check past the assertion site, the same "check when you can"
-principle as everywhere: a value's type is checkable now, a function's behaviour only on call. The
-full rules (arguments contravariant against real parameters, result covariant against the claim,
-recursive for higher-order narrowing) live in functions §3.2.
+> **`as` may be optimistic about *values*, never about *obligations*.**
+
+An argument type and a result type are **beliefs** about the calls that will occur; the caller may
+know more than the type system does, and being wrong is caught at the call. **Errorability** is a
+caller **obligation** (errors spec): you cannot believe a function will not throw and be checked
+afterwards, because the check would arrive *after* the throw. A **`&` parameter** is an obligation
+too, a write channel (variables §5.1): the calls that occur bound what a callee reads, never what it
+writes back.
+
+So **kind, errorability, reference positions, and hopelessness are eager** (a compile error where the
+source's signature is statically known, a `typeError` at the `as` otherwise), while **argument and
+result conformance are deferred** to each call, checked contravariantly against the callee's real
+parameters and covariantly against the caller's claim. A narrowing no call could ever satisfy is
+*hopeless* and is rejected where it is written, not at some later call that may never come.
+
+One check is deferred by genuine necessity rather than by license. A function's **capability
+requirement set rides the value, not the type** (functions §3, capabilities §3.1), while the *grant*
+rides the executing frame, which the `as` site does not know. A call through an `fn`-typed slot
+checks the two against each other and panics on shortfall. That, and not signature conformance, is
+the one thing about a function that is observable only when it runs, and it is the one place "check
+when you can" genuinely cannot hoist a check.
+
+The full rules, the narrowing table, and the definition of hopelessness live in functions §3.2
+and §3.2.1.
 
 ---
 
@@ -186,9 +215,12 @@ recursive for higher-order narrowing) live in functions §3.2.
 ## 7. Narrowing produces a new binding; `is` does not flow-narrow
 
 Narrowing in Luna **only** happens by producing a **new binding** of the narrower type, through
-`as` (`let s = x as string`, checked, panics on mismatch) or through a `match` arm (`match (x) {
-string s => ... }`, which binds a fresh `s`). A binding's type is **fixed at its declaration** and
-never changes based on the branch it is in.
+`as` (`let s = x as string`, checked, panics on mismatch) or through a `match` arm's typed binding
+(`match (x) { s: string => ... }`, which binds a fresh `s`). A binding's type is **fixed at its
+declaration** and never changes based on the branch it is in. A match arm with a *bare* binder
+narrows nothing: `match (x) { s => ... }` binds `s` at `x`'s own type (match §2). The binder is what
+narrows, so a type test that discards its binding (`_: string`) narrows nothing either, and has
+nothing to narrow.
 
 In particular, **`is` is a boolean test only**: it reports whether a value currently has a type, and
 does **not** narrow the tested binding within the guarded branch.
@@ -199,7 +231,7 @@ if (x is int) {
   let n = x as int; foo(n);   // to use it as int, produce a narrowed binding
 }
 match (x) {
-  int n => foo(n); // idiomatic: the arm binds a fresh n : int
+  n: int => foo(n); // idiomatic: the arm binds a fresh n of type int
 }
 ```
 

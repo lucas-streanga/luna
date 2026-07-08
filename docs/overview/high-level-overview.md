@@ -36,7 +36,7 @@ the types spec is the authoritative index, and each type has its own spec.
 | Type | What it is |
 |-|-|
 | `int` | 64-bit signed integer; overflow panics |
-| `double` | 64-bit IEEE 754 float; Inf/NaN, never panics |
+| `double` | 64-bit IEEE 754 float; inf/nan, never panics |
 | `string` | immutable, valid-UTF-8 text |
 | `bool` | `true`/`false`; no truthiness |
 | `null` | the explicit "present nothing" |

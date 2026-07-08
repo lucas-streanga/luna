@@ -57,7 +57,7 @@ Paths are not bare strings. Like `json` (std.json §1), **`path`** is an invaria
 constraint over `string`:
 
 ```
-export const path = constraint { string as p where isValidPath(p) };
+export const path = constraint { p: string where isValidPath(p) };
 ```
 
 `isValidPath` is **platform-dependent** (separators, forbidden characters, length limits) and

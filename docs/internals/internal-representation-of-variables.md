@@ -62,7 +62,7 @@ worth recording precisely so it is not re-attempted:
 - The **`typeid` cannot rescue this**, because the GC never consults it. Our tag tells *our*
   code how to read the word; the GC decides tracing from the static layout at a moment of its
   choosing, concurrently, with our code not running. A tag helps whoever reads it, and the GC
-  does not read it. (This is exactly why NaN-boxing / pointer-tagging works only in a runtime
+  does not read it. (This is exactly why nan-boxing / pointer-tagging works only in a runtime
   that owns its GC and can teach the collector to read the tag.)
 - The tag also **cannot be hidden inside a payload word**: the scalar word is fully used by
   64-bit `int`/`double` values (no spare bits), and the pointer word is traced (so stuffing tag
@@ -224,7 +224,7 @@ chase transitive calls and dies at dynamic dispatch). The compiler cannot prove
 exhaustiveness it cannot verify.
 
 No precision is lost. The thrown value's exact subtype is its runtime current
-`typeid`, recovered by narrowing, `catch IOError`, `is IOError`, via the O(1)
+`typeid`, recovered by narrowing, `catch (e: IOError)`, `is IOError`, via the O(1)
 subtype test (§4.2). Coarse in the declared type, precise in the value: the same split
 as everywhere else.
 
@@ -332,7 +332,7 @@ many types (no generics means no generative, deeply-nested type families to comp
 Errors are their own type, **not** tables, and support inheritance. Because
 inheritance is a property of the *type*, it lives entirely in the `typetable`, never
 in the value: each error `typeinfo` records its supertype. A value carries only its
-concrete error `typeid`; every `<: error`, `catch IOError`, or `is` test is a lookup
+concrete error `typeid`; every `<: error`, `catch (e: IOError)`, or `is` test is a lookup
 over `typeinfo` ancestry.
 
 Since the hierarchy is statically known, subtype tests over the **nominal tree** are
@@ -360,6 +360,37 @@ their `typeinfo` records the canonical protocol set, their `valueBase` is `table
 §5). Honest cost: **O(1) for tree edges, O(members) for unions and intersections**, over
 statically tiny lists, with pairs between statically-known types foldable at compile time
 (§4.1).
+
+**Function signatures are the second DAG, and they take the parenthetical's other escape.** The
+wildcard tier stays in the interval test: function typeids occupy **one contiguous region**,
+non-errorable signatures numbered before errorable ones, so `fn!` is the whole region and `fn` its
+non-errorable prefix (functions §3.1's ladder is a tree: `fn (A): R <: fn <: fn!`, with
+`fn (A): R! <: fn!` alone). `is fn` and `is fn!` are therefore ordinary interval checks. The
+**leaves** are the problem. Signature subtyping is structural and **contravariant in the parameters**,
+so `fn (int | string): (int | string)` is a subtype of both `fn (int): (int | string)` (narrow the
+parameter) and `fn (int | string): any` (widen the result), and those two are incomparable: two
+supertypes, no single parent, exactly the shape laminar intervals cannot encode, for exactly the
+reason a union cannot be. So an interval check must **never** decide a signature target; among the
+leaves the sibling relation carries no subtype information at all.
+
+The resemblance to errors is superficial and worth refusing outright. Errors carry subtype rules too,
+but they are **single inheritance by construction** (errors §2), a nominal tree declared node by node,
+which is precisely why the interval numbering serves them to the leaves. Nothing about a function type
+is declared: signatures are interned structurally, so there is no tree to number.
+
+Function signatures therefore take the other option this section's parenthetical names, a **pairwise
+table**. It is affordable because the type universe is closed at compile time (§4.1) and function types
+are interned: a program's distinct function typeids form a finite set **F**, enumerable at link time,
+and `S <: T` over them is decided once, structurally, by functions §3.2's per-position assignability,
+errorability (an errorable `S` demands an errorable `T`), arity against defaults (functions §3.3.1),
+each parameter **contravariantly**, each `&` position by **identity**, the result **covariantly**,
+recursing into nested function positions and bottoming out on the tiers above. Store the `F × F` bits,
+or memoize lazily on `(S, T)`. `F` counts *distinct written signatures*, not call sites, so it is in the
+hundreds; a thousand of them is 10^6 bits, 125 KB. Runtime `x is fn (A): R` is then a single indexed
+load.
+
+Honest cost, restated: **O(1) for tree edges and for function signatures** (the latter after a link-time
+`O(F² · arity)` fold), **O(members) for unions and intersections**.
 
 Under **single inheritance** a subtype's fields are laid out as a **prefix** of its
 supertype's, so a pointer to an `IOError` is already a valid pointer to `error`:
