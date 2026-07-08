@@ -19,19 +19,19 @@ import std.json;
 const exitCode = ['success' => 0, 'usage' => 64];
 
 const main = fn () use (io, argv): int! => {
-  let arguments = args();                        // argv is a capability (capabilities §9)
-  die('usage: taste <config.json>') if (arguments.count() != 1);
+  let arguments = args();                        // argv is a capability
+  die("usage: ${arguments[0]} <config.json>") if (arguments.count() != 2);
 
-  var fd = openFile(arguments[0] as path);       // file!: inside this fn!, failure propagates
+  var fd = openFile(arguments[1] as path);      // file!: error propogates out of main
   defer close(&fd);
 
-  let config = fromJson(readAll(fd) as json);    // table!: malformed JSON propagates too
+  let config = fromJson(readAll(fd) as json);    // table!: bad JSON propagates too
 
   match (config['server']) {
-    ['host' => h: string, 'port' => p: int] => println("serving on http://$h:$p"),
-    ['port' => p: int]                      => println("serving on http://localhost:$p"),
-    undefined => die('config has no server section'),
-    _         => die('unrecognized server shape'),
+    ['host' => h: string, 'port' => p: int] => println("serving on $h:$p"),
+    ['port' => p: int]                      => println("serving on localhost:$p"),
+    undefined                               => die('config has no server section'),
+    _                                       => die('unrecognized server shape'),
   };
 
   return exitCode.success;
