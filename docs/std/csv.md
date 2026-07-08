@@ -11,7 +11,7 @@ they use).
 ## 1. The `csv` type
 
 ```
-export const csv = constraint { string as s where isValidCsv(s) };
+export const csv = constraint { s: string where isValidCsv(s) };
 ```
 
 An invariant, entry-only constraint over `string` (constraints §7); the type is the

@@ -10,7 +10,7 @@ overview, not a definition; each type's spec is authoritative.
 | Type | What it is | Spec |
 |-|-|-|
 | `int` | 64-bit signed integer, inline; overflow panics | int |
-| `double` | 64-bit IEEE 754 float, inline; IEEE semantics (Inf/NaN, no throw); never a key | double |
+| `double` | 64-bit IEEE 754 float, inline; IEEE semantics (inf/nan, no throw); never a key | double |
 | `float` | 32-bit IEEE 754 float (separate primitive, lower precision) | double §6 (own spec deferred) |
 | `string` | Immutable, valid-UTF-8 text | string-representation, string-api |
 | `bool` | `true` or `false`, inline; no truthiness; conversions are functions | bool |
@@ -63,7 +63,7 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
   its defining module's exports (`reveal` from `std.secret`).
 
 A related declaration form is **`constraint`**, which refines a base type by a pure predicate
-(`byte = constraint { int as i where i >= 0 && i <= 255 }`). A constrained type is a subtype of
+(`byte = constraint { i: int where i >= 0 && i <= 255 }`). A constrained type is a subtype of
 its base (`byte <: int`), widens to the base implicitly, and narrows from it via `as`
 (runtime-checked). Constraints are refinement types, checked at runtime, never solved
 (constraints spec); `byte` and `list` are instances.
@@ -109,22 +109,26 @@ runtime-guarded) or `fn (): never!` (always throws, checked as ordinary errorabi
 
 Not types, but how types are reached and tested:
 
-- **`@x`** , derives a **type** from something that is not already one. A type position takes a
-  type, and there are two kinds of thing you write there:
-  - **Already a type , written bare, no `@`:** `int`, `string`, an enum name, a constraint name
-    (`byte`), a function type (`fn (int): string`), and bare `fn` (any callable). These *are*
-    types, so they need no operator.
-  - **Not a type , `@` derives one:** `@P` gives a protocol's **application type** (a protocol is a
-    shape-predicate, not a value-set, so `@` yields "the type of tables with it applied"); `@value`
-    gives a **value's type** (reflection), so `@someError` is its specific error type and `@f` is
-    a function value's full type (`fn (int): string`, since function types are not erased,
-    functions spec §3).
+- **`@x`** , two operators sharing a glyph, **resolved by grammatical position**, never by what `x`
+  is (type spec §1.1). This is the same positional rule as `&`, `!`, `error`, and `comptype`.
+  - **In type position** (after `:`, after `is` / `as`, after a pattern's `:`), `@P` is the
+    **application refinement**: "a table guaranteed to have protocol `P` applied." A protocol is a
+    shape-predicate, not a value-set, so it is not itself a type and `@` derives one. Everything
+    that *is already* a type is written **bare, no `@`**: `int`, `string`, an enum name, a
+    constraint name (`byte`), a function type (`fn (int): string`), and bare `fn` (any callable).
+    Applying `@` in type position to something already a type (`@int`, `@someEnum`,
+    `@(fn (int): string)`) is a **compile error**: there is no meta-type, and `@` has nothing to
+    derive. This is the rule that makes `someEnum` (a type, bare) and `@someProto` (a protocol,
+    needs `@`) consistent rather than arbitrary, and it is why `_: @int` is rejected in a pattern
+    (match §2), pattern-type position being type position.
+  - **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **reflection**,
+    "the type of this value," always yielding a comparable `type`. It applies to **any** value,
+    including one that happens to be a type: `@someError` is its specific error type, `@f` is a
+    function value's full type (`fn (int): string`, since function types are not erased, functions
+    spec §3), and `@int` is `type`, since `int` is a `type`-valued binding. There is no error case
+    here, only in type position.
 
-  So `@` means "derive the type from this non-type." Applying `@` to something **already a type**
-  (`@int`, `@someEnum`, `@(fn (int): string)`) is an **error**: there is no meta-type, and `@`
-  has nothing to derive. This is the rule that makes `someEnum` (a type, bare) and `@someProto`
-  (a protocol, needs `@`) consistent rather than arbitrary. value-representation, protocols,
-  views.
+  value-representation, protocols, views.
 - **`@@x`** , protocol reflection over a table or view (distinct from `@`; not used for enum
   variants or function signatures). views.
 - **`x as T`** , checked **narrowing** (union to member, supertype to subtype), runtime-checked

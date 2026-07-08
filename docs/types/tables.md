@@ -111,7 +111,9 @@ A value typed `table` is narrowed to `list` by the checked operators (`as` / `is
   not (has a gap or a string key).
 - **`tab is list`**: a **boolean test** of whether the table is currently a list. It does not
   narrow `tab` (Luna does no flow-narrowing, as spec §7); to obtain a `list`-typed binding, use
-  `tab as list` (or a `@list` match pattern), which produces a narrowed value.
+  `tab as list` (or a `l: list` typed binding in a match arm, match §2.2), which produces a
+  narrowed value. `list` is a type, not a protocol, so it is written bare after the `:`, never
+  `@list` (overview/types, type §1.1).
 
 Removal leaves gaps rather than reindexing (§2.2), so a table with gaps is genuinely not a
 list. To **re-compact** a gapped or keyed table into a fresh contiguous list, call
@@ -643,14 +645,14 @@ A table-level constraint is an ordinary `constraint {}` (constraints spec §1) w
 and a pure predicate over the whole table:
 
 ```
-const pair    = constraint { table as t where t->count() == 2 };
-const sorted  = constraint { table as t where isSorted(t->values()) };
-const tagged  = constraint { table as t where t.kind is string };
+const pair    = constraint { t: table where t->count() == 2 };
+const sorted  = constraint { t: table where isSorted(t->values()) };
+const tagged  = constraint { t: table where t.kind is string };
 ```
 
 The predicate is **any pure boolean expression over the table** (constraints §2, purity is enforced
 by the form): it may read counts, inspect keys, compare entries, or `match` the table's shape, as
-the author wants. `list` is exactly `constraint { table as t where <keys are 0..n-1> }`, with a
+the author wants. `list` is exactly `constraint { t: table where <keys are 0..n-1> }`, with a
 maintained-bit implementation instead of a scan.
 
 ### 8.2 It tests the whole table, and that is the cost

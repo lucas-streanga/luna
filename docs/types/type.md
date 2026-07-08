@@ -13,8 +13,12 @@ Making `type` a primitive rather than a table is deliberate and buys three thing
 - **Always const.** The type universe is closed at compile time (value-representation §4.1), so a
   `type` value is inherently fixed and immutable. A table (mutable, copy-on-write) would misrepresent
   that; a primitive is const by nature.
-- **Clean `@` match arms.** `match (@x) { int => ..., string => ... }` compares `type` values
-  directly, a `typeid` switch, which is both fast and semantically exact.
+- **Clean `@` match arms.** `match (@x) { t where t == int => ..., t where t == string => ... }`
+  compares `type` values directly, one `typeid` compare per arm, which is both fast and semantically
+  exact. The comparison lives in a **guard** because a bare name in a pattern position is always a
+  binding (match §2.1); dispatching on a *value's* type, the far commoner case, is spelled by
+  matching the value with typed bindings (`match (x) { n: int => ... }`) and never reaches for `@`
+  at all.
 
 ---
 
@@ -287,43 +291,56 @@ matching an application-refinement pattern is defined as a **protocol-membership
 
 ```
 match (x) {
-  @stringBuilder => x->stringBuilder.append("!"),   // x is guaranteed to have stringBuilder applied here
-  @otherProto    => ...,
-  _              => ...,
+  b: @stringBuilder => b->stringBuilder.append("!"),   // b is guaranteed to have stringBuilder applied
+  _: @otherProto    => ...,                            // tested, not bound: nothing to reach through
+  _                 => ...,
 }
 ```
 
-The arm `@stringBuilder` does **not** compile to `@x == @stringBuilder` (that is false, `@x` is a
-table type, not an application refinement). It compiles to "does `x`'s protocol set include
+The type test `@stringBuilder` does **not** compile to `@x == @stringBuilder` (that is false, `@x` is
+a table type, not an application refinement). It compiles to "does `x`'s protocol set include
 `stringBuilder`," an `@@`/`is`-protocol test. So protocol-applying stays out of `@` (comparison stays
 clean), and `match` reaches it through application-refinement patterns.
 
-**Matching an application refinement narrows `x` to a table guaranteed to have `P` applied, reached through
-`->`.** This is the key point where the two spaces stay separate (views spec §1): the narrowed `x`
-is still a **table**, so `.` on it is still **element** access; the protocol's meta functions are
-reached through `->`, exactly as everywhere else. What the match guarantees is that `x->P` is
-**present** (not `undefined`), so `x->stringBuilder.append("!")` is safe without `?.`. The match does
-**not** turn `x` into a `view` (a `view` is what `x->stringBuilder` *produces*, and on a view `.` is
-a meta call, views spec §3.1); it narrows `x` to a table whose `->P` is guaranteed. So the arm body
+**A typed binding on an application refinement binds a table guaranteed to have `P` applied, reached
+through `->`.** This is the key point where the two spaces stay separate (views spec §1): the bound
+`b` is still a **table**, so `.` on it is still **element** access; the protocol's meta functions are
+reached through `->`, exactly as everywhere else. What the arm guarantees is that `b->P` is
+**present** (not `undefined`), so `b->stringBuilder.append("!")` is safe without `?.`. The match does
+**not** turn `b` into a `view` (a `view` is what `b->stringBuilder` *produces*, and on a view `.` is
+a meta call, views spec §3.1); it binds a table whose `->P` is guaranteed. So the arm body
 uses `->` to reach the meta, never bare `.`. Matching a protocol is therefore a test plus a
 presence guarantee, not a switch of `.` into meta space.
 
+Note the **binder**, not the scrutinee, is what carries the guarantee. `_: @stringBuilder => ...`
+tests and discards; inside that arm `x` still has its declared type, because Luna does no
+flow-narrowing (as spec §7) and there is no new binding to hold the narrowed one. Reaching `->P`
+requires the arm to have bound it. This is the general rule (as §7, match §2.2), not a protocol
+special case.
+
 ### 7.1 A match pattern's test depends on the pattern's kind
 
-Section 7 is one instance of a general rule: a type pattern in a `match` arm is **not** always a
-`typeid` equality. The compiler knows each pattern's **kind** statically and emits the appropriate
-test:
+Section 7 is one instance of a general rule: the type in a `match` arm's typed binding or type test
+(`n: T`, `_: T`, match §2.2) is **not** always tested by `typeid` equality. The test is `is T`
+(is spec §2), and the compiler knows the type's **kind** statically, so it emits the appropriate
+one:
 
 - a **concrete type** (`int`, `Shape`), a `typeid` compare (a fast switch),
-- a **application refinement** (`@stringBuilder`), a protocol-membership test (`@@`), narrowing to a
-  table with `->P` guaranteed present (not to a view),
+- a **application refinement** (`@stringBuilder`), a protocol-membership test (`@@`); the *binder*
+  is what carries the `->P`-present guarantee, and it is a table, not a view (§7),
 - a **constraint** (`byte`), the constraint predicate (constraints spec),
 - a **union** (`int | double`), "is the current type one of the members,"
 - an **enum variant** (`{circle ...}`), the variant-tag (refinement `typeid`) check (enum spec §8).
 
-The **syntax is uniform** (every arm is `pattern => result`); the **test differs by the pattern's
-type-kind**, chosen at compile time. So `match` on a protocol reads like any other type-pattern arm,
-while doing the right thing (a protocol-membership check) underneath.
+The **syntax is uniform** (every arm is `pattern => result`); the **test differs by the type's
+kind**, chosen at compile time. So matching a protocol reads like any other typed binding, while
+doing the right thing (a protocol-membership check) underneath. The cost of a typed binding is
+therefore exactly the cost of `is` for that kind, and the bind itself is free (match §2.2).
+
+**Open: function types.** Bare `fn` / `fn!` (functions §3.1's subtype ladder) and a full signature
+(`fn (int): string`) are missing from this table, and the signature case is the one `is` that is not
+O(1). It interacts with `as`'s per-call deferral (as spec §5.1, functions §3.2), whose stated
+rationale is itself wrong, so both are pending one ruling.
 
 ---
 

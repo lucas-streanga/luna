@@ -15,7 +15,7 @@ asked for:
 - **`==` / `!=`**: total over all values (typeid-first, equality spec).
 - **`is T`**: the type test, `any`'s natural companion (is spec).
 - **`as T`**: the checked narrowing, the door out of `any`.
-- **`match` with type patterns**: the structured door out (`match (v) { int n => ... }`).
+- **`match` with typed bindings**: the structured door out (`match (v) { n: int => ... }`).
 - **`@v`**: the type of the value, always answerable.
 - **`toString(v)` and interpolation** (`"$v"`): rendering is total (conversion §3).
 - **`copy v`**, crossing `spawn` (deep copy applies per the actual value's class).

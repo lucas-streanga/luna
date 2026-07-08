@@ -1297,6 +1297,116 @@ recorded as **deferred, not rejected** (§3), by decision — cheap to build (a 
 but it changes the failure mode, and the need has not arisen. Swept: `docs/index.md` gained a
 *Lexical structure* row and a *Lexer* row (the latter was missing from the map entirely).
 
+**R87 — a type in a pattern is written after `:`; a bare identifier is always a binding.**
+The corpus spelled a match arm's typed position prefix, `int n`. Two spellings were argued, and
+readability decided neither. Builtin type names are ordinary **shadowable identifiers** (keywords §5,
+modules §7), so under the prefix spelling a bare pattern position could be a type test, a binding, or
+(via `nan`) a value test, and which one it was depended on **name resolution**: `match (x) { list =>
+... }` type-tests while `match (x) { rows => ... }` binds, and exporting a `const cursor = constraint
+{...}` upstream silently converts every `cursor =>` binding arm downstream into a type test. That is
+Rust's const-pattern hazard without Rust's capitalization convention to survive it, and it is safe by
+discipline, which the first commitment forbids. Marking the **type** rather than the binder makes a
+pattern's kind decidable by syntax alone with one token of lookahead, and no declaration anywhere can
+change what an arm means. Two alternatives were argued and dropped. **(a) Bare identifier = type
+test, binders colon'd** (`x: any` to bind anything): it breaks match §4's own claim that "a match
+pattern *is* a destructuring pattern with literals and type tests added", since `let ['x' => x] = tab`
+binds while `match (tab) { ['x' => x] => ... }` would type-test, the same syntax meaning opposite
+things in the two constructs §4.3 exists to reconcile; it is lossy, because a typed binder *supplies*
+its type (as §2, §4), so `['name' => n: any]` on a `@person` source binds `any` where `['name' => n]`
+binds `string` (destructuring §5); and it taxes the commonest atom (bare binders outnumber anonymous
+type tests roughly 9:4 in the spec's own examples) to shorten the rarest. **(b) `is` instead of `:`**
+(`_ is int`, `n is int`): it costs four exceptions where `:` costs one. `is`'s left operand is a
+**value** in every existing use (is §2) and would become a binder; `x is int` is *already* a legal
+open-ended-match arm (match §6), so deleting a scrutinee would silently reinterpret every arm, where
+`x: int` is not an expression and fails to parse; the pattern `is` and the guard `is` would then
+collide inside one arm (`x is int where x is int`), destroying §3's pedagogy; and it inverts is.md's
+headline, "`is` never narrows," restated in six other files. The `:` costs exactly one exception, and
+a small one: in a pattern `:` tests where in a declaration it asserts. Nothing is hidden by the reuse,
+because a pattern's whole job is to be a predicate, so the arm's selection **is** the check, and the
+invariant the annotation protects, *an annotation never lies*, holds in both positions (as §4).
+
+The grammar is now stated, as match **§2.1**: `_`, `_: T`, `name`, `name: T`, literal, range, shape,
+`{tag pattern}`, alternation, parentheses. A bare binder **inherits** the value's type; a typed binder
+**tests and supplies** one; `_: T` tests and discards, and is `_` in *binding* position carrying an
+annotation (wildcard §5's `fn (_, index)`, now typed), not `_` in type position (wildcard §7). The
+semantics, match **§2.2**: `name: T` is `value is T` (total, never panics) followed by a fresh binding
+of static type `T` (as §7). One emitted check, `is`'s cost per kind (type §7.1), the bind free. Two
+consequences fall out of `as`'s existing rules rather than new machinery: a **disjoint** type is a
+compile error, not a dead arm (as §5), and a **supertype** is irrefutable with its check elided, so
+`n: any` is legal and lossy, which is exactly why the bare binder exists. The `|` collision
+**dissolves** rather than being ruled: because a type occurs only after a `:`, `|` is the union
+operator inside a type and the alternation separator outside one, and the two never share a position.
+`n: int | string` is a union, `1 | 2` an alternation. **R28's pattern-grouping ruling is retracted**,
+`(int | string) n` is gone, and parentheses survive only for the inverse, a typed pattern used as an
+alternative, `(_: string) | 5`.
+
+Three positions take patterns, two restricted. A **match arm** takes the full grammar. A **`catch`
+clause** takes a **parenthesized** binder pattern: `catch (e)` inherits the root `error` and so
+catches everything, `catch (e: diskError)` narrows, `catch (_: diskError)` narrows while saying out
+loud that the value is discarded, `catch (e: ioError | typeError)` unions, and `catch (p: panic)`
+replaces `catch panic p`. `catch error` and `catch someType` are **retired**, a bare name in a binder
+position is a binding, never a type. The parentheses are new and required: they make `catch` the same
+shape as every other clause head (`if (c)`, `while (c)`, `foreach (…)`, `match (x)`), where it was the
+sole exception, and they resolve a real ambiguity the typed binder introduces, since `error` is both
+the declaration keyword and the root type (errors §3), so an unparenthesized `catch _: error { ... }`
+puts a `{` directly after a type where `error { ... }` is also the error-declaration form. The `)`
+closes the type, which is also why `{` is absent from match §2.1's type-terminator set. A
+**`constraint` body** takes a typed binder and nothing else:
+`constraint { i: int where i >= 0 && i <= 255 }`. `int as i` is retired, which was the one place `as`
+was a binder; `as` is now purely checked narrowing and the import alias, and match §4.2's as-pattern
+rationale ("`as` is a checked-narrowing operator, not a binder") becomes true as written. A constraint
+body is therefore an arm's `pattern where guard` with the pattern narrowed to one typed binder and the
+body dropped, diverging in exactly one place: a constraint admits several `where` clauses because it
+*reports which one failed*, and an arm takes one because a failing arm has nothing to report.
+
+Prerequisite, and a standing gap it closed: **`nan` and `inf` are now keywords** (lexer §3), joining
+`true`/`false`/`null`/`undefined` as the six **value keywords**. They had **no token at all**, absent
+from lexer.md, keywords.md, and every declaration, while match §7 was built on
+`match (x) { nan => ... }`; under the new rule a bare `IDENT` binds, so that arm would have bound a
+fresh `nan`. They are **keywords by lexing and literals by role** (keywords §4): not literal tokens,
+which are regexes over open-ended lexeme sets, and not predeclared identifiers, which would bind. The
+spelling is lowercase `nan`/`inf` rather than `NaN`/`Infinity`, matching the other five and leaving
+the reserved set with no capitalized member; `-inf` is `MINUS KW_INF`, and there being no unary `+`,
+positive infinity is `inf`. Of the six, only `undefined` restricts what a program may *do* with it
+(compare, never conjure); `nan` and `inf` are ordinary producible doubles. Named constants generally
+are **not** patterns: `where c == exitCode.success` is the spelling, Rust's const-pattern rule
+deliberately rejected. Type names stay shadowable identifiers, which is now harmless, because they
+never appear bare in a pattern.
+
+The forced sweep paid four times. **type.md §7** matched a bare `@stringBuilder` and then claimed it
+"narrows `x`", using `x` in the arm body: a type test with no binder narrows nothing (as §7), so the
+example was unsound; it is now `b: @stringBuilder => b->stringBuilder.append("!")`, with the general
+rule stated, **the binder is what narrows**. **overview/types.md** said applying `@` to something
+already a type "is an error", unqualified, contradicting type.md §1.1: it is an error in **type**
+position only, and in value position `@int` is reflection yielding `type`, which is precisely why the
+retired `@int n` spelling was self-refuting (R27's F14). **reflection.md**'s comptime sketch matched
+`kind(t)`, a `TypeKind` **enum**, with bare `table =>` / `enumType =>` arms rather than the `{table}` /
+`{enumType}` variant patterns enum §4 requires. **tables.md** called `list` a protocol ("a `@list`
+match pattern"); `list` is a type, written bare after the `:`.
+
+Swept: `match.md` (§2 rewritten, §2.1 and §2.2 added, §3, §4, §4.2, §4.3, §5; three internal section
+refs were off by one, §6→§7, §7→§8, §8→§9, all consistent with §6 having been inserted after they were
+written); `associativity.md` (pattern-grouping retracted, pattern position named as the third grammar,
+the two stale "match §1" refs, `where`'s second home); `constraints.md` (§1, §3, §6, §10); `errors.md`
+(§2, §5.2, §6, §8.2, §8.3 rewritten, §9); `keywords.md` (`as`, `where`, `panic`, `_`, the value
+keywords, "constraints §2"→§1); `lexer.md` (§3, §4); `overview/types.md`; `type.md` (§1, §7, §7.1);
+`as.md` (§4, §7); `wildcard.md` (§4, §7); `destructuring.md` (§5); `is.md`; `any.md`; `reflection.md`;
+`enum.md`; `tables.md`; `int.md`; `double.md`; `bytes.md`; `json.md`; `serialization.md`;
+`protocols.md`; `io-errors.md`; `io.md`, `csv.md`, `yaml.md`, `xml.md` (constraint bodies);
+`internal-representation-of-variables.md`; `index.md` and `tooling/a-taste-of-luna.luna` (the
+front-page example).
+
+Not changed, deliberately: **function-type patterns.** `_: fn`, `n: fn`, and `n: fn (int): string` are
+unspecified, and type §7.1's kind table has no row for them. The signature case is the one `is` that
+is not O(1), and it collides with `as`'s per-call deferral, whose rationale in as.md §5.1 and
+functions.md §3.2, *"a function's conformance is observable only when it runs"*, is **wrong**: function
+types are not erased (overview/types), so the runtime value carries its signature. `as` defers because
+it permits a claim that is not a subtype relation, which functions.md §3.2 says out loud ("allowed
+*optimistically*"), not because conformance is unobservable. Flagged in type.md §7.1; it is the next
+ruling. Also unchanged: the builtin error types' casing (`OverflowError`, `ArityError`, `IOError` vs
+`typeError`, `ioError`), already flagged at keywords §6; and the tree-sitter grammar, which is
+highlighting-only and carries no pattern rules.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -1304,4 +1414,6 @@ but it changes the failure mode, and the need has not arisen. Swept: `docs/index
 A handful of contradictions surfaced by the review remain deliberately unresolved,
 each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
 exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
-and view interior mutability (F25).
+view interior mutability (F25); and, newly, **function-type patterns plus the wrong
+rationale for `as`'s per-call signature deferral** (R87's tail, as §5.1, functions §3.2,
+type §7.1).

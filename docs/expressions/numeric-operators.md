@@ -64,15 +64,15 @@ panic-on-violation stance:
 - **Integer overflow panics** (int spec §2): arithmetic exceeding the type's range raises a `panic`
   (an `OverflowError`), never silently wraps. Wrapping and saturating variants are explicit, named
   functions (`wrappingAdd`, `saturatingAdd`, int spec §4), never the operator default.
-- **Integer division and remainder by zero panic** (int spec §5): integers have no infinity or NaN to
+- **Integer division and remainder by zero panic** (int spec §5): integers have no infinity or nan to
   yield, so `5 / 0` and `5 % 0` panic.
-- **Floating-point follows IEEE** (double spec): overflow yields `+/-Infinity`, invalid operations
-  (`0.0 / 0.0`) yield `NaN`, and these propagate as values rather than panicking. Float arithmetic
+- **Floating-point follows IEEE** (double spec): overflow yields `+/-inf`, invalid operations
+  (`0.0 / 0.0`) yield `nan`, and these propagate as values rather than panicking. Float arithmetic
   does not panic; it produces IEEE sentinels.
 
 So the integer types are **safe by panic** (no silent wrong value; a violation stops at its point),
 and the float types are **safe by IEEE** (no silent wrong value; a violation becomes an infinity or
-NaN sentinel that is itself well-defined). Each type's spec is authoritative for its own edges; this
+nan sentinel that is itself well-defined). Each type's spec is authoritative for its own edges; this
 document only names the shared shape.
 
 Because operator arithmetic can panic (integer overflow, divide-by-zero) but the panic is a `panic`

@@ -52,10 +52,10 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 └── ... (user-defined: a definition with no explicit parent extends the root directly, §4)
 ```
 
-The single root is deliberate: **`catch error` catches everything**, because everything
-is an `error`. There is no separate top type above it (no `Throwable`) that a catch could
-miss, so the obvious catch is the complete catch. This is the property the hierarchy
-exists to guarantee.
+The single root is deliberate: **a bare `catch (e)` catches everything**, because everything
+is an `error` and a bare binder inherits the type it is given, here the root (match §2). There is
+no separate top type above it (no `Throwable`) that a catch could miss, so the obvious catch is
+the complete catch. This is the property the hierarchy exists to guarantee.
 
 The hierarchy has exactly **one distinguished subtree, `panic`**, and everything else,
 the root itself and every user-defined type, is the other category by complement. An
@@ -67,10 +67,10 @@ a `panic`, and the category test, "is the `typeid` in the `panic` interval," is 
 O(1) interval check (value-representation §4.2), used negated. The partition is total by
 construction, every error value either is in the `panic` subtree or it is not, so
 there is no third category and no orphan. What the category gives up by having no type
-is precision at type level: the widest arm and the widest catch are both spelled
-`error`, which statically includes `panic` even in positions (a `!` arm, §7) where a
-panic can never dynamically land. The everyday throwaway error is the base `error`
-itself (§5.2).
+is precision at type level: the widest arm and the widest catch are both typed
+`error` (a `!` arm, §7; a bare `catch (e)`, §8.2), which statically includes `panic` even in
+positions where a panic can never dynamically land. The everyday throwaway error is the base
+`error` itself (§5.2).
 
 Two policies attach to the two subtrees, and each is an O(1) subtree test
 (value-representation §4.2):
@@ -129,7 +129,7 @@ myError = error {
 ```
 
 `error` is both the definition keyword (`myError = error { ... }`) and the name of the
-root type (`| error`, `catch error`), exactly as `proto` is both keyword and type. An
+root type (`| error`, `catch (_: error)`), exactly as `proto` is both keyword and type. An
 error definition binds like any value; a module exports an error type by exporting its
 variable.
 
@@ -166,7 +166,7 @@ diskError = error : myError {
   out after its parent's, so `diskError` has `code`, `detail` (from `myError`), and
   `path`. Upcast to `myError` or `error` is a no-op; the `typeid` discriminates for
   narrowing.
-- **Subtype tests are O(1)**: `diskError <: myError`, `catch myError`, and `is myError`
+- **Subtype tests are O(1)**: `diskError <: myError`, `catch (e: myError)`, and `is myError`
   are two integer comparisons (the preorder-interval test), not pointer chasing.
 
 The hierarchy is fixed at compile time. Throwing an error never creates a new type
@@ -257,7 +257,7 @@ throw error('bad config', [key => 'timeout', value => -1]);
 A handler reads it off the base error:
 
 ```
-} catch e {
+} catch (e) {
   let k = e.data?.key ?? "unknown";
 }
 ```
@@ -270,7 +270,7 @@ tables are for, so it rides in `data` on the base `error`, which is already catc
 and already the throwaway type.
 
 The rule for when to declare a type versus use base `error` with `data`: **declare an
-error type exactly when a handler will catch it by name** (`catch diskError`) and branch
+error type exactly when a handler will catch it by name** (`catch (e: diskError)`) and branch
 on that type. If handlers will only ever catch broadly and inspect fields, there is
 nothing for a distinct type to do, so use base `error` with `message` and `data`.
 
@@ -292,7 +292,7 @@ per-throw category test. The one `throw` that does *not* require `fn!` is the
 received one, the sole way user code ever holds a `panic`-typed value): that is
 propagation of an ambient failure already in flight, and panics are undeclarable (§9).
 A `throw` whose expression is root-`error`-typed is treated as origination (it requires
-`fn!`), even if the value is dynamically a panic; the narrowed `catch panic p { throw
+`fn!`), even if the value is dynamically a panic; the narrowed `catch (p: panic) { throw
 p; }` is the `!`-free relay spelling (§8.3). Throwing a **non-error** value is a
 compile error; only `error`-typed values are throwable.
 
@@ -467,12 +467,12 @@ another.
 ```
 try {
   ...
-} catch e {
+} catch (e) {
   // e is the caught error, typed root `error`; may be a declarable error or a panic
 }
 ```
 
-The `try`/`catch` **block** is the **catch-all**: a bare `catch e` catches the **root `error`**, so
+The `try`/`catch` **block** is the **catch-all**: a bare `catch (e)` catches the **root `error`**, so
 it catches **both categories**, declarable errors and `panic`. This is the intended boundary form, and it honors the
 universal intuition that a `try`/`catch` block catches everything. The two catch forms therefore
 split cleanly by the two error categories, and the split is visible at a glance (one has a `catch`
@@ -515,35 +515,57 @@ the two channels stay distinct all the way to the top.
 
 Because the block catches both categories and they share the `error` root, a boundary that wants to
 treat them differently distinguishes in the `catch` (§8.3): the `panic` subtree has a type to name
-(`catch panic`), and the declarable category, which has none (§2), is selected by **ordering**, a
-leading `catch panic` clause (re-throwing, or handling) leaves the following bare `catch` with
+(`catch (p: panic)`), and the declarable category, which has none (§2), is selected by **ordering**, a
+leading `catch (p: panic)` clause (re-throwing, or handling) leaves the following bare `catch` with
 exactly the declarable errors. So the block is a genuine catch-all safety net without conflating
 the categories, it can see both and still tell them apart.
 
 ### 8.3 Narrowing a catch
 
-A `catch` may name a type to catch only that subtree, letting the rest propagate:
+A `catch` clause head is a **parenthesized binder pattern** (match §2.1): `(_)`, `(_: T)`,
+`(name)`, or `(name: T)`, and nothing else. Naming a type narrows the clause to that subtree,
+letting the rest propagate:
 
 ```
 try {
   ...
-} catch diskError e {     // catches diskError and its subtypes
+} catch (e: diskError) {    // catches diskError and its subtypes; e is a diskError
   ...
-} catch panic p {         // catches any panic (OOM, typeError, ArityError, ...)
+} catch (p: panic) {        // catches any panic (OOM, typeError, ArityError, ...)
   ...
-} catch e {               // everything else: the remaining declarable errors
+} catch (e) {               // everything else: the remaining declarable errors
   ...
 }
 ```
 
-- **`catch error e`** (or bare `catch e`), everything.
-- **`catch panic p`**, the `panic` subtree only; declarable errors propagate.
-- **`catch SomeType e`**, that type and its descendants.
+- **`catch (e)`**, everything; `e` inherits the root `error` (match §2). `catch (e: error)` says the
+  same thing out loud, and `catch (_)` says it while discarding the value.
+- **`catch (p: panic)`**, the `panic` subtree only; declarable errors propagate.
+- **`catch (e: someType)`**, that type and its descendants. Write **`catch (_: someType)`** when the
+  clause selects a subtree but does not want the value; the `_` is not noise, it is the visible
+  statement that the error is being caught **and** thrown away.
+- **`catch (e: ioError | typeError)`**, several subtrees in one clause. `|` after a `:` is the union
+  operator (match §2.1), so `e` is typed `ioError | typeError`.
+
+A clause head is the same typed binder used in a match arm and a constraint, and it means the same
+thing: `e: someType` tests (`is`) and, on success, binds `e` **at** `someType` (match §2.2). A bare
+`catch (e)` tests nothing, which is why it catches everything. There is no `catch (someType)` form,
+because a bare name in a binder position is always a binding, never a type (match §2.1); the type
+goes after the `:` here exactly as it does everywhere else.
+
+**The parentheses are required, for two reasons.** They make `catch` the same shape as every other
+clause head in the language, `if (c)`, `while (c)`, `foreach (k => v in xs)`, `match (x)`, where
+`catch` was the sole exception. And they resolve a real ambiguity that the typed binder introduces:
+`error` is both the declaration keyword and the root type (§3), so an unparenthesized
+`catch (_: error) { ... }` puts a `{` directly after a type in a position where `error { ... }` is
+also the error-declaration form. The `)` terminates the type unambiguously, which is also why a
+pattern's type needs no `{` in its terminator set (match §2.1); the same holds for an inline
+`enum {a, b}` type in a clause head.
 
 There is deliberately no one-word catch for "declarable errors only" (the category has no
 type, §2). Where a boundary wants to handle expected errors while letting panics keep
-unwinding, the spelling is **ordering plus re-throw**: a leading `catch panic p { throw p; }`
-forwards the `panic` subtree, and the following bare `catch e` then receives exactly the
+unwinding, the spelling is **ordering plus re-throw**: a leading `catch (p: panic) { throw p; }`
+forwards the `panic` subtree, and the following bare `catch (e)` then receives exactly the
 declarable errors. This is the price of the flat hierarchy, paid at the rare boundary that
 splits the categories block-side; the common inline form for expected errors is the `try`
 expression, which makes the split for free (§8.1).
@@ -566,7 +588,7 @@ preventable:
   (calling a function with fewer arguments than it declares, when not statically caught,
   functions spec), division by zero, failed runtime invariants, and similar.
 - Panics are **catchable**: they are `error` values under the root, so the `try`/`catch` **block**
-  (`catch error` or `catch panic`, §8.2) captures them. The `try` **expression** does **not**: a
+  (a bare `catch (e)`, or `catch (p: panic)`, §8.2) captures them. The `try` **expression** does **not**: a
   panic unwinds through it (§8.1). Catching a panic is a deliberate, block-level, boundary act, never
   an incidental effect of an inline `try`.
 - Panics are **undeclarable**: a function that can only panic is still `fn`, not `fn!`
@@ -579,7 +601,7 @@ preventable:
   constructable in user code (§5), and the runtime raises panics only at its own failing
   operations. So `panic` means exactly **"a language or runtime error"**: if a panic is
   unwinding, the runtime put it there, a program cannot fake one. The only `panic`-typed
-  act available to user code is **re-throwing** one it caught (`catch panic p { throw
+  act available to user code is **re-throwing** one it caught (`catch (p: panic) { throw
   p; }`, §6, §8.3), which relays, and appends a breadcrumb to (§6.1), a runtime-minted
   value, never forges a new one. Together the two seals make the category meaning
   unspoofable in both directions: nothing user-defined is a `panic`, and nothing

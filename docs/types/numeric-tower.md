@@ -61,11 +61,11 @@ constraint on a wider one (their values are different-precision sets, not subset
 a **lossless widening chain**, `f16 <: float <: double`, because each narrower binary format embeds
 **losslessly** in the wider one: binary32 is wider than binary16 in *both* mantissa (23 vs 10 stored
 bits) and exponent (8 vs 5 bits), and binary64 is wider than binary32 in both, so every narrower value,
-including subnormals, the zeros, the infinities, and NaN, is an exact value of the wider type. No
+including subnormals, the zeros, the infinities, and nan, is an exact value of the wider type. No
 information is lost widening up the chain, so **widening is implicit** (`f16` to `float`, `float` to
 `double`), on the same lossless-therefore-safe justification as integer widening (the mechanism is a
 lossless representation change rather than a subset relation). Narrowing down the chain (`double` to
-`float`, `float` to `f16`) is **lossy** (it rounds and can overflow to Infinity), so it is an explicit
+`float`, `float` to `f16`) is **lossy** (it rounds and can overflow to inf), so it is an explicit
 checked narrowing (`double as float`), parallel to integer narrowing.
 
 So the float family is a widening chain like the integer families, and the widen-to-widest rule (§2)
@@ -177,14 +177,14 @@ across the tower:
   that **panics** if the value is out of the target range (the constraint-on-entry check, constraints
   spec; int spec §6).
 - **Float narrowing** (`double as float`): explicit, rounding to the nearer `float`, and yielding
-  `float` Infinity if the magnitude overflows binary32 (an IEEE result, not a panic, double spec).
+  `float` inf if the magnitude overflows binary32 (an IEEE result, not a panic, double spec).
 - **Arbitrary to fixed** (`decimal as int`): explicit, panicking if the value does not fit or is not
   exact (a fractional `decimal` narrowed to `int`, unless a rounding conversion is chosen).
 
 The through-line is the language's uniform stance: **no silent wrong value.** Within-family widening
 is lossless (so implicit); everything narrowing or crossing is explicit and either panics or produces
 a well-defined IEEE sentinel. Overflow of the fixed integers panics (int spec §2); the
-arbitrary-precision `decimal` does not overflow (it grows); the floats produce IEEE infinities and NaN
+arbitrary-precision `decimal` does not overflow (it grows); the floats produce IEEE infinities and nan
 rather than panicking (double spec).
 
 ---
@@ -197,9 +197,9 @@ rather than panicking (double spec).
 | `int` (i64) | signed int | inline primitive | (widest signed fixed) | panic |
 | `u8`, `u16`, `u32` | unsigned int | inline (constraint on `u64`) | wider unsigned, up to `u64` | panic |
 | `u64` | unsigned int | inline primitive | (widest unsigned fixed) | panic |
-| `f16` | float | inline primitive (binary16) | `float`, `double` (lossless) | IEEE Infinity |
-| `float` | float | inline primitive (binary32) | `double` (lossless) | IEEE Infinity |
-| `double` | float | inline primitive (binary64) | (widest float) | IEEE Infinity |
+| `f16` | float | inline primitive (binary16) | `float`, `double` (lossless) | IEEE inf |
+| `float` | float | inline primitive (binary32) | `double` (lossless) | IEEE inf |
+| `double` | float | inline primitive (binary64) | (widest float) | IEEE inf |
 | `byte` | signed int | inline (`int` in `0..255`) | `int` | panic |
 | `decimal` | arbitrary decimal | heap-backed built-in | (none; explicit entry) | grows, no overflow |
 | `rational` | exact fraction | heap-backed built-in | (none; explicit entry) | grows / panic on /0 |

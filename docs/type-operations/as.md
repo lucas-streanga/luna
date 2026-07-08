@@ -112,6 +112,16 @@ So a runtime type check is always spelled `as` (never hidden in an annotation), 
 transformation is always a function call (never hidden in `as`). Each operation is visible in
 the source where it happens.
 
+One position reuses the annotation's `:` and does check at runtime: a **pattern's typed binding**,
+`match (x) { s: string => ... }` (match §2.2). This is not an exception to the rule above, because
+nothing is hidden: a pattern's entire job is to be a predicate on the scrutinee, so the arm's
+selection **is** the check, and it is written where it happens. The invariant the rule protects
+holds in both positions, **an annotation never lies**: no value is ever seated in an `x: T` that is
+not a `T`, whether the mismatch is caught at compile time (a declaration, `let s: string = someUnion()`)
+or by falling through to the next arm (a pattern). What a pattern never does is *panic*: its test is
+`is`, not `as` (is spec §1). Which reading `:` takes is fixed by position, as it is for `@`, `&`,
+`!`, `error`, and `comptype` (type §1.1, associativity §2).
+
 ---
 
 ## 5. Incompatible types are a compile error
@@ -186,9 +196,12 @@ recursive for higher-order narrowing) live in functions §3.2.
 ## 7. Narrowing produces a new binding; `is` does not flow-narrow
 
 Narrowing in Luna **only** happens by producing a **new binding** of the narrower type, through
-`as` (`let s = x as string`, checked, panics on mismatch) or through a `match` arm (`match (x) {
-string s => ... }`, which binds a fresh `s`). A binding's type is **fixed at its declaration** and
-never changes based on the branch it is in.
+`as` (`let s = x as string`, checked, panics on mismatch) or through a `match` arm's typed binding
+(`match (x) { s: string => ... }`, which binds a fresh `s`). A binding's type is **fixed at its
+declaration** and never changes based on the branch it is in. A match arm with a *bare* binder
+narrows nothing: `match (x) { s => ... }` binds `s` at `x`'s own type (match §2). The binder is what
+narrows, so a type test that discards its binding (`_: string`) narrows nothing either, and has
+nothing to narrow.
 
 In particular, **`is` is a boolean test only**: it reports whether a value currently has a type, and
 does **not** narrow the tested binding within the guarded branch.
@@ -199,7 +212,7 @@ if (x is int) {
   let n = x as int; foo(n);   // to use it as int, produce a narrowed binding
 }
 match (x) {
-  int n => foo(n); // idiomatic: the arm binds a fresh n : int
+  n: int => foo(n); // idiomatic: the arm binds a fresh n of type int
 }
 ```
 

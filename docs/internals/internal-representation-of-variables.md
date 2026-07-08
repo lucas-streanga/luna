@@ -62,7 +62,7 @@ worth recording precisely so it is not re-attempted:
 - The **`typeid` cannot rescue this**, because the GC never consults it. Our tag tells *our*
   code how to read the word; the GC decides tracing from the static layout at a moment of its
   choosing, concurrently, with our code not running. A tag helps whoever reads it, and the GC
-  does not read it. (This is exactly why NaN-boxing / pointer-tagging works only in a runtime
+  does not read it. (This is exactly why nan-boxing / pointer-tagging works only in a runtime
   that owns its GC and can teach the collector to read the tag.)
 - The tag also **cannot be hidden inside a payload word**: the scalar word is fully used by
   64-bit `int`/`double` values (no spare bits), and the pointer word is traced (so stuffing tag
@@ -224,7 +224,7 @@ chase transitive calls and dies at dynamic dispatch). The compiler cannot prove
 exhaustiveness it cannot verify.
 
 No precision is lost. The thrown value's exact subtype is its runtime current
-`typeid`, recovered by narrowing, `catch IOError`, `is IOError`, via the O(1)
+`typeid`, recovered by narrowing, `catch (e: IOError)`, `is IOError`, via the O(1)
 subtype test (§4.2). Coarse in the declared type, precise in the value: the same split
 as everywhere else.
 
@@ -332,7 +332,7 @@ many types (no generics means no generative, deeply-nested type families to comp
 Errors are their own type, **not** tables, and support inheritance. Because
 inheritance is a property of the *type*, it lives entirely in the `typetable`, never
 in the value: each error `typeinfo` records its supertype. A value carries only its
-concrete error `typeid`; every `<: error`, `catch IOError`, or `is` test is a lookup
+concrete error `typeid`; every `<: error`, `catch (e: IOError)`, or `is` test is a lookup
 over `typeinfo` ancestry.
 
 Since the hierarchy is statically known, subtype tests over the **nominal tree** are

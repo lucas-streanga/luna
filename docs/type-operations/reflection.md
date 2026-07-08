@@ -278,8 +278,8 @@ Reflecting "a table with `P` applied" therefore **decomposes** along the two axe
   `proto` reflected by §3.4.
 
 And to **dispatch** on whether a value has a protocol applied, the tool is **`match`** (type spec §7):
-matching an application-refinement pattern (`match (x) { @stringBuilder => ... }`) is the protocol-
-membership test. So "reflect an application" is answered by existing machinery, `@` for the table, `@@`
+an application-refinement type test (`match (x) { b: @stringBuilder => ... }`, or `_: @stringBuilder`
+where the table is not wanted) is the protocol-membership test. So "reflect an application" is answered by existing machinery, `@` for the table, `@@`
 for the protocols, `match` to branch on applying, with no unified "application reflection" that would
 recreate the category error of treating `@P` as a `type`.
 
@@ -296,7 +296,7 @@ runtime.
 // Sketch: generate a JSON serializer for a statically-known type T.
 const toJson = comptime fn (t: type): fn => {
   match (kind(t)) {
-    table => {
+    {table} => {                     // TypeKind is an enum, so its variants are `{...}` patterns
       // for each field, read its jsonTag attribute (or fall back to the field name),
       // and emit code that writes  "tag": <serialize field>
       foreach (f in fields(t)) {
@@ -304,7 +304,7 @@ const toJson = comptime fn (t: type): fn => {
         // ... emit writer for f['type'] under key `tag`
       }
     }
-    enumType => {
+    {enumType} => {
       foreach (v in variants(t)) { /* emit a case per variant */ }
     }
     // ... other kinds

@@ -28,8 +28,8 @@ const main = fn () use (io, argv): int! => {
   let config = fromJson(readAll(fd) as json);    // table!: malformed JSON propagates too
 
   match (config['server']) {
-    ['host' => string h, 'port' => int p] => println("serving on http://$h:$p"),
-    ['port' => int p]                     => println("serving on http://localhost:$p"),
+    ['host' => h: string, 'port' => p: int] => println("serving on http://$h:$p"),
+    ['port' => p: int]                      => println("serving on http://localhost:$p"),
     undefined => die('config has no server section'),
     _         => die('unrecognized server shape'),
   };
@@ -43,9 +43,10 @@ inputs (`argv`) are reached only through explicit `use` clauses; an errorable `m
 `openFile` and `fromJson` propagate bare, no ceremony on the happy path; `as` narrows at
 boundaries (`path`, `json`); `defer` pairs the close with the open; and `match` dispatches
 on the data's **shape**, structural patterns naming the keys they require (absent key, arm
-fails; extra keys, nobody's business, match §4) with typed binders inside, a literal
-`undefined` arm for the missing section, and `_` because this match chooses to be exhaustive.
-First matching arm wins, top to bottom.
+fails; extra keys, nobody's business, match §4) with typed binders inside (`h: string` tests the
+key's value *and* binds it narrowed, match §2.2), a literal `undefined` arm for the missing
+section, and `_` because this match chooses to be exhaustive. First matching arm wins, top to
+bottom.
 
 The intended distribution is a single `luna` binary that is the whole toolchain, runner, compiler,
 formatter, and language server, and a static library for embedding. No implementation exists yet;
@@ -113,7 +114,7 @@ table is a map.
 | Spec | File | What it is |
 |-|-|-|
 | Int | `int.md` | The 64-bit signed integer primitive (inline, overflow panics). |
-| Double | `double.md` | The 64-bit IEEE 754 float primitive (Inf/NaN, never panics). |
+| Double | `double.md` | The 64-bit IEEE 754 float primitive (inf/nan, never panics). |
 | Bool | `bool.md` | The two-valued `true`/`false` primitive, with no truthiness. |
 | String API | `strings.md` | The programmer-facing surface of the immutable UTF-8 `string` type. |
 | Bytes | `bytes.md` | The packed, mutable, growable byte buffer type. |

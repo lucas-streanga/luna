@@ -9,7 +9,7 @@ serialization functions, and why the design is cheap.
 ## 1. The `json` constraint
 
 ```
-const json = constraint { string as str where isValidJson(str) };
+const json = constraint { str: string where isValidJson(str) };
 ```
 
 An ordinary **invariant constraint** (constraints §1, §7.1) over `string`: a value inhabits
@@ -135,7 +135,7 @@ Choose by contract: `toJson` is *"the declaration's serialization, tags honored"
   extensions (trailing commas, comments) are rejected, expected: strict RFC 8259, pending
   confirmation.
 - **Number fidelity:** how `int` and `double` values round-trip through JSON numbers
-  (precision limits, `NaN`/infinity handling, which JSON has no representation for),
+  (precision limits, `nan`/infinity handling, which JSON has no representation for),
   pending the numeric-tower treatment.
 - **Parsing (`fromJson`):** deliberately not specified here; this file covers the `json`
   type and serialization only. A parser's output typing (tables of `any`? demanded shapes?)

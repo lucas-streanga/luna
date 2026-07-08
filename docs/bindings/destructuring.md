@@ -188,6 +188,14 @@ The `...rest` binding is always a **`list`** (§1.2) regardless of element typin
 *elements* carry whatever element type the source had (typed for a `@proto` or const source,
 `any` for a bare table).
 
+**This rule is also match's.** A bare binder in a match arm inherits exactly as above (match §2),
+which is what makes a match pattern a strict superset of a destructuring pattern rather than a
+homograph of one. Match adds one form destructuring does not have, the **typed binder** `n: T`,
+which does not inherit: it *tests* the value against `T` and, on success, supplies `T` as the
+binding's type (match §2.2). So `['name' => n]` inherits `string` from a `@person` source, while
+`['name' => n: string]` restates it and would run a (statically elided) check. Destructuring has no
+typed binder because it has nothing to fall through to: a failed test in a `let` has no next arm.
+
 ---
 
 ## 6. Summary of rules

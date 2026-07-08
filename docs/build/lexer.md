@@ -111,6 +111,8 @@ is given for completeness. All follow the shape `\bword\b`.
 | `false` | `KW_FALSE` | `\bfalse\b` |
 | `null` | `KW_NULL` | `\bnull\b` |
 | `undefined` | `KW_UNDEFINED` | `\bundefined\b` |
+| `nan` | `KW_NAN` | `\bnan\b` |
+| `inf` | `KW_INF` | `\binf\b` |
 | `self` | `KW_SELF` | `\bself\b` |
 
 Notes. `in`, `by`, and `self` are contextual per keywords.md (foreach heads, range steps,
@@ -119,6 +121,13 @@ reserved for the import-source clause (keywords §1, modules §4) — gap G1, no
 `match!` is listed as its own form in operators §0 and is tokenized as one unit here,
 confirmed as the ruling (G7). `panic`, `_`, and every builtin type name (`int`, `string`, `table`, …) are
 **not** keywords (keywords.md §4–§5); they lex as `IDENT`.
+
+`nan` and `inf` are **keywords, not predeclared identifiers**, and this is load-bearing rather
+than cosmetic: a bare identifier in a pattern is always a fresh binding (match §2.1), so if `nan`
+lexed as `IDENT` the arm `match (x) { nan => ... }` (double §2.2, match §7) would bind a fresh
+`nan` instead of matching one. They join `true`, `false`, `null`, and `undefined` as the **value
+keywords**: word-shaped values that must never be shadowable or bindable. Like those four, they
+are lowercase; the reserved set has no capitalized member.
 
 ## 4. Literals
 
@@ -145,9 +154,12 @@ forms accept exactly the same strings.
 Notes. A literal with neither point nor exponent is an `int` (double §8); the `DOUBLE`
 pattern requires a digit on **both** sides of the point, which is what makes `1..5` lex as
 `INT RANGE INT` and `1.toDouble()` as `INT DOT IDENT` with no special cases. Booleans,
-`null`, and `undefined` are keywords (§3), not literal tokens. Minus is never part of a
-numeric token: `-7` is `MINUS INT_DEC` (unary minus, tier 2; `0..-1` parses as `0..(-1)`,
-associativity §4). Regex flags are exactly `i m s x b` (regex §3). The `x`-flag verbose
+`null`, `undefined`, `nan`, and `inf` are keywords (§3), not literal tokens: a literal token is
+recognized by a regex over an open-ended set of lexemes, while these six are a fixed, finite set
+of words. They **denote** literal values all the same; the distinction is lexical, not semantic
+(keywords §4). Minus is never part of a numeric token: `-7` is `MINUS INT_DEC` and `-inf` is
+`MINUS KW_INF` (unary minus, tier 2; `0..-1` parses as `0..(-1)`, associativity §4). There is no
+unary `+`, so positive infinity is written `inf`, never `+inf`. Regex flags are exactly `i m s x b` (regex §3). The `x`-flag verbose
 form spans lines and contains `#` comments; the `REGEX` span pattern is unaffected since
 it only seeks the unescaped closing `/`. Several of the exact numeric rules are open in
 the spec and were resolved by assumption here — see G2.

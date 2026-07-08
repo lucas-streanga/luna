@@ -153,7 +153,7 @@ specs and summarized here:
 - **From string (fallible):** `parseInt(s): int!`, `parseBool(s): bool!`, and the like, one per
   parseable built-in (string spec and each type's spec).
 - **Numeric (between number types):** `toDouble(n: int): double` (total, lossy above 2^53),
-  `toInt(d: double): int!` (fallible: NaN, infinities, out-of-range have no int; int spec,
+  `toInt(d: double): int!` (fallible: nan, infinities, out-of-range have no int; int spec,
   double spec).
 - **Bool (total out):** `toInt(b: bool): int` (`true` to 1), `toString(b)` (`true` to `"true"`);
   there is deliberately no `int`-to-`bool` conversion (write the comparison; bool spec §3).
