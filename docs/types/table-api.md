@@ -308,11 +308,15 @@ since keys collide across levels.
 #### merge()
 ```
 fn merge(tab: table, ...tabs: table|stream,
-         *, recursive: bool = false, preserveKeys: bool = true,
+         *, recursive: bool = false, preserveKeys: bool = false,
          asStream = false): table | stream
 ```
-**O(n).** Appends `tabs` onto `tab` in order. `preserveKeys = false` reindexes from
-0. When `recursive`, keys shared between tables have their (table) values merged
+**O(n).** Appends `tabs` onto `tab` in order: integer keys reindex from 0 and append,
+string keys overwrite by key. This is exactly the spread fold (spread §1), so
+`a.merge(b)` is `[...a, ...b]`, and merging lists concatenates them. `preserveKeys = true`
+is the other operation: `tabs`' integer keys are kept, so they collide with `tab`'s and
+overwrite. Like `flatten`, this combiner reindexes by default, because keys collide across
+sources. When `recursive`, keys shared between tables have their (table) values merged
 recursively.
 
 #### diff()

@@ -168,7 +168,6 @@ table is a map.
 | std.io errors | `io-errors.md` | The `ioError` hierarchy, errno-grounded for linux-x86-64. |
 | Keywords | `keywords.md` | The reserved-word inventory, contextual keywords, predeclared names, and flagged definition gaps. |
 | Any | `any.md` | The top type: universal operations vs narrow-first, the F22 rule. |
-| Spread | `spread.md` | `...x`: literals, streams, call arguments, interpolation; one level, always. |
 | Examples | `examples/` | Worked programs: the one-billion-row challenge, log scanning, serialization, testing. |
 | Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
@@ -178,7 +177,7 @@ table is a map.
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
-| Spread | `spread.md` | Expanding one table's entries into a table literal (`...`). |
+| Spread | `spread.md` | `...x`: the table-literal fold, streams, call arguments, interpolation; one level, always. |
 | Optional access & coalescing | `optional-access-and-coalescing.md` | Semantics of `?.`, `??`, `???` and their compound-assignment forms. |
 | Wildcard | `wildcard.md` | The `_` operator: a deliberate unnamed blank, resolved by context. |
 | Range | `range.md` | The `lo..hi` syntactic construct (a stream, a slice bound, a match test). |

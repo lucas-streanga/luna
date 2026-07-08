@@ -1528,6 +1528,102 @@ functions §3 says the fact is "readable at any boundary that needs it" and this
 for the capability story, but reflection §3's runtime tier lists `typeName`, `kind`, `isNullable` and
 nothing else. Also unchanged: the builtin error types' casing (keywords §6), still open since R87.
 
+**R89 — spread: one spec, and sequence contexts require a `list`.** R36 opened by saying the
+corpus cited "a spread spec that did not exist" and wrote `expressions/spread.md`. The spec
+did exist, in `bindings/`, which is why every citation said "spread spec" and none said a
+path. So R36 founded a **second** spread spec and swept neither the first nor the two `Spread`
+rows in `index.md`'s single table, leaving `bindings/spread.md` still listing as **open** the
+three questions R36 had just ruled (streams spread, deep spread, call-site spread) and the two
+files disagreeing about what an integer key does. Partial application, the one defect this
+process exists to catch, and it hid a semantic contradiction for eighty-odd rulings. One file
+now, `expressions/spread.md`; `bindings/spread.md` is deleted, its fold-with-running-index and
+worked example, list-ness-as-emergent, and comptime spread merged in (none of it duplicated
+elsewhere; its `{...}` gloss corrected to the bracketed table literal). The keeper is the
+expressions one because **spread contributes values**: destructuring is the pattern-side
+counterpart and keeps `bindings/`. Splitting one token's two halves across two directories is
+what let them drift.
+
+**The ruling that organizes the file: a table literal is the only spread context with a key
+slot.** Keys survive it, under the fold. **Sequence contexts**, call arguments, command argv,
+and interpolation, have no key slot, so they require a `list`. This derives all four contexts
+from one distinction and adds no mechanism. **Argument spread therefore requires a `list`, and
+spread contributes no rule to enforce it**: `f(...xs)` demands exactly what `someFn(xs)`
+demands of a `list` parameter, because narrowing is never implicit (tables §2.3). A static
+`table` is a **compile error**, the `someFn(tab)` error tables §2.3 already prints; a value
+reached dynamically takes the `as list` check at the call, `typeError` on failure, the same
+panic `as list` raises. Rejected: **take the values**, spreading whatever the table holds in
+iteration order. It is the simpler sentence and it is what a spread token naively suggests, but
+it would make `...` **the one implicit `table → list` narrowing in the language**: `someFn(tab)`
+is a compile error while `someFn(...tab)` would silently reindex, so writing the token would
+*loosen* the check it looks like it tightens. tables §2.3 has already ruled the two spellings and
+each says what it means, `t as list` **asserts** that a non-list here is a bug, `t.values()`
+**produces** a list from any table, and its own words are "nothing reindexes silently." Silent
+reindexing is the bug class; ergonomics is not the axis. The consequence is recorded rather than
+apologized for: `f(...t)` is deliberately stricter than `[...t]`, which reindexes `[5=>50]` to
+`[50]` without complaint, because a literal is *building* a table, where integer keys carry no
+positional contract, and a parameter list has one.
+
+**Three further defects in R36's own text.** *Arity was wrong in the surplus direction.* §4 said
+"panic on mismatch," but functions §3.3 **drops** surplus arguments (the rule that lets a callback
+declare fewer parameters than the protocol supplies) and raises `ArityError` only on a deficit. A
+spread of ten elements into a two-parameter function is legal, exactly as the written ten-argument
+call is; corrected. *The rationale for positional-only spread was false.* §4 justified it with
+"named arguments do not exist," while table-api's notation defines a keyword-only tail after a
+`*,` marker and `merge`, `diff`, `intersect`, and `replace` all use one. Replaced with the reason
+that is true and is this ruling's principle: an argument list has no key slot. *Spread is not the
+materialization.* `collect(s)` **preserves** a key-value stream's integer keys (stream-api) while
+the fold reindexes them, so the equation was false for exactly the streams it mattered for;
+`[...s]` is `[...collect(s)]`, and `values(s)` for a values-only stream. Streams flow into
+sequence contexts and into variadics **values-only**, that being the stream analogue of a `list`
+(stream §1.1); a key-value stream needs `.values()` first, precisely as a keyed table does.
+
+**`"$...xs"` does not lex, and is deleted.** lexer §6's `INTERP_IDENT` is
+`\$[A-Za-z_][A-Za-z0-9_]*`, which `$.` cannot match, and the spread splice is defined only inside
+`${ }` (`INTERP_OPEN` + `SPREAD`). `"${...xs}"` is the one spelling and had to be, since bare
+`$name` is `DQ_STRING`-only while spread must also work in command literals, where no bare form
+exists. R36's rejection of a panic-unless-every-element-is-a-`string` **rendering** rule stands
+untouched and is now visibly a different axis from this one: that rule is about elements, the
+`list` requirement is about shape.
+
+**Stale citations, two of them R36's own and one inherited.** `operators §0.1` is the `.` token;
+the no-`+`-on-tables rationale is `operators §0.4` ("What some tokens deliberately do NOT do"),
+twice. `command §4` is the pipeline operator; `${...flags}` is `command §3`, twice, and `lexer.md`
+cited §3 correctly, so the corpus disagreed with itself. `variables §5.2` is the `copy` operator;
+copy-on-write value semantics are `tables §4`. And `flatten`'s cited signature had shed two of its
+five parameters, restored, the fuller signature strengthening the very argument it was cited for:
+four policy knobs (`depth`, `preserveKeys`, `onNoGet`, `asStream`) do not fit in a token, which is
+why depth is a function and `[......t]` is not a thing.
+
+Swept: `expressions/spread.md` (rewritten, absorbing the deleted file); `bindings/spread.md`
+(deleted); `index.md` (its two `Spread` rows, in one table, collapsed to one);
+`operators.md` (the `...x` catalogue row, which said "spreads a table/stream" of argument
+lists too, and had no note of the third position); `table-api.md` (`merge`, R90). Verified
+unmoved by the section renumbering: `command.md`'s and `lexer.md`'s citations of **spread §5**
+(interpolation and command literals), and `await.md`'s **spread §2** for
+`[...await promises]`, which is a values-only stream and so needs no `.values()`.
+
+**R90 — `merge` appends: `preserveKeys` defaults to `false`.** `table-api.md`'s `merge` was
+internally contradictory: its prose, "Appends `tabs` onto `tab` in order," says integer keys
+renumber, while its signature defaulted `preserveKeys: bool = true`, which keeps them, so they
+collide with `tab`'s and overwrite. Both cannot hold, and under the default the *documented*
+behavior was the one you could not get: `[10, 20].merge([30])` was `[0=>30, 1=>20]`, not
+`[10, 20, 30]`. The prose is right and the default was the error. Forced independently by R89:
+spread §1.3 states `[...a, ...b]` is `a.merge(b)`, and operators §0.4 rests the whole
+no-`+`-on-tables ruling on spread "already expressing merge" — under the old default that equation
+was false in its integer-key half, and concatenating two lists silently overwrote. Three claims,
+one of them with no argument behind it; the default gives way. `preserveKeys: true` survives as
+the *other* operation, layering `tabs`' entries at their own integer keys so they collide, it is
+simply not what merge means. The generalization is worth naming because it decides the rest of
+that audit: **combiners reindex by default; per-element reshapers preserve by default.** `flatten`
+already defaults `false`, "since keys collide across levels"; `merge` has the identical collision,
+across sources rather than levels, and defaulted the other way.
+
+Deliberately not swept, and now flagged: the **rest of `table-api.md`.** `preserveKeys` is a
+per-method flag defined nowhere globally and still defaults `true` on `chunk`, `partition`,
+`random`, and others; and the notation section leans on three parameter forms `functions.md` §3.3
+does not define — the `...tabs` variadic, the `*,` keyword-only tail, and the `name?` optional
+parameter. That is the table-api revision, not this one.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -1538,3 +1634,23 @@ exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22
 view interior mutability (F25); the builtin error types' casing (keywords §6); and,
 newly, **a reflection query for a function value's capability requirement set** (R88's
 tail, functions §3, reflection §3).
+
+Two more, from R89 and R90, each large enough to want its own file rather than a ruling
+appended to someone else's:
+
+- **Variadic parameter declaration**, `...name` in a *parameter* list, the token's third
+  position after the pattern rest and the value spread. It is used across the std surface
+  (`merge(tab, ...tabs)`) and was ratified in R79 as "the variadic form"
+  (`secret(raw, ...gates: type)`), yet `functions.md` §3.3 defines it nowhere, along with the
+  `*,` keyword-only tail and the `name?` optional parameter that `table-api.md`'s notation
+  depends on. Whether the keyword-only tail means Luna has **named arguments** rides with it;
+  R89 removed spread's claim that it does not, without settling that it does. The tempting
+  unification — a parameter list is a pattern (R35), so a variadic simply *is* destructuring's
+  rest element, no new mechanism — does not currently hold: R35 ruled rest **trailing-only**,
+  while every `*,` signature in table-api places options after the variadic. Settled already:
+  a values-only stream may fill a variadic (R89, spread §2, §4). Its own spec.
+- **The `table-api.md` audit** (R90's tail): `preserveKeys` defaults across the API against the
+  combiner/reshaper rule R90 names, and the three undefined parameter forms above.
+
+Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
+table of `byte` elements or is an error, deferred for want of a use case (spread §7).
