@@ -38,8 +38,10 @@ type is the escaping decision.** Every format module follows this pattern.
 ## 2. Writing
 
 ```
-export const toJson = comptime fn (ct: comptype, skipFunctions: bool = false): fn (any): json;   // generated, tags honored
-export fn toJsonDynamic(v: any, skipFunctions: bool = false): json;                              // structural, tags erased
+export const toJson = comptime fn (ct: comptype, skipFunctions: bool = false,
+                                   revealSecrets: fn? = null): fn (any): json;   // generated, tags honored
+export fn toJsonDynamic(v: any, skipFunctions: bool = false,
+                        revealSecrets: fn? = null): json;                        // structural, tags erased
 ```
 
 - **`toJson`** is the attribute-aware **generator** (attributes §4): it walks the
@@ -78,6 +80,28 @@ deserialized, and emitting one would be a disclosure hazard. A `fn` anywhere in 
 surface — a fn-valued element, or a fn-typed `get` member such as `stringify`'s renderer
 (conversion §3) — raises `typeError`. `skipFunctions: true` omits fn-valued slots
 instead: per call on `toJsonDynamic`, baked into the generated writer on `toJson`.
+
+**Secrets render as `'<secret>'`** — every payload kind alike (secret §4, R113).
+Serialization is a display path, and concealment-on-display is the secret's *designed*
+behavior, so the placeholder is not an error (contrast fn values, a structural
+impossibility) and needs no skip flag. Lossy by design: deserializing yields the literal
+string.
+
+**Revealed serialization is explicit, twice over** (R113): both writers take
+`revealSecrets: fn (s: secret): string | bytes | table = null`. When supplied, each
+secret in the surface is passed to the revealer — a closure created where its gates are
+declared, invoked under the call's frame grant — so the idiomatic call **delegates at
+the site** (capabilities §5.2):
+
+```
+toJson(cfg, revealSecrets: fn (s: secret): string | bytes | table =>
+    canReveal(s) ? reveal(s) : '<secret>') use (dbCred, revealStackTrace)
+```
+
+A revealed `table` is serialized recursively (secrets inside it meet the same revealer);
+revealed `bytes` route through `string.fromBytes` (bytes §5) — the one place the
+revealer path can error beyond fn values; and a revealer may decline by returning
+`'<secret>'` (the `canReveal` idiom keeps mixed-gate structures panic-free, secret §5).
 
 ## 3. Reading
 

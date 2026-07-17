@@ -82,12 +82,12 @@ would be fail-safe, would hide that, and auditability is the point.
 
 ### 3.1 A secret carries its payload kind
 
-A `secret` records **which payload kind it holds** — string, bytes, or table — as part of
-its type. This is a three-way tag, not a type parameter; Luna has no generics, and this is
-not one. It exists so that extraction is **statically checked**: the wrong extractor for
-the payload kind (`reveal` on a secret-bytes, `revealTable` on a secret-string) is a
-**compile error**, not a runtime surprise (§5). Because there are only three payload
-kinds, carrying this tag is cheap and needs no general parameterization.
+A secret's payload is one of three kinds — and that is ordinary **union** knowledge, not
+a type parameter: `reveal` returns `string | bytes | table` (§5, R113), narrowed like any
+union (`as`, `match`). Luna has no generics, and needs none here. (An earlier design
+carried a static payload-kind tag with one extractor per kind — `revealBytes`,
+`revealTable`, R111 — traded in by R113 for the one union-returning `reveal`: less static
+precision, full uniformity, the "unions instead" doctrine.)
 
 `secret` wraps `string`, `bytes`, and `table`, and nothing else (§6).
 
@@ -151,11 +151,17 @@ The core behavior: a `secret` renders as a redaction marker, never its contents,
 display path, automatically. Because these paths all route through the type's display
 behavior, a secret cannot accidentally stringify into the clear anywhere:
 
-- **`toString`** yields `<redacted>` (or similar), never the payload. Since interpolation and
-  string coercion go through `toString`, `"token is $token"` yields `"token is <redacted>"`.
-- **`debugJson`** of a command (command spec §5.2) renders a secret argument as `<redacted>`.
-- **Error messages, stack traces, and any display** show `<redacted>`, because they route
+- **`toString`** yields `<secret>`, never the payload. Since interpolation and
+  string coercion go through `toString`, `"token is $token"` yields `"token is <secret>"`.
+  The placeholder names *what kind of thing* was concealed (R113): a reader of output knows
+  to go look for a gate, not to wonder which redaction policy fired.
+- **`debugJson`** of a command (command spec §5.2) renders a secret argument as `<secret>`.
+- **Error messages, stack traces, and any display** show `<secret>`, because they route
   through the same display path.
+- **`toJson`** renders every secret — string, bytes, or table payload alike — as the string
+  `'<secret>'` (json §2.1, R113): serialization is a display path, and the placeholder is
+  the secret behaving as designed. Lossy by design; revealed serialization is a separate,
+  deliberate, delegated act (json §2.1).
 
 This is what "safe by default" means for secrets: you do not have to remember to redact; the
 value redacts itself wherever it goes, and only `reveal` (§5) exposes it.
@@ -164,13 +170,12 @@ value redacts itself wherever it goes, and only `reveal` (§5) exposes it.
 
 ## 5. `reveal`: the sole, deliberate exposure
 
-The underlying value is obtained only through the extractor matching the payload kind:
+The underlying value is obtained only through `reveal`:
 
 ```
-fn reveal(s: secret): string          // the underlying string; compile error on other kinds
-fn revealBytes(s: secret): bytes      // the underlying bytes;  compile error on other kinds
-fn revealTable(s: secret): table      // the underlying table;  compile error on other kinds (R111)
-fn gatesOf(s: secret): list           // the gate set, as typeids (elements are type values)
+fn reveal(s: secret): string | bytes | table   // the payload; narrow with `as` or `match` (R113)
+fn canReveal(s: secret): bool                  // gate set ⊆ frame grant — the probe form (R113)
+fn gatesOf(s: secret): list                    // the gate set, as typeids (elements are type values)
 ```
 
 - **`reveal` checks the secret's gate set against the executing frame's grant** (R79):
@@ -188,22 +193,22 @@ fn gatesOf(s: secret): list           // the gate set, as typeids (elements are 
   opens `as secret` / `secret(raw)` values and nothing gated tighter. A function with no
   relevant grant **cannot** reveal a secret it holds, so "this code does not expose this
   secret" is still read off signatures, just precisely now.
-- **`reveal` / `revealBytes` / `revealTable` are the only way** to get a payload out. They
-  are named loudly, so every exposure of a secret is a visible `reveal*` in the source.
-  Getting a secret's value is always a deliberate act, never incidental. Reached by call or
-  UFCS: `reveal(token)` or `token.reveal()` (both still require the capability).
-- **The family is asymmetric on purpose.** `reveal` (string) is the short, common name
-  because a secret is overwhelmingly a string (token, password, key-as-text);
-  `revealBytes` and `revealTable` are the marked variants for binary and structural
-  payloads. This mirrors the string API's convention of a plain name for the common
-  operation and a qualified name for the variant.
-- **Extraction is statically checked** against the payload kind (§3.1): the wrong extractor
-  for the kind is a **compile error**, not a runtime failure. So each extractor returns a
-  concrete type with no coercion and no possibility of a wrong-type surprise; the payload
-  kind guarantees the right extractor.
-
-The `bytes` type exists (bytes spec), so the old `revealBytes` deferral is discharged
-(R111): all three extractors are the present surface.
+- **`reveal` is the only way** to get a payload out — one extractor, a **union return**
+  (R113, superseding R111's `revealBytes` / `revealTable` days after they landed: the
+  "no overloading; unions instead" doctrine applied to reveal itself). The payload's kind
+  is ordinary union typing, narrowed with `as string` (checked) or `match` (total). Named
+  loudly, so every exposure is a visible `reveal` in the source; reached by call or UFCS:
+  `reveal(token)` or `token.reveal()` (both still require the gates).
+- **`canReveal` is the probe form** to `reveal`'s assertion form — the hard/soft pairing
+  the language uses everywhere (`.` / `?.`, `->` / `?->`): the same gate ⊆ grant test,
+  returned instead of enforced. The render-or-redact idiom:
+  `canReveal(s) ? reveal(s) : '<secret>'`, panic-free over mixed-gate structures.
+- **The `reveal*` naming convention** (R113): a capability whose *purpose* is revelation
+  is `reveal*`-prefixed — `reveal` (the default gate), `revealStackTrace` (errors §2.1),
+  and any future kin — so `grep "use (reveal"` returns **every revelation authority** in
+  a program, declarations and delegations alike (capabilities §5.2). General capabilities
+  (`dbCred`) may still serve as gates; the prefix marks purpose-built revelation
+  authority, not the only gating spelling.
 
 ### 5.1 Reveal is concentrated at infrastructure boundaries
 
@@ -258,8 +263,8 @@ for a secret key.
 
 ## 7. Open questions
 
-- **`reveal` as a keyword:** `reveal` / `revealBytes` require the `reveal` capability
-  (capabilities spec), which is what makes non-revelation a guarantee. What remains open is
+- **`reveal` as a keyword:** `reveal` requires the secret's gates
+  (capabilities spec, R79), which is what makes non-revelation a guarantee. What remains open is
   whether `reveal` should *also* be a keyword (so it cannot be shadowed or aliased at all),
   on top of the capability gate; the capability requirement already prevents laundering
   (it rides in the type), so this is a minor additional hardening, not a necessity.

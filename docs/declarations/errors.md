@@ -105,10 +105,13 @@ error {
 - **`message`** is the description, empty string when unspecified.
 - **`stacktrace`** is a **secret-wrapped table** of frames (R111, secret §6): only the
   `throw` operator writes it (§6.1), and reading its *contents* is a reveal —
-  `revealTable(e.stacktrace)`, gated (by the default `[@reveal]` set; whether traces
-  deserve a dedicated capability is open, §10). User-facing display therefore **redacts
-  traces by construction** (secret §4) — no internal paths in user-visible output — while
-  the runtime's crash reporter reveals at its boundary, the secret §5.1 pattern. The one
+  `reveal(e.stacktrace) as table`, gated by **`revealStackTrace`** (a dedicated
+  capability, R113, following the `reveal*` convention, secret §5:
+  `grep "use (revealStackTrace)"` is the complete audit of who may see internal
+  structure). User-facing display therefore **redacts traces by construction**
+  (secret §4) — no internal paths in user-visible output — while
+  the runtime's crash reporter holds the capability and reveals at its boundary, the
+  secret §5.1 pattern. The one
   bit that is *not* secret is whether the error was thrown:
   **`fn wasThrown(e: error): bool`** — the unforgeable test the old
   `stacktrace.isEmpty()` idiom provided, now a dedicated predicate disclosing no
@@ -680,6 +683,5 @@ contract.
 - **Stack frame shape:** what a single `stacktrace` frame contains (function, file,
   line, and how a re-throw breadcrumb is distinguished from an origin frame), pending the
   runtime spec.
-- **The trace's gate:** the stacktrace secret is gated by the default `[@reveal]` set
-  (R111); whether traces deserve a **dedicated capability** (finer audit: who may see
-  internal structure) is open.
+- *(The trace's-gate question is **resolved by R113**: a dedicated `revealStackTrace`
+  capability, per the `reveal*` convention — secret §5, §2.1.)*

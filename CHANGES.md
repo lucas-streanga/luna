@@ -2219,6 +2219,103 @@ question flagged (errors §10). Swept: `secret.md` (intro, §3, §3.1, §3.3 add
 `errors.md` (§2.1, §2.2, §6.1, §10), `equality.md` (the interlock clause),
 `protocols.md` (§8's example).
 
+**R112 — call-site delegation: `use` on a call; the dynamic check stays frame-local.**
+The R39 contradiction is resolved by *addition*, not by picking a side. Capabilities §5.1
+said value-mediated calls check against "the executing frame's granted set (the frame's
+declared `use`)" — frame-local, under which a `use`-free function invoking an effectful
+closure panics, the guarantee that a declaration bounds its dynamic extent. §3.1
+simultaneously promised "callback-taking APIs accept effectful functions with no special
+cases," which frame-locality makes false (`each`'s frame holds nothing). Two earlier
+resolutions were examined and rejected: an **ambient / task-root grant** (the check
+nearly vacuous within a task — "every function implicitly holds `main`'s capabilities"
+for the dynamic frontier, extent purity lost, recoverable only by an opt-in `pureFn`
+constraint, purity-as-opt-in in a language whose charter is authority-as-opt-in); and a
+**dynamic-grant statement** (`grant io { … }` — ambient authority manipulation,
+degrading the audit from "read the declarations" to "trace the grants"). The synthesis:
+**the frame-local check stands, and a frame's grant is its declared `use` plus what
+callers explicitly delegated into it** — a clause on the call, in the same spelling:
+`someFn(cb)` panics when `cb` needs io (the negative case, now a worked example);
+`someFn(cb) use (io)` extends io into that call's dynamic extent, legal only where the
+delegator itself holds io (statically checked). Delegation is extent-scoped, feeds the
+**dynamic frontier only** (value-mediated invocations and reveal gates — named calls
+still require declared `use`, everywhere, at compile time), and `spawn f() use (io)` is
+the explicit spelling for granting a task. §3.1's promise becomes true as written: the
+*API* has no special cases; the caller authorizes at the site. The audit strictly
+improves: `grep "use (io)"` now returns declarations *and* delegations, one search for
+the complete authority story. **Reuse of `use` over a new `with` keyword, ruled**: the
+unified reading is real (capabilities flow where `use` names them — a body's extent or a
+call's), position-resolved dual roles are the established device (`apply`, `error`,
+`comptype`), the grep unification *requires* one spelling, and `with` would add a
+keyword with JS's worst associations. Grammar: the clause wraps one complete postfix
+expression, no postfix may follow it, operators and statement modifiers compose outside;
+decided at one token (`use (` after a postfix expression vs. after a keyword-introduced
+header), LR(1). Every corpus phrase "the executing frame's granted set" stays true —
+its *definition* gains the delegation component in one place. Swept: `capabilities.md`
+(§3.1 ×2, §5.1, §5.2 added), `keywords.md` (`use`'s row), `associativity.md` (the
+clause). R88's flagged reflection query (`requirementsOf`) stays open but is now
+**decoupled from safety**: extent purity is the default again, so no `pureFn` bandaid is
+needed.
+
+**R113 — secrets completed: union `reveal`, `canReveal`, `revealStackTrace`,
+`<secret>`, delegated serialization.** Five rulings landing on R112's foundation.
+**`reveal` returns the union** `string | bytes | table` — one extractor, superseding
+R111's `revealBytes` / `revealTable` days after they landed (the log preserves the
+chain): the "no overloading; unions instead" doctrine applied to reveal itself, with the
+payload narrowed like any union (`as`, `match`) and §3.1's static kind tag dissolving
+into ordinary union typing — less static precision, full uniformity. **`canReveal(s):
+bool`** is the probe form to reveal's assertion form — the same gate ⊆ grant test
+returned instead of enforced, the hard/soft pairing of `.`/`?.` and `->`/`?->`, and the
+panic-free render-or-redact idiom (`canReveal(s) ? reveal(s) : '<secret>'`). **The
+`reveal*` convention**: capabilities whose purpose is revelation are `reveal*`-prefixed —
+`reveal`, and now **`revealStackTrace`**, the trace's dedicated gate (resolving R111's
+open; the crash reporter holds it; `grep "use (revealStackTrace)"` audits who may see
+internal structure) — so `grep "use (reveal"` returns every revelation authority,
+declarations and delegations alike. **The placeholder is `<secret>`**, replacing
+`<redacted>` on every display path (toString, interpolation, `debugJson`, error display):
+it names *what kind of thing* was concealed, so a reader knows to look for a gate rather
+than wonder which redaction policy fired. **Serialization ruled** (the flag standing
+since R96): `toJson` renders every secret as `'<secret>'` — serialization is a display
+path and concealment-on-display is the secret's designed behavior, so no error (contrast
+fn values, a structural impossibility) and no skip flag; lossy by design. Revealed
+serialization is **explicit twice over**: both writers take
+`revealSecrets: fn (s: secret): string | bytes | table = null`, and the idiomatic call
+delegates the gates at the site —
+`toJson(cfg, revealSecrets: r) use (dbCred, revealStackTrace)` — with revealed tables
+serialized recursively, revealed bytes routed through `string.fromBytes` (the one
+revealer-path error), and declining spelled by returning the placeholder. Swept:
+`secret.md` (§3.1, §4, §5, §7), `errors.md` (§2.1, §10 resolved), `json.md` (§2's
+signatures, §2.1), `command.md` (two placeholder mentions; prose uses of "redacted" as a
+verb stay).
+
+**R114 — call-site delegation does not breach the comptime sandbox (amends R112).** The
+review question: did R112 break the "comptime needs no sandbox because effects are
+structurally impossible" guarantee (capabilities §8)? **It did** — the hole is
+`comptime render(tpl) use (exec)`: `render` is eligible (its declared set is empty, it
+only *invokes* a closure argument), the delegator-holds check passes at module top level
+under `main`'s grant, and the value-mediated check passes because the delegated `exec` is
+now *in* the frame grant — so `exec` reaches inside a comptime evaluation. The guarantee
+had an unstated premise: **`use` appeared only in declarations, which eligibility
+inspects.** R112 added a second `use` site (the call) that eligibility does not inspect,
+and the premise silently failed — the "no sandbox needed" assertion would have been false
+after R112 without a fix. Closed by three rules, all now in the spec: **(1)** a comptime
+boundary **resets the frame grant to ∅**, regardless of what the enclosing runtime frame
+declared or was delegated — a hard floor no `use` of either kind can raise, and now
+stated as the premise §8 rests on; **(2)** **`comptime f() use (X)` is a compile error**
+(ruled a hard error, not a vacuous no-op: `use` in that position is purely runtime and
+holds zero compile-time meaning) — the `comptime`/delegation interaction R112 never
+considered, the sibling of `spawn`'s narrowing; **(3)** delegation is **invisible to
+comptime-eligibility**, which reads declared `use` only — it *could not* contribute
+soundly, since eligibility is a fixed property of a value (§5.1) while a delegation is a
+property of the caller, so letting it flip a callee's eligibility would make a value fact
+depend on who calls it (the same reason it stays out of §6's inference). The laundering
+theorem holds at comptime again: the only non-comptime authority in reach is one the
+compile-time frame was never granted, and neither `use` site can manufacture it. A second,
+independent §8 argument (no non-comptime capability *instance* exists at comptime, so the
+dynamic check fails vacuously) was already correct and is unaffected — belt, brace, and
+bolt still agree. Swept: `capabilities.md` (§5.2's two carve-outs, §8's boundary-reset
+premise and the vacuous-check phrasing), `functions.md` §5.5 (eligibility reads declared
+`use` only).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2265,11 +2362,11 @@ And from R91–R93, the two big flagged remainders:
   (three prefixes, three contracts; the policy verbs; `parseInt` / `parseDouble`); the
   `toBytes`-over-iterable repack by R107 (the union arm, constraint-panic-checked per
   element and therefore `!`-free; `parseBytes` rejected by R106's own table).
-- **Opens from R111:** whether the stacktrace's gate becomes a **dedicated capability**
-  rather than the default `[@reveal]` (errors §10); and **`toJson` over a value whose
-  surface holds a `secret`** — the serialization interaction flagged since R96, still
-  unruled, now spanning three payload kinds (redact like display, error like fn values,
-  or a `skipSecrets` flag).
+- **Opens from R111: both resolved by R113** — the trace's gate is the dedicated
+  `revealStackTrace` capability (the `reveal*` convention), and `toJson` renders secrets
+  as `'<secret>'` with explicit, call-site-delegated revealed serialization
+  (`revealSecrets` + `use` on the call, R112). No `skipSecrets` flag exists; the
+  placeholder is the graceful default.
 
 Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
 table of `byte` elements or is an error, deferred for want of a use case (spread §7).

@@ -18,7 +18,11 @@
       "Bash(echo \"=== exit: $? ===\")",
       "Bash(grep -n \"^#\\\\{2,3\\\\} \" /luna/docs/bindings/destructuring.md /luna/docs/bindings/wildcard.md /luna/docs/type-operations/is.md /luna/docs/types/type.md)",
       "Bash(grep *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(awk 'NR>=1 && NR<=2185' CHANGES.md)",
+      "Bash(awk 'NR>=2186 && NR<=2253' CHANGES.md)",
+      "Bash(awk 'NR>=2254 && NR<=2289' CHANGES.md)",
+      "Bash(awk 'NR>=2290' CHANGES.md)"
     ]
   }
 }

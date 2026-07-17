@@ -140,7 +140,8 @@ exists, and the confinement was stronger than the invariant needed. The model:
   the overwhelmingly common case.
 - **Calls through function-typed values are checked dynamically**: invoking any value in a
   `fn`-typed slot verifies **requirement set ⊆ the executing frame's granted set** (the
-  frame's declared `use`, granted transitively from `main`, §7), one bitmask compare, and
+  frame's declared `use` **plus any capabilities delegated into the current call's extent**,
+  §5.2, granted transitively from `main`, §7), one bitmask compare, and
   **panics** on shortfall. `let f = println; f("hi")` is now legal, and runs iff the frame
   holds `io`.
 - **`spawn` on a function value** performs the same check against the spawner's grant at the
@@ -157,8 +158,9 @@ value-mediated ones, the honest cost of first-classness, paid only on the dynami
 Two consequences come free: the **comptime sandbox** (§8) preserves itself, no grants exist
 at comptime, so a requirement-carrying value invoked there fails the check vacuously; and
 callback-taking APIs (`map`, handlers in tables, the test table, tests spec §4) accept
-effectful functions with no special cases, their effects gated by the ambient grant at the
-point of invocation.
+effectful functions with no special cases *in the API*: the effects are authorized at the
+**call site**, by the caller's explicit delegation clause (`xs.map(ioHook) use (io)`,
+§5.2, R112), and gated by the frame grant at the point of invocation.
 
 **Sandboxing is latent, deferred by decision (R80).** Compiler-driven capability
 revocation, compiling untrusted source under restricted authority, needs exactly **one
@@ -256,7 +258,8 @@ holds every capability in that set.** From there:
   common case;
 - an **indirect call**, through any function-typed slot, is checked **dynamically** (§3.1,
   R39): the called value's requirement set must be a subset of the executing frame's
-  granted set, one bitmask compare, **panicking on shortfall before the callee's body
+  granted set (its declared `use` plus delegations received, §5.2), one bitmask compare,
+  **panicking on shortfall before the callee's body
   begins**. The ordering is the point, not an implementation detail. A shortfall therefore
   produces **no partial effect**: the arguments were evaluated in the caller's frame, but
   nothing inside the callee has run, so the panic cannot arrive mid-way through a `use`d
@@ -278,6 +281,70 @@ on: possession of the value is not possession of the grant.
 indirect call "needed no check, the called value's set being empty by construction," and this
 section concluded that no runtime capability state existed. R39 repealed the confinement and
 supplied the check; the pre-R39 sentences stood here until R88.)
+
+### 5.2 Call-site delegation: `use` on a call (R112)
+
+A frame's granted set is its declared `use` **plus what callers explicitly delegated into
+it**. Delegation is a clause on a call, in the same spelling as every other grant:
+
+```
+const someFn = fn (someOtherFn: fn) => { someOtherFn(); };
+let hello = fn () use (io) => println('hello');
+
+someFn(hello);                // PANICS inside someFn: its frame grants nothing beyond
+                              // its declaration — a use-free extent stays effect-free
+someFn(hello) use (io);       // the caller, who must itself hold io, extends io into
+                              // this call's dynamic extent — the closure runs
+```
+
+The rules:
+
+- **Nothing is delegated by default.** An unannotated call extends nothing, so a
+  `use`-free function's extent can exercise exactly what its declaration and its callers'
+  visible delegation clauses name. The declaration plus the call sites tell the whole
+  story; nothing is ambient.
+- **The delegator must hold what it delegates**, checked statically at the annotated
+  call: `f(x) use (io)` is a compile error in a frame that does not itself hold `io`
+  (declared, or delegated into it).
+- **Delegation is extent-scoped**: it joins the frame grant of the called function and
+  everything beneath it, for that activation, and is gone when the call returns.
+- **Delegation feeds the dynamic frontier only** — value-mediated invocations (§3.1) and
+  gate checks (`reveal` / `canReveal`, secret §5). The static discipline is untouched:
+  calling an effectful function **by name** still requires a declared `use` (§5),
+  everywhere, at compile time. Delegation authorizes closures to *fire*; it never lets a
+  body *name* new authority.
+- **Delegation is invisible to comptime-eligibility** (R114). Eligibility is computed from
+  **declared** requirement sets only (§5.5, functions §5.5); a delegated capability is by
+  design in no declaration, so it never enters eligibility inference. It could not,
+  soundly: eligibility is a fixed property of a function *value* (§5.1), and a call-site
+  delegation is a property of the *caller*, so letting it flip a callee's eligibility
+  would make a value fact depend on who calls it. Delegation is a purely runtime-frontier
+  concept; the comptime tier does not see it.
+- **Delegating onto a comptime call is a compile error** (R114). `comptime f() use (X)` is
+  rejected: comptime evaluates under the empty grant (§8), so delegating authority into it
+  is incoherent — `use` in this position is a runtime concept with no compile-time meaning.
+  Caught at the delegation site, louder than a vacuous runtime panic.
+- **Grammar**: the clause wraps one complete postfix expression
+  (`a.f(x).g(y) use (io)` delegates over the whole chain's evaluation); no postfix may
+  follow it (`f() use (io).g()` is a parse error — parenthesize); operators and statement
+  modifiers compose outside it (`f() use (io) ?? d`, `f() use (io) if (c);`). Decided at
+  one token: `use (` after a completed postfix expression is delegation; after a `fn` or
+  `test` header's parameter list, declaration — both contexts keyword-introduced, never
+  ambiguous (associativity §1).
+- **`spawn` composes**: `spawn f() use (io)` extends `io` into the spawned task's root
+  (checked against the spawner's grant at the spawn, §3.1) — the explicit, greppable
+  spelling for granting a task beyond the spawned function's own declarations.
+
+Why this exists, and what it preserves. The R39 dynamic check is **frame-local**, so a
+declaration bounds its dynamic extent: handing a function an effectful closure is *not*
+handing it authority, and `someFn` above panics rather than quietly firing io inside a
+frame that declared nothing. Delegation is the **explicit** crossing: authority enters a
+call boundary only where a caller who holds it writes it, at the call. The audit is
+therefore still one search — `grep "use (io)"` returns declarations *and* delegations,
+the complete account of who may exercise io and who may extend it. (A dynamic-grant
+*statement* — ambient authority manipulation, `grant io { … }` — was considered and
+rejected, R112: it would decouple authority from both signatures and call sites,
+degrading the audit from "read the declarations" to "trace the grants.")
 
 ---
 
@@ -376,8 +443,20 @@ user code and gate user-defined boundaries. Same mechanism, different root.
 
 ## 8. Comptime, and the `unsafe` convention
 
-**Comptime** code cannot hold any **non-comptime** capability, because comptime-eligibility
-forbids using one (functions §5.5) and a capability is reachable only through `use`. So comptime
+**A comptime boundary resets the frame grant to ∅** (R114): whatever authority the enclosing
+runtime frame holds — whether declared in its own `use` or delegated into it by a caller
+(§5.2) — does **not** cross into comptime evaluation. Comptime executes under the empty grant,
+always, a hard floor that no `use` clause of either kind can raise. This is the premise the
+rest of this section rests on, and it is stated first because R112's call-site delegation made
+it load-bearing: before delegation, `use` appeared only in declarations, which eligibility
+inspects, so "eligible ⇒ holds nothing" was airtight; delegation added a second `use` site that
+eligibility does *not* inspect (§5.2), so the guarantee is now carried by the boundary reset
+rather than by the eligibility rule alone. Delegating onto a comptime call is therefore a
+compile error (§5.2), not a runtime shortfall.
+
+Given the reset, **comptime code cannot hold any non-comptime capability**: comptime-eligibility
+forbids *declaring* one (functions §5.5), the boundary reset forbids *delegating* one in, and a
+capability is reachable only through `use`. So comptime
 is free of outside authority by construction: it can compute, and hold `comptime` capabilities
 (zero-data tags that authorize only comptime-safe operations, §1, §7.1), but it cannot reach the
 network, spawn a process, reveal a secret, or call foreign code, all of which are gated by
@@ -396,8 +475,9 @@ carry a non-comptime requirement. A requirement-carrying value that arrived some
 through a function-typed parameter of a comptime function, buys nothing either, and here the
 argument is R39's rather than the repealed confinement's: invoking any value through an
 `fn`-typed slot runs the dynamic check (§3.1, §5.1) against the **executing frame's grant**,
-and at comptime that grant is empty, so the check **fails vacuously** and the call panics before
-any body runs. Higher-order comptime code therefore needs no capability reasoning at all: the
+and at comptime that grant is empty — the boundary reset (above) making it empty regardless of
+what the enclosing runtime frame declared or was delegated (R114) — so the check **fails
+vacuously** and the call panics before any body runs. Higher-order comptime code therefore needs no capability reasoning at all: the
 eligibility rule above, the existence argument, and the dynamic check reach the same verdict
 independently, a belt over a brace over a bolt. (This paragraph used to argue instead that "a
 slot could not hold a capability-holding value even at runtime," the pre-R39 second-class rule,
@@ -446,11 +526,12 @@ All five ruled or resolved (R43):
 - **Capability set declaration: already defined** (§7.1 as it stands); nothing further
   pending.
 - **`implicit`: gone** (R33); the generalization question died with the modifier.
-- **Capability-set polymorphism: resolved**, and re-grounded, the old resolution cited the
-  repealed second-class rule; the standing one is R39's: no polymorphism annotation can be
-  needed because the requirement set never appears in a *type*, it rides the **value** and
-  is checked at the call against the ambient grant, so a higher-order function is
-  transparently "polymorphic" over authorities it never sees.
+- **Capability-set polymorphism: resolved**, and re-grounded twice, the old resolution cited
+  the repealed second-class rule; the standing one is R39's plus R112's: no polymorphism
+  annotation can be needed because the requirement set never appears in a *type*, it rides
+  the **value** and is checked at the call against the frame grant (declared ∪ delegated,
+  §5.2), so a higher-order function is transparently "polymorphic" over authorities it
+  never sees — the caller supplies them at the call site (`xs.map(ioHook) use (io)`).
 - **Comptime-eligibility has left the typeid** (functions §3, R43): eligibility is a
   *derived value fact*, requirement set empty, over the same one-word set R39 installed, so
   the function typeid is signature plus errorability and nothing else. The **standing audit

@@ -224,7 +224,7 @@ round-trippable to execution; it is for display, and its structure makes clear "
 argument," rather than a concatenated line that could be re-parsed or re-run. It is the safe
 way to record what a command is.
 
-An argument that is a `secret` (secret spec) renders as `<redacted>` here, not its value, so
+An argument that is a `secret` (secret spec) renders as `<secret>` here, not its value, so
 `debugJson` never leaks a credential passed as an argument. Sensitivity travels with the
 value, so no redaction flag on `debugJson` is needed; a secret argument redacts itself.
 
@@ -264,7 +264,7 @@ diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
 - **Redirection:** whether output redirection to a file is a structural method on the
   command, or purely an exec-time concern.
 - **`debugJson` and secret arguments:** a `secret` argument (secret spec) redacts to
-  `<redacted>` in `debugJson` automatically. What remains open is whether *non*-secret
+  `<secret>` in `debugJson` automatically. What remains open is whether *non*-secret
   arguments should ever be maskable for logging (a value not marked `secret` but still
   sensitive in context), or whether the rule is simply "mark it `secret` and it redacts
   everywhere," which is the current, preferred answer.

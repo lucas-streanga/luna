@@ -810,10 +810,14 @@ the budgets below provide *availability* (comptime cannot hang or crash the buil
 
 **The capability sandbox (security).** Every operation that reaches outside the program,
 I/O, filesystem, network, syscalls, the clock, is a `nocopy` capability (capabilities spec)
-reached only through a `use` reference capture (§2.2). Comptime-eligibility forbids using any
-**non-comptime** capability (§5). Therefore **comptime code can hold no non-comptime
-capability**: reaching one would require a `use` of it, which would make the function
-comptime-ineligible. A comptime function may hold `comptime` capabilities, zero-data tags
+reached only through a `use` reference capture (§2.2). Comptime-eligibility is computed from
+a function's **declared** requirement set only — call-site delegation (capabilities §5.2) is
+a runtime-frontier concept, invisible to eligibility and unable to cross a comptime boundary
+(capabilities §8, R114) — and it forbids using any **non-comptime** capability (§5).
+Therefore **comptime code can hold no non-comptime
+capability**: reaching one would require *declaring* a `use` of it (making the function
+comptime-ineligible) or *delegating* it in (a compile error onto a comptime call, and reset
+to ∅ at the boundary regardless). A comptime function may hold `comptime` capabilities, zero-data tags
 that authorize only comptime-safe operations and provably compose no non-comptime capability
 (capabilities §1, §7.1), and may allocate, compute, throw, and return a value, and **nothing
 that reaches outside**. It categorically cannot exfiltrate data or execute effects on the build
