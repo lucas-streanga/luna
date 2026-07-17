@@ -272,7 +272,7 @@ regex:
 - A `replace` variant taking a `regex` target rides on the `replace` union (string-api §7).
 
 The regex is the second argument (the string is the receiver), so these read as
-`text->find(pattern)` under UFCS. The shape of a match result (capture groups, named
+`text.find(pattern)` under UFCS. The shape of a match result (capture groups, named
 captures, positions) is specified with those functions in the string API.
 
 ---

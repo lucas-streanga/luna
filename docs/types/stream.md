@@ -30,14 +30,14 @@ it returns a stream; the return type is `stream`:
 const naturals = fn (): stream {
   var n = 0;
   while (true) {
-    yield n;              // values-only: yields a value
+    yield n;              // bare yield: implicit keys 0, 1, 2, ... (§1.1)
     n = n + 1;
   }
 };
 
 const entries = fn (t: table): stream {
   foreach (k => v in t) {
-    yield k => v;          // key-value: yields a key and a value
+    yield k => v;          // explicit keys: yields a key and a value
   }
 };
 ```
@@ -51,18 +51,19 @@ the enclosing function's classification. One parse-tree walk decides it, no flow
 A function containing `yield` is a
 generator and its result type is `stream`.
 
-### 1.1 Values-only and key-value streams
+### 1.1 Implicit and explicit keys
 
-A stream yields either **values only** (`yield v`) or **key-value pairs** (`yield k => v`),
-mirroring the list-versus-table distinction on retained data:
+Every stream yields `key => value` pairs (iterable-functions §1.2, R93). A generator that
+yields bare values (`yield v`) produces **implicit keys** `0, 1, 2, …` — exactly the keys a
+`list` carries; `yield k => v` yields **explicit keys**, the keyed-table analogue. There is
+no "values-only" kind of stream (the earlier dichotomy is erased): a stream is to a table
+exactly what a list is to a keyed table.
 
-- A **values-only** stream is the stream analogue of a `list`. Collected (§5), it produces a
-  `list` (values reindexed from 0).
-- A **key-value** stream is the analogue of a keyed `table`. Collected, it produces a
-  `table`.
-
-So the values-only/key-value choice on a stream is the same distinction as list/table on
-in-memory data, carried into the lazy world.
+Implicit keys are real keys, behaving precisely as a list's: every key-facing function
+(`keys`, `keyOf`, `keyFirst`, `flip`, mode `{keys}`) sees them; per-element transforms
+preserve them (so they go sparse after `filter`, as a list's would); `values` reindexes
+them. A stream whose implicit keys were never disturbed collects to a `list`; explicit or
+disturbed keys collect to a keyed `table` (§5.1, iterable-functions §2.11).
 
 ### 1.2 Lazy-start: producing nothing until consumed
 
@@ -79,8 +80,8 @@ consumes nothing until the pipeline itself is consumed.
 A stream is consumed by iterating it, normally with `foreach`:
 
 ```
-foreach (v in s) { ... }         // values-only stream
-foreach (k => v in s) { ... }    // key-value stream
+foreach (v in s) { ... }         // values; keys ignored
+foreach (k => v in s) { ... }    // key => value (implicit or explicit keys, §1.1)
 ```
 
 Streams are **consumable**: consumption is **single-pass**, each element is produced once, seen once, and not retained.
@@ -93,6 +94,30 @@ one aliasing case that was worse than exhaustion, a piped-from stream, is an **e
 move instead, §7.3, and whether re-iteration should follow is flagged in §8). To traverse
 a sequence more than once, re-create the stream (§4) or materialize it into a table or list
 (§5), paying the memory cost deliberately.
+
+### 2.1 Destructuring consumes a prefix
+
+A positional pattern may take its source from a stream (destructuring §1.4, R103): it
+**pulls exactly as many elements as it binds**, and no more.
+
+```
+let [a, b] = s.split(' ');       // consumes two pieces; later pieces stay in the stream
+let [head, ...rest] = s;         // consumes one; rest IS the stream, advanced
+```
+
+- **Exhaustion binds `undefined`.** A stream that runs out mid-pattern binds the
+  remaining targets to `undefined` (coalesce with `??`) — the stream's ordinary absence,
+  the same answer `peek` gives on empty. There is deliberately no length check: a
+  stream's length is unknowable without consumption (and may be infinite), so the pattern
+  is a *take-request*, never the shape assertion it is on a table (destructuring §1.1's
+  exact-length rule needs an O(1) length to check against).
+- **The rest element is the remaining stream.** `...rest` binds the stream itself,
+  advanced past the consumed prefix — lazy head/tail decomposition, no buffering. (On a
+  table, `...rest` collects a `list`; on a stream, collecting would defeat the point.)
+- **Destructuring takes the stream** (§7.3's discipline): after `let [a, b] = s`, `s` is
+  taken, and `rest`, if bound, is the one live handle. Without a rest binding, the
+  unconsumed tail is dropped with the stream — or recoverable via `restart` where the
+  source allows it (§4).
 
 ---
 
@@ -115,7 +140,8 @@ minimally without losing data:
 So emptiness is knowable at the cost of *starting* the stream (one element of work, a bounded
 side effect) but never at the cost of *losing* an element. Zero-side-effect emptiness is
 impossible under laziness; one-element lookahead is the best achievable, and it is
-non-destructive. These operations are catalogued in **stream-api**.
+non-destructive. `peek` and `isConsumed` are catalogued in **stream-api** (§2); `isEmpty`
+is total over `iterable` and lives in **iterable-functions** (§2.1).
 
 ---
 
@@ -137,6 +163,18 @@ everything it produces, which destroys the memory efficiency that is the whole p
 restart explicit keeps the type honest (single-pass is deliverable by every source) and keeps
 the cost of re-traversal visible.
 
+One rule makes `canRestart` predictable across the corpus (R105): **a stream whose source
+is an immutable retained snapshot is restartable.** String producers (`split`,
+`graphemes`, …, string-api), ranges (re-run from `lo`), and `toStream` over a table or a
+`bytes` (the COW capture *is* a snapshot) all restart for free; generator functions remain
+source-dependent, since a generator over a socket cannot promise replay.
+
+The rule's cost is a **keep-alive**: a restartable stream pins its snapshot (the string,
+the captured table) for as long as the stream lives. This is ordinary value lifetime, not
+a leak — identical in kind to a closure's deep-`const` capture (functions §2.1) and to a
+string slice borrowing its parent's buffer (string-api §6) — and the escape is the same
+as ever: `collect` the small result and drop the stream.
+
 ---
 
 ## 5. A stream is not a table
@@ -156,19 +194,23 @@ happens to share the iteration protocol. Treat it as single-pass and sequential.
 
 ### 5.1 Bridging streams and retained data
 
-- **Table or list to stream (`asStream`):** a `table`/`list` can be iterated lazily as a
-  stream (the `asStream` option on producing operations, and a `table.asStream()` adapter).
-  This does **not** reclaim the table's memory (it is already in memory); its purpose is
-  **interface uniformity** (feeding in-memory data into stream-consuming pipelines) and
-  **downstream laziness** (deferring and short-circuiting per-element work, so
-  `bigTable.asStream().map(expensive).take(3)` runs `expensive` only three times).
-- **Stream to table or list (materialize):** collecting a stream (`values()` and the collect
-  operations, stream-api) consumes it into a retained `table` or `list`, paying the memory
-  cost, so the result can be randomly accessed and re-iterated. A values-only stream collects
-  to a `list`; a key-value stream to a `table` (§1.1).
+- **Table or list to stream (`toStream`):** a `table`/`list` can be iterated lazily as a
+  stream — `tab.toStream()` (iterable-functions §2.11), O(1) and lazy. This does **not**
+  reclaim the table's memory (it is already in memory); its purpose is **interface
+  uniformity** (feeding in-memory data into stream-consuming pipelines) and **downstream
+  laziness** (deferring and short-circuiting per-element work, so
+  `bigTable.toStream().map(expensive).take(3)` runs `expensive` only three times). (The
+  former per-operation `asStream: bool` flags are retired, R92: output kind follows the
+  primary operand, and this one explicit bridge — renamed from `asStream` in R94 — is the
+  spelling for the lazy direction.)
+- **Stream to table or list (`collect`):** `collect(s)` (iterable-functions §2.11) consumes
+  a stream into retained data, paying the memory cost, so the result can be randomly
+  accessed and re-iterated — the single stream→retained bridge. A stream with undisturbed
+  implicit keys collects to a `list`; explicit or disturbed keys collect to a keyed
+  `table` (§1.1).
 
-So `asStream` goes from retained to lazy (for pipeline uniformity and deferred work), and
-materializing goes from lazy to retained (for random access and reuse). The memory tradeoff is
+So `toStream` goes from retained to lazy (for pipeline uniformity and deferred work), and
+`collect` goes from lazy to retained (for random access and reuse). The memory tradeoff is
 explicit in which direction you cross.
 
 ---
@@ -266,6 +308,11 @@ cursor, so interleaved pulls made elements silently vanish from one consumer int
 which is worse than an exhausted second pass and exactly what single ownership exists to
 prevent. **Once you pipe a stream, the pipeline is the stream.**
 
+The same transfer discipline extends beyond `|>`: passing a stream to **any** function of
+the iterable catalogue — as the primary or as an operand (`merge(a, s)`,
+`combine(ks, vs)`) — **takes** it (iterable-functions §1.5), and a lazy result consumes its
+sources as it is itself consumed.
+
 ---
 
 ## 8. Open questions
@@ -282,8 +329,9 @@ prevent. **Once you pipe a stream, the pipeline is the stream.**
   weaker there).
 - **Parallel consumption:** how a stream interacts with green threads if one is ever shared
   despite the single-owner intent, pending the concurrency model.
-- **`asStream` element typing:** whether a `stream` carries its element type as precisely as a
-  typed table does, pending how far element typing is carried through transformers.
+- **Element typing through `toStream`:** whether a `stream` carries its element type as
+  precisely as a typed table does, pending how far element typing is carried through
+  transformers.
 - **Early termination and cleanup:** the general mechanism for releasing a resource on any exit
   path is **`defer`** (defer spec): `let f = open(...); defer f.close();` closes the file when
   the owning block exits, whether the pipeline is fully consumed, short-circuits (`take(10)`

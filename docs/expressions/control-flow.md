@@ -47,9 +47,9 @@ foreach (k => v in xs)   { use(k, v); }       // key and value
 
 - **`foreach (v in xs)`** binds each element's **value** to `v`.
 - **`foreach (k => v in xs)`** binds each element's **key** to `k` and **value** to `v`, reusing
-  `=>` (key-to-value, as everywhere). For a values-only source (a range, a list traversed for
-  values), `k` is the sequential **enumeration index** (0, 1, 2, ...); for a keyed source (a
-  table), `k` is the actual key.
+  `=>` (key-to-value, as everywhere). For a list or an implicit-keyed stream (a range, a
+  bare-`yield` generator; R93), `k` is the sequential index (0, 1, 2, ...) — which *is* its
+  key set; for a keyed table or a `yield k => v` stream, `k` is the actual key.
 
 The source `xs` may be anything iterable, and `foreach` is simply **the consumer** for the
 iteration mechanisms already specified:
@@ -165,10 +165,14 @@ identically. It exists for readability of the common single-statement case.
   function. So the division of labor is clear, statements iterate for effect, streams and lambdas
   iterate for a value, with no ambiguity about whether a loop is a statement or an expression.
 - **No `foreach` iteration protocol.** `foreach` needs no user-extensible iteration hook, because
-  every iterable the language has is already covered: **tables and lists are iterable**, and
-  **streams (including ranges) are iterable**. A user type that wants to be iterated either *is* a
+  every iterable the language has is already covered: **tables and lists are iterable**,
+  **streams (including ranges) are iterable**, and **`bytes` is foreach-iterable directly**
+  (R104): the governing rule is that `foreach` consumes anything with an **unambiguous
+  element sequence**, which `bytes` passes (every element is a byte) and a bare `string`
+  fails (bytes, codepoints, or graphemes? — strings choose their unit through explicit
+  producers, string-api §9). A user type that wants to be iterated either *is* a
   table or **exposes a stream** (`thing.entries()`), which `foreach` then consumes. There is no
-  third kind of collection needing a protocol, so iteration extensibility is already complete.
+  further kind of collection needing a protocol, so iteration extensibility is already complete.
 - **Labeled `break` / `continue` (deferred).** Multi-level break is not provided yet (§3); to
   exit several nested loops, extract them into a function and `return`. A labeled form may be
   added later, and would stay **structured** (exiting only enclosing loops, never `goto`). The

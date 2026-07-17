@@ -1,8 +1,9 @@
 # Optional Access & Coalescing
 
-Semantics for `?.`, `??`, `???`, and their compound-assignment forms in Luna.
+Semantics for `?.`, `??`, `???`, and their compound-assignment forms in Luna — plus how
+the same absence model extends to protocol space (`->`, `?->`).
 
-## The model: three states of "no value," plus a fourth axis
+## The model: three states of "no value"
 
 Luna keeps `null` and `undefined` genuinely distinct, and this distinction is what the whole operator set is built to navigate:
 
@@ -10,7 +11,12 @@ Luna keeps `null` and `undefined` genuinely distinct, and this distinction is wh
 - **`null`, present-but-null.** `null` *is* a storable value, and with optional types it is common. A key holding `null` exists; someone put it there on purpose. `null` means "explicitly nothing," which is distinct from "no entry."
 - **value, a real, present value.**
 
-These three are the *value* axis. There is a second, independent **access** axis: a key the applying protocol does not grant `get` cannot be read, so reading it raises `TableReadViolationError`, it does **not** collapse into `undefined`. Absence and denial are different failures and stay different everywhere below.
+These three are the whole runtime model. An earlier design had a fourth, runtime *access*
+axis — per-key `get` / `set` permissions on element keys, with denied reads raising
+`TableReadViolationError`. That axis is **deleted** (R98): element space carries no
+permissions (tables §6), and the encapsulation it expressed lives in protocol space as
+**compile-time** grants (protocols §2.2). Denial is no longer a runtime state these
+operators can meet; a forbidden access does not compile.
 
 > Because `undefined` is unstorable, **existence ⟺ not-`undefined`**. A present key always holds `null` or a real value, never `undefined`. This equivalence is what lets `?.`, `??`, and existence checks compose without ambiguity.
 
@@ -31,7 +37,7 @@ Both operators are lazy: the right operand is evaluated only if the fallback tri
 - **`??`, absent-only.** Falls back solely on `undefined`. A stored `null` passes through unchanged. This is the safe default: it can never discard a meaningful `null` you intended to keep.
 - **`???`, absent-or-null.** Falls back on both empties. The deliberately louder spelling for "treat null as nothing too." Being slightly awkward to type is intentional, the null-swallowing behavior should be opt-in and visible.
 
-`??` cuts between `undefined` and `{null, value}`; `???` cuts between `{undefined, null}` and `value`. That is the entire difference between them.
+`??` cuts between `undefined` and `{null, value}`; `???` cuts between `{undefined, null}` and `value`. That is the entire difference between them — and it is a cut on the **value** axis, which is why both operators survive the permission model's deletion untouched.
 
 ### Optional chaining `?.`
 
@@ -46,8 +52,6 @@ Both operators are lazy: the right operand is evaluated only if the fallback tri
 | table | value `v` | `v` |
 
 `?.` collapses "receiver was `null`" and "receiver was `undefined`" into one `undefined`, because the chain's only question is "could I reach `b`?", the answer is just "no."
-
-**`?.` does not suppress permission errors.** It guards the receiver's *existence*, not access rights. `tab?.noGetKey`, where the key exists but is `noGet`, still raises `TableReadViolationError`. `?.` swallows null/undefined receivers only, never `TableReadViolationError` / `TableMutationViolationError`.
 
 ### Composition, why they pair
 
@@ -67,14 +71,38 @@ This funnel is the reason `?.` yields `undefined` and not `null` on a broken cha
 
 ---
 
+## Protocol space: one more absence, same rules
+
+Protocol space (`->`, protocols §3) contributes exactly one absence of its own: the
+**unapplied protocol**. A bare read of a member whose protocol is not applied yields
+`undefined` (protocols §3.2) and coalesces like any absence (`tab->nickname ?? 'anon'`);
+a hard use — a write or a call — panics; and **`?->`** is the explicit soft form for
+calls, `tab?->greet() ?? fallback`, short-circuiting argument evaluation exactly as `?.`
+short-circuits the rest of a chain. Two absences, one rule.
+
+Two facts keep this composable with everything above:
+
+- **Members of an applied protocol are never absent.** Application binds every member
+  (protocols §4), so per-member absence does not exist: absence in protocol space is
+  all-or-nothing per protocol. `??=` therefore has no role on protocol members; there is
+  no absent case for it to fill.
+- **A member's *value* can still be `null`** (`let get set nickname?: string = null`,
+  protocols §2.2), and that is the ordinary value axis: `tab->nickname ??? 'anon'`
+  treats the stored null as nothing, exactly as it would on an element.
+
+---
+
 ## Write side
 
-Compound assignment inherits the coalescers' laziness and adds one distinction the read side doesn't have: **firing on an absent key is an *add* (governed by open/close); firing on a present `null` is an *overwrite* (governed by the key's `set` grant).**
+Compound assignment inherits the coalescers' laziness and adds one distinction the read
+side doesn't have: **firing on an absent key is an *add*, governed by the growth seal
+(tables §5); firing on a present `null` is an *overwrite*, which is unconditionally legal
+(element writes carry no permissions, tables §6).**
 
-One principle drives both forms:
-
-- **`??=` asks only "does the key exist?"**, an existence check, never a value read. It needs neither `get` nor `set` to *decide*, and when it fires it is *always* an add. Its only possible failure is `OpenViolationError`.
-- **`???=` asks "is the value null?"**, which requires *reading* the value, so it needs `get` to decide. It can fire as an add (absent → open-state) or an overwrite (null → the key's `set` grant).
+- **`??=` asks only "does the key exist?"** — an existence check, never a value read.
+  When it fires it is *always* an add. Its only possible failure is `OpenViolationError`.
+- **`???=` asks "is the value null?"**, which reads the value to classify. It fires as an
+  add (absent → open-state) or an overwrite (null → unconditional).
 
 ### `a.k ??= b`, fires only when `k` is absent
 
@@ -84,10 +112,9 @@ One principle drives both forms:
 | absent, closed / neverOpen | yes (attempts) | no | add | **`OpenViolationError`** |
 | present = `null` | no | no |, | no-op, `null` kept |
 | present = value | no | no |, | no-op |
-| present, no `get` grant | no | no |, | no-op, **no throw** |
-| present, no `set` grant | no | no |, | no-op |
 
-`??=` decides by existence alone: a key without `get` never throws (it doesn't read) and a key without `set` never throws (it doesn't write). The operator can raise **only** `OpenViolationError`, and only when growing a `closed` / `neverOpen` table.
+`??=` decides by existence alone. The operator can raise **only** `OpenViolationError`,
+and only when growing a `closed` / `neverOpen` table.
 
 ### `a.k ???= b`, fires when `k` is absent *or* null
 
@@ -95,37 +122,42 @@ One principle drives both forms:
 |-|-|-|-|-|
 | absent, table open | no (existence) | yes | add | assigns `b` |
 | absent, closed / neverOpen | no | yes (attempts) | add | **`OpenViolationError`** |
-| present = `null`, has `set` | yes | yes | overwrite | assigns `b` |
-| present = `null`, no `set` grant | yes | yes (attempts) | overwrite | **`TableMutationViolationError`** |
-| present = `null`, no `get` grant | can't |, |, | **`TableReadViolationError`** |
-| present = value, has `set` | yes | no |, | no-op |
-| present = value, no `get` grant | can't |, |, | **`TableReadViolationError`** |
-| present = value, no `set` grant | yes | no |, | no-op |
+| present = `null` | yes | yes | overwrite | assigns `b` |
+| present = value | yes | no |, | no-op |
 
-Two subtleties:
-
-- **A missing `get` grant throws even in the value case.** `???=` must read to classify null-vs-value; a present key without `get` raises `TableReadViolationError` even where it ultimately wouldn't have written, because it cannot know that without reading.
-- **A missing `set` grant bites only on `null`.** A no-`set` key holding a real value is a clean no-op, reading is allowed, and no write is attempted.
+The overwrite path cannot fail: a present key is readable and writable by whoever holds
+the table (tables §6). `???=`'s only failure is the same add-path `OpenViolationError` as
+`??=`'s.
 
 ### Sealed tables and the caller's responsibility
 
-Adding to a `closed` or `neverOpen` table throws `OpenViolationError`; it is the caller's job to `open()` first. The irrevocable seal (`neverOpen`) can never be lifted, so the corresponding add throws *permanently*, the point of the seal, not a gap. Overwriting a present value is governed by the key's protocol `set` grant (a missing grant raises `TableMutationViolationError`); the growth and access concerns are independent, an `??=` add succeeds regardless of `set` grants, and a `???=` overwrite succeeds on a `closed`-but-settable key.
+Adding to a `closed` or `neverOpen` table throws `OpenViolationError`; it is the caller's
+job to `open()` first. The irrevocable seal (`neverOpen`) can never be lifted, so the
+corresponding add throws *permanently*, the point of the seal, not a gap. Growth is the
+only concern: overwriting a present value is unconditionally legal (tables §6), so a
+`???=` overwrite succeeds even on a `closed` table — the seal governs new keys, not
+existing ones.
 
 ---
 
 ## Rulings
 
-**Laziness.** For all four operators, the right operand is evaluated only when the fallback/assignment fires. A non-firing `??=` / `???=` performs no write, and therefore triggers **no** open-check, **no** `freeze` check, and **no** `noSet` check, nothing happened.
+**Laziness.** For all four operators, the right operand is evaluated only when the
+fallback/assignment fires. A non-firing `??=` / `???=` performs no write, and therefore
+triggers **no** open-check; nothing happened. (The old form of this rule also disclaimed
+`freeze` and `noSet` checks; both mechanisms are gone — mutation sealing in tables §5.2,
+per-key permissions in R98 — so there is nothing left to disclaim.)
 
-**Permission throws *through* coalescers.** `??` / `???` distinguish *absent* from *empty*; they do **not** distinguish *forbidden*. `tab.missing ?? d` is exception-free (absence → `undefined` → caught). But `tab.noGetKey ?? d` **raises** `TableReadViolationError`, a forbidden read is a program error, not an absent value, and must not be silently swallowed into `d`.
+**No runtime "forbidden."** The coalescers distinguish *absent* from *empty*; there is no
+third runtime state for them to meet. What used to be denial (`TableReadViolationError`
+passing through `??`) is a **compile error** now (protocol grants, protocols §3.1), so
+the question "does a permission throw pass through a coalescer?" no longer exists. Two
+states, two behaviors:
 
-**Three states, three behaviors, no overlap:**
-
-| "no value for you" | `??` | `???` | throws? |
-|-|-|-|-|
-| absent (`undefined`) | coalesces | coalesces | no |
-| present `null` | passes through | coalesces | no |
-| present, `noGet` |, |, | **yes** (`TableReadViolationError`) |
+| "no value for you" | `??` | `???` |
+|-|-|-|
+| absent (`undefined`) | coalesces | coalesces |
+| present `null` | passes through | coalesces |
 
 **Associativity & mixing.** Both coalescers share one precedence, left-associative, sitting just above the ternary. `a ?? b ?? c` → `(a ?? b) ?? c` is fine. When `??` and `???` appear at the same level, the parser **requires parentheses** rather than silently applying left-associativity: write `(a ?? b) ??? c`, never `a ?? b ??? c`.
 

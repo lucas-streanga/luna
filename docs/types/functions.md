@@ -456,7 +456,7 @@ Argument count and parameter count need not match, and the mismatch is direction
 
 - **Surplus arguments are dropped.** Calling a function with *more* arguments than it
   declares is fine; the extras are ignored. This is what lets a callback declare fewer
-  parameters than the protocol supplies: `myTab->filter(fn () => true)` works even though
+  parameters than the caller supplies: `myTab.filter(fn () => true)` works even though
   `filter` calls the callback with a value, the callback simply does not name it.
 - **Deficit arguments are an error.** Calling with *fewer* arguments than declared is an
   error, not `undefined`: a missing required parameter is a broken contract, not an absent
@@ -511,17 +511,19 @@ probing, no shape types needed:
   `table` declares no members statically (no shape types), so "does this table hold a
   function under this key" is a runtime fact, and a resolution rule may not depend on one.
   Shape decides, at the parser, every time.
-- **`->` is untouched**: protocol members are reached only through the qualified view form
-  (`b->stringBuilder.append(...)`, protocols §3.3, conversion §3), never through UFCS, and
-  UFCS never searches protocol meta pools. The two channels stay disjoint by operator.
+- **`->` is untouched**: protocol members are reached only by `->` — bare or qualified,
+  `b->append(...)` / `b->stringBuilder.append(...)` (protocols §3.1) — never through UFCS,
+  and UFCS resolves free functions only; it never searches protocol space. The two
+  channels stay disjoint by operator.
 
 One consequence to hold the std surface to: **UFCS plus no-overloading means one signature
 per name, receiver first**. Where earlier drafts implied per-receiver variants (`toInt` on
 `string` returning `int!` and on `bool` returning `int`; `join`'s receiver position
 wandering), those are either **one function with union parameters** (the documented pattern:
-"no overloading; unions instead", strings spec) or **distinct names**; the exact signatures
-are std-shaping work, flagged, not silently decided here, but the rule they must satisfy is
-fixed: one name, one signature, first parameter is the receiver.
+"no overloading; unions instead", strings spec) or **distinct names**. The std surface now
+satisfies this (the iterable and indexable catalogues, R91–R92 — the flagged std-shaping
+work, since done), and the rule stays fixed: one name, one signature, first parameter is
+the receiver.
 
 ## 4. Errorability
 
@@ -569,8 +571,9 @@ Three properties keep this local and predictable:
   so the containment check applies to declarable-error-throwing calls, never to panics.
 
 A caller must handle a throwing function's result with `try` or an errorable binding; a
-non-throwing function's result needs neither. This is the same errorability the protocol `apply`
-uses (`: self!`) and the same that static protocol application inherits (protocols spec §7.5).
+non-throwing function's result needs neither. This is the same errorability an errorable
+protocol function declares (`: self!`, string-builder §3.3) and the same the dynamic
+`apply()` function carries (`table!`, protocols §4.4).
 
 **`main` is no exception.** If `main` can throw and does not handle it, `main` **must be declared
 `fn!`**, exactly as any other function that lets an error escape. A `fn!` `main` is the deliberate,
@@ -731,7 +734,7 @@ provides *confidentiality and integrity* (comptime cannot reach the outside worl
 the budgets below provide *availability* (comptime cannot hang or crash the build).
 
 **The capability sandbox (security).** Every operation that reaches outside the program,
-I/O, filesystem, network, syscalls, the clock, is a `nocopy` capability (protocols spec)
+I/O, filesystem, network, syscalls, the clock, is a `nocopy` capability (capabilities spec)
 reached only through a `use` reference capture (§2.2). Comptime-eligibility forbids using any
 **non-comptime** capability (§5). Therefore **comptime code can hold no non-comptime
 capability**: reaching one would require a `use` of it, which would make the function

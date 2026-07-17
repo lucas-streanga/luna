@@ -174,6 +174,7 @@ Ordered longest-first within each family; §8 gives the global order.
 | `???` | `NULL_COALESCE` | `\?\?\?` |
 | `??=` | `COALESCE_ASSIGN` | `\?\?=` |
 | `??` | `COALESCE` | `\?\?` |
+| `?->` | `OPT_PROTO_ACCESS` | `\?->` |
 | `?.` | `OPT_ACCESS` | `\?\.` |
 | `?` | `QUESTION` | `\?` |
 | `...` | `SPREAD` | `\.\.\.` |
@@ -270,7 +271,7 @@ Attempt order within `DEFAULT` / `INTERP_EXPR`:
 4. `DOUBLE` (both rows), then `INT_HEX`, `INT_BIN`, then `INT_DEC` — doubles first so
    `1.5` is one token; hex/bin before decimal so `0x10` doesn't lex as `INT(0)` +
    `IDENT(x10)`.
-5. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?.` › `?`; `...` ›
+5. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?->` › `?.` › `?`; `...` ›
    `..<` › `..` › `.`; `|>` and `||` › `|`; `&&` › `&`; `=>` and `==` › `=`; `->` and
    `-=` › `-`; `@@` › `@`; `!=` › `!`; `<=` › `<`; `>=` › `>`; `#[` before any bare `#`.
 6. Keywords (with `KW_MATCH_BANG` before `KW_MATCH`), then `WILDCARD`, then `IDENT` — or,

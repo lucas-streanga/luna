@@ -130,8 +130,10 @@ itself under `==`, because element comparison is `==`.
 ## 4. Table equality: strict and structural
 
 Two tables are equal when they have the **exact same structure**: same length, same key-to-value
-pairs, same types, same values, and **same order**. Equality is strict because `match` already
-covers partial and subset matching (match spec), so `==` is reserved for exact structural identity.
+pairs, same types, same values, and **same order** — and, beyond element space, the same
+**applied protocols** with equal **granted state** (§4.5). Equality is strict because `match`
+already covers partial and subset matching (match spec), so `==` is reserved for exact
+structural identity.
 
 Concretely, `a == b` for tables holds iff:
 
@@ -198,9 +200,9 @@ has applied. A protocol declares this with **`identityEquality`** inside its `pr
 
 ```
 const stringBuilder = proto {
-  identityEquality               // tables with this applied protocol compare by identity, not structure
-  meta buffer: bytes
-  meta append(self, s: string): self => ...
+  identityEquality;              // tables with this applied protocol compare by identity, not structure
+  var buf: bytes = bytes();      // ungranted: private, per-table (protocols §2.2)
+  const get append = fn (b: @stringBuilder, s: string): self => { ... };
 };
 ```
 
@@ -218,12 +220,13 @@ Why this is a bounded, declarative switch and **not** a user-defined `==`:
   relations (reflexive, symmetric, transitive), so equality can never be corrupted into a
   non-equivalence by a user, and `==` stays **total and non-throwing**. Arbitrary user `==` would
   also be an unbounded performance and correctness footgun; `identityEquality` avoids all of it.
-- **Why builders need it.** A builder's real state is its private meta buffer, which lives in meta
-  space and is never part of table (element) equality (§4). So structural equality would compare
-  builders only on their (usually empty) element data and call all empty builders equal, which is
-  wrong. Identity is the correct relation for a transient accumulator; to compare *contents*, build
-  and compare the results (`b1.build() == b2.build()`, comparing strings), exactly as one compares
-  the materialized results of two streams rather than the streams.
+- **Why builders need it.** A builder's real state is its private buffer — an **ungranted**
+  protocol member (protocols §2.2), which is never part of the equality surface (§4.5). So
+  structural equality would compare builders only on their (usually empty) element data and call
+  all empty builders equal, which is wrong. Identity is the correct relation for a transient
+  accumulator; to compare *contents*, build and compare the results
+  (`b1->build() == b2->build()`, comparing strings), exactly as one compares the materialized
+  results of two streams rather than the streams.
 
 **Conflict rule: any identity wins.** If a table has several protocol applieds and *any* of them declares
 `identityEquality`, the table is identity-equal. Identity is the conservative choice (if any applied
@@ -231,6 +234,27 @@ protocol considers its applications not structurally comparable, trust it). This
 whenever the protocol set is known (static apply, `@P` types), so it is an inspectable property, not
 a hidden one, and `identityEquality` is a rare, explicit, loud declaration, so a table does not
 become identity-equal by accident: some protocol it has said applied so, in its definition.
+
+### 4.5 Protocol state: the granted surface compares, private state does not
+
+A table's applied protocols are part of its identity (protocols §5). For two structurally-equal
+element spaces to make two equal tables, the protocol axis must also agree:
+
+- **The applied-protocol sets must match**, as sets (application order is not load-bearing,
+  protocols §8). A `@person` is never equal to a bare table with the same elements: one carries
+  a contract and state the other lacks.
+- **Each protocol's `get`-granted per-table members compare by `==`.** The granted surface is
+  the value's public state, and it is exactly the equality surface (R96, protocols §5): two
+  `@person`s with different `name`s are unequal, whatever their element spaces hold.
+- **Ungranted members never compare.** Private state is incidental *by declaration* — a cache
+  or buffer must not make two logically equal values unequal. Where hidden state *should*
+  distinguish values, the protocol declares `identityEquality` (§4.4); that rule is this one's
+  other half, not an exception to it.
+- **Definition-fixed members are vacuous** (uniform across every application, protocols §2.1)
+  and are skipped. A fn-typed `get` member compares by identity, as `fn` always does (§2).
+
+One boundary, stated once (protocols §5): the `get` surface is the access surface, the equality
+surface, and the serialization surface.
 
 ---
 
@@ -288,11 +312,11 @@ erasure, §1, intro). Otherwise, comparison is by the shared base type below. "R
 | `undefined` | value | `undefined == undefined` **true** (needed for absence checks); `null == undefined` false |
 | `string` | contents (length then bytes) | pointer fast-path to `true`; not interned; FFI strings compared by bytes (§5) |
 | `type` | canonical `typeid` | one integer compare; `int\|double == double\|int` (§3) |
-| `table` (default) | **structural**: same length, key/value pairs, bases, values, **order** | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4); `list` erases to `table` (§1) |
+| `table` (default) | **structural**: same length, key/value pairs, bases, values, **order**; plus applied-protocol sets and their `get`-granted per-table members (§4.5) | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4); `list` erases to `table` (§1) |
 | `enum` value | same **variant** (nominal, no erasure, §1), then payload structurally | `circle != square` regardless of payloads; same variant compares its payload table by `==` |
 | `table` applying `identityEquality` | **identity** | how builders compare; any such protocol makes the whole table identity-equal (§4.4) |
 | `stream` | identity | contents uncomparable (single-pass, maybe infinite) |
-| `stringBuilder` / builders | identity | via the `identityEquality` protocol declaration (§4.4); compare `.build()` results for content |
+| `stringBuilder` / builders | identity | via the `identityEquality` protocol declaration (§4.4); compare `->build()` results for content |
 | `fn` | identity | signatures compare via `@f == @g` (a separate, type-level question) |
 | `promise` | identity | a single future handle |
 | `capability` | identity | zero-data singleton |
@@ -312,9 +336,8 @@ functions and `match` as the deliberate escapes for cross-type and partial compa
   covers them; structural comparison is complicated by `stacktrace` (two otherwise-identical
   errors thrown in different places differ) and `cause` chains. Undecided between structural-
   minus-trace, identity, and structural-in-full.
-- **`view` equality.** How two views compare (pure identity, or "same underlying table identity and
-  same protocol tag") is deferred to the reflection design, where the shape of a view's runtime
-  identity is settled; identity is the working default until then.
+- *(The former `view`-equality question is **mooted by R95**: the `view` type no longer
+  exists.)*
 
 Cross-type numeric comparison is **not** an open question: `1 == 1.0` is `false` by design (§1), and
 the intent is expressed by an explicit conversion (`someInt.toDouble() == someDouble`, conversion

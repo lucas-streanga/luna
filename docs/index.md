@@ -137,7 +137,7 @@ table is a map.
 | Views | `views.md` | Retired pointer (R95): the `view` type is gone; what replaced each piece, and where. |
 | Functions | `functions.md` | The `fn` value: capture, errorability, and comptime-eligibility. |
 | Stream | `stream.md` | The lazy, single-pass sequence type and its two defining properties. |
-| Stream API | `stream-api.md` | The operation surface of `stream` (inspect, transform, collect, consume). |
+| Stream API | `stream-api.md` | The stream-only surface: producing, `peek`/`isConsumed`, `foreach`, restart; the shared catalogue is iterable-functions. |
 | String builder | `stringBuilder.md` | The mutable string accumulator that avoids O(n²) concatenation. |
 | Enum | `enum.md` | The discriminated union (tagged sum) declaration form. |
 

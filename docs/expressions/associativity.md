@@ -10,7 +10,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 
 | Tier | Operators | Associativity | Notes |
 |-|-|-|-|
-| 1 postfix | `f(...)` `x[...]` `x.name` `x->P` `x->P.m` `x?.name` | left | one chainable postfix tier: `a->P.b(c)[d]` parses left-to-right; `x.name(` is UFCS, `x.name` is access (functions §3.4) |
+| 1 postfix | `f(...)` `x[...]` `x.name` `x->name` `x->P.m` `x?.name` `x?->name` | left | one chainable postfix tier: `a->P.b(c)[d]` parses left-to-right; `x.name(` is UFCS, `x.name` is access (functions §3.4); `->` reaches protocol space, bare or qualified, assignable where the member grants `set` (protocols §3); `?->` is its soft form, short-circuiting like `?.` (protocols §3.2) |
 | 2 prefix, symbolic | `!x` `-x` `@x` `@@x` | right (stack) | `!` is logical not, prefix, expression position only (operators §0; the postfix `T!` lives in the type grammar) |
 | 3 multiplicative | `*` `/` `%` | left | |
 | 4 additive | `+` `-` | left | `+` is numeric only; there is **no** concat operator (strings §11), interpolation joins |

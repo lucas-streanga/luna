@@ -38,8 +38,8 @@ type is the escaping decision.** Every format module follows this pattern.
 ## 2. Writing
 
 ```
-export const toJson = comptime fn (ct: comptype): fn (any): json;   // generated, tags honored
-export fn toJsonDynamic(v: any): json;                              // structural, tags erased
+export const toJson = comptime fn (ct: comptype, skipFunctions: bool = false): fn (any): json;   // generated, tags honored
+export fn toJsonDynamic(v: any, skipFunctions: bool = false): json;                              // structural, tags erased
 ```
 
 - **`toJson`** is the attribute-aware **generator** (attributes §4): it walks the
@@ -64,6 +64,21 @@ They are **deliberately two names** (attributes §4): the paths differ in observ
 both phases while phase-divergent, which functions §5.5 forbids. **`toJson` serializes the
 declaration; `toJsonDynamic` serializes the value.**
 
+### 2.1 What serializes; functions do not
+
+Both writers emit the value's **serialization surface** (protocols §5): its element space
+plus, for each applied protocol, that protocol's `get`-granted **per-table** members.
+Definition-fixed members are protocol facts, not value facts, and never serialize;
+ungranted members are private and never serialize — emitting them would disclose state
+that cannot round-trip, since only granted members are apply-initializable (protocols
+§4.2). The JSON *shape* protocol members take in the output is open (§4).
+
+**Function values do not serialize** (R96): a `fn` has no data representation, cannot be
+deserialized, and emitting one would be a disclosure hazard. A `fn` anywhere in the
+surface — a fn-valued element, or a fn-typed `get` member such as `stringify`'s renderer
+(conversion §3) — raises `typeError`. `skipFunctions: true` omits fn-valued slots
+instead: per call on `toJsonDynamic`, baked into the generated writer on `toJson`.
+
 ## 3. Reading
 
 ```
@@ -87,4 +102,8 @@ export const fromJson = fn (j: json): table!;
 - **Document shape**: what a scalar-rooted document (`"5"` is valid JSON) yields when
   `fromJson` promises `table!`, a one-element wrapper or a declarable error.
 - **`fromJson` into declared shapes**: parsing into a protocol-typed table (the inverse of
-  the `toJson` generator), pending the reflection pipeline's read side.
+  the `toJson` generator), pending the reflection pipeline's read side — reconstruction is
+  `apply` plus initializers over the granted surface (protocols §4.2, §5).
+- **Protocol-member nesting**: the JSON shape serialized protocol members take (nested
+  under the protocol name, flattened into the top object, or tagged), and the reverse on
+  the read side.

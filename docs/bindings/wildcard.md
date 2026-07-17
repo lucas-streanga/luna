@@ -107,7 +107,7 @@ parameter still occupies its position (so later parameters line up with the call
 arguments), but it is not named and cannot be referenced in the body:
 
 ```
-myTab->map(fn (_, index) => index);      // want the index, not the value
+xs.reduce(fn (_, item) => item);         // want each item, not the running carry
 ```
 
 This is common with callbacks that receive more than they need. Combined with the arity

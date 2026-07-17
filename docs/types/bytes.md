@@ -24,8 +24,10 @@ bytes each), so a table of a million bytes would cost 16MB; the entire point of 
 compact buffer, so it stores raw octets, like `string`'s packed representation, not a table's
 boxed elements.
 
-So `bytes` is **table-like in interface** (integer-indexed, appendable, iterable) but **not a
-table in storage**. You get `b[i]` and `b[]` syntax over a tight byte buffer. To obtain an
+So `bytes` is **table-like in interface** (integer-indexed, appendable, directly
+`foreach`-iterable — R104) but **not a table in storage**, and deliberately **not an
+`iterable`** (that alias stays exactly `table | stream`; the catalogue is reached through
+`toStream`, §6). You get `b[i]` and `b[]` syntax over a tight byte buffer. To obtain an
 actual table/list of the bytes (paying the boxing cost), use `asList()` (§4).
 
 ---
@@ -43,8 +45,8 @@ apply, and a `byte` widens to `int` implicitly.
   constraint-on-entry check (constraints §7). So the one invariant `bytes` enforces is
   per-octet range (a byte is `0..255`), checked on write, not text validity.
 
-Because elements are `byte` (an `int` refinement), per-byte operations like `filter` and `map`
-take and return `byte`/`int`; no distinct byte type is needed (§6).
+Because elements are `byte` (an `int` refinement), all integer arithmetic and comparison
+apply to elements directly; no distinct byte type is needed (§6).
 
 ---
 
@@ -118,10 +120,10 @@ fn fromBytes(b: bytes): string!        // string.fromBytes: validates UTF-8, thr
 declarable error (handled with `try`) if they are not valid UTF-8. The name and the `!` make the
 fallibility visible, unlike a `b.toString()` that would falsely imply a total operation.
 
-The reverse direction, a `string`'s raw octets, is the string spec's `bytes()` view, which
-returns a **`bytes`** value (string-api), aligning the string byte view with this type. So
-`str.bytes()` gives a packed `bytes`, and `string.fromBytes(b)` validates octets back into a
-`string`; the two are inverses across the fallible UTF-8 boundary.
+The reverse direction, a `string`'s raw octets, is the string spec's `toBytes()`
+conversion (string-api §9, R102 — the packed half of its producer/conversion split). So
+`str.toBytes()` gives a packed `bytes`, and `string.fromBytes(b)` validates octets back
+into a `string`; the two are inverses across the fallible UTF-8 boundary.
 
 ---
 
@@ -131,10 +133,14 @@ Every mainstream language with a byte buffer (Go `[]byte`, Rust `Vec<u8>`, Pytho
 `Uint8Array`) makes an element an **integer 0..255**, not a distinct byte scalar, because a
 separate byte type would need its own arithmetic, literals, and conversions for no benefit.
 Luna follows this: a `byte` is an `int` constrained to `0..255` (§2), so it reuses all integer
-operations and widens to `int` freely. `b.filter(fn (x: int) => x != 0)` works with `x` an
-ordinary int, and the comparison against the `int` literal `0` works because `==`/`!=` erase
-constraints (`byte` and `0` share the base `int`, equality spec §1); `b.map(...)` must produce values in `0..255` (the `byte` constraint is checked on
-write-back). No new scalar type.
+operations and widens to `int` freely. `foreach (x in b)` iterates ordinary ints (R104),
+and comparing an element against the `int` literal `0` works because `==`/`!=` erase
+constraints (`byte` and `0` share the base `int`, equality spec §1). Bulk transforms are
+**not** direct — `bytes` is not an `iterable` (R104): a transform's output cannot promise
+to stay `0..255`, so a packed result kind would be unsound in general. The spelling is the
+explicit bridge, `b.toStream() |> filter(fn (x) => x != 0)`, yielding ints; repacking a
+byte sequence into a fresh buffer is an explicit build (§3), with a dedicated
+`toBytes(iterable)` conversion flagged open (R104). No new scalar type.
 
 ---
 

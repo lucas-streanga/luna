@@ -59,7 +59,7 @@ indexable-functions §4. On a stream the retention is spelled out: `s.collect().
 
 This is also the infinite-stream guard: a stream may be infinite, and the functions that
 never terminate on one are exactly the full consumers (marked **consumes** below); the
-whole-input family cannot even be handed one. Guard with `take` (stream-api §9).
+whole-input family cannot even be handed one. Guard with `take` (stream-api §6).
 
 ### 1.5 Streams are taken
 
@@ -435,11 +435,16 @@ can be applied unconditionally to normalize.
 
 #### toStream()
 ```
-fn toStream(it: iterable): stream
+fn toStream(src: iterable | bytes): stream
 ```
 **O(1), lazy.** On a stream, the identity. On a table, adapts retained data into the stream
 interface (stream spec §5.1) without copying — the memory is already spent; this exists for
-pipeline uniformity and downstream laziness. The free direction (§1.3).
+pipeline uniformity and downstream laziness. The free direction (§1.3). On a **`bytes`**,
+yields each octet as an `int` `0..255` — the one place `bytes` touches the catalogue
+(R104): `bytes` is *not* an `iterable` (a transform's output could not promise to stay a
+packed byte buffer), but its unambiguous element unit earns it this bridge and direct
+`foreach` (control-flow). A `toStream` result over a table or `bytes` is **restartable**
+(the COW capture is an immutable snapshot, stream §4, R105).
 
 #### collect()
 ```

@@ -1,8 +1,8 @@
 # Destructuring
 
-Destructuring binds several variables from a table in one statement, by position or by key.
-It is the inverse of a table literal: where a literal *builds* a table from parts,
-destructuring *takes it apart* into bindings. The syntax mirrors table-literal syntax, and
+Destructuring binds several variables from a table — or, positionally, from a stream
+(§1.4) — in one statement, by position or by key. It is the inverse of a table literal:
+where a literal *builds* a table from parts, destructuring *takes it apart* into bindings. The syntax mirrors table-literal syntax, and
 the two modes follow the same positional-versus-keyed distinction as the rest of the
 language.
 
@@ -73,6 +73,34 @@ captured tail), and `[a, b, ..._]` (two plus a discarded tail). Silent loss neve
 
 Each `_` skips exactly one position and is independent; `[_, _, c]` skips the first two. This
 is distinct from `..._`, which discards *all* remaining positions.
+
+### 1.4 A stream source: take-what-you-bind
+
+A positional pattern accepts a **stream** source (R103), with prefix-consumption
+semantics (stream §2.1) in place of §1.1's exact-length rule:
+
+```
+let [a, b] = s.split(' ');    // pull two; further pieces stay in the (taken) stream
+let [head, ...rest] = s;      // pull one; rest is the SAME stream, advanced
+[x, ..._] = s;                // pull one; the tail is explicitly left behind
+```
+
+- **Pulls exactly as many elements as it binds** — no length assertion in either
+  direction. §1.1's exact-length rule is deliberately a *table* rule: it asserts a shape,
+  which needs an O(1) length to check against; a stream's length is unknowable without
+  consuming it, and may be infinite. A stream pattern is a take-request, not a shape
+  assertion, so neither "too few" nor "too many" is an error.
+- **Exhaustion binds `undefined`** for the remaining targets — the stream's ordinary
+  absence, coalescable with `??`, the same answer `peek` gives on empty.
+- **`...rest` binds the remaining stream**, not a list: lazy head/tail decomposition,
+  nothing buffered. The destructure **takes** the source (stream §7.3); `rest` is the one
+  live handle. `..._` leaves the tail unconsumed — the discard spelling shared with
+  tables, here meaning "whatever remains is deliberately not mine."
+- **Keyed patterns do not apply.** A stream has no random access, so `['k' => v] = s` is
+  a compile error where the source is statically a stream, a `typeError` panic otherwise.
+- **Match arms do not accept streams.** A pattern test that failed would already have
+  consumed elements it cannot restore; streams are identity values to `match`, never
+  structure (equality §2).
 
 ---
 
@@ -184,9 +212,9 @@ returns a `@person` at runtime; a function that returns `person` yields typed bi
 declaring a richer source type is how typed destructuring is obtained; bare `table`
 destructures to `any`, by design, not omission.
 
-The `...rest` binding is always a **`list`** (§1.2) regardless of element typing; its
-*elements* carry whatever element type the source had (typed for a `@proto` or const source,
-`any` for a bare table).
+The `...rest` binding is always a **`list`** (§1.2) — except over a stream source, where
+it is the remaining **`stream`** (§1.4); its *elements* carry whatever element type the
+source had (typed for a `@proto` or const source, `any` for a bare table).
 
 **This rule is also match's.** A bare binder in a match arm inherits exactly as above (match §2),
 which is what makes a match pattern a strict superset of a destructuring pattern rather than a
@@ -203,6 +231,8 @@ typed binder because it has nothing to fall through to: a failed test in a `let`
 - **Positional** (`[a, b]`): binds integer keys `0..n-1`; **exact length by default** (too few
   or too many is an error); `...rest` captures the tail as a `list`, `..._` discards it; `_`
   skips one position.
+- **Stream source** (positional only, §1.4): pulls exactly what it binds; exhaustion binds
+  `undefined`; `...rest` is the remaining `stream`; the source is taken.
 - **Keyed** (`['k' => v]`): binds named keys; **unmentioned keys ignored**; absent named key
   binds `undefined`; `_` as a target discards a named value.
 - **Silent data loss never happens by default:** dropping a positional tail requires `..._`;

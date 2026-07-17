@@ -43,10 +43,12 @@ Producers are verbs (`trim`, `replace`, `padStart`). Views are plural nouns
 is no bare `length` (see §2). Case-insensitive variants take an explicit option rather
 than a separate name (see §3).
 
-**Return shapes.** A function that yields many elements returns `stream | table`,
-following the table protocol's materialize-or-stream convention, with a trailing
-`asStream: bool = false`. A function that yields one string returns `string`. Indices
-are byte offsets and are always `int` (see §2).
+**Return shapes.** A function that yields many elements returns a **stream** —
+**producers produce streams** (R102), the convention shared with generators, ranges, and
+`io`; retention is an explicit `collect()` (iterable-functions §2.11), and a
+string-derived stream is **restartable** for free (immutable source, stream §4). A
+function that yields one string returns `string`. Indices are byte offsets and are
+always `int` (see §2).
 
 ---
 
@@ -73,12 +75,13 @@ error, see §6).
 
 ## 3. Common options
 
-Two options recur and are always spelled the same way:
+One option recurs and is always spelled the same way:
 
 - **`caseInsensitive: bool = false`** on comparison, search, and replace functions.
   Case folding uses full Unicode case folding, not ASCII-only.
-- **`asStream: bool = false`** on element-producing functions, exactly as in the table
-  protocol.
+
+(The former second common option, `asStream: bool = false` on element producers, is
+retired with the whole flag model, R92/R102: producers now always return streams, §1.)
 
 ---
 
@@ -106,12 +109,12 @@ fn repeat(str: string, times: int): string
 #### chr() / parse helpers
 ```
 fn chr(codepoint: int): string             // one-codepoint string from a scalar value
-fn toInt(str: string): int | error         // parse; error if not a valid integer
-fn toDouble(str: string): double | error   // parse; error if not a valid double
+fn toInt(str: string): int!                // parse; error if not a valid integer
+fn toDouble(str: string): double!          // parse; error if not a valid double
 ```
 `chr` is the inverse of taking a single `codepoints()` element. The parse helpers
-return an errorable union (see the value-representation error model); `str.toInt()`
-must be consumed with `try` or a `| error` binding.
+return an errorable type (postfix `!`, the value-representation error model);
+`str.toInt()` must be consumed with `try` or an errorable binding.
 
 ---
 
@@ -149,7 +152,7 @@ Number of non-overlapping occurrences of `needle`. O(n).
 ```
 fn matches(str: string, pattern: regex): bool
 fn find(str: string, pattern: regex): table | null
-fn findAll(str: string, pattern: regex, asStream: bool = false): list | stream
+fn findAll(str: string, pattern: regex): stream
 ```
 `regex` is its own type (a compiled pattern, kept separate so a pattern is compiled
 once and reused, rather than recompiled from a string on every call). `matches` tests
@@ -180,7 +183,7 @@ direction is correct (string consumes regex, which defines what a metacharacter 
 
 #### slice()
 ```
-fn slice(str: string, offset: int, length: int = 0, asStream: bool = false): string
+fn slice(str: string, offset: int, length: int = 0): string
 ```
 A substring beginning at byte `offset` for `length` bytes (`length <= 0` means "to the
 end"). O(1): the result borrows the parent's buffer (string-representation §7), so a
@@ -254,7 +257,7 @@ Unicode normalization. Needed so that visually identical strings built different
 
 #### split()
 ```
-fn split(str: string, sep: string | int, limit: int = 0, asStream: bool = false): list | stream
+fn split(str: string, sep: string | int, limit: int = 0): stream
 ```
 Split on a `string` separator, or into fixed-width chunks of `int` bytes (the union
 replaces an overload). `limit > 0` caps the number of pieces, the last holding the
@@ -263,48 +266,53 @@ borrow.
 
 #### lines()
 ```
-fn lines(str: string, asStream: bool = false): table | stream
+fn lines(str: string): stream
 ```
 Split on line boundaries (`\n`, `\r\n`, and Unicode line breaks), terminators removed.
 Pieces borrow.
 
 #### join()
 ```
-fn join(glue: string, parts: table | stream, finalGlue?: string = null): string
+fn join(it: iterable, glue: string = '', finalGlue?: string = null): string
 ```
-Concatenate `parts` (each coerced via `toString`) separated by `glue`. `finalGlue`
-sets a distinct last separator for "a, b and c". This is the accumulation-friendly
-counterpart to repeated `+` (which is O(n^2) in a loop, see string-representation §10).
-Note the receiver is `glue`, so `", ".join(parts)` reads naturally.
+`join` is the catalogue function (iterable-functions §2.10), listed here for
+discoverability: it concatenates the elements of any iterable (each coerced via
+`toString`) separated by `glue`, with `finalGlue` as a distinct last separator
+(`"a, b and c"`). Receiver-first like the whole catalogue — `parts.join(", ")` — which
+settles the receiver-position wander functions §3.4 flagged. For a known collection it
+is the direct tool; for incremental accumulation, the builder (§12; a pairwise
+concatenation loop is O(n^2), string-representation §10).
 
 ---
 
 ## 9. UTF-8 views
 
-Each returns `stream | table` of borrowed slices (or inline strings for ASCII), one
-element per unit. None allocate per element for ASCII input.
+Each returns a **stream** of borrowed slices (or inline strings for ASCII), one element
+per unit — `collect()` retains a list (§1). None allocate per element for ASCII input.
 
-#### bytes()
+#### bytes() · toBytes()
 ```
-fn bytes(str: string, asStream: bool = false): bytes | stream    // packed bytes; stream yields byte (int 0..255)
+fn bytes(str: string): stream          // the producer: yields each byte (int 0..255)
+fn toBytes(str: string): bytes         // the conversion: the packed bytes value
 ```
-The raw UTF-8 bytes of the string. Returns a packed **`bytes`** value (bytes spec), the
-natural representation for I/O, hashing, and low-level work, rather than a boxed list of
-integers. With `asStream = true` it yields a `stream` of `byte` (int `0..255`) instead. This
-is the inverse of `string.fromBytes(b): string!` (bytes spec §5), which validates bytes back
-into a string.
+Two operations, split along the producer/conversion seam (R102). `bytes()` is the
+**iteration view**, a stream of `byte` (int `0..255`). `toBytes()` is the **conversion**
+(the `to*` family, R94) to a packed **`bytes`** value (bytes spec), the natural
+representation for I/O, hashing, and low-level work, rather than a boxed list of
+integers. `toBytes` is the inverse of `string.fromBytes(b): string!` (bytes spec §5),
+which validates bytes back into a string.
 
 #### codepoints()
 ```
-fn codepoints(str: string, asStream: bool = false): list | stream   // elements are string
+fn codepoints(str: string): stream   // elements are string
 ```
 One element per Unicode scalar value. The safe technical unit; no Unicode-version
 dependence.
 
 #### graphemes() / characters()
 ```
-fn graphemes(str: string, asStream: bool = false): list | stream    // elements are string
-fn characters(str: string, asStream: bool = false): list | stream   // alias of graphemes
+fn graphemes(str: string): stream    // elements are string
+fn characters(str: string): stream   // alias of graphemes
 ```
 One element per grapheme cluster, what a person points at as a character. This is the
 correct default for user-facing iteration; `characters` is the friendly alias and
@@ -315,8 +323,8 @@ never means codepoints.
 fn isValidUtf8(str: string): bool
 ```
 Always `true` for a live `string` (validity is an invariant, string-representation §8).
-Present for the boundary case of bytes about to become a string; more naturally a
-method on the future `bytes` type.
+Present for the boundary case of bytes about to become a string; the validating
+conversion itself is `string.fromBytes(b): string!` (bytes spec §5).
 
 ---
 
@@ -390,21 +398,21 @@ this: you append into it freely, then materialize a `string` once. It is the one
 the string story where mutation lives.
 
 The builder is realized as a table with the applied `stringBuilder` protocol (an element-empty
-table whose growable buffer is a protocol-private meta member), so its operations are meta
-functions reached with `->`:
+table whose growable buffer is an ungranted per-table protocol member), so its operations
+are protocol functions reached with `->`:
 
 ```
 var b = builder();
-b->stringBuilder.append("Hello, ").append(name).append("!");   // chainable
-let greeting = b->stringBuilder.build();                        // immutable string, O(n) once
+&b->append("Hello, ")->append(name)->append("!");   // chainable; & writes back
+let greeting = b->build();                           // immutable string
 ```
 
-The full builder API, construction, the meta-function surface (`append`,
-`appendCodepoint`, `reserve`, `byteLength`, `isEmpty`, `clear`, `build`, `take`), snapshot
-versus consuming materialization, reference passing, performance, and concurrency, is
-specified in **string-builder** (its own document). Interpolation (§13) lowers to a
-builder, so an interpolated literal is one builder pass rather than a chain of reallocating
-concatenations.
+The full builder API, construction, the surface (`append`, `appendAll`,
+`appendCodepoint`, `reserve`, `byteLength`, `isEmpty`, `clear`, `build`), reference
+passing, performance, and concurrency, is specified in **string-builder** (its own
+document; `take` is retired there, R99 — `build()` is COW-cheap and build-and-drop *is*
+the zero-copy path). Interpolation (§13) lowers to a builder, so an interpolated literal
+is one builder pass rather than a chain of reallocating concatenations.
 
 ---
 
@@ -435,9 +443,10 @@ hidden O(n^2) cost.
 
 ## 14. Open questions
 
-- **Builder capacity semantics:** whether `capacityHint` is bytes or something coarser,
-  and whether `build()` may transfer the buffer (zero-copy) or must copy
-  (string-representation §11).
+- **Builder capacity semantics:** whether `capacityHint` is bytes or something coarser.
+  (The other half of this question — whether `build()` transfers or copies — is resolved,
+  R99: under COW, `build()` shares the buffer and the copy is deferred to the next
+  append; string-builder §5.)
 - **`slice` unit:** confirm `slice` is byte-offset (fast, boundary-checked) and that a
   separate `graphemeSlice` is not needed, versus offering both.
 - **Error vs. sentinel:** `indexOf` returns `-1`, `toInt` returns `| error`. Confirm

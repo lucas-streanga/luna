@@ -61,13 +61,15 @@ let evens = 1..100 |> filter(isEven) |> take(5);   // pipe and transform like an
 
 - **Low memory.** `1..1000000` does not allocate a million integers; it is a lazy stream that
   yields them on demand. This is the point of ranges being streams.
-- **Foreach with enumeration keys.** A range stream is **values-only** (stream spec §1.1), so
-  `foreach (k => v in lo..hi)` gives `k` the sequential enumeration index (0, 1, 2, ...) and `v`
-  the value. For `10..20`, `k` and `v` differ (`k=0, v=10`; `k=1, v=11`; ...), so you get both
-  the zero-based position and the actual value. This "where am I" index falls out of values-only
-  stream semantics, not a range special case.
-- **Restartable.** Unlike many streams, a range is trivially restartable (re-run from `lo`), so
-  `restart()` works cleanly on a range stream (stream spec §4).
+- **Foreach with enumeration keys.** A range stream carries **implicit keys** (stream spec
+  §1.1, R93), so `foreach (k => v in lo..hi)` gives `k` the sequential index (0, 1, 2, ...) and
+  `v` the value. For `10..20`, `k` and `v` differ (`k=0, v=10`; `k=1, v=11`; ...), so you get
+  both the zero-based position and the actual value. This "where am I" index is the ordinary
+  implicit-key rule, not a range special case — and the keys are real: `keys`, `keyOf`, and
+  every key-facing function see them too (iterable-functions §1.2).
+- **Restartable.** Unlike many streams, a range is trivially restartable (re-run from `lo` —
+  an instance of the immutable-snapshot rule, stream spec §4, R105), so `restart()` works
+  cleanly on a range stream.
 - **Single-pass otherwise.** Being a stream, a range is single-pass per traversal (stream spec
   §2); re-iterate by re-writing the literal (cheap) or `restart()`.
 

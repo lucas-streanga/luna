@@ -1864,6 +1864,167 @@ without `onNoGet` / `asStream`; `table-api` cites → the catalogue files; and e
 with implicit, undisturbed integer keys — including the R89 variadic-fill note and the
 §2 fold-vs-collect distinction, which now bites only for *explicit* integer keys).
 
+**R100 — the R95–R98 sweep, third pass: coalescing, `toString`, json, functions.** Four
+files, and the one genuinely load-bearing translation of the whole sweep.
+**`optional-access-and-coalescing.md`**: rewritten to the two-axis model. The R99 flag on
+`???` resolves in its favor — its cut (absent-or-null vs. value) is entirely on the
+*value* axis, which R98 never touched, so both coalescers survive verbatim; only the
+denial axis dies, and the file now says where it went: **not deleted but moved to compile
+time** (a forbidden access does not compile, protocols §3.1). The write-side tables lose
+their grant rows; a `???=` overwrite is unconditionally legal, so both compound forms
+share exactly one failure, the add-path `OpenViolationError`; the read-to-classify
+`TableReadViolationError` caveat and the permission-throws-through-coalescers ruling are
+deleted (the latter's three-row table is two rows now); a stale `freeze` disclaimer went
+with them. Added: a **protocol space** section — the unapplied protocol is one more
+absence under the same rules (`undefined` on bare read, coalescable; `?->` for calls,
+argument-short-circuiting like `?.`), members of an applied protocol are **never absent**
+(application binds every member, so `??=` has no protocol-space role), and a member's
+*value* being `null` is the ordinary `???` case. **`conversion.md` — the forced
+translation: the interface pattern.** Old `stringify` declared "its one member:
+`toString = meta fn`", assuming each applier implements a protocol function — an
+*abstract member*, which the member model does not have (protocol functions are
+definition-fixed, R96; there is no per-applier override, deliberately). The faithful
+translation uses only ruled machinery: **a required fn-typed member**,
+`const get toString: fn (any): string;`, bound per application as an apply initializer
+(protocols §4.2), immutable after, with non-errorability still contract-not-courtesy
+(the initializer is checked against the declared member type, so no `!`-typed renderer
+can enter). Dispatch respelled `value->stringify.toString(value)` — a qualified fn-member
+read-and-call (protocols §3.4), not a protocol-function call, which is precisely what
+lets every application carry a different renderer; the "earlier draft ill-formed" note
+rewritten (bare `->toString` is no longer impossible, merely scope-dependent, which is
+reason enough to qualify a dispatch entry point). This is the pattern for every
+interface-shaped contract under the member model, and the spec now says so. It also
+closes conversion §6's first open question ("`stringify` signature and totality
+contract", which waited on "the protocol spec's meta-function conventions"): the
+conventions arrived, the answer is the declared member type, and the bullet is removed;
+the `fromString` question stays open, respelled as the pattern in reverse. One honest
+consequence recorded: a renderer is a `get` fn-typed per-table member, so it sits in the
+serialization surface and meets the fn rule — `toJson` on a `@stringify` value is a
+`typeError` unless `skipFunctions` is set. **`json.md`**: §2.1 added — the serialization
+surface stated per R96 (element space + `get`-granted per-table members;
+definition-fixed and ungranted members never serialize, with the round-trip argument),
+`skipFunctions: bool = false` added to both writers (per-call on `toJsonDynamic`, baked
+into the generated writer on `toJson`), fn values raise `typeError`; open questions gain
+the protocol-member nesting shape, and the `fromJson`-into-shapes item now names its
+mechanism (apply + initializers over the granted surface). **`functions.md`**: §3.3's
+arity example respelled (`myTab.filter`, UFCS); §3.4's `->` bullet rewritten (bare or
+qualified `->`, no view form, no "meta pools"); §3.4's flagged std-shaping tail marked
+**discharged** (the catalogues satisfied it, R91–R92); §4's errorability cross-reference
+replaced (the dead custom-`apply` `: self!` and §7.5 cites → an errorable protocol
+function and the dynamic `apply()`'s `table!`); §5's capability citation corrected
+(protocols spec → capabilities spec).
+
+**R101 — the sweeps completed: equality, the stream family, `?->`, and the tail.** The
+final pass; with it, **the R91–R93 and R95–R98 sweeps are complete** — no spec file still
+speaks the pre-catalogue or pre-redesign language (the examples were verified already
+clean). **`equality.md`**: §4.4's proto example modernized to the member model, and
+**§4.5 added** — the R96 equality surface as a numbered rule: applied-protocol sets must
+match *as sets* (order not load-bearing), each protocol's `get`-granted per-table members
+compare by `==`, ungranted members never do (incidental by declaration —
+`identityEquality` is that rule's other half, not an exception), definition-fixed members
+are vacuous, fn-typed members compare by identity; §4's opening and the summary table row
+carry the addition, and the `view`-equality open question is retired as mooted (R95).
+**`stream.md`**: §1.1 rewritten — "values-only vs. key-value" is erased for implicit vs.
+explicit keys (R93), with the implicit keys stated to be *real* (key-facing functions see
+them, transforms preserve them, `values` reindexes them, undisturbed they collect to a
+`list`); §5.1's bridges respelled (`toStream` / `collect`, the retired flags noted); §7.3
+extended with the R92 rule that passing a stream to *any* catalogue function takes it.
+**`stream-api.md`**: restructured to the stream-only surface it actually owns —
+producing, `peek` / `isConsumed`, `foreach`, restart — plus an orientation table over the
+shared catalogue; the absorbed transform/collect/bridge sections are gone,
+the key-aware-peek question is recorded closed (values via `peek`/`first`, keys via
+`keyFirst`/`keyLast`, pairs via `foreach`), and the open questions trim to three, the
+infinite-consumer guard staying open (iterable-functions §1.4 cites it, now at §6).
+**`range.md`** and **`control-flow.md`**: enumeration prose respelled to implicit keys —
+observable behavior unchanged (`foreach (k => v in 10..20)` always gave the index), but
+the model is now uniform and the keys are real, `keys` and `keyOf` included.
+**`associativity.md`** tier 1: `x->P` generalized to `x->name` (bare protocol-member
+access), `x?->name` added, notes updated for assignability-where-granted. **`lexer.md`**:
+the deferred **`?->` token lands** — `OPT_PROTO_ACCESS`, regex `\?->`, slotted into the
+maximal-munch ordering (`??` › `?->` › `?.` › `?`). **`wildcard.md`**: the unused-parameter
+example moves from `map` to `reduce` — under the catalogue signatures the old
+`map(fn (_, index) => ...)` would need a `mode` argument (and would arity-error without
+one, functions §3.3); `reduce`'s two-argument callback (`fn (_, item)`) makes the point
+with no mode at all. **`regex.md`**: `text->find(pattern)` → `text.find(pattern)` (UFCS).
+**`constraints.md`** §7: its cross-reference respelled — "protocol *element* types
+(protocols §5.4)" → "protocol *member* types (protocols §3.3)"; the
+checked-on-write / trusted-on-read analogy survives intact, since member writes still
+check the declared type wherever the site cannot discharge it statically. `index.md`'s
+Stream API row updated to the slimmed scope.
+
+**R102 — producers produce streams; the string API sheds its flags.** The convention gets
+its name: everything that generates a sequence from a non-sequence source — generators,
+ranges, `io`'s `lines()`/`chunks()`, and now the string API — returns a **stream**, with
+retention always the explicit `collect()`. `strings.md` was the last holdout (eleven
+`asStream: bool` flags, a `stream | table` return convention, and a "materialize by
+default" stance nothing else shared); all eleven flags are deleted and
+`findAll` / `split` / `lines` / `codepoints` / `graphemes` / `characters` return `stream`,
+with `lines`' inexplicable `table` return fixed by the same stroke and `slice`'s
+vestigial flag dropped (one string in, one string out). The cost is one word in the small
+case (`s.split(' ').collect()[1]`) — and the compiler may fuse `collect(split(...))` into
+the eager build, an elision, not a semantics. **`bytes()` splits along the
+producer/conversion seam**: `bytes(str): stream` is the iteration view (octets as ints);
+`toBytes(str): bytes` is the conversion to the packed value (`to*` family, R94), the
+inverse of `fromBytes`. Also swept while in the file: §12's builder summary — a **R99
+straggler**, missed because the grep pattern "meta fn" does not match "meta functions" —
+respelled to `&b->append(...)`, `take` noted retired; `join`'s glue-first receiver
+deleted in favor of the ruled catalogue signature (the exact "receiver position
+wandering" functions §3.4 flagged); `toInt`/`toDouble` respelled `int!`/`double!`
+(postfix-errorable convention); `isValidUtf8`'s "future `bytes` type" updated (it
+exists); §14's build-transfer question marked resolved by R99. **Discovered and flagged,
+not fixed**: the conversion family (`toInt` over `string`/`bool`/`double` with differing
+signatures and errorability across `strings.md` and `conversion.md`) still has the
+per-receiver variants that functions §3.4's one-name-one-signature rule forbids — the
+catalogues' half was discharged (R100); the conversion family's half is open below.
+
+**R103 — stream destructuring: take-what-you-bind.** Positional patterns accept a stream
+source, pulling **exactly as many elements as they bind**. Exhaustion binds the remaining
+targets to `undefined` — the stream's ordinary absence, the answer `peek` already gives —
+and surplus is simply left in the stream; neither is an error. This is deliberately *not*
+destructuring §1.1's exact-length rule, and the ruling names why the asymmetry is
+principled: the table rule is a **shape assertion**, meaningful because a table's length
+is checkable in O(1) before binding; a stream's length is unknowable without consumption
+and may be infinite, so a stream pattern is a **take-request**, and the no-silent-loss
+philosophy does not bite (nothing is asserted, and the tail remains recoverable via a
+rest binding or `restart`). **`...rest` binds the remaining stream, not a list** — lazy
+head/tail decomposition with nothing buffered (on a table, rest collects; on a stream,
+collecting would defeat the point). **The destructure takes the source** (the `|>`
+transfer discipline): `rest`, if bound, is the one live handle. Two guards: keyed
+patterns reject streams (no random access — compile error where statically known,
+`typeError` otherwise), and **match arms reject streams** (a failed pattern test would
+have consumed elements it cannot restore; streams are identity values to `match`, never
+structure). Swept: `destructuring.md` (§1.4 added; intro, §5's rest type, §6),
+`stream.md` (§2.1 added).
+
+**R104 — bytes: `foreach` yes, `iterable` no.** The criterion that excluded strings from
+iteration becomes the stated rule: **`foreach` consumes anything with an unambiguous
+element sequence.** `bytes` passes — every element is unambiguously a byte — so
+`foreach (x in b)` (and `foreach (i => x in b)`, offsets as keys) is direct; a bare
+`string` fails (bytes, codepoints, or graphemes?) and keeps choosing its unit through
+producers. But **`iterable` stays exactly `table | stream`**: admitting `bytes` would
+break kind-follows-primary at every transform — `map`'s output cannot promise `0..255`,
+`filter` cannot leave a sparse packed buffer — costing either ~47 per-function special
+cases or an implicit bytes→stream conversion, and Luna does neither. The catalogue is
+reached by the explicit bridge instead: **`toStream` widens to `iterable | bytes`** (a
+union parameter, the documented no-overloading pattern), the single place `bytes` touches
+the catalogue, yielding ints; `collect` of a byte stream is a **list of ints** (no
+special case), and repacking is an explicit build — a `toBytes(iterable)` conversion is
+flagged open below. `bytes.md`'s promised direct `b.map` / `b.filter` (§2, §6) are
+**retracted** accordingly. This closes the bytes-iterability flag standing since R91's
+landing. Swept: `bytes.md`, `control-flow.md` (the foreach-source rule),
+`iterable-functions.md` §2.11.
+
+**R105 — restartability: the immutable-snapshot rule.** `canRestart` is decided by one
+rule: **a stream whose source is an immutable retained snapshot is restartable** — string
+producers, ranges, and `toStream` over a table or `bytes` (the COW capture *is* a
+snapshot, the case easy to miss); generator functions stay source-dependent per stream
+§4, since a generator over a socket cannot promise replay. The rule's cost, asked and
+answered: a restartable stream **pins its snapshot** for its lifetime. Not a real
+problem — it is ordinary value lifetime, identical in kind to a closure's deep-`const`
+capture (functions §2.1) and to a string slice pinning its parent's buffer (string-api
+§6, the in-corpus precedent), and the escape is the ordinary one: `collect` the small
+result and drop the stream. Swept: `stream.md` §4, `stream-api.md` §4, `range.md`.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -1894,44 +2055,32 @@ appended to someone else's:
 
 And from R91–R93, the two big flagged remainders:
 
-- **The R91–R93 sweep remainder.** The rulings are applied in the new catalogue files, the
-  `table-api.md` stub, and the index; the rest of the corpus still speaks the old language.
-  To sweep: `stream-api.md` (its transform / collect / bridge sections are absorbed by
-  iterable-functions.md; the stream-only surface — `peek`, `isConsumed`, `restart`,
-  `canRestart`, producing — remains its own); `stream.md` §1.1 (the values-only / key-value
-  dichotomy → implicit keys, R93) and §7; `tables.md` §3.3 / §4 (meta-space prose,
-  protocol-phrased write-back); `views.md` (bare `->`, §7.2); `protocols.md` (built-in
-  protocol mentions); `functions.md` §3.4 (its flagged std-shaping tail, discharged by
-  R91–R92); `associativity.md`'s dispatch row; `conversion.md`; `wildcard.md`; the examples.
-  Grep targets: "built-in protocol", "->map(" / "->count(" / bare-`->` built-in calls
-  (`tab->` itself is *valid* protocol-member syntax again under R95 — grep the retired
-  call shapes, not the operator), "asStream" (flag *and* the stream-api §7 function,
-  both → R94), "enumerate", "concat", ".empty()", "values-only".
-- **The R95–R98 sweep remainder.** The protocol redesign is applied in `protocols.md`,
-  the `views.md` stub, the two catalogue files, `table-api.md`, the index, and — R99 —
-  `tables.md`, `stringBuilder.md`, `secret.md`, and `keywords.md`. Still to sweep: the
-  equality spec (gains the per-table-`get` surface rule and the R96 `identityEquality`
-  framing); `json.md` (the `skipFunctions` flag, `typeError` on fn values, roundtrip =
-  apply + initializers, and the open nesting shape for protocol members);
-  `associativity.md` and the lexer (the `?->` token — deferred by decision, R99 — and
-  the `x->P` dispatch row); the constraints spec (§9.4 cross-refs to protocol write
-  enforcement, now compile-time); `conversion.md` (its `toString = meta fn` contract
-  needs the free-function respelling), `wildcard.md`, `any.md`, `regex.md` (`->find`),
-  `io.md`, `command.md`, `functions.md` (§3.4's "`->` is untouched" note still describes
-  meta pools), and the examples. Largest of these:
-  **`optional-access-and-coalescing.md`**, surfaced by R99's verification greps — it is
-  built on the three-axis absence/null/denial model, and the denial axis is dead (R98):
-  its permission rows, the `?.`-does-not-suppress-`TableReadViolationError` rule, and
-  the `???=` read-to-classify caveat all need the two-axis rewrite, and whether `???`
-  keeps its full motivation without denial should be looked at while there. Grep:
-  "view", "meta fn", "meta ", "->apply", "@@sb", "b apply", "onNoGet", "canGet",
-  "ViolationError".
-- **New opens from R95–R98:** the initializer grammar's final spelling (rides the
-  named-arguments question above); removal/`unapply` (unchanged, with §6.3's
-  monotonicity condition standing); the `?->` token's lexer/precedence placement; the
-  JSON nesting shape for serialized protocol members; `@@`'s type surface on non-table
-  values; and mutable protocol-level state, deliberately inexpressible pending the
-  concurrency model's task-ownership story.
+- **The R91–R93 and R95–R98 sweeps are COMPLETE** (R99–R101). Every site the two
+  remainder lists named is done: the catalogue split and its retirements (R99: tables,
+  builder, secret, keywords, operators, spread, concurrency; R100: coalescing, toString,
+  json, functions; R101: equality, stream, stream-api, range, control-flow,
+  associativity, lexer, wildcard, regex, constraints §7's cross-ref), the `?->` token
+  landed (R101), and the examples verified clean. The retired-spelling greps
+  ("built-in protocol", "meta fn", "values-only", "asStream", "onNoGet", "canGet",
+  "ViolationError", "enumerate", the old `->` call shapes) return only deliberate
+  historical mentions. The one discovery that pass recorded — `strings.md`'s eleven
+  `asStream` flags — is **resolved by R102** (producers produce streams), which also
+  settled the string/bytes-iterability question it raised (R104: `foreach` yes for
+  `bytes`, `iterable` stays `table | stream` exact). Future edits: iterable-functions
+  §3's retired-spellings table is the guard against reintroduction.
+- **Opens from R95–R98, still standing:** the initializer grammar's final spelling
+  (rides the named-arguments question above); removal/`unapply` (unchanged, with §6.3's
+  monotonicity condition standing); the JSON nesting shape for serialized protocol
+  members; `@@`'s type surface on non-table values; and mutable protocol-level state,
+  deliberately inexpressible pending the concurrency model's task-ownership story. (The
+  `?->` token's placement, formerly here, landed in R101.)
+- **Opens from R102–R105:** the **conversion-family unification** — `toInt` / `toDouble`
+  exist in per-receiver variants across `strings.md` and `conversion.md` (differing
+  parameter types *and* errorability), the exact shape functions §3.4's
+  one-name-one-signature rule forbids; the union-parameter redesign is its own ruling
+  (R102's tail). And **`toBytes` over an iterable of ints** (repacking a transformed
+  byte sequence into a `bytes`, R104's tail) — errorability question included, since an
+  arbitrary int stream can carry out-of-range values where a `string` source cannot.
 
 Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
 table of `byte` elements or is an error, deferred for want of a use case (spread §7).

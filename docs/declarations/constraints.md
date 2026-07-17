@@ -198,8 +198,8 @@ A constraint is checked on **every operation that could make the value violate i
   and mutation together maintain the invariant. A `byte` read from a `bytes` buffer is known to
   be `0..255` because every write checked it (bytes spec).
 
-This is the same checked-on-write, trusted-on-read discipline as protocol element types
-(protocols §5.4), with "write" spanning **both entry and interior mutation**: validate wherever
+This is the same checked-on-write, trusted-on-read discipline as protocol member types
+(protocols §3.3), with "write" spanning **both entry and interior mutation**: validate wherever
 the value could change, rely on it everywhere else. The per-mutation cost of a table-level
 constraint is the price of that guarantee (tables §8); `list` keeps it O(1) by maintaining
 membership as a bit rather than rescanning (tables §2.2), and the compiler elides checks it can
