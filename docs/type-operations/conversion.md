@@ -36,7 +36,7 @@ acquiring a value from an encoding must *recover* it from data that may not enco
 
 | Prefix | Shape | Errorable? | Reading it |
 |-|-|-|-|
-| `to*` | value → value, total conversion | **never** | no `try`, ever: `toString`, `toInt`, `toDouble`, `toBytes`, `toJson`, `toStream` |
+| `to*` | value → value, total conversion | **never** | no `try`, ever: `toString`, `toInt`, `toDouble`, `toBytes`, `toTable`, `toJson`, `toStream` |
 | `parse*` | bare text → value; names the **target** | **always** `!` | recovering a value from text that may not encode one: `parseInt`, `parseDouble`, `parseBool` |
 | `from*` | typed carrier → data; names the **source** | **always** `!` | decoding at a format boundary: `fromJson`, `fromBytes`, `fromYaml` |
 
@@ -188,6 +188,10 @@ The built-in family (each obeying §2's prefix contract), specified in the relev
 specs and summarized here:
 
 - **To string (total):** `toString(value): string` for any value (§3).
+- **To table (total):** `toTable(e: error): table` — an error's identity surface, reified
+  for structural `match` (errors §2.2, equality §5, R110). This is *the* `toTable`
+  (one name, one signature, functions §3.4); nothing else wants the name — iterables
+  have `collect`.
 - **From text (fallible):** `parseInt(s: string): int!`, `parseDouble(s: string): double!`,
   `parseBool(s: string): bool!` — one per parseable built-in (string spec and each type's
   spec).

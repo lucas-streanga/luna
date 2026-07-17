@@ -78,8 +78,8 @@ Given equal types, how the values compare depends on the type's category. There 
 every type belongs to exactly one:
 
 - **Value-equality types**, compared by their **contents**: the scalars (`int`, `double`, `bool`,
-  `byte`, `null`), `string`, and `table` (structural, §4). Two distinct values with the same
-  contents are equal.
+  `byte`, `null`), `string`, `table` (structural, §4), and `error` (nominal type plus the
+  identity surface, §5). Two distinct values with the same contents are equal.
 - **Identity-equality types**, compared by **identity** (same underlying object): `stream`, `fn`,
   `promise`, `capability`, `command`, and a **table that has an applied `identityEquality` protocol**
   (§4.4, which is how builders compare). Two of these are equal only if they are the **same** value,
@@ -258,7 +258,7 @@ surface, and the serialization surface.
 
 ---
 
-## 5. Strings, `null`, `undefined`, capabilities, secrets, commands, regex
+## 5. Strings, `null`, `undefined`, errors, capabilities, secrets, commands, regex
 
 - **`string`**, value equality by contents. The fast path (§4.3) applies: **equal storage pointers
   imply equal strings**, so `==` short-circuits to `true` on a pointer match (a `const` string
@@ -274,6 +274,16 @@ surface, and the serialization surface.
 - **`undefined`**, `undefined == undefined` is **true** (absence equals absence, reflexively, so
   that every value equals itself, the sole exception being IEEE nan, §3). `null == undefined` is
   **`false`** (different types, §1): present-nothing is not absent.
+- **`error`**, value equality by **nominal type plus identity surface** (R110, errors §2.2):
+  `a == b` iff the same error type (nominal, no erasure — the enum-variant rule, §1) and the
+  **identity surface** deep-matches by `==` — `message`, the declared fields, `data`, and
+  `cause` (recursively, each level by its own surface). **`stacktrace` never compares**: it is
+  runtime-attached provenance (*where*), not authored identity (*what*), so two equal errors
+  thrown at different sites are equal — the tests-and-dedup case. This is the surface
+  principle's third instance (protocols' granted members §4.5; tables' element space §4):
+  equality compares what the author declared, never what the runtime attaches. `toTable(e)`
+  reifies the surface for structural `match` (errors §2.2). Errors are reflexive except by
+  contagion (a nan or secret field, below).
 - **`capability`**, identity equality (§2): same capability is equal, a pointer compare. Capabilities
   are immutable, zero-data singletons reached only through `use` (capabilities spec), so identity is
   the only meaningful relation, "is this the same capability."
@@ -284,6 +294,9 @@ surface, and the serialization surface.
   exception to reflexivity** (every other value equals itself except IEEE nan): a secret is not
   introspectable, so "is this secret equal to itself" has no answer the language will give. To
   compare secrets, `reveal` them (an explicit, auditable act) and compare the revealed values.
+  **Contagion parallels nan** (§3, §4): a container whose compared surface holds a secret — a
+  table element, an error field (errors §2.2) — is never equal, including to itself, because
+  the element comparison is `==` throughout.
 - **`command`**, identity equality (§2): a command equals itself (reflexive) but no distinct command,
   a pointer compare. Commands are structured, inert, and often carry secrets (command spec), so
   structural comparison would both be a rarely-wanted operation and drag in secret comparison (a
@@ -314,6 +327,7 @@ erasure, §1, intro). Otherwise, comparison is by the shared base type below. "R
 | `type` | canonical `typeid` | one integer compare; `int\|double == double\|int` (§3) |
 | `table` (default) | **structural**: same length, key/value pairs, bases, values, **order**; plus applied-protocol sets and their `get`-granted per-table members (§4.5) | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4); `list` erases to `table` (§1) |
 | `enum` value | same **variant** (nominal, no erasure, §1), then payload structurally | `circle != square` regardless of payloads; same variant compares its payload table by `==` |
+| `error` | same **type** (nominal), then the **identity surface**: `message`, declared fields, `data`, `cause` recursively — never `stacktrace` (§5, errors §2.2) | reflexive except by contagion (a nan or secret field); `toTable(e)` reifies the surface for `match` |
 | `table` applying `identityEquality` | **identity** | how builders compare; any such protocol makes the whole table identity-equal (§4.4) |
 | `stream` | identity | contents uncomparable (single-pass, maybe infinite) |
 | `stringBuilder` / builders | identity | via the `identityEquality` protocol declaration (§4.4); compare `->build()` results for content |
@@ -332,10 +346,9 @@ functions and `match` as the deliberate escapes for cross-type and partial compa
 
 ## 7. Open questions
 
-- **`error` value equality.** Errors are field-carrying value types (errors §5) but no row above
-  covers them; structural comparison is complicated by `stacktrace` (two otherwise-identical
-  errors thrown in different places differ) and `cause` chains. Undecided between structural-
-  minus-trace, identity, and structural-in-full.
+- *(**`error` value equality is resolved by R110** — structural-minus-trace won, principled as
+  the identity surface: §5's `error` row, errors §2.2. The `stacktrace` complication resolved
+  as provenance-vs-identity; the `cause` chain compares recursively by surface.)*
 - *(The former `view`-equality question is **mooted by R95**: the `view` type no longer
   exists.)*
 

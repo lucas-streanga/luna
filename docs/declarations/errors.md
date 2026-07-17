@@ -115,6 +115,38 @@ Because these are the prefix of every error, `e.message`, `e.stacktrace`, `e.cau
 `e.data` are valid on any `error` value, including the error arm of a `try` (§8) and a
 block-caught `error` (§8.2), with no downcast.
 
+### 2.2 Equality: the identity surface, and `toTable`
+
+Errors are **value-equality** types (equality §5, R110): `a == b` iff the two are the
+**same error type** (nominal, no erasure — the enum-variant rule, equality §1) and their
+**identity surfaces** deep-match by `==`. The identity surface is what the author put
+there — `message`, the declared fields, `data`, and `cause` (compared recursively, each
+level by its own surface) — and **never `stacktrace`**: the trace is runtime-attached
+provenance, written by `throw` (§6.1), recording *where* the error happened rather than
+*what* it is. Two errors of the same type with the same fields are equal however far
+apart they were thrown, which is exactly what tests (`r == expectedError`) and
+deduplication need. This is the surface principle's third instance (protocols' granted
+members, R96; tables' element space): **equality compares what the author declared;
+what the runtime attaches is not identity.**
+
+```
+fn toTable(e: error): table     // total: the identity surface, reified
+```
+
+**`toTable`** converts an error to a table of its identity surface — `message`, the
+declared fields, `data`, and `cause` (as an error value) — excluding `stacktrace`
+(readable separately as `e.stacktrace`). It is total (`to*` contract, conversion §2),
+it is *the* definition of the surface (`a == b` ⇔ same typeid ∧
+`toTable(a) == toTable(b)`), and it is the **shape-matching bridge**: error structure is
+matched through ordinary table patterns, `match (e.toTable()) { ['code' => 11] => … }`,
+while the *type* axis stays with the type system (typed binders `p: parseError`, `is`
+for subtree membership, `@` for reflection).
+
+One consequence to know: a declared field of type `secret` makes its error **never
+equal**, including to itself — secret contagion, the same rule as a table holding a
+secret and the same family as nan (equality §5). Don't put secrets in fields you intend
+to compare; match on the others.
+
 ---
 
 ## 3. Defining an error

@@ -2157,6 +2157,32 @@ residue, were discovered and respelled as `typeError` panics), `index.md` (two r
 `indexable-functions` drops from 22 functions to 19; `defer.md` and the build-cache
 spec's `open()` / `close()` are file handles and untouched.
 
+**R110 — error equality: the identity surface; `toTable`.** Equality §7's oldest open
+resolves as **structural-minus-trace, made principled**: `a == b` for errors iff the
+same error **type** (nominal, no erasure — the enum-variant rule) and the **identity
+surface** deep-matches by `==` — `message`, the declared fields, `data`, and `cause`
+(recursively, each level by its own surface) — with **`stacktrace` never comparing**:
+the trace is runtime-attached provenance, written by `throw`, recording *where* the
+error happened rather than *what* it is, so two equal errors thrown at different sites
+are equal, which is exactly the tests-and-dedup case `==` exists for. This is the
+**surface principle's third instance** (protocols' granted members, R96; tables'
+element space), now stated as one sentence: *equality compares what the author
+declared; what the runtime attaches is not identity.* A premise from the discussion
+corrected on the way: the stacktrace is **not** a `secret` and cannot be one
+(`stacktrace: table`, sealed but readable, errors §2.1 — with the documented
+`stacktrace.isEmpty()` idiom; and `secret` wraps `string | bytes` only, secret §6), so
+the secrets-never-equal trap does not fire — though **secret contagion** is now stated
+explicitly where it was only derivable: a container whose compared surface holds a
+secret (a table element, an error field) is never equal, including to itself, the same
+family as nan; guidance recorded (don't put secrets in compared fields). **`toTable`**
+lands as the surface reified: `fn toTable(e: error): table` — total (`to*` contract),
+*the* definition of the surface (`==` is typeid plus `toTable` equality), and the
+shape-matching bridge (`match (e.toTable()) { ['code' => 11] => … }` rides ordinary
+table patterns while the type axis stays with typed binders / `is` / `@`). It claims
+the global `toTable` name under one-name-one-signature; nothing else wants it. Swept:
+`errors.md` (§2.2 added), `equality.md` (§2's list, §5's error bullet and the secret
+contagion line, §6's row, §7 resolved), `conversion.md` (§2's table, §5's catalogue).
+
 ---
 
 ## Still open (out of scope of these rulings)
