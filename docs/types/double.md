@@ -189,16 +189,23 @@ two are disjoint representations and converting **transforms** the value (`as` n
 
 ```
 fn toDouble(n: int): double        // int to double; exact for |n| <= 2^53, lossy above (mantissa is 52 bits)
-fn toInt(d: double): int!          // double to int; truncates toward zero; fallible
+fn trunc(d: double): int!          // toward zero          — the policy verbs, each fallible
+fn round(d: double): int!          // nearest; ties away from zero
+fn floor(d: double): int!          // toward -inf
+fn ceil(d: double): int!           // toward +inf
 ```
 
 - **`int` to `double`** is total but **lossy for large magnitudes**: a `double`'s 52-bit
   mantissa cannot exactly represent every 64-bit int, so ints beyond 2^53 lose low bits. The
   function succeeds but the result may be rounded.
-- **`double` to `int`** truncates toward zero and is **fallible** (`int!`): nan, the infinities,
-  and values outside the int range have no int result, so the conversion throws (a declarable error
-  to handle, or a panic, matching how out-of-range narrowing behaves). Truncation of an
-  in-range finite double is exact.
+- **`double` to `int` is a policy, not a conversion** (conversion §2, R106): the narrowing
+  hides a rounding decision, so it is spelled by **policy verbs** — `trunc` (toward zero),
+  `round` (nearest, ties away from zero), `floor`, `ceil` — each **fallible** (`int!`):
+  nan, the infinities, and values outside the int range have no int result, so the verb
+  throws (a declarable error to handle, or a panic, matching how out-of-range narrowing
+  behaves). Each verb is exact on an in-range finite double. (The retired generic
+  `toInt(d)` silently truncated; the choice is now visible in the source, and `toInt`
+  names only the total `bool → int` conversion, bool spec.)
 
 Keeping these as named functions (not `as`, not implicit) makes the lossy and fallible nature
 visible at every crossing, consistent with the language's conversion-is-a-function rule.

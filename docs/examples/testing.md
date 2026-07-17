@@ -9,8 +9,7 @@ import std.io;
 import std.json;
 
 const parsePort = fn (raw: string): int! => {
-  let n = raw.toDouble();                 // double!: malformed input propagates
-  let port = n as int;                    // panics if fractional: misuse of this fn
+  let port = raw.parseInt();              // int!: malformed input propagates
   throw error("port out of range: $port") if (port < 1 || port > 65535);
   return port;
 };

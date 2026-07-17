@@ -2025,6 +2025,65 @@ capture (functions §2.1) and to a string slice pinning its parent's buffer (str
 §6, the in-corpus precedent), and the escape is the ordinary one: `collect` the small
 result and drop the stream. Swept: `stream.md` §4, `stream-api.md` §4, `range.md`.
 
+**R106 — the conversion family unified: three prefixes, three contracts.** The last
+standing violation of functions §3.4's one-name-one-signature rule — `toInt` in three
+per-receiver variants (`string → int!`, `double → int!`, `bool → int`), `toDouble` in two
+— resolves by the **distinct-names** arm, not the union arm, because this family is the
+union pattern's weak spot: errorability varies with the input, so a union signature
+(`toInt(v: string|bool|double): int!`) would force the `try` tax onto the provably-total
+`bool` path — a signature that lies in the safe direction is still a signature that lies.
+The resolution recognizes **three different operations wearing one verb**, and gives each
+its prefix, tabulated in conversion §2: **`to*` is total, always** (`toString`, `toInt`,
+`toDouble`, `toBytes`, `toJson`, `toStream` — seeing `to` means no error handling);
+**`parse*` acquires from bare text, always `!`, and names the *target*** (`parseInt`,
+`parseDouble`, `parseBool` — the input type, universal `string`, says nothing, so the
+name must); **`from*` decodes a typed carrier, always `!`, and names the *source***
+(`fromJson`, `fromBytes`, `fromYaml` — the output, ambient `table`/`string`, says
+nothing, so the name echoes the input). The principle: *the name carries whichever end
+the signature doesn't make obvious.* The families never compete — `parseJson` would mean
+"text → `json`", which already has its one spelling (`raw as json`, the constraint
+entry), so it does not exist and `fromJson` keeps its name; the `parseFromJson`
+contortion dies with the false dilemma. Noted, not papered over: `from*` is uniform about
+naming, not about where validation runs (`fromJson` trusts its constraint-validated
+input; `fromBytes` validates raw octets itself). **`double → int` is a policy, not a
+conversion**: the retired `toInt(d)` silently truncated; it becomes the **policy verbs**
+`trunc` / `round` (ties away from zero) / `floor` / `ceil`, each `fn (d: double): int!`,
+deliberately outside the prefix families — they are decisions, not conversions, and the
+choice is now visible in the source. Survivors, each exactly once and total:
+`toInt(b: bool): int`, `toDouble(n: int): double`. Swept: `conversion.md` (§2 rewritten
+around the contract table, §4, §5), `double.md` §7 (the four verbs), `strings.md` §4
+(`parseInt` / `parseDouble`) and §14, `functions.md` §3.4 (the discharge note now true in
+full), `bool.md` (already conformant — `toInt(b)` *is* the surviving `toInt`), and the
+examples, where the sweep surfaced two latent drifts fixed with cause:
+`one-billion-rows.md` **indexed a `split` result** (unindexable since R102 made it a
+stream) — rewritten to R103 stream destructuring, which the example now showcases; and
+`testing.md`'s `parsePort` used `n as int` on a `double`, violating the as-never-converts
+rule (as spec §3) — rewritten to a direct `parseInt`. `fromString`-as-open-coercion stays
+open (conversion §6), unchanged.
+
+**R107 — `toBytes` widens; the `to*` contract is precise about panics.** The R104 open —
+repacking an iterable of ints into a `bytes` — resolves into the **existing name**:
+`fn toBytes(src: string | iterable): bytes`. Two observations make the name legal:
+constraint violations are **panics**, not declarable errors (constraints §7.1, bytes §2),
+and panics are signature-exempt (functions §4, "just about every function can panic") —
+so the iterable arm, which checks each element against the `byte` constraint, carries no
+`!`, and the union R106 forbade for `toInt` is clean here: *both* arms are `!`-free (the
+string arm cannot even panic — a string's octets are bytes by construction), so neither
+forces a `try` tax on the other. `parseBytes`, the floated alternative, is rejected by
+R106's own table: it would be the one `parse*` taking no text and carrying no `!`,
+eroding both halves of a one-ruling-old contract — and "parse" misdescribes an operation
+that decodes nothing (the ints are already values; only the packing changes). Semantics:
+the iterable arm is a **bulk append**, morally the `b[] = x` loop it abbreviates,
+inheriting its per-element `typeError` panic — and panic is *right*: a non-byte int out
+of your own transform is an invariant bug, not the data-dependent recoverable failure
+that makes `fromBytes` errorable (world octets may not be UTF-8; your map's range is
+your contract). A stream argument is taken (iterable-functions §1.5). Sharpened
+alongside, in conversion §2: the contract table's "**never**" means never **`!`** —
+panics stay possible in `to*` as everywhere, with `toJson`'s `typeError` on fn values
+(json §2.1) and `toBytes`' constraint panic as the in-family examples; the contract is
+"no error *handling*," not "cannot fail on misuse." Swept: `strings.md` §9,
+`conversion.md` §2, `bytes.md` §6; the R104 open is retired below.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2074,13 +2133,10 @@ And from R91–R93, the two big flagged remainders:
   members; `@@`'s type surface on non-table values; and mutable protocol-level state,
   deliberately inexpressible pending the concurrency model's task-ownership story. (The
   `?->` token's placement, formerly here, landed in R101.)
-- **Opens from R102–R105:** the **conversion-family unification** — `toInt` / `toDouble`
-  exist in per-receiver variants across `strings.md` and `conversion.md` (differing
-  parameter types *and* errorability), the exact shape functions §3.4's
-  one-name-one-signature rule forbids; the union-parameter redesign is its own ruling
-  (R102's tail). And **`toBytes` over an iterable of ints** (repacking a transformed
-  byte sequence into a `bytes`, R104's tail) — errorability question included, since an
-  arbitrary int stream can carry out-of-range values where a `string` source cannot.
+- **Opens from R102–R105: all resolved.** The conversion-family unification by R106
+  (three prefixes, three contracts; the policy verbs; `parseInt` / `parseDouble`); the
+  `toBytes`-over-iterable repack by R107 (the union arm, constraint-panic-checked per
+  element and therefore `!`-free; `parseBytes` rejected by R106's own table).
 
 Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
 table of `byte` elements or is an error, deferred for want of a use case (spread §7).

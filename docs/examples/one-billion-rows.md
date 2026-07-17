@@ -18,9 +18,8 @@ const main = fn () use (io, argv): int! => {
   var agg = [];                                  // station => ['min','max','sum','count']
 
   foreach (line in fd.lines()) {
-    let parts   = split(line, ';');              // 'Hamburg;12.0' => ['Hamburg', '12.0']
-    let station = parts[0];
-    let temp    = parts[1].toDouble();           // double!: malformed input propagates
+    let [station, rawTemp] = split(line, ';');   // stream destructuring: pulls the two fields (R103)
+    let temp    = rawTemp.parseDouble();         // double!: malformed input propagates
 
     agg[station] ??= ['min' => temp, 'max' => temp, 'sum' => 0.0, 'count' => 0];
     if (temp < agg[station].min) { agg[station].min = temp; }
@@ -44,7 +43,12 @@ What the example exercises, with the rulings it leans on:
   file is the cursor and `lines()` is a view over it.
 - **`??=`** (associativity §1): first-sight initialization of the aggregate row, exactly
   the absent-assign it was added for.
-- **Errorable `main`** (errors §5): `openFile` and `toDouble` propagate bare, a missing
+- **Stream destructuring** (destructuring §1.4): `split` produces a stream (producers
+  produce streams, strings §1, R102), and the pattern pulls exactly the two fields it
+  binds; a malformed extra field is simply left unconsumed, and a missing one binds
+  `undefined`, which **panics at the `parseDouble` use** rather than passing silently
+  (undefined spec: holding is fine, using panics).
+- **Errorable `main`** (errors §5): `openFile` and `parseDouble` propagate bare, a missing
   file or a malformed row exits with the error; wrap either in `try` to recover instead.
 - **`defer close(&fd)`** (std.io §4), `&` on a `var` binding (variables §5.1).
 - **Element-path writes and compound assignment**: `agg[station].sum += temp` evaluates

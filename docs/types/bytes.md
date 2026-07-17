@@ -138,9 +138,10 @@ and comparing an element against the `int` literal `0` works because `==`/`!=` e
 constraints (`byte` and `0` share the base `int`, equality spec §1). Bulk transforms are
 **not** direct — `bytes` is not an `iterable` (R104): a transform's output cannot promise
 to stay `0..255`, so a packed result kind would be unsound in general. The spelling is the
-explicit bridge, `b.toStream() |> filter(fn (x) => x != 0)`, yielding ints; repacking a
-byte sequence into a fresh buffer is an explicit build (§3), with a dedicated
-`toBytes(iterable)` conversion flagged open (R104). No new scalar type.
+explicit bridge, `b.toStream() |> filter(fn (x) => x != 0)`, yielding ints; repack with
+`toBytes` (string-api §9, R107), whose iterable arm is a bulk append — each element
+checked against the `byte` constraint, panicking on a non-byte exactly as `b[] = x`
+would (§2). No new scalar type.
 
 ---
 

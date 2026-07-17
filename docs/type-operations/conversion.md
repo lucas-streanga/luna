@@ -27,27 +27,48 @@ value of a different type is produced, that is a conversion function.** Every `t
 
 ---
 
-## 2. Rendering out is total; parsing in is fallible
+## 2. Three prefixes, three contracts
 
-Conversions split by direction, and the two directions have opposite failure profiles:
+Conversions split by direction, and the directions have opposite failure profiles:
+rendering out has the full value in hand and only formats it (always possible), while
+acquiring a value from an encoding must *recover* it from data that may not encode one
+(sometimes impossible). The **prefix carries the contract** (R106):
 
-- **Rendering out (a value to a `string`) is total.** Every value has *a* string form, so
-  `toString` cannot fail (§3). There is always a sensible or at worst default rendering, so
-  producing a string never errors.
-- **Parsing in (a `string` to a value) is fallible.** Not every string denotes a valid value of
-  the target type (`"abc"` is not an `int`, `"maybe"` is not a `bool`), so `parseX` / `fromString`
-  returns a fallible `T!` (a declarable error on a string that does not denote a `T`, errors spec).
+| Prefix | Shape | Errorable? | Reading it |
+|-|-|-|-|
+| `to*` | value → value, total conversion | **never** | no `try`, ever: `toString`, `toInt`, `toDouble`, `toBytes`, `toJson`, `toStream` |
+| `parse*` | bare text → value; names the **target** | **always** `!` | recovering a value from text that may not encode one: `parseInt`, `parseDouble`, `parseBool` |
+| `from*` | typed carrier → data; names the **source** | **always** `!` | decoding at a format boundary: `fromJson`, `fromBytes`, `fromYaml` |
 
-This asymmetry is inherent: rendering has the full value in hand and only formats it (always
-possible), while parsing must *recover* a value from text that may not encode one (sometimes
-impossible). So **out is total, in is fallible**, and the `!` sits on the parsing side only.
+One precision on the table's **never**: it means never **`!`** — the declarable channel.
+Panics remain possible in a `to*` function as everywhere (functions §4: any function may
+panic, none declares it): `toJson` raises `typeError` on a fn value in the serialization
+surface (json §2.1), and `toBytes`' iterable arm panics per element on a non-byte int
+(R107) — each a contract violation surfacing where it happens, not a recoverable
+outcome. The contract is "seeing `to` means no error *handling*," not "cannot fail on
+misuse."
 
-```
-toString(value): string          // total: always succeeds
-parseInt(s):     int!             // fallible: not every string is an int
-parseBool(s):    bool!            // fallible
-fromString(s):   T!               // fallible in general
-```
+The naming principle behind the two fallible families: **the name carries whichever end
+the signature doesn't make obvious.** A `parse*` function takes bare `string` — the
+universal text type, which says nothing — so the name states the *target*. A `from*`
+function takes a specific carrier whose type is the story, and returns the ambient data
+shape (`table`, `string`) — so the name states the *source*. The families never compete
+for a name: `parseJson` would mean "text → `json`", which already has its one spelling,
+the constraint entry `raw as json` (json §1), so it does not exist and `fromJson` keeps
+its name. (`from*` names the source only; it is deliberately *not* uniform about where
+validation runs — `fromJson` trusts a `json`-constrained input, `fromBytes` validates raw
+octets itself.)
+
+**Numeric narrowing is a policy, not a conversion.** `double → int` hides a rounding
+decision, and its failures (nan, the infinities, out-of-range) belong to that decision.
+It is spelled by **policy verbs**, each `fn (d: double): int!` — `trunc` (toward zero),
+`round` (nearest, ties away from zero), `floor`, `ceil` (double spec §7) — so the policy
+the retired generic `toInt(d)` silently applied is now a visible choice in the source.
+The verbs sit outside the prefix families on purpose: they are decisions, not
+conversions.
+
+So **out is total, in is fallible**, and the `!` sits on the acquiring side only —
+readable off the prefix at every call site.
 
 ---
 
@@ -146,8 +167,9 @@ Not every conversion is user-extensible, and the split is principled:
 - **`toString` is open** (extensible via the `stringify` protocol), because **display is
   universal**: any value might be logged, interpolated, or shown, so every type, including user
   types, needs a rendering. The open protocol dispatch is what makes that universal.
-- **The numeric and parsing family is closed** (`toInt`, `toDouble`, `parseInt`, `parseBool`,
-  `fromString` for built-ins): these are **built-in-to-built-in** conversions with fixed
+- **The numeric and parsing family is closed** (`toInt`, `toDouble`, the policy verbs
+  `trunc` / `round` / `floor` / `ceil`, and `parseInt`, `parseDouble`, `parseBool`): these
+  are **built-in-to-built-in** conversions with fixed
   meaning, and there is no general sense in which an arbitrary user type "converts to `int`." A
   user type that *does* have a natural numeric projection provides a **named function of its own**
   (`account.toBalance()`, `color.toRgb()`), not a hook into a universal `toInt`. So custom numeric
@@ -162,20 +184,24 @@ functions, no overloading anywhere.
 
 ## 5. Conversions between built-in types
 
-The built-in conversion functions (each total or fallible per §2), specified in the relevant type
+The built-in family (each obeying §2's prefix contract), specified in the relevant type
 specs and summarized here:
 
 - **To string (total):** `toString(value): string` for any value (§3).
-- **From string (fallible):** `parseInt(s): int!`, `parseBool(s): bool!`, and the like, one per
-  parseable built-in (string spec and each type's spec).
-- **Numeric (between number types):** `toDouble(n: int): double` (total, lossy above 2^53),
-  `toInt(d: double): int!` (fallible: nan, infinities, out-of-range have no int; int spec,
-  double spec).
+- **From text (fallible):** `parseInt(s: string): int!`, `parseDouble(s: string): double!`,
+  `parseBool(s: string): bool!` — one per parseable built-in (string spec and each type's
+  spec).
+- **Numeric widening (total):** `toDouble(n: int): double` (exact to 2^53, lossy above;
+  double spec §7).
+- **Numeric narrowing (policy verbs, fallible):** `trunc` / `round` / `floor` / `ceil`,
+  each `fn (d: double): int!` (§2; double spec §7).
 - **Bool (total out):** `toInt(b: bool): int` (`true` to 1), `toString(b)` (`true` to `"true"`);
   there is deliberately no `int`-to-`bool` conversion (write the comparison; bool spec §3).
 
-Each of these is a **function** (§1), reachable by UFCS (`b.toInt()` is `toInt(b)`), and none is
-spelled with `as`.
+`toInt` and `toDouble` each exist **exactly once**, total — the per-receiver variants
+earlier drafts implied are resolved by the prefix split (R106), satisfying functions
+§3.4's one-name-one-signature rule. Each of these is a **function** (§1), reachable by
+UFCS (`b.toInt()` is `toInt(b)`), and none is spelled with `as`.
 
 ---
 

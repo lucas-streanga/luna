@@ -109,12 +109,14 @@ fn repeat(str: string, times: int): string
 #### chr() / parse helpers
 ```
 fn chr(codepoint: int): string             // one-codepoint string from a scalar value
-fn toInt(str: string): int!                // parse; error if not a valid integer
-fn toDouble(str: string): double!          // parse; error if not a valid double
+fn parseInt(str: string): int!             // parse; error if not a valid integer
+fn parseDouble(str: string): double!       // parse; error if not a valid double
 ```
 `chr` is the inverse of taking a single `codepoints()` element. The parse helpers
-return an errorable type (postfix `!`, the value-representation error model);
-`str.toInt()` must be consumed with `try` or an errorable binding.
+return an errorable type (postfix `!`, the value-representation error model) and are
+named for their **target** (`parse*` acquires from bare text; `to*` is reserved for
+total conversions — the three-prefix contract, conversion §2, R106); `str.parseInt()`
+must be consumed with `try` or an errorable binding.
 
 ---
 
@@ -292,15 +294,21 @@ per unit — `collect()` retains a list (§1). None allocate per element for ASC
 
 #### bytes() · toBytes()
 ```
-fn bytes(str: string): stream          // the producer: yields each byte (int 0..255)
-fn toBytes(str: string): bytes         // the conversion: the packed bytes value
+fn bytes(str: string): stream              // the producer: yields each byte (int 0..255)
+fn toBytes(src: string | iterable): bytes  // the conversion: the packed bytes value
 ```
 Two operations, split along the producer/conversion seam (R102). `bytes()` is the
 **iteration view**, a stream of `byte` (int `0..255`). `toBytes()` is the **conversion**
 (the `to*` family, R94) to a packed **`bytes`** value (bytes spec), the natural
 representation for I/O, hashing, and low-level work, rather than a boxed list of
-integers. `toBytes` is the inverse of `string.fromBytes(b): string!` (bytes spec §5),
-which validates bytes back into a string.
+integers. Its union arm (R107) repacks an **iterable of byte-valued ints** — a
+transformed byte stream, a list of octets — as a bulk append, each element carrying the
+ordinary `byte` constraint check: a non-byte value **panics** (`typeError`, bytes §2),
+exactly as the `b[] = x` writes it abbreviates would, so the signature stays `!`-free
+(panics are signature-exempt, functions §4); a stream argument is taken
+(iterable-functions §1.5). On a `string`, `toBytes` is the inverse of
+`string.fromBytes(b): string!` (bytes spec §5), which validates bytes back into a
+string.
 
 #### codepoints()
 ```
@@ -449,7 +457,7 @@ hidden O(n^2) cost.
   append; string-builder §5.)
 - **`slice` unit:** confirm `slice` is byte-offset (fast, boundary-checked) and that a
   separate `graphemeSlice` is not needed, versus offering both.
-- **Error vs. sentinel:** `indexOf` returns `-1`, `toInt` returns `| error`. Confirm
+- **Error vs. sentinel:** `indexOf` returns `-1`, `parseInt` returns `int!`. Confirm
   this split (position-absent is ordinary and uses a sentinel; parse-failure is
   exceptional and uses the error channel) rather than unifying on one.
 - **`cString()` return type:** it returns a `string` (bytes plus an appended NUL);

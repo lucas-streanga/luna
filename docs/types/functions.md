@@ -521,9 +521,10 @@ per name, receiver first**. Where earlier drafts implied per-receiver variants (
 `string` returning `int!` and on `bool` returning `int`; `join`'s receiver position
 wandering), those are either **one function with union parameters** (the documented pattern:
 "no overloading; unions instead", strings spec) or **distinct names**. The std surface now
-satisfies this (the iterable and indexable catalogues, R91–R92 — the flagged std-shaping
-work, since done), and the rule stays fixed: one name, one signature, first parameter is
-the receiver.
+satisfies this in full: the catalogues (R91–R92), `join` (R102), and the conversion family
+(R106 — `toInt` on `string` became `parseInt`, the *distinct-names* arm; `toInt` survives
+exactly once, total, `bool → int`). The rule stays fixed: one name, one signature, first
+parameter is the receiver.
 
 ## 4. Errorability
 
