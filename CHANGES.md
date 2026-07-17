@@ -1624,6 +1624,89 @@ per-method flag defined nowhere globally and still defaults `true` on `chunk`, `
 does not define — the `...tabs` variadic, the `*,` keyword-only tail, and the `name?` optional
 parameter. That is the table-api revision, not this one.
 
+**R91 — the built-in table protocol is retired; the catalogue is built-in free functions.**
+The corpus held three incompatible accounts of how a table operation is called: table-api §1
+said "you may call `tab.map(...)`" — a dot-reached protocol member, impossible since functions
+§3.4 ruled that `x.name(` is UFCS and that "UFCS never searches protocol meta pools"; tables
+§3.3 said the catalogue lives in meta space behind bare `->` (`tab->map()`); and tables §4's
+own examples write `myTable.sort()` and `&myTable.pop()`. Meanwhile `map` existed twice — a
+stream free function and a table protocol member with different signatures — against §3.4's
+own rule, "one name, one signature, first parameter is the receiver," whose tail flagged
+exactly this std-shaping work. The ruling: **there is no built-in protocol.** Every operation
+is a built-in free function, receiver first, reached by call or UFCS — the account the stream
+API already followed and the examples already assumed. Free availability: no import, no
+module; a local binding shadows the built-in, and a UFCS call through the shadow is a compile
+error (not callable) — loud, and accepted. Dead with the protocol: bare `->` (the operator now
+reaches only *named* user protocols), views §7.2's special case (nothing left to exclude from
+`@@tab`), the "represented virtually" implementation note, and the members-not-assignable
+rule. `&`-write-back is untouched: `&` at the call site assigns the return value back (tables
+§4), however the call is spelled. Swept: `table-api.md` (stubbed to the successor map plus
+deferrals), `iterable-functions.md` / `indexable-functions.md` (created, R92), `index.md`.
+The rest of the corpus is a flagged remainder (Still open).
+
+**R92 — one vocabulary over `iterable`; whole-input retention takes a `table`.** `iterable`
+is a built-in type, the union `table | stream`, written bare like `list`. The catalogue
+splits on one test: an operation whose semantics need only **ordered traversal of
+`key => value` pairs** — lazy, short-circuiting, or bounded-memory — takes `iterable`
+(`iterable-functions.md`: 47 functions, including `take` / `skip` / `takeWhile` / `dropWhile`,
+formerly stream-only, now on tables too); an operation needing keyed access, table state,
+positional mutation, **or the entire input at once** takes `table`
+(`indexable-functions.md`: 22). The retention rule is the load-bearing half: `sort`,
+`reverse`, `shuffle`, `groupBy`, `partition` cannot emit their first element before seeing
+their last, so on a stream they would be a *silent* collect — hiding exactly the O(n) the
+explicit bridge exists to show — and streams may be infinite, so the type keeps unbounded
+input out of unbounded buffering; the stream spelling is `s.collect().sort()`. `random` is
+the deliberate exception (reservoir sampling, O(num), single pass) and stays iterable;
+`reduce` is the deliberate escape hatch for building retained data by hand. Output kind
+follows the primary operand (first operand, for constructor-style `combine`): table in →
+table out, stream in → stream out, and the `asStream` flag is retired from every signature.
+Rejected alternative: an output-kind parameter for "merge two tables, get a stream" —
+unnecessary, because `asStream(tab)` is O(1) and lazy, so bridging the primary
+(`a.asStream().merge(b)`) already spells it with no new mechanism; the bridges' costs match
+their explicitness (`asStream` free, `collect` the visible O(n), both total on `iterable`
+and identity on their own kind). A stream passed as *any* argument is **taken**, extending
+the `|>` transfer discipline (stream §7). `onNoGet` / `onNoSet` are dropped from every
+signature and deferred — with `TableReadViolationError` / `TableMutationViolationError` and
+the `canGet` / `canSet` grant semantics — to the protocol redesign; the deferrals are
+recorded in the `table-api.md` stub. R90's audit, `preserveKeys` half: **discharged** — the
+surviving defaults follow R90's rule (combiners `merge` / `flatten` reindex; reshapers and
+pickers `chunk` / `partition` / `random` / `slice` preserve); its parameter-forms half stays
+open below.
+
+**R93 — every stream is keyed; the name mergers.** The values-only / key-value stream
+dichotomy (stream spec §1.1) is erased: every iterable yields `key => value` pairs, and a
+generator yielding bare values has **implicit keys** `0, 1, 2…` — a stream is to a table
+exactly what a list is to a keyed table, and implicit keys behave precisely as list keys
+(preserved by per-element functions, hence sparse after `filter`; reindexed by `values`).
+The symmetry makes every key-facing function (`keys`, `keyOf`, `flip`, `keyFirst` /
+`keyLast`, mode `{keys}`) total over `iterable`, and closes stream-api §9's key-aware
+`peek` / `first` question: `peek` / `first` return values, `keyFirst` / `keyLast` return
+keys, `foreach (k => v)` gives pairs. The mergers, one name per operation: **`empty` →
+`isEmpty`** (joins the `isList` / `isConsumed` predicate family; bare `empty` reads as a
+verb, which is `clear`'s job); **`concat` → `merge`** (on streams, merge is lazy
+concatenation — duplicate string keys flow through in order and resolve at `collect`, last
+wins, the same table `merge` would build); **`enumerate` → nothing** (it only made implicit
+keys explicit, and they are always present); **the stream `values` collector → `collect`**
+(`values` is everywhere the kind-preserving reindexing transform; a stream with undisturbed
+implicit keys collects to a `list`, so the old collector's behavior falls out of the one
+bridge instead of being a second one). Retired spellings are tabulated in
+iterable-functions §3; do not reintroduce.
+
+**R94 — the table→stream bridge is `toStream`, not `asStream`.** Renamed in-session, before
+any sweep landed on the old name. `as` is the narrowing operator (as spec): `x as T`
+reinterprets a value the expression already has, producing no new one. The bridge *builds* a
+new value — a stream adapting the table's elements — and that is the conversion family's
+territory, where every member is spelled `to*` and is an ordinary UFCS-reachable function
+(conversion spec: `toInt`, `toDouble`, `toBool`, …). `tab.asStream()` claimed a narrowing
+that is not happening; `tab.toStream()` says what it does. Two names deliberately keep their
+spelling: the retired `asStream: bool` *flag* (R92) stays `asStream` in the log and the
+retired-spellings table, since it names a dead thing; and `collect` does **not** become
+`toTable`, because it is a consumer, not a conversion — it exhausts its source and retains
+O(n), and its name carries that cost (R92's explicitness rule) where `toTable` would read as
+free. Swept: `iterable-functions.md` (§1.3, §2.11, and the §3 retired-spellings table, which
+now lists the old name); the Still-open grep list (the old corpus's `asStream` — stream-api
+§7's function and every `asStream:` flag — now sweeps to `toStream` / the R92 kind rule).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -1647,10 +1730,26 @@ appended to someone else's:
   R89 removed spread's claim that it does not, without settling that it does. The tempting
   unification — a parameter list is a pattern (R35), so a variadic simply *is* destructuring's
   rest element, no new mechanism — does not currently hold: R35 ruled rest **trailing-only**,
-  while every `*,` signature in table-api places options after the variadic. Settled already:
-  a values-only stream may fill a variadic (R89, spread §2, §4). Its own spec.
-- **The `table-api.md` audit** (R90's tail): `preserveKeys` defaults across the API against the
-  combiner/reshaper rule R90 names, and the three undefined parameter forms above.
+  while every `*,` signature (now in iterable-functions.md) places options after the variadic.
+  Settled already: a stream may fill a variadic (R89, spread §2, §4). Its own spec. (The
+  R90 audit's other half, the `preserveKeys` defaults, was discharged by R92.)
+
+And from R91–R93, the two big flagged remainders:
+
+- **The R91–R93 sweep remainder.** The rulings are applied in the new catalogue files, the
+  `table-api.md` stub, and the index; the rest of the corpus still speaks the old language.
+  To sweep: `stream-api.md` (its transform / collect / bridge sections are absorbed by
+  iterable-functions.md; the stream-only surface — `peek`, `isConsumed`, `restart`,
+  `canRestart`, producing — remains its own); `stream.md` §1.1 (the values-only / key-value
+  dichotomy → implicit keys, R93) and §7; `tables.md` §3.3 / §4 (meta-space prose,
+  protocol-phrased write-back); `views.md` (bare `->`, §7.2); `protocols.md` (built-in
+  protocol mentions); `functions.md` §3.4 (its flagged std-shaping tail, discharged by
+  R91–R92); `associativity.md`'s dispatch row; `conversion.md`; `wildcard.md`; the examples.
+  Grep targets: "built-in protocol", "tab->", "asStream" (flag *and* the stream-api §7
+  function, both → R94), "enumerate", "concat", ".empty()", "values-only".
+- **The protocol-redesign deferrals** (R92's tail, recorded in `table-api.md`):
+  `onNoGet` / `onNoSet` on bulk operations, `TableReadViolationError` /
+  `TableMutationViolationError`, and `canGet` / `canSet` grant semantics.
 
 Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
 table of `byte` elements or is an error, deferred for want of a use case (spread §7).

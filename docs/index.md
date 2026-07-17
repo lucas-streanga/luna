@@ -131,7 +131,9 @@ table is a map.
 | Spec | File | What it is |
 |-|-|-|
 | Tables | `tables.md` | The core concepts of the table type: keys, value semantics, sealing, permissions. |
-| Table API | `table-api.md` | The operation catalogue for tables (the built-in protocol's methods). |
+| Table API | `table-api.md` | Retired pointer (R91–R93): the protocol catalogue's successor map, and the protocol-redesign deferrals. |
+| Iterable functions | `iterable-functions.md` | Built-in free functions over `iterable` (tables and streams): traversal, transform, aggregate, bridges. |
+| Indexable functions | `indexable-functions.md` | Built-in table-only free functions: keyed access, seal state, mutation, and the whole-input (sort) family. |
 | Views | `views.md` | The `view` type that pairs a table with one applied protocol and redirects access to it. |
 | Functions | `functions.md` | The `fn` value: capture, errorability, and comptime-eligibility. |
 | Stream | `stream.md` | The lazy, single-pass sequence type and its two defining properties. |
