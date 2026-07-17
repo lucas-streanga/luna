@@ -7,34 +7,36 @@ append into it freely, then materialize an immutable `string` once. It is the si
 in the string story where mutation lives.
 
 A builder is not a new primitive type. It is realized as a **table with the applied
-`stringBuilder` protocol** (protocols, views): an element-empty table whose growable byte
-buffer is a protocol-private meta member. This is the canonical minimal use of the
-protocol model, so the builder doubles as its worked example. This document is the
-authoritative builder spec; string-api §12 references it, and interpolation (string-api
-§13) lowers to it.
+`stringBuilder` protocol** (protocols): an element-empty table whose growable byte buffer
+is an ungranted per-table protocol member (protocols §2.2, §2.3). This is the canonical
+minimal use of the protocol model, so the builder doubles as its worked example. This
+document is the authoritative builder spec; string-api §12 references it, and
+interpolation (string-api §13) lowers to it.
 
 ---
 
 ## 1. What a builder is
 
-A builder is a value of type `@stringBuilder` (protocols §7.1): a table with the
+A builder is a value of type `@stringBuilder` (protocols §6): a table with the
 `stringBuilder` protocol applied.
 
 - **Element-empty.** The builder holds no element data; its `.`/`[]` element space is
-  empty (`[]`). All of its state is the buffer, which is a **meta member** (protocols
-  §3.3), not an element. So the builder is genuinely an empty table with a applied protocol,
-  the object-from-table-plus-protocol pattern in its simplest form.
-- **The buffer is protocol-private.** It is a meta member of `stringBuilder`, namespaced
-  to the protocol, invisible to element introspection (`count()` sees nothing), and
-  writable only by `stringBuilder`'s own meta functions (protocols §3.3). It is not
-  `noSet`, because the builder's own `append` must mutate it.
-- **Mutable.** A builder is mutated in place by appending. It is bound with `var` or
-  `let` (both permit the interior mutation that appending performs); `const` would
-  deep-freeze it and forbid appending (variables).
-- **An ordinary value table.** A builder is not `nocopy`: copying one (`var b2 = b`) is a
-  copy-on-write copy that yields an independent accumulator, the normal table value
-  semantics. A builder is not a string, so the "no `&` on strings" rule does not apply to
-  it; it may be passed by reference (§4).
+  empty (`[]`). All of its state is the buffer, which is a **protocol member**
+  (protocols §2.3), not an element. So the builder is genuinely an empty table with an
+  applied protocol, the object-from-table-plus-protocol pattern in its simplest form.
+- **The buffer is private.** It is an ungranted member of `stringBuilder` — no `get`, no
+  `set` — so it is namespaced to the protocol, invisible to element introspection
+  (`count()` sees nothing) and to `==` (and the protocol declares `identityEquality`
+  besides, protocols §5), and writable only by `stringBuilder`'s own functions
+  (protocols §2.2).
+- **Mutable, by write-back.** Appending follows the universal convention (tables §4,
+  protocols §2.4): the receiver is passed by value, the updated builder is returned, and
+  the caller writes back with `&` (`&b->append(x)`). Bind with `var` or `let`; `const`
+  would deep-freeze the builder and forbid appending (variables §3).
+- **An ordinary value table.** Copying a builder (`var b2 = b`) is a copy-on-write copy
+  that yields an independent accumulator, the normal table value semantics. A builder is
+  not a string, so the "no `&` on strings" rule does not apply to it; it may be passed
+  by reference (§4).
 
 ---
 
@@ -47,8 +49,8 @@ fn builder(seed: string = "", capacityHint: int = 0): @stringBuilder
 `builder()` returns a fresh empty builder. `seed` optionally starts the builder with an
 initial string (equivalent to constructing empty and appending `seed` once, but done in
 one step). `capacityHint` optionally pre-sizes the buffer to avoid early reallocations.
-Construction is **non-errorable**: it applies a non-throwing protocol to a fresh table
-(protocols §7.5), so no `try` is needed.
+Construction is **non-errorable**: application is pure machinery and the operator form
+never fails (protocols §4.1), so no `try` is needed.
 
 ```
 var b    = builder();                 // empty builder
@@ -56,77 +58,86 @@ var doc  = builder("<<HEADER>>\n");   // seeded with an initial string
 var big  = builder("", 4096);         // pre-sized for ~4 KB
 ```
 
-`builder()` is the idiomatic form. It is equivalent to constructing an empty table and
-statically applying the protocol, `var b: @stringBuilder = [] apply stringBuilder`, with
-the factory additionally handling the capacity hint. Bind with `var` or `let`, not
-`const`.
+`builder()` is the idiomatic form — an ordinary factory function (protocols §4.5). It is
+equivalent to `var b: @stringBuilder = [] apply stringBuilder`, with the factory
+additionally handling the seed and capacity hint. Bind with `var` or `let`, not `const`.
 
 ---
 
 ## 3. The builder surface
 
-The builder's operations are the meta functions of `stringBuilder`, reached through `->`
-(views). The protocol:
+The builder's operations are `stringBuilder`'s protocol functions, reached with `->`
+(protocols §3). The protocol:
 
 ```
 stringBuilder = proto {
-  meta buf: <byte buffer>;        // protocol-private growable buffer (Go-backed)
+  identityEquality;                    // builders compare by identity (protocols §5)
 
-  append          = meta fn (&b: table, value: any): self => { ... };
-  appendAll       = meta fn (&b: table, items: stream | table): self => { ... };
-  appendCodepoint = meta fn (&b: table, cp: int): self => { ... };
-  appendUtf8Bytes = meta fn (&b: table, bytes: bytes): self !=> { ... };
-  reserve         = meta fn (&b: table, bytes: int): self => { ... };
-  byteLength      = meta fn (b: table): int => { ... };
-  isEmpty         = meta fn (b: table): bool => { ... };
-  clear           = meta fn (&b: table): self => { ... };
-  build           = meta fn (b: table): string => { ... };
-  take            = meta fn (&b: table): string => { ... };
+  var buf: bytes = bytes();            // ungranted: private, per-table (Go-backed)
+
+  const get append          = fn (b: @stringBuilder, value: any): self => { ... };
+  const get appendAll       = fn (b: @stringBuilder, items: iterable): self => { ... };
+  const get appendCodepoint = fn (b: @stringBuilder, cp: int): self => { ... };
+  const get appendUtf8Bytes = fn (b: @stringBuilder, raw: bytes): self !=> { ... };
+  const get reserve         = fn (b: @stringBuilder, bytes: int): self => { ... };
+  const get byteLength      = fn (b: @stringBuilder): int => { ... };
+  const get isEmpty         = fn (b: @stringBuilder): bool => { ... };
+  const get clear           = fn (b: @stringBuilder): self => { ... };
+  const get build           = fn (b: @stringBuilder): string => { ... };
 };
 ```
 
-| Meta function | Effect |
+| Function | Effect |
 |-|-|
 | `append(value)` | Append `value.toString()`'s bytes (§3.1). Returns `self`, chainable. |
-| `appendAll(items)` | Append each element of a stream or table, stringified via `toString`, in order (§3.2). Returns `self`. |
+| `appendAll(items)` | Append each element of an iterable, stringified via `toString`, in order (§3.2). Returns `self`. |
 | `appendCodepoint(cp)` | Append one Unicode scalar value as UTF-8. Returns `self`. |
-| `appendUtf8Bytes(bytes)` | Validate `bytes` is self-contained UTF-8 and append it; **throws** otherwise (§3.3). The one errorable builder operation. |
+| `appendUtf8Bytes(raw)` | Validate `raw` is self-contained UTF-8 and append it; **throws** otherwise (§3.3). The one errorable builder operation. |
 | `reserve(bytes)` | Ensure capacity for at least `bytes` total without reallocating. Returns `self`. |
 | `byteLength()` | Bytes buffered so far. O(1). |
 | `isEmpty()` | Whether nothing has been appended. O(1). |
 | `clear()` | Reset to empty, keeping the allocated capacity. Returns `self`. |
-| `build()` | Snapshot: a new immutable `string` of the current contents; builder unchanged (§5). |
-| `take()` | Consume: the built `string`, and reset the builder to empty (§5). |
+| `build()` | Materialize: an immutable `string` of the current contents; builder unchanged (§5). |
+
+Note the space split at work: `b->isEmpty()` asks the *protocol* whether the buffer is
+empty; `b.isEmpty()` is UFCS to the iterable catalogue's `isEmpty` and asks whether the
+*element space* is empty — which for a builder is always true. The two coexist without
+ambiguity because `.` and `->` are different spaces (tables §3.3); the old rule
+forbidding protocol members from taking catalogue names died with the built-in protocol
+(R95).
+
+(`take()`, the consume-and-reset variant of `build()`, is **retired**, R99: see §5.)
 
 ### 3.1 `append` coerces via `toString`
 
 `append` takes `any` and appends the bytes of `value.toString()`, the same coercion the
-`.` concatenation operator uses (string-api §11). So `b->stringBuilder.append(42)` appends
-`"42"`. To append a raw scalar value by code point rather than its decimal text, use
+`.` concatenation operator uses (string-api §11). So `b->append(42)` appends `"42"`. To
+append a raw scalar value by code point rather than its decimal text, use
 `appendCodepoint`.
 
-### 3.2 `appendAll` appends a stream or table
+### 3.2 `appendAll` appends any iterable
 
-`appendAll(items)` appends every element of a `stream` or `table`, each stringified via
-`toString`, in order. It is the bulk form of `append`: `appendAll([1, 2, 3])` appends
-`"123"`. Because a stream is accepted, values produced lazily (from a transform, a split,
-a generator) can be appended without first materializing them into a collection.
+`appendAll(items)` appends every element of an `iterable` (iterable-functions §1), each
+stringified via `toString`, in order. It is the bulk form of `append`:
+`appendAll([1, 2, 3])` appends `"123"`. Because a stream is an iterable, values produced
+lazily (from a transform, a split, a generator) can be appended without first
+materializing them into a collection; the stream is taken (iterable-functions §1.5).
 
 ### 3.3 `appendUtf8Bytes` validates, and is the one errorable operation
 
 Every other append accepts inputs that are valid UTF-8 by construction (strings and their
 `toString` forms, scalar codepoints), so the builder's buffer is **always** valid UTF-8 and
-`build`/`take` never need to check. `appendUtf8Bytes` is the opt-in escape hatch for callers
+`build` never needs to check. `appendUtf8Bytes` is the opt-in escape hatch for callers
 who already hold UTF-8 as raw bytes and want to append them without a `string` wrapper.
 
 It preserves the always-valid invariant by validating at the call:
 
-- The `bytes` must be **self-contained, complete valid UTF-8**. If they are valid and
+- The bytes must be **self-contained, complete valid UTF-8**. If they are valid and
   complete, they are appended. If they are invalid, or end mid-codepoint (a split
   sequence), `appendUtf8Bytes` **throws** at the call site, near the cause, and appends
   nothing.
-- It is therefore the **only errorable** builder operation (`: self!`). Every other append,
-  and `build`/`take`, remain non-errorable, because the buffer they see is always valid.
+- It is therefore the **only errorable** builder operation (`: self!`). Every other
+  append, and `build`, remain non-errorable, because the buffer they see is always valid.
 
 The cost (an O(slice) UTF-8 scan of the appended bytes) is paid only by callers who opt
 into byte input, and only on the bytes they append. The validation is per-call and carries
@@ -142,29 +153,23 @@ sink; the decoder owns the pending-partial-codepoint bookkeeping.
 
 ## 4. Reaching and chaining
 
-Builder operations are meta functions, so they are reached with `->`, either inline or
-through a bound view (views §2):
+Builder operations are protocol functions, reached with `->` and chained on their `self`
+returns; mutation is caller-side `&`-write-back (tables §4):
 
 ```
 var b = builder();
-b->stringBuilder.append("Hello, ").append(name).append("!");   // inline
-let s = b->stringBuilder.build();
-
-let sb = b->stringBuilder;         // bind the view once
-sb.append("x").append("y");        // then call with `.`
+&b->append("Hello, ")->append(name)->append("!");   // chain, then write back
+let s = b->build();                                  // : string — no mutation, no &
 ```
 
-The mutating meta functions (`append`, `appendCodepoint`, `reserve`, `clear`, `take`)
-return **`self`**, the receiver viewed in `stringBuilder` (views §4.1), so they chain:
-`sb.append(x).append(y).append(z)`. `build` returns a `string`, ending the chain.
-
-**Mutation and binding.** Appending mutates the builder in place, which is interior
-mutation, permitted on a `var` or `let` builder (variables). To let a helper append into
-*your* builder, pass it by reference; the reference rules require a `var` binding for `&`:
+To let a helper append into *your* builder, pass it by reference; the reference rules
+require a `var` binding for `&`. The helper is an ordinary free function — an extension
+in the UFCS sense (protocols §9) — and it is *functions like this*, not protocol
+functions, that take `&` parameters (protocols §2.4):
 
 ```
 const addHeader = fn (&b: @stringBuilder, title: string) => {
-  b->stringBuilder.append("== ").append(title).append(" ==\n");
+  &b->append("== ")->append(title)->append(" ==\n");
 };
 
 var doc = builder();
@@ -177,29 +182,32 @@ untouched, the ordinary table value semantics.
 
 ---
 
-## 5. `build` (snapshot) vs `take` (consume)
+## 5. `build`, and why `take` is gone
 
-Because the produced string is immutable, materializing has two honest forms, and the
-builder offers both:
-
-- **`build()` is a snapshot.** It copies the current buffer into a new immutable `string`
-  and leaves the builder **unchanged and reusable**. `build()` is pure with respect to the
-  builder; you may `build()`, append more, and `build()` again. This is the default and the
-  safe one: calling `build()` to peek at the current contents never destroys the buffer.
-- **`take()` consumes.** It returns the built `string` and resets the builder to empty,
-  which lets the runtime hand the buffer's bytes to the new string with no copy (the
-  zero-copy path). Use `take()` when you are done with the builder and want to avoid the
-  snapshot copy.
+`build()` materializes the current contents as an immutable `string` and leaves the
+builder unchanged and reusable: you may `build()`, append more, and `build()` again.
+Calling `build()` to peek at the current contents never destroys the buffer. To consume
+deliberately, say both halves:
 
 ```
-let snapshot = b->stringBuilder.build();   // b still usable, snapshot is independent
-let final    = b->stringBuilder.take();    // b now empty; final owns the bytes
+let snapshot = b->build();          // b still usable; snapshot is independent
+let final    = b->build();          // then, if done with b:
+&b->clear();                        // reset explicitly (or just drop b)
 ```
 
-Whether `build()` copies and `take()` transfers is a representation detail
-(string-representation §11); semantically, `build()` leaves the builder usable and `take()`
-empties it, and both return an ordinary independent immutable string. `clear()` resets
-without producing a string, for reuse when you do not need the current contents.
+An earlier surface paired `build()` (snapshot, O(n) copy) with `take()` (consume:
+return the string *and* reset the builder, transferring the buffer zero-copy). `take` is
+**retired** (R99), for two reasons that arrive at the same place:
+
+- **It is inexpressible under the pure-receiver convention.** A protocol function
+  returns one value and takes its receiver by value (protocols §2.4); "return the string
+  and reset the receiver" needs a second channel that `&`-write-back (which rebinds the
+  *table* return) cannot provide.
+- **It is redundant under copy-on-write.** `build()` does not eagerly copy: the produced
+  string *shares* the buffer's storage, and a copy happens only if the builder is
+  appended to again afterward (the ordinary COW split, tables §4). So the zero-copy path
+  `take` existed for is the default: build and drop the builder, and no copy ever
+  happens.
 
 ---
 
@@ -209,10 +217,10 @@ without producing a string, for reuse when you do not need the current contents.
   `m` bytes cost O(m), turning an O(n^2) concatenation loop into O(n). This is the reason
   the builder exists.
 - **`byteLength()` and `isEmpty()` are O(1).**
-- **`build()` is O(n)** in the buffered length (one copy). **`take()` is O(1)** (transfer
-  the buffer, reset).
-- **`reserve(n)` / `builder(n)`** pre-size the buffer so a known-size build performs no
-  reallocation at all.
+- **`build()` is O(1) at the call** (the string shares the buffer, COW); the O(n) copy is
+  deferred to the next append, and never happens if there isn't one (§5).
+- **`reserve(n)` / `builder("", n)`** pre-size the buffer so a known-size build performs
+  no reallocation at all.
 - The produced string is an ordinary immutable string: inline in the `lval` if it fits in
   8 bytes, otherwise an owned buffer (string-representation §2).
 
@@ -241,14 +249,15 @@ materializes once:
 "$greeting, $name!"
 // lowers to roughly:
 //   var _b = builder();
-//   _b->stringBuilder.append(greeting).append(", ").append(name).append("!");
-//   _b->stringBuilder.take()
+//   &_b->append(greeting)->append(", ")->append(name)->append("!");
+//   _b->build()
 ```
 
 So interpolation and manual builder use share one mechanism, and interpolation carries no
 hidden O(n^2) cost: an interpolated literal is one builder pass, not a chain of
-reallocating `.` concatenations. Because the temporary builder is not reused, interpolation
-lowers to `take()` (consume) rather than `build()` (snapshot).
+reallocating `.` concatenations. The temporary builder is dropped immediately after
+`build()`, so the produced string keeps sole ownership of the bytes and the COW copy
+never happens (§5) — the zero-copy path, with no `take` needed.
 
 ---
 
@@ -256,8 +265,8 @@ lowers to `take()` (consume) rather than `build()` (snapshot).
 
 - There is **no mutable string and no `&str`** (string-api §1); the builder is the mutable
   accumulator, and it is a distinct value (`@stringBuilder`), not a string.
-- `build()` / `take()` produce an ordinary immutable `string`, consumed through the string
-  API like any other string.
+- `build()` produces an ordinary immutable `string`, consumed through the string API like
+  any other string.
 - For joining a *known* collection of pieces, `join` (string-api §8) is the direct tool;
   the builder is for *incremental* accumulation where the pieces arrive one at a time.
 
@@ -269,5 +278,6 @@ lowers to `take()` (consume) rather than `build()` (snapshot).
   encodings other than UTF-8) is a separate decoder API, deferred. It produces validated
   string pieces that feed a builder; the builder itself only accepts self-contained UTF-8
   (§3.3).
-- **`bytes` type:** `appendUtf8Bytes` takes a `bytes` value; the precise `bytes` type
-  (a raw byte sequence, distinct from `string`) is pending its own design.
+- **`bytes` type:** `appendUtf8Bytes` takes a `bytes` value, and `buf`'s declaration
+  presumes one; the precise `bytes` type (a raw byte sequence, distinct from `string`) is
+  pending its own design.

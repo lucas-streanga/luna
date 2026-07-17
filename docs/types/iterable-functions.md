@@ -80,8 +80,9 @@ themselves consumed.
 - **Notation.** `name?` marks an optional parameter (default `null` unless shown). Hook
   parameters are of type `fn`. Every enum parameter is written out in full, so each synopsis
   stands alone.
-- **Deferred.** The former `onNoGet` / `onNoSet` permission enums are absent from every
-  signature pending the protocol redesign (table-api.md records the deferral).
+- **Retired.** The former `onNoGet` / `onNoSet` permission enums are gone for good (R98):
+  element space carries no permissions, and protocol-member grants are compile-time
+  assertions (protocols §3.1).
 
 ### 1.7 The canonical `mode` enum
 
@@ -464,4 +465,4 @@ For the corpus sweep and for readers of older drafts; do not reintroduce:
 | `values(s)` as a stream→list collector | `collect(s)`; `values` is the reindexing transform (§2.5) |
 | `asStream: bool` parameters | output kind follows the primary operand (§1.3); bridge with `toStream()` |
 | `asStream(tab)` as the bridge's name | `toStream(it)` — `as` is narrowing (as spec); conversions are `to*` (conversion spec) |
-| `onNoGet` / `onNoSet` parameters | deferred pending the protocol redesign (table-api.md) |
+| `onNoGet` / `onNoSet` parameters | retired for good (R98): element space carries no permissions |

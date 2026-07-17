@@ -17,15 +17,17 @@ Concepts (copy-on-write, `&`-write-back, sealing, per-key access) remain authori
 
 ---
 
-## Deferrals, pending the protocol redesign
+## Deferrals — resolved by the protocol redesign (R95–R98)
 
-Recorded here so the redesign finds them in one place:
+The deferrals recorded here pending the protocol redesign are **resolved by deletion**
+(R98). Under the redesign, protocols never place members in element space; per-key
+`get` / `set` grants on element keys no longer exist, and protocol-member grants are
+compile-time assertions (protocols §3.1). Consequently:
 
-- **`onNoGet` / `onNoSet`.** The bulk-operation permission enums (`enum {throw, skip}`)
-  were dropped from **every** signature. How bulk reads and writes interact with per-key
-  `get` / `set` grants (tables §6) is re-specified with the protocol redesign, not before.
-- **`TableReadViolationError` / `TableMutationViolationError`.** The per-key grant
-  violations formerly summarized here are parked (indexable-functions §5 carries the stub
-  rows) pending the same redesign.
-- **`canGet` / `canSet`.** Signatures are settled (indexable-functions §1); the grant
-  semantics they report are pending the same redesign.
+- **`onNoGet` / `onNoSet`** are retired for good: bulk operations traverse element space,
+  which carries no permissions. The enums return to no signature.
+- **`TableReadViolationError` / `TableMutationViolationError`** are retired: grant
+  violations are compile errors, not runtime events.
+- **`canGet` / `canSet`** are retired from indexable-functions: element keys are always
+  readable and writable by whoever holds the table (`has` covers presence); protocol
+  grants are statically known and need no runtime predicate.

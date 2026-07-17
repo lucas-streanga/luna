@@ -16,8 +16,8 @@ An operation is indexable for one of two reasons, and the catalogue is organized
 
 Every function returns a new table (COW); mutation is caller-side write-back, `&tab.pop()`
 (tables §4: `&` at the call site means "assign the return value back to me"; no function
-takes a `&table` parameter). Signatures follow the conventions of iterable-functions §1.6,
-including the deferral of the former `onNoGet` / `onNoSet` enums (table-api.md).
+takes a `&table` parameter). Signatures follow the conventions of iterable-functions §1.6;
+the former `onNoGet` / `onNoSet` enums are retired for good (R98, table-api.md).
 
 ---
 
@@ -30,14 +30,9 @@ fn has(tab: table, key: any): bool
 **O(1).** Key presence. Distinct from `exists` (iterable-functions §2.3), which defaults to
 an O(n) value scan.
 
-#### canGet() · canSet()
-```
-fn canGet(tab: table, key: any): bool
-fn canSet(tab: table, key: any): bool
-```
-**O(1).** Whether `key` may currently be read / written. False for a missing key or a key
-the applying protocol does not grant `get` / `set` (tables §6). Grant semantics are
-**pending the protocol redesign** (table-api.md); the signatures are settled.
+(`canGet` / `canSet` are **retired**, R98: element keys carry no permissions — bare tables
+are fully accessible to their holder, and protocol-member grants are compile-time
+assertions, protocols §3.1. `has` covers the remaining question, presence.)
 
 #### isList()
 ```
@@ -55,8 +50,9 @@ fn isContiguousMemory(tab: table): bool
 
 ## 2. Table-level growth seal
 
-Each returns the modified table (COW); use `&tab.method(...)` to apply in place. Per-key
-`get` / `set` access is not set here — it is declared by protocols (tables.md §6).
+Each returns the modified table (COW); use `&tab.close()` etc. to apply in place. The
+growth seal is the only per-table access state that exists: element keys carry no
+permissions (tables §6, R98), and protocol-member grants are compile-time (protocols §2.2).
 
 #### open() · close() · neverOpen()
 ```
@@ -198,7 +194,9 @@ fn partition(tab: table, predicateFn: fn, mode: enum {values, keys, both} = {val
 |-|-|
 | `OpenViolationError` | Adding a new key to a `closed` or `neverOpen` table. |
 | `InvalidOpenError` | Calling `open()` on a `neverOpen` table. |
-| `TableReadViolationError` · `TableMutationViolationError` | Per-key grant violations — **pending the protocol redesign** (table-api.md). |
+
+(`TableReadViolationError` / `TableMutationViolationError` are **retired**, R98: grant
+violations are compile errors under the protocol redesign, protocols §3.1.)
 
 Absence is **not** an error: reading a missing key yields `undefined`. See the *Optional
 Access & Coalescing* reference for how `?.`, `??`, and `???` navigate absence, `null`, and

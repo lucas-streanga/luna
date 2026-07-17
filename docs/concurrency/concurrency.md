@@ -132,8 +132,8 @@ stream is reachable through several bindings and table slots at once (stream §6
 Marking a single binding would leave the other aliases live and dangling. So transfer marks the
 **referent**, the stream's / builder's heap state, beside its cursor / buffer, which **every** alias
 dereferences: the direct binding, a table element, a captured copy, all see it. This is the same
-principle as constraint and protocol enforcement, which follow the **value**, not the binding
-(constraints §9.4, tables §6.4); taken is that rule applied to ownership, and it is deliberately
+principle as constraint enforcement, which follows the **value**, not the binding
+(constraints §9.4, tables §6.2); taken is that rule applied to ownership, and it is deliberately
 **not** the `undefined` mechanism, which is a per-*binding* `lval` flag that cannot live in a table
 (undefined §3, §7, value-representation §2.1).
 

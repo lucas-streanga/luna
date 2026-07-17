@@ -19,7 +19,6 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `capability` | capability declaration (`const io = capability`) | capabilities §1 |
 | `attribute` | attribute declaration | attributes §2 |
 | `test` | test declaration (string-literal name, zero params, implicit `undefined!`) | tests |
-| `meta` | protocol meta-member marker | protocols §3 |
 | `export` | module export (was `pub`, R19) | modules |
 | `import` | module import | modules |
 
@@ -53,7 +52,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `comptype` | declaration descriptor operator **and** its type (dual, like `error`) | reflection §3.2 |
 | `is` | value-against-type test (tier 6; the single meaning) | is |
 | `as` | checked narrowing (tier 6); also the import alias (`import { parse as jsonParse }`). **Never a binder**: the constraint form is `constraint { i: int where ... }`, not `int as i` (R87) | as, modules §8 |
-| `apply` | protocol application (expression: `@P`-typed value; statement: runtime applied-set mutation) | protocols §10 |
+| `apply` | protocol application: the expression operator (`[] apply P(name: v)`, `@P`-typed, never errorable) **and** the requirement declaration inside a `proto` block (`apply otherProto;`). The dynamic form is the free function `apply()`, an ordinary call, not a keyword use | protocols §4, §7 |
 | `declared` | a binding's declared type | type §4 |
 | `use` | referential capture; names **capabilities only** | functions §2.2, capabilities §4 |
 
@@ -66,7 +65,8 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `undefined` | the structural absence | undefined |
 | `nan` | the IEEE not-a-number double value | double §1, §2.2 |
 | `inf` | the IEEE infinity double value (`-inf` is `MINUS KW_INF`; there is no unary `+`) | double §1.1 |
-| `self` | contextual, inside protocol member signatures/bodies: the receiver's view | protocols §10 |
+| `self` | contextual, inside a `proto` block: the receiver's type `@CurrentProto` in return-type position, the receiver value in bodies | protocols §2.4 |
+| `get` / `set` | contextual, inside `proto` member declarations only: external access grants, canonical order `get set`; a grant that can never be exercised is a definition error | protocols §2.2 |
 | `panic` | not a keyword: the lowercase **type** at the root of the sealed panic subtree (like `error`); `catch (p: panic)` is an ordinary typed binder | errors §9, §6 below |
 | `_` | not a keyword: the discard identifier (`_ =`, match wildcard, `_: T` type test) | errors §8.1, match, wildcard |
 
@@ -89,8 +89,8 @@ such restriction, they are ordinary producible doubles (`let x = nan;` is fine),
 
 ## 5. Predeclared names, deliberately not keywords
 
-Builtin type names (`int`, `double`, `bool`, `string`, `bytes`, `table`, `list`, `stream`,
-`promise`, `view`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`) and builtin
+Builtin type names (`int`, `double`, `bool`, `string`, `bytes`, `table`, `list`, `iterable`,
+`stream`, `promise`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`) and builtin
 values/functions are **predeclared identifiers**, resolved by ordinary scope, not reserved
 words, which keeps the lexer small and the keyword set closed. Whether they are
 **shadowable** is flagged (§6). Std exports (`io`, `json`, `path`, `file`, ...) are ordinary

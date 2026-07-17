@@ -35,7 +35,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `!a` | logical | not | logical negation (**prefix, expression position**; distinct from postfix, type-position `T!` errorable) | bool |
 | `x.key` | access | static key | compile-checked element access on a table (**infix, right operand an identifier**) | tables §3.2 |
 | `x[k]` | access | dynamic key | runtime element access (miss yields `undefined`) | tables §3.2 |
-| `x->name` | access | meta | protocol / meta-space navigation and method call | tables §3.3, views |
+| `x->name` | access | protocol | protocol-member access and call, compile-time resolved; assignable where the member grants `set` | tables §3.3, protocols §3 |
 | `x?.y` | access | optional access | guarded access: a `null`/`undefined` receiver short-circuits to `undefined` | coalescing |
 | `a ?? b` | coalescing | absent-coalesce | `b` if `a` is `undefined`, else `a` (preserves a stored `null`) | coalescing |
 | `a ??? b` | coalescing | null-coalesce | `b` if `a` is `undefined` **or** `null`, else `a` | coalescing |
@@ -48,7 +48,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |
 | `T!` | type | errorable | adds the error arm (`| error`, errors §7) to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
 | `@x` | type | type-of | value position: the value's `type`; type position: application-refinement `@P` | type §1.1 |
-| `@@x` | type | protocol-reflect | reflect the protocols a table/view has applied | reflection, views |
+| `@@x` | type | protocol-reflect | reflect the protocols a table has applied | reflection, protocols §8 |
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
@@ -66,7 +66,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `match` / `match!` | control flow | match | pattern selection (total `match`, panicking `match!`) | match |
 | `defer stmt` | control flow | defer | run `stmt` on scope exit | defer |
 | `a \|> b` | control flow | pipeline | pipe left into right (command pipelines and stream stages) | pipeline, command §4 |
-| `tab apply proto` | control flow | apply | apply a protocol to a table | protocols |
+| `t apply P(name: v)` | structure | apply | static protocol application: `@P`-typed result, initializers checked at compile time, never errorable; dynamic application is the free function `apply()` | protocols §4 |
 | `spawn f()` | concurrency | spawn | start a green thread, yielding a `promise` | concurrency |
 | `await p` | concurrency | await | resolve a `promise` to `T!` | concurrency |
 
@@ -152,7 +152,7 @@ The only residual case, `if (x = true)`, is not a footgun: it assigns `true` and
 ever runs as a consequence of an operator.** `a + b` is machine arithmetic on built-in numerics, and
 nothing else: it never dispatches to a user-defined function, never allocates behind your back, never
 takes a lock, never runs a method body. This is the same principle the whole language applies to its
-operators: `.` and `[]` are element access, `->` is a meta call, `==` is the strict equality of the
+operators: `.` and `[]` are element access, `->` is protocol-member access, `==` is the strict equality of the
 equality spec, and none of them hides user-defined behavior. Operators are **primitive, cheap,
 transparent, and single-meaning.**
 

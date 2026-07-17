@@ -1,12 +1,13 @@
 # Tables
 
 This document defines the concepts behind Luna's table type: keys and how they are
-accessed (§3), value semantics (§4), table-level growth sealing (§5), element
-`get` / `set` permissions (§6), and flag propagation (§7). The built-in operations that act on tables
-are catalogued separately in **table-api.md**. Behavior beyond the built-in
-operations is contributed by protocols: a table is also Luna's object, an empty or
-data-bearing table with protocols applied. Protocols and the `->` meta operator are
-introduced in §3.3 and specified in **protocols** and **views**.
+accessed (§3), value semantics (§4), table-level growth sealing (§5), element access and
+encapsulation (§6), and flag propagation (§7). The built-in operations that act on tables
+are catalogued separately in **iterable-functions.md** and **indexable-functions.md**
+(R91–R92). Behavior beyond the built-in operations is contributed by protocols: a table
+is also Luna's object, an empty or data-bearing table with protocols applied. Protocols
+and the `->` operator that reaches their member space are introduced in §3.3 and
+specified in **protocols** (the views document is retired, R95).
 
 ---
 
@@ -41,7 +42,7 @@ When a table has **exclusively incrementing integer keys beginning at 0**, it is
   contiguous even when it is no longer a strict list.
 
 Two O(1) predicates report internal shape (both defined in
-**table-api.md §2.1**):
+**indexable-functions.md §1**):
 
 - `isList()`, true iff the table is a list (incrementing int keys from 0).
 - `isContiguousMemory()`, true iff stored contiguously. All lists are
@@ -117,7 +118,7 @@ A value typed `table` is narrowed to `list` by the checked operators (`as` / `is
 
 Removal leaves gaps rather than reindexing (§2.2), so a table with gaps is genuinely not a
 list. To **re-compact** a gapped or keyed table into a fresh contiguous list, call
-`values()` (table-api.md), which reindexes the values to `0..m-1` and returns a
+`values()` (iterable-functions §2.5), which reindexes the values to `0..m-1` and returns a
 `list`. So `values()` is the explicit "make this a list again" operation; nothing reindexes
 silently.
 
@@ -222,10 +223,10 @@ element space: `tab.name` and `tab['name']` are the same slot.
 
 This split is deliberately syntactic, and it is what lets the compiler tell a static
 write from a dynamic one by inspecting a single AST node (a `.member` target is a known
-name; a `[expr]` target is computed), with no dataflow analysis. The protocol system
-relies on exactly this to distinguish declared from dynamic member installation during
-`apply` (see **protocols**, declared vs. dynamic members); the rule is stated globally
-here because it governs all element access, and `apply` is just one place it matters.
+name; a `[expr]` target is computed), with no dataflow analysis. The const-table
+representation leans on exactly this to pick an access path per site (§A.3), and the UFCS
+rule leans on it to keep `tab.name(` unambiguous (functions §3.4); the rule is stated
+globally here because it governs all element access.
 
 A `.` or `[]` read of a missing key yields `undefined` (§6.1), which coalesces with
 `??` / `?.` like any other absence.
@@ -241,29 +242,33 @@ Deletion is always **explicit**, `remove` / `unset` (§4.1), never a side effect
 the language rejects the assignment instead. To move a possibly-undefined value into a table, resolve
 the absence first (`tab['k'] = maybe ?? fallback`).
 
-### 3.3 Element space (`.` / `[]`) vs. meta space (`->`)
+### 3.3 Element space (`.` / `[]`) vs. protocol space (`->`)
 
 `.` and `[]` reach **element space**: the table's own keyed data. A third operator,
-`->`, reaches **meta space**: the behavior contributed by the protocols a table has applied.
-The two spaces are disjoint, and the operators never overlap:
+`->`, reaches **protocol space**: the members contributed by the protocols a table has
+applied (protocols §3). The two spaces are disjoint, and the operators never overlap:
 
-- **`tab.name` / `tab['name']`** , element (data). Static or dynamic key. A miss is
+- **`tab.name` / `tab['name']`** — element (data). Static or dynamic key. A miss is
   `undefined`. Assignable.
-- **`tab->name(...)`** , a call to the built-in protocol's meta function (the built-in
-  protocol is nameless, so it is reached by bare `->`). The table operation catalogue
-  (`map`, `filter`, `count`, `pop`, and the rest) lives here, in
-  **table-api.md**.
-- **`tab->protoName`** , a view of a named applied protocol, or `undefined` if the
-  table does not have it applied. Meta functions are reached through the view with `.`.
+- **`tab.name(...)`** — a UFCS call of a free function (functions §3.4). The table
+  operation catalogue (`map`, `filter`, `count`, `pop`, and the rest) is reached this
+  way; it is **not** protocol behavior (R91) but ordinary built-in functions
+  (**iterable-functions.md**, **indexable-functions.md**).
+- **`tab->name`** — a protocol member (protocols §3.1): per-table state or a protocol
+  function, resolved at **compile time** against the closed member space of the
+  protocols in scope, qualified as `tab->P.name` when more than one declares the name.
+  A bare read is `undefined` if the member's protocol is not applied; a hard use
+  panics; `?->` is the explicit soft form (protocols §3.2).
 
-Because element space and meta space use different operators, a data key can share a
-name with a meta function without ambiguity: `tab.map` is the element under key `map`
-(data, likely `undefined`), while `tab->map()` is the built-in `map` operation. Element
-space is flat and un-namespaced (any string is a key); meta space is namespaced by
-protocol. Meta functions are never assignable, and `->` never appears on the left of an
-assignment. The full dispatch rules, views, chaining, and the `@@` protocol-reflection
-operator are specified in **views**; **protocols** specifies how a protocol comes to be applied to a
-protocol in the first place.
+Because element space and protocol space use different operators, a data key can share a
+name with a protocol member without ambiguity: `tab.map` is the element under key `map`
+(data, likely `undefined`), `tab.map(f)` is the built-in transform, and `tab->map` could
+only be an in-scope protocol's member named `map`. Element space is flat, un-namespaced
+(any string is a key), and open; protocol space is namespaced by protocol and closed at
+compile time. `->` appears on the left of `=` exactly where the member grants it: writing
+a `set`-granted member (`tab->visits = 4`) is legal and compile-checked (protocols §3.3);
+every other `->` write is a compile error. The dispatch rules end to end, and the `@@`
+protocol-reflection operator, are specified in **protocols** (§3.5, §8).
 
 ---
 
@@ -283,22 +288,24 @@ copies with respect to a contained stream. To get independent sequences, materia
 stream into retained data first (stream spec §5.1). Every non-stream value follows the
 normal copy-on-write independence.
 
-Consequently **the protocol never mutates its receiver in place.** Every operation
-returns a *new* table (COW), and the caller decides whether to keep it or write it
-back. Write-back uses a caller-side reference:
+Consequently **no table operation mutates its receiver in place.** Every built-in
+function (the catalogues) and every protocol function (protocols §2.4) returns a *new*
+table (COW), and the caller decides whether to keep it or write it back. Write-back uses
+a caller-side reference:
 
 ```
 var sorted = myTable.sort();      // myTable unchanged; sorted is a new table
 &myTable.sort();                  // write-back: myTable becomes the sorted result
+&b->append("x");                  // the same convention through protocol space
 ```
 
-No protocol method takes a `&table` parameter. The receiver is always passed by
-value; `&` on the *call site* means "assign the return value back to me." The full
-list of protocol methods is in **table-api.md**.
+No built-in or protocol function takes a `&table` receiver. The receiver is always
+passed by value; `&` on the *call site* means "assign the return value back to me." The
+catalogues are **iterable-functions.md** and **indexable-functions.md**.
 
 ### 4.1 Removers return the shortened table
 
-Because a method's return value *is* the intended new table, operations that would
+Because a function's return value *is* the intended new table, operations that would
 otherwise return a removed element instead return the **shortened table**. Read the
 element first, then remove:
 
@@ -308,7 +315,7 @@ var x = myTable.last();           // read the element
 ```
 
 This keeps `&`-write-back meaning one simple thing everywhere, "assign the return
-value back", with no method whose return value is something other than a table.
+value back", with no function whose return value is something other than a table.
 `pop`, `shift`, `unset`, `remove`, and `clear` all return tables. To learn how many
 elements `remove` deleted, diff `count()` around the call (both O(1)).
 
@@ -361,8 +368,8 @@ statically-declared shape is governed there.)
 ### 4.2 `&`-write-back is a flag-respecting structural update
 
 Write-back is **not** a blind rebind. It applies the result to the target while
-respecting the target's current structural and access flags, so open/close and a
-key's protocol `set` grant retain their force under references:
+respecting the target's current structural flags, so the growth seal retains its
+force under references:
 
 ```
 var b = closedTab.prepend(0);     // OK, b is a new, open table; closedTab untouched
@@ -377,11 +384,12 @@ A table-level flag governs **growth**: whether *new keys* may be added. (An earl
 this with a *mutation* seal over existing values; that axis is removed, §5.2.) Growth sealing does
 not govern reading or removal.
 
-> Design note: growth sealing is currently a **runtime** property set by methods (`close()`,
-> `neverOpen()`). Whether a fixed key-set is better expressed as a **protocol/type contract** (a
+> Design note: growth sealing is currently a **runtime** property set by functions (`close()`,
+> `neverOpen()`). Whether a fixed key-set is better expressed as a **compile-time contract** (a
 > fixed-shape table type, where adding a key is a *compile* error rather than a runtime
-> `OpenViolationError`), consistent with how per-key access is protocol-declared (§6), is an open
-> direction under review. The runtime behavior below is the current model.
+> `OpenViolationError`), consistent with how protocol-member grants are compile-checked
+> (protocols §2.2), is an open direction under review. The runtime behavior below is the
+> current model.
 
 ### 5.1 Growth: open, closed, neverOpen
 
@@ -409,7 +417,7 @@ such a table raises `InvalidOpenError`. Irrevocability is the whole point: code
 holding a `neverOpen` table may permanently rely on its key-set being fixed, cache
 the shape, skip existence checks, assume no growth. A reopen operation would destroy
 that guarantee, so it does not exist. The only path from `neverOpen` back to
-growable is to **derive a fresh, open table** holding the same values (§7.1),
+growable is to **derive a fresh, open table** holding the same values (§7),
 honest construction of a new value, not unsealing of the old one.
 
 ### 5.2 Mutation sealing (`freeze` / `thaw`) is removed
@@ -429,8 +437,9 @@ revocable runtime flag:
 - **Compile-time immutability** is `const` (variables spec): a `const` table is deeply immutable,
   known at compile time, which is what enables const-table specialization (perfect-hashing, inlining;
   compiler spec).
-- **Per-key access** (whether a key may be read or written at all) is declared by **protocols**
-  (§6), not by a table-level runtime flag.
+- **Member access** is a protocol-space concern: protocol members carry compile-time
+  `get` / `set` grants (protocols §2.2). Element keys carry no per-key access at all
+  (§6, R98).
 
 #### 5.2.1 Deferred: runtime immutability for interning and caching
 
@@ -469,160 +478,91 @@ Until a concrete performance need arises, runtime immutability is left unspecifi
 
 ---
 
-## 6. Element permissions: get / set
+## 6. Element access: no permissions; encapsulation lives in protocol space
 
-Access to a key, whether it may be **read** (`get`) or **written** (`set`), is governed by
-**protocols**, and the default is **no access**: a protocol-declared key exposes reading only if the
-protocol grants `get`, and writing only if it grants `set`. This inverts the usual default: a typed
-table's fields are **private unless exposed**, rather than public unless hidden.
-
-| Protocol grants | Read | Write |
-|-|-|-|
-| `get` + `set` | yes | yes |
-| `get` only | yes | `TableMutationViolationError` |
-| `set` only | `TableReadViolationError` | yes |
-| neither (default) | `TableReadViolationError` | `TableMutationViolationError` |
-
-### 6.1 Bare tables are fully accessible; protocols are the encapsulation boundary
-
-The default-no rule applies to **protocol-declared keys**, not to bare tables. A **bare table
-literal** is fully readable and writable on every key by whoever holds it, it is your own data, and
-there is nothing to encapsulate from yourself:
+Element space carries **no per-key permissions**. A table is fully readable and writable
+on every key by whoever holds it — it is your own data, and there is nothing to
+encapsulate from yourself:
 
 ```
 var t = ['name' => 'Lucas'];
-t.name;                 // OK: bare table, full access
+t.name;                 // OK: full access, always
 t.age = 0;              // OK
 ```
 
-A **protocol** is the unit of encapsulation. When a protocol declares a table's shape, its declared
-keys default to **no access**, and the protocol opts specific keys into `get` and/or `set` as part
-of its contract. This is how "this field is private, that one is read-only, this one is read-write"
-is expressed: as a *type contract* (a protocol), checkable at compile time, rather than an ad-hoc
-runtime flag on an individual key. There are no runtime methods to change a key's access; access is a
-property of the protocol a table has applied.
+An earlier model attached `get` / `set` grants to *protocol-declared element keys*, with
+runtime `TableReadViolationError` / `TableMutationViolationError`, bulk-operation
+`onNoGet` / `onNoSet` policies, and `canGet()` / `canSet()` predicates. **All of it is
+deleted** (R98): protocols no longer declare element keys at all (R95), so there is
+nothing in element space left to permission. What that model expressed lives in
+**protocol space**, better: a protocol member is private by default and opts into `get`
+and/or `set` as part of the protocol's contract, checked **at compile time** (protocols
+§2.2, §3.1). "This field is private, that one read-only, this one read-write" is said in
+the proto block, and violating it is a compile error, not a runtime event.
 
-This matches the language's deny-by-default stance elsewhere (capabilities are granted, not revoked;
-`secret` conceals by default): a typed table exposes only what its protocol deliberately grants.
+This keeps the language's deny-by-default stance where it belongs (capabilities are
+granted; `secret` conceals; protocol members are ungranted until granted) while keeping
+plain data plain: a table you build is yours.
 
-### 6.2 Absence, `null`, and denial are three different things
+### 6.1 Absence and `null` are two different things
 
 - **Absent key** → reading yields `undefined`. Absence never throws; it is routine
-  control flow for a table-as-hashmap. Because `undefined` is unstorable, *present*
-  keys never hold it, existence ⟺ not-`undefined`.
+  control flow for a table-as-hashmap. Because `undefined` is unstorable (§3.2),
+  *present* keys never hold it: existence ⟺ not-`undefined`, by construction.
 - **Present, `null`** → yields the stored `null`. A real, deliberate value.
-- **Present, no `get`** → raises `TableReadViolationError`. A *permission* failure,
-  not a value.
 
-These stay distinct throughout the protocol and through the access operators
-(`?.`, `??`, `???`, see the separate *Optional Access & Coalescing* reference).
-`has()` answers existence in O(1); `canGet()` / `canSet()` answer "may I read /
-write this right now?" in O(1). On a **missing** key both return `false`, and
-`has()` disambiguates absence from denial.
+These stay distinct through the access operators (`?.`, `??`, `???`, see the *Optional
+Access & Coalescing* reference). `has()` answers existence in O(1). (The former third
+case — present but permission-denied — is gone with the permission model, R98.)
 
-### 6.3 Bulk operations and permissions: `onNoGet` / `onNoSet`
+### 6.2 Value protection is constraints, and it is value-carried
 
-A method that **reads element values** may encounter a key the applying protocol does not grant `get`;
-one that **writes to existing keys** may encounter a key it does not grant `set`. Behavior is
-controlled by a two-member enum, defaulting to `throw`:
+What per-key permissions could not soundly do — protect a *value's* integrity through
+widening and aliasing — constraints and protocol space do:
 
-```
-onNoGet: enum {throw, skip} = {throw}    // on value-reading operations
-onNoSet: enum {throw, skip} = {throw}    // on operations that overwrite existing keys
-```
+- A **constrained table** (`list`, or any table-level constraint, §8) is checked on
+  every mutation *off the value's own typeid*, whatever binding the write comes through
+  (constraints §9.4). Widening never launders a violating write.
+- A **protocol's state** is unreachable from element space entirely: no `.` / `[]`
+  write can touch a protocol member, and every `->` write carries the member's grant
+  and declared type statically (protocols §3.3). The old widen-to-`table`-and-write
+  hole has no spelling.
 
-- `throw`, raise `TableReadViolationError` / `TableMutationViolationError`.
-- `skip`, silently omit the offending element from the operation.
-
-Placement follows a rule rather than per-method choice: **any method that reads
-values takes `onNoGet`; any method that overwrites existing keys takes `onNoSet`.**
-Keys-only methods (`keys`, `has`, `canGet`, `keyFirst`, `keyLast`) take neither.
-Because access is fixed by protocol, `skip` never alters it; it merely omits the
-offending element from this one operation.
-
-The per-method `onNoGet` / `onNoSet` parameters are listed with each entry in
-**table-api.md §2**.
-
-### 6.4 Protocol contracts are value-carried, and enforced on write
-
-Both kinds of contract a protocol places on a key, its **access grant** (`get` / `set`, §6) and
-the **declared type** of the value (protocols §5.4), are properties of the **value's applied-protocol
-set** (the `@@` axis, views spec), not of the binding through which the value is reached. They are
-enforced the same way constraints are (constraints §9.4): **checked on write, keyed on the value,
-trusted on read.**
-
-The consequence that matters is that **widening cannot launder them.** Widening a protocol-applying
-table to bare `table`, or passing `&t` to a `fn (&t: table)`, relaxes the *static* view to `any`
-element access (§6.1, protocols §5.4.1) but does **not** strip the protocol from the *value*. So a
-write through that bare-`table` binding is still checked against the value's actual contracts:
-
-- a write to a key the applied protocol does not grant `set` still raises `TableMutationViolationError`;
-- a write of a value that violates the key's declared type still raises `typeError` (protocols
-  §5.4.2).
-
-This is the exact parallel of constraint collapse (constraints §9.2): a `list` widened to `table`
-is still checked as a `list` on mutation, because the value carries `list`; a `@person` widened to
-`table` is still checked as a `person` on mutation, because the value carries `person`. In both, the
-check reads the value, so the widened static view is a loss of *precision on reads*, never a loss of
-*enforcement on writes*.
-
-The **bare-table-literal** rule of §6.1 is unchanged and consistent with this: a table applying **no**
-protocol has no contracts to enforce, so it is fully accessible to its holder. §6.1 is about a value
-that has nothing applied; §6.4 is about a value that has a protocol applied but is *seen through* a bare-`table`
-binding, a different thing. To obtain a genuinely contract-free table from a protocol-applying one,
-derive a fresh one (`copy`, variables §5.2, or a transformer, §7.1), which is born applying only the
-built-in protocol.
-
-As with constraints, the runtime cost is confined to **writes the compiler cannot prove safe**: a
-write is statically discharged where the site knows the protocol set, the key, and the value type
-(protocols §5.4.2), so the common typed-binding write pays nothing.
+To hand code a genuinely unconstrained, protocol-free table, derive a fresh one —
+`copy` (variables §5.2) or a transformer (§7) — which is born bare.
 
 ---
 
-## 7. Flag & permission propagation
+## 7. Flag propagation: derived tables are born open and bare
 
-Tables carry two kinds of flags with **different** propagation rules, split along
-the *whose-invariant-is-it* seam.
+The growth seal and the applied-protocol set are properties a table asserts about
+**itself**. A table *derived* by a transformer (`map`, `filter`, `merge`, `prepend`, …)
+is a new self and re-decides both:
 
-### 7.1 Structural flags do NOT propagate through transformers
+- **Identity copy** (`var b = a;`) — the same logical value: keeps `a`'s growth seal
+  (including `neverOpen`) **and** its applied-protocol set with the per-table member
+  state. Under COW, the first divergent write splits storage; a growth attempt on a
+  sealed copy throws before any split.
+- **Derived / transformed table** — a *different* value with different contents: born
+  **`open`** and born **bare** (no applied protocols), whatever the source carried.
 
-`open` / `close` / `neverOpen` is a property a table asserts about **itself** (the mutation-seal axis
-is removed, §5.2). A table *derived* by a transformer (`map`, `filter`, `merge`, `prepend`, …) is a
-new self and re-decides: **derived tables are born `open`.**
+Both halves follow from one fact: a transformer reads the source's *element space* and
+builds a new table from it. It never reads protocol space, so it could not reproduce a
+protocol's per-table member state, and carrying a protocol without its state would be
+incoherent. (The old model propagated per-key access grants "by key identity"; with
+element permissions deleted, R98, there is nothing to propagate — and the tension the
+old text carried, propagation in one section and "protocol membership is naturally shed"
+in another, resolves to the shed side uniformly.)
 
-- **Identity copy** (`var b = a;`), same logical value; keeps `a`'s growth seal, including
-  `neverOpen`. Under COW, the first growth attempt on `b` throws before any storage split.
-- **Derived / transformed table**, a *different* value with different contents; born `open`
-  regardless of the source's state.
+This is what makes deriving a fresh table the honest escape from the irrevocable growth
+seal (§5.1) and from a protocol's contract alike: `sealedTab.map(x => x)` yields an
+open, bare table with the same element values, without unsealing or un-applying
+anything. Re-attaching behavior is explicit — `derived apply person(...)` (protocols
+§4) — and requires re-supplying what the protocol requires, which is exactly the honesty
+the bare-birth rule enforces.
 
-This is what makes deriving a fresh table the honest escape from the irrevocable growth seal (§5.1):
-`sealedTab.map(x => x)` yields an open table with the same values, without unsealing anything.
-
-### 7.2 Protocol access DOES propagate, by key identity
-
-The `get` / `set` access a **protocol** grants a key is an invariant that protocol asserts about any
-conforming table. If a transformer dropped it, it would be a property of "a table nobody has
-`.map()`-ed yet", worthless as a type invariant. So it must survive transforms. The precise rule:
-
-> **A key's protocol-granted access propagates to any output key that is identically an input key.
-> Freshly-created keys that no protocol governs are bare (full access to their holder).**
-
-- **Key-preserving** operations (`filter`, `map` in `{values}` mode, `reverse`,
-  `sort`, `slice` with `preserveKeys`, `replace`, `fill`) carry each surviving
-  key's protocol access forward.
-- **Key-creating** operations (`values`, `keys`, `map` in `{keys}` / `{both}` mode,
-  `flip`, `groupBy`, `flatten`, anything reindexing to `0..n`) mint keys that did
-  not exist in the input; those keys are bare unless the result conforms to a protocol
-  that declares them. `flip` is the sharp case, a restricted *value* becoming a *key*
-  cannot carry its access; the concept does not transfer.
-
-Protocol membership is naturally shed where it cannot apply: a list, for instance,
-never carries protocols beyond the built-in one.
-
-Under `&`-write-back the **target's** current permissions govern the write. Because
-key-preserving transforms carry permissions along, source and target normally agree;
-they diverge only when the target conforms to a protocol the source did not, in which
-case the target's contract wins.
+Under `&`-write-back the **target's** own state governs the write (§4.2): writing a
+derived (open, bare) result back onto a sealed target answers to the target's seal.
 
 ---
 
@@ -645,8 +585,8 @@ A table-level constraint is an ordinary `constraint {}` (constraints spec §1) w
 and a pure predicate over the whole table:
 
 ```
-const pair    = constraint { t: table where t->count() == 2 };
-const sorted  = constraint { t: table where isSorted(t->values()) };
+const pair    = constraint { t: table where count(t) == 2 };
+const sorted  = constraint { t: table where isSorted(values(t)) };
 const tagged  = constraint { t: table where t.kind is string };
 ```
 
@@ -755,8 +695,8 @@ The `.` / `[]` split (§3.2) tells the compiler, per access site, which path to 
   one perfect-hash probe to an offset, then loads. Reading a `const` lookup table with a
   runtime key (the primary reason such tables exist) is fully supported and fast, one
   collision-free probe into contiguous storage.
-- **Writes** (`constTab.x = v`, `constTab[x] = v`): already impossible on a frozen table
-  (§5); no representation concern.
+- **Writes** (`constTab.x = v`, `constTab[x] = v`): already impossible on a deeply
+  frozen `const` table (variables §3); no representation concern.
 
 Reading via `[]` is therefore **not** disallowed on a `const` table; it is a core use case.
 Only mutation is forbidden, and that is the seal, not a representation rule. As a bonus,
@@ -771,7 +711,7 @@ it cannot, because a `const` table is still used **as data**, not only as named 
 
 - **`foreach (k => v in constTab)`** must yield real (key, value) pairs.
 - **`keys()`, `values()`, `count()`, serialization (`toJson`), reflection**, and any
-  protocol meta that walks entries, all need the keys as runtime values.
+  operation that walks entries, all need the keys as runtime values.
 
 So the perfect-hash-plus-retained-keys structure is the **baseline** representation, and
 the direct-offset shortcut for static `.` keys is an optimization layered **on top** of it,
@@ -793,7 +733,7 @@ table semantics running faster.
 
 ---
 
-*See also:* **table-api.md** for the complete operation catalogue and the
-error summary, **protocols** and **views** for how protocols apply to tables and how `->`
-reaches their behavior, and the *Optional Access & Coalescing* reference for `?.`, `??`,
-and `???`.
+*See also:* **iterable-functions.md** and **indexable-functions.md** for the complete
+operation catalogue and the error summary, **protocols** for how protocols apply to
+tables and how `->` reaches their members, and the *Optional Access & Coalescing*
+reference for `?.`, `??`, and `???`.

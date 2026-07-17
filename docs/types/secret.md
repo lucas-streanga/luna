@@ -92,7 +92,7 @@ else (§6).
 
 ---
 
-### 3.1 Gated construction: `secret(...)` (R79)
+### 3.2 Gated construction: `secret(...)` (R79)
 
 Beyond `as secret` (the default form), the **constructor** attaches gates:
 

@@ -134,7 +134,7 @@ table is a map.
 | Table API | `table-api.md` | Retired pointer (R91–R93): the protocol catalogue's successor map, and the protocol-redesign deferrals. |
 | Iterable functions | `iterable-functions.md` | Built-in free functions over `iterable` (tables and streams): traversal, transform, aggregate, bridges. |
 | Indexable functions | `indexable-functions.md` | Built-in table-only free functions: keyed access, seal state, mutation, and the whole-input (sort) family. |
-| Views | `views.md` | The `view` type that pairs a table with one applied protocol and redirects access to it. |
+| Views | `views.md` | Retired pointer (R95): the `view` type is gone; what replaced each piece, and where. |
 | Functions | `functions.md` | The `fn` value: capture, errorability, and comptime-eligibility. |
 | Stream | `stream.md` | The lazy, single-pass sequence type and its two defining properties. |
 | Stream API | `stream-api.md` | The operation surface of `stream` (inspect, transform, collect, consume). |
@@ -145,7 +145,7 @@ table is a map.
 
 | Spec | File | What it is |
 |-|-|-|
-| Protocols | `protocols.md` | How behavior and per-key contracts attach to tables (Luna's object model). |
+| Protocols | `protocols.md` | Luna's object model: the closed `->` member space, the ladder + grants, machinery application, `@P` types, `@@`. |
 | Constraints | `constraints.md` | Refinement types: a base type narrowed by a pure runtime-checked predicate. |
 | Errors | `errors.md` | The sealed error type hierarchy and the error model. |
 | Capabilities | `capabilities.md` | Unforgeable authority tokens gating outside-reaching effects. |

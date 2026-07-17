@@ -93,7 +93,8 @@ integer-reindex / string-merge rule regardless.
 
 Spread is the literal-syntax form of `merge`; `merge` is the function form. They agree
 because `merge` folds the same way: integer keys append, string keys overwrite
-(table-api, `preserveKeys = false`, the combiner default it shares with `flatten`).
+(iterable-functions §2.7, `preserveKeys = false`, the combiner default it shares with
+`flatten`).
 
 ```
 [...a, ...b]        // the same fold as a.merge(b)
@@ -110,14 +111,16 @@ names when it reindexes across levels.)*
 A stream is a lazy sequence, so `[...s]` **materializes** it: spread pulls the stream **to
 exhaustion, eagerly, at the point of the literal**, and contributes each element in order. A
 stream is lazy-start (stream §1.2), so the generator's body does not run at all until the
-spread pulls it. A key-value stream's `k => v` elements enter the fold as keyed entries (§1).
+spread pulls it. A stream's `k => v` elements enter the fold as keyed entries (§1): implicit
+integer keys (R93) reindex-append exactly as a list's keys do; explicit keys follow the
+ordinary fold rule.
 
 Precisely, and this is the part that is easy to get wrong: **spread is the *fold* of the
-collection, not the collection.** `collect(s)` preserves a key-value stream's integer keys
-(stream-api); the fold of §1 reindexes them. So for a key-value stream `[...s]` is
-`[...collect(s)]`, and for a values-only stream it is `values(s)`. The distinction is
-invisible for string-keyed and values-only streams, and is the whole difference for a stream
-that yields integer keys.
+collection, not the collection.** `collect(s)` preserves a stream's keys (iterable-functions
+§2.11); the fold of §1 reindexes integer keys. So `[...s]` is `[...collect(s)]`, never bare
+`collect(s)`: for a stream carrying **explicit integer keys** the fold reindexes what
+`collect` would keep, and that is the whole difference. For implicit keys (R93) and string
+keys the two coincide.
 
 This is foreach-class consumption (stream §2): the stream is exhausted afterward, not taken,
 iterating it again yields nothing. Two consequences, both the programmer's deliberate choice:
@@ -125,9 +128,9 @@ an **unbounded stream spreads into unbounded memory** (bound it first, `[...s |>
 and spreading is the opposite of the pipeline's laziness, use it exactly when you *want* the
 whole sequence in hand now.
 
-In a **sequence context** (§4), a stream must be **values-only**, which is precisely the
-stream analogue of a `list` (stream §1.1); a key-value stream needs `.values()` first, exactly
-as a keyed table does.
+In a **sequence context** (§4), a stream must be **list-like** — implicit, undisturbed
+integer keys (R93), precisely the stream analogue of a `list`; an explicitly-keyed stream
+needs `values()` first, exactly as a keyed table does.
 
 ## 3. One level, always; depth is the flatten API's job
 
@@ -136,15 +139,15 @@ Spread contributes a table's **entries**, and an entry that is itself a table ar
 depth is a *policy*, and policies get functions, not operators:
 
 ```
-fn flatten(tab: table, depth: int = -1, preserveKeys: bool = false,
-           onNoGet: enum {throw, skip} = {throw}, asStream = false): table | stream
+fn flatten(it: iterable, depth: int = -1, preserveKeys: bool = false): iterable
 ```
 
-`flatten` (table-api) is the explicit form, and its four policy knobs are the argument: how
-deep (`depth = -1` is fully), whether keys survive, what to do about an unreadable entry, and
-whether to stream the result. None of that fits in a token. It composes with spread when both
-are wanted (`[...flatten(t, 2)]`), and it reindexes by default for the same reason spread's
-integer keys reindex: keys collide across levels.
+`flatten` (iterable-functions §2.5) is the explicit form, and its policy knobs are the
+argument: how deep (`depth = -1` is fully) and whether keys survive. Neither fits in a
+token. (The former `onNoGet` and `asStream` knobs are gone with their models, R92/R98:
+output kind follows the input, and element space carries no permissions.) It composes with
+spread when both are wanted (`[...flatten(t, 2)]`), and it reindexes by default for the
+same reason spread's integer keys reindex: keys collide across levels.
 
 ## 4. Spread into call arguments
 
@@ -172,7 +175,7 @@ parameters in written order, defaults cover the tail, **surplus elements are dro
 spread of ten into a two-parameter function is legal, exactly as a written ten-argument call
 is), and a **deficit is an `ArityError`** (a `panic`, errors spec), a compile error where the
 callee's signature and the spread's length are both statically visible, checked at the call
-otherwise. A values-only stream spreads the same way, materialized (§2) before the arity check.
+otherwise. A list-like stream (R93) spreads the same way, materialized (§2) before the arity check.
 
 Two consequences worth stating:
 
@@ -193,7 +196,7 @@ table, `t.values()` is, because it says what it does.
 **`toString`** exactly as scalar interpolation renders (`"${x}"`, conversion §3), so spread
 interpolation is **total**: it is precisely the loop of `"${x}"`s it abbreviates, and display
 never fails. No separator is inserted; a separator is `join`'s job (`"${join(', ', xs)}"`,
-strings §8). Interpolation is a sequence context, so `xs` is a `list` (or a values-only
+strings §8). Interpolation is a sequence context, so `xs` is a `list` (or a list-like
 stream) under §4's rule. *(A stricter rendering rule, panic unless every element is already a
 `string`, was considered and rejected: it would make this the one non-total rendering form in
 the language, diverging from the scalar interpolation it claims to abbreviate; strictness at a
@@ -231,10 +234,10 @@ whose parts happen to be spreads.
   position, used across the std surface (`merge(tab, ...tabs)`, and R79's
   `secret(raw, ...gates: type)`) and specified nowhere: functions §3.3 defines neither
   variadic parameters, nor the keyword-only `*,` tail, nor the `name?` optional-parameter form
-  that table-api's notation relies on. It gets its own spec. The tempting unification, that a
-  parameter list is a pattern (R35) and so a variadic *is* destructuring's rest element, does
-  not currently hold: R35 ruled rest **trailing-only**, while every `*,` signature in
-  table-api places options after the variadic. That a values-only stream may fill a variadic
-  is settled (§2, §4); how the variadic is *declared* is not.
+  that iterable-functions' notation relies on. It gets its own spec. The tempting unification,
+  that a parameter list is a pattern (R35) and so a variadic *is* destructuring's rest
+  element, does not currently hold: R35 ruled rest **trailing-only**, while every `*,`
+  signature in iterable-functions places options after the variadic. That a list-like stream
+  may fill a variadic is settled (§2, §4); how the variadic is *declared* is not.
 - **Spread of `bytes` / `string`**: whether `[...someBytes]` yields a table of `byte`
   elements (plausible, cheap) or is an error pending a use case; deferred.

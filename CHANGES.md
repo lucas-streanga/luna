@@ -1707,6 +1707,163 @@ free. Swept: `iterable-functions.md` (§1.3, §2.11, and the §3 retired-spellin
 now lists the old name); the Still-open grep list (the old corpus's `asStream` — stream-api
 §7's function and every `asStream:` flag — now sweeps to `toStream` / the R92 kind rule).
 
+**R95 — `->` is all protocol member access; protocol space is closed; views are retired.**
+The protocol model is rebuilt on one move: a protocol's members live in **protocol space**
+— per-protocol namespaced, reached only by `->`, and **closed at compile time** (every
+proto block fixes its member set at definition) — and element space (`.` / `[]`) is
+protocol-free, pure user data. Everything the old model fought follows from ending the
+shared space: declared-element-member collisions (old §6.3), the `@P & @Q` disjointness
+constraint (old §7.2), the declared-vs-dynamic install machinery (old §5.1–5.2), and the
+built-in-name avoidance rule (old §6.4) are all structurally impossible rather than
+checked. `->` resolves statically against in-scope protocols: bare `tab->m` when exactly
+one declares `m`, qualified `tab->P.m` otherwise, unknown names a compile error — so
+`undefined` never masks a typo. The one runtime question left is application (a dynamic
+fact): a bare read of an unapplied protocol's member is `undefined` (two absences, one
+rule, matching element space), a hard use — write or call — **panics** (a silent no-op
+call is Objective-C nil messaging, the failure mode that parses as success; rejected),
+and `?->` is the explicit soft form, short-circuiting argument evaluation like `?.`.
+This ruling also settles a live contradiction: old protocols §10 said an unapplied reach
+panics while §4.4 and views §3.2 said `undefined` — resolved as above (soft read, hard
+panic). **Views are retired with the space they navigated**: `->` yields values directly,
+chaining rides return values, `self` is the receiver typed `@CurrentProto`, `tab->P.m` is
+pure qualification syntax producing no intermediate value, and `@@` (tables only) moves
+into protocols §8. The §5.4.2 widening/`&`-alias hole closes by construction: no `.`
+write can touch a protocol member, no `->` write can touch element data, and grants
+travel with the member, not the binding. Swept: `protocols.md` (rewritten), `views.md`
+(stubbed to a replacement map), `index.md`.
+
+**R96 — the proto block is member declarations only: the ladder plus grants.** A protocol
+contributes exactly one kind of thing, members, declared
+`<const|let|var> [get] [set] name[?]: type [= default]` — three existing mechanisms
+composing with their ordinary meanings (binding keyword = mutability, variables §1
+including the §1.2 write-once optional; `?` = type; default presence = apply-time
+omissibility, the same rule as function parameters, so there is no `required` marker).
+The `meta` keyword is **retired**; its old sense (per-table private state) is an
+ungranted member, and protocol-level constants fall out of **`const`'s one-binding
+rule**: a `const` with a default is bound at *definition* — uniform across tables, a
+protocol fact, reachable off the proto value (`person->species`), excluded from
+equality, serialization, and initializers, and never per-table overridable (hence **no
+virtual dispatch**: fn-typed members cannot be overridden per table); a `const` without
+a default takes its one binding from a required apply initializer — a per-table
+immutable, the record field. Mutable protocol-level state is inexpressible; shared
+mutable state belongs to a task, per the concurrency commitments. **Functions are
+`const` fn-typed members** — no separate category: `get` makes one public, ungranted is
+a private helper, receiver first by value with caller-side `&`-write-back (the R91
+catalogue convention; no `&` parameters). `P->fn` yields the bare function value
+(receiver-first, so it composes with `map` directly); `tab->fn` uncalled is a compile
+error (a bound method would be a stale snapshot under capture §2.1 or an alias, both
+rejected; bake a receiver with an explicit closure). Grants are external-only (a
+protocol's own functions always reach their own members), canonically ordered `get set`,
+orthogonal (write-only is legal), and **a grant that can never be exercised is a
+definition error** (`const … set`; `let set` on a scalar) — likewise **required ⇒
+granted is a theorem** (no default + no grant = unbindable = ill-formed). The surfaces
+sharpen to one boundary: **per-table `get` members = the equality surface = the
+serialization surface; granted per-table members = the initializer surface**;
+definition-fixed members are vacuous everywhere; `identityEquality` is retained for
+hidden-state types. And ruled here: **fn values do not serialize** (no representation,
+no way back, a security hazard) — `toJson` raises `typeError` on a fn in the
+serialization surface, with `skipFunctions: true` to omit fn-valued slots instead.
+Swept: `protocols.md`.
+
+**R97 — application is pure machinery; initializers are data; requirements auto-apply.**
+Custom `apply` functions are **dead**: application runs no user code, ever — it attaches
+the protocol and binds its per-table members from initializers or defaults, atomically
+(all-or-nothing, no observable partial state). What `apply` bodies did is covered by
+constraints (validation), initializers (population), or ordinary factory functions
+returning `@P` (everything else — no constructor concept, hence none of the constructor
+failure modes: no init-order semantics, no partially built values, no overloads).
+Initializers are a named, typed, compile-checked value list — the **apply operator's own
+grammar**, deliberately not function named-arguments (that question stays open,
+R89/R90 tail) — supplying required members and overriding `let`/`var` defaults;
+definition-fixed and ungranted members may not appear. Two forms with a clean split:
+the **operator** (`[] apply person(name: "Lucas")`, onto any table expression) is
+**never errorable** — under this model a table's element data is *irrelevant* to
+application, so the old shape-dependence (§7.4) and its whole errorability tier system
+(§7.5–7.6) collapse; the **free function** (`&tab.apply(p, inits)`, R91-style with
+write-back) is the dynamic form and carries the model's **single residual error**,
+`ApplyError`: missing required initializer, unknown/unbindable initializer key,
+initializer value failing type or constraint, or re-application with initializers. Bare
+**re-application is a no-op** (idempotent, state kept — which keeps application monotone
+and the fact/promise split sound); re-applying **with initializers is an error** (silent
+data loss or broken idempotency otherwise). **Requirements**: a proto block may state
+`apply otherProto;` — the same keyword because the semantics *are* auto-application
+(transitive, idempotent, safe precisely because application is machinery); `require` as
+a new keyword was rejected as both costly and a misnomer. The requirement graph is a
+**DAG** (modules §2's argument verbatim), and `@B <: @A` falls out: a `@B` provably has
+`A` applied. One restriction keeps initializer lists single-protocol: a requirement with
+*required* members cannot be auto-applied — the target must have it applied already
+(compile error in the operator form naming the missing requirement). Swept:
+`protocols.md`; resolves old §11's apply-reach question (a built-in free function, per
+R91) and its applied-check question (the closed space plus the O(1) tag test).
+
+**R98 — the element-permission model is deleted; the R92 deferrals resolve by deletion.**
+With protocols out of element space (R95) and grants compile-checked (R96), per-key
+element permissions have nothing left to govern: a bare table was always fully
+accessible to its holder, and protocol members answer to static grants. Deleted, not
+deferred: **`onNoGet` / `onNoSet`** (bulk operations traverse element space, which
+carries no permissions — the enums return to no signature, ever),
+**`TableReadViolationError` / `TableMutationViolationError`** (grant violations are
+compile errors, not runtime events), and **`canGet` / `canSet`** (retired from
+indexable-functions; `has` covers presence, and there is no runtime grant to query).
+This discharges the deferrals R92 parked in `table-api.md` and empties tables §6's
+runtime model (the tables.md sweep itself remains flagged below). Swept: `table-api.md`
+(deferral section rewritten as resolved), `indexable-functions.md` (§1, §5),
+`iterable-functions.md` (§1.6, §3).
+
+**R99 — the R95–R98 sweep, first pass: tables, the builder, secret, keywords.** Applying
+the protocol redesign where it bit deepest, with three consequences the sweep forced into
+the open rather than deciding silently. **`tables.md`**: §3.3 rewritten to the two-space
+model (element vs. protocol space; `->` now legally appears left of `=` where a member
+grants `set`, retiring the old "never assignable" absolute); §6's per-key permission
+model deleted bodily (R98) — the section now states the positive rule (element space
+carries no permissions; encapsulation lives in protocol space, compile-checked) and
+absence collapses from three cases to two (absent → `undefined`, present `null` →
+`null`; the denial case is gone); §4's write-back prose de-protocoled (no *built-in or
+protocol function* takes a `&` receiver — the R91/R96 convention stated once); §8.1's
+constraint examples respelled to free functions (`count(t)`, `values(t)`). **Forced
+ruling one, §7 unified: derived tables are born open *and bare*.** A transformer reads
+element space only, so it cannot reproduce a protocol's per-table member state, and a
+protocol without its state is incoherent — so transformers shed protocols, uniformly.
+This also resolves a tension the old text carried (access "propagates by key identity"
+in §7.2 while §6.4 said derived values are born protocol-free): the shed side wins,
+identity copies keep everything, and re-attaching behavior is an explicit `apply` that
+must re-supply what the protocol requires. **`stringBuilder.md`**: rewritten to the
+member model — `buf` is an ungranted per-table `var` member (under new-`meta` it would
+have been one shared buffer for every builder in the program, the exact hazard R96's
+retirement of the keyword was for), the surface is `const get` fn members, chaining is
+`&b->append(...)->append(...)`, and `identityEquality` is declared. **Forced ruling two:
+`take()` is retired.** It is inexpressible under the pure-receiver convention (one
+return channel cannot carry both the string and the reset receiver) and redundant under
+COW: `build()` shares the buffer with the produced string and the O(n) copy happens only
+if the builder is appended to again — so build-and-drop *is* the zero-copy path, and
+interpolation's lowering (build on a dropped temp) gets it by construction. Rejected
+alternative: a `[string, @stringBuilder]` pair return, which buys nothing over
+`build()` + `&clear()`. **Forced ruling three: protocol members may take catalogue
+names.** The builder keeps `isEmpty` — `b->isEmpty()` (buffer) and `b.isEmpty()` (UFCS,
+element space, vacuously true) coexist because the spaces are disjoint; the old §6.4
+name-avoidance rule died with the built-in protocol, and the doc now demonstrates the
+split instead of legislating around it. **`secret.md`**: no protocol content after all —
+swept for a latent defect instead: two sections were both numbered §3.1; gated
+construction is now §3.2. **`keywords.md`**: the `meta` row deleted (R96); `apply`'s row
+rewritten (expression operator + proto-block requirement declaration; the dynamic form
+is a free function, not a keyword use); `self`'s row updated (type in return position,
+value in bodies — no view); `get` / `set` added as contextual modifiers; and in the
+predeclared-name list, `view` removed (R95) and **`iterable` added** — an R92 sweep item
+that had no home until now. The `?->` token is deliberately not added yet (deferred by
+decision, with the lexer/associativity work). Also swept, discovered by the verification
+greps: `indexable-functions.md` §2's stale pointer into old tables §6;
+`concurrency.md`'s value-carried-enforcement cite (old tables §6.4 → §6.2, and its
+protocol half dropped — grant enforcement is compile-time now, so only constraints
+still "follow the value"); `operators.md`'s `->`, `@@`, and `apply` rows plus its
+operators-run-no-user-code passage (`->` is protocol-member *access*; the call parens
+are what run a protocol function, exactly as with UFCS; the statement-form
+`tab apply proto` row respelled to the expression operator, the dynamic form being the
+free function per R97); and `spread.md` end to end (its old flatten signature respelled
+without `onNoGet` / `asStream`; `table-api` cites → the catalogue files; and every
+"values-only stream" translated to its R93 equivalent, a **list-like** stream — one
+with implicit, undisturbed integer keys — including the R89 variadic-fill note and the
+§2 fold-vs-collect distinction, which now bites only for *explicit* integer keys).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -1714,7 +1871,8 @@ now lists the old name); the Still-open grep list (the old corpus's `asStream` �
 A handful of contradictions surfaced by the review remain deliberately unresolved,
 each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
 exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
-view interior mutability (F25); the builtin error types' casing (keywords §6); and,
+(view interior mutability, F25, is **mooted by R95** — views no longer exist); the
+builtin error types' casing (keywords §6); and,
 newly, **a reflection query for a function value's capability requirement set** (R88's
 tail, functions §3, reflection §3).
 
@@ -1745,11 +1903,35 @@ And from R91–R93, the two big flagged remainders:
   protocol-phrased write-back); `views.md` (bare `->`, §7.2); `protocols.md` (built-in
   protocol mentions); `functions.md` §3.4 (its flagged std-shaping tail, discharged by
   R91–R92); `associativity.md`'s dispatch row; `conversion.md`; `wildcard.md`; the examples.
-  Grep targets: "built-in protocol", "tab->", "asStream" (flag *and* the stream-api §7
-  function, both → R94), "enumerate", "concat", ".empty()", "values-only".
-- **The protocol-redesign deferrals** (R92's tail, recorded in `table-api.md`):
-  `onNoGet` / `onNoSet` on bulk operations, `TableReadViolationError` /
-  `TableMutationViolationError`, and `canGet` / `canSet` grant semantics.
+  Grep targets: "built-in protocol", "->map(" / "->count(" / bare-`->` built-in calls
+  (`tab->` itself is *valid* protocol-member syntax again under R95 — grep the retired
+  call shapes, not the operator), "asStream" (flag *and* the stream-api §7 function,
+  both → R94), "enumerate", "concat", ".empty()", "values-only".
+- **The R95–R98 sweep remainder.** The protocol redesign is applied in `protocols.md`,
+  the `views.md` stub, the two catalogue files, `table-api.md`, the index, and — R99 —
+  `tables.md`, `stringBuilder.md`, `secret.md`, and `keywords.md`. Still to sweep: the
+  equality spec (gains the per-table-`get` surface rule and the R96 `identityEquality`
+  framing); `json.md` (the `skipFunctions` flag, `typeError` on fn values, roundtrip =
+  apply + initializers, and the open nesting shape for protocol members);
+  `associativity.md` and the lexer (the `?->` token — deferred by decision, R99 — and
+  the `x->P` dispatch row); the constraints spec (§9.4 cross-refs to protocol write
+  enforcement, now compile-time); `conversion.md` (its `toString = meta fn` contract
+  needs the free-function respelling), `wildcard.md`, `any.md`, `regex.md` (`->find`),
+  `io.md`, `command.md`, `functions.md` (§3.4's "`->` is untouched" note still describes
+  meta pools), and the examples. Largest of these:
+  **`optional-access-and-coalescing.md`**, surfaced by R99's verification greps — it is
+  built on the three-axis absence/null/denial model, and the denial axis is dead (R98):
+  its permission rows, the `?.`-does-not-suppress-`TableReadViolationError` rule, and
+  the `???=` read-to-classify caveat all need the two-axis rewrite, and whether `???`
+  keeps its full motivation without denial should be looked at while there. Grep:
+  "view", "meta fn", "meta ", "->apply", "@@sb", "b apply", "onNoGet", "canGet",
+  "ViolationError".
+- **New opens from R95–R98:** the initializer grammar's final spelling (rides the
+  named-arguments question above); removal/`unapply` (unchanged, with §6.3's
+  monotonicity condition standing); the `?->` token's lexer/precedence placement; the
+  JSON nesting shape for serialized protocol members; `@@`'s type surface on non-table
+  values; and mutable protocol-level state, deliberately inexpressible pending the
+  concurrency model's task-ownership story.
 
 Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
 table of `byte` elements or is an error, deferred for want of a use case (spread §7).
