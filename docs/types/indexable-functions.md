@@ -7,7 +7,7 @@ everywhere, no import, no module, no protocol, called directly or through UFCS
 
 An operation is indexable for one of two reasons, and the catalogue is organized by them:
 
-1. **It needs the table itself** — keyed (random) access, the growth seal, storage shape, or
+1. **It needs the table itself** — keyed (random) access, storage shape, or
    positional mutation (§1–§3). A stream has none of these to offer.
 2. **It must hold the entire input at once before producing its first output** — the sort
    family (§4). On a stream that would silently buffer an unbounded (possibly infinite)
@@ -48,32 +48,23 @@ fn isContiguousMemory(tab: table): bool
 
 ---
 
-## 2. Table-level growth seal
+## 2. (removed) Table-level seals
 
-Each returns the modified table (COW); use `&tab.close()` etc. to apply in place. The
-growth seal is the only per-table access state that exists: element keys carry no
-permissions (tables §6, R98), and protocol-member grants are compile-time (protocols §2.2).
-
-#### open() · close() · neverOpen()
-```
-fn open(tab: table): table
-fn close(tab: table): table
-fn neverOpen(tab: table): table
-```
-**O(1).** Set the growth axis: open, closed (revocable), or permanently non-growable.
-`open()` on a `neverOpen` table raises `InvalidOpenError`.
-
-(The mutation-seal functions `freeze` / `thaw` / `neverThaw` are **removed**, tables spec
-§5.2: tables are value types, so value-sealing protected nothing. Immutability is `const` or
-a future deferred `toImmutable()`.)
+The growth-seal functions (`open()`, `close()`, `neverOpen()`) are **removed** (R109,
+tables §5.1), as the mutation-seal functions (`freeze` / `thaw` / `neverThaw`) were
+before them (tables §5.2), and by the same argument: tables are copy-on-write value
+types, so a seal protected a table only from its own holder. A table carries no runtime
+seal state; a fixed shape is a **declared** contract — a protocol (protocols §2) or a
+table-level constraint (tables §8) — never a toggled flag. Immutability is `const`
+(variables §3) or the future deferred `toImmutable()` (tables §5.2.1). The section
+number is kept so older references land on this removal record.
 
 ---
 
 ## 3. Keyed & positional mutation
 
-Grow operations are legal in pure form (they build a new, open table) and answer to
-open-state only under `&`-write-back onto a sealed target. Removal is always legal, even on
-`closed` / `neverOpen` tables, since it introduces no key; removers return the shortened
+Grow, write, and removal operations are all unconditionally legal: element space carries
+no permissions and no seal (tables §5, §6 — R98, R109). Removers return the shortened
 table (tables §4.1) — read the element first (`last()`, `first()`), then shrink.
 
 #### slice()
@@ -88,8 +79,7 @@ traversal-order cuts are `take` / `skip` (iterable-functions §2.6).
 ```
 fn splice(tab: table, offset: any, length: int = 0, replacement: table = []): table
 ```
-**O(n).** Removes a section and substitutes `replacement`. Under `&`-write-back, new keys
-answer to open-state.
+**O(n).** Removes a section and substitutes `replacement`.
 
 #### insert()
 ```
@@ -109,8 +99,7 @@ fn fill(tab: table, keys: iterable, value: any): table
 ```
 **O(n).** Sets `value` for each key in `keys` — only the *values* of `keys` are used, so
 `keys` may be a stream such as `0..10` (and is taken, iterable-functions §1.5). The primary
-is written by key, which is what makes `fill` indexable. Under `&`-write-back, new keys
-answer to open-state.
+is written by key, which is what makes `fill` indexable.
 
 #### pop() · shift()
 ```
@@ -190,14 +179,13 @@ fn partition(tab: table, predicateFn: fn, mode: enum {values, keys, both} = {val
 
 ## 5. Error summary
 
-| Error | Raised when |
-|-|-|
-| `OpenViolationError` | Adding a new key to a `closed` or `neverOpen` table. |
-| `InvalidOpenError` | Calling `open()` on a `neverOpen` table. |
-
-(`TableReadViolationError` / `TableMutationViolationError` are **retired**, R98: grant
-violations are compile errors under the protocol redesign, protocols §3.1.)
+Element-space operations raise **no runtime errors at all.** The former inventory is
+gone in two strokes: `TableReadViolationError` / `TableMutationViolationError` retired
+with the permission model (R98 — grant violations are compile errors, protocols §3.1),
+and `OpenViolationError` / `InvalidOpenError` retired with the growth seal (R109,
+tables §5.1). What remains is ambient panics only, as everywhere (a `list`-constraint
+violation, a `typeError` on a bad key type), never an error specific to this catalogue.
 
 Absence is **not** an error: reading a missing key yields `undefined`. See the *Optional
-Access & Coalescing* reference for how `?.`, `??`, and `???` navigate absence, `null`, and
-denial.
+Access & Coalescing* reference for how `?.`, `??`, and `???` navigate absence and
+`null`.

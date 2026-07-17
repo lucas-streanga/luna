@@ -95,58 +95,47 @@ Two facts keep this composable with everything above:
 ## Write side
 
 Compound assignment inherits the coalescers' laziness and adds one distinction the read
-side doesn't have: **firing on an absent key is an *add*, governed by the growth seal
-(tables §5); firing on a present `null` is an *overwrite*, which is unconditionally legal
-(element writes carry no permissions, tables §6).**
+side doesn't have: **firing on an absent key is an *add*; firing on a present `null` is
+an *overwrite*.** Both are unconditionally legal — element space carries no permissions
+and no seal (tables §5, §6; R98, R109) — so **both compound forms are total: they cannot
+fail.**
 
 - **`??=` asks only "does the key exist?"** — an existence check, never a value read.
-  When it fires it is *always* an add. Its only possible failure is `OpenViolationError`.
+  When it fires it is *always* an add.
 - **`???=` asks "is the value null?"**, which reads the value to classify. It fires as an
-  add (absent → open-state) or an overwrite (null → unconditional).
+  add (absent) or an overwrite (null).
 
 ### `a.k ??= b`, fires only when `k` is absent
 
 | `k` state | fires? | reads value? | operation | outcome |
 |-|-|-|-|-|
-| absent, table open | yes | no | add | assigns `b` |
-| absent, closed / neverOpen | yes (attempts) | no | add | **`OpenViolationError`** |
+| absent | yes | no | add | assigns `b` |
 | present = `null` | no | no |, | no-op, `null` kept |
 | present = value | no | no |, | no-op |
 
-`??=` decides by existence alone. The operator can raise **only** `OpenViolationError`,
-and only when growing a `closed` / `neverOpen` table.
+`??=` decides by existence alone, and is **total** (R109): no state of the key or the
+table can make it fail.
 
 ### `a.k ???= b`, fires when `k` is absent *or* null
 
 | `k` state | reads value? | fires? | operation | outcome |
 |-|-|-|-|-|
-| absent, table open | no (existence) | yes | add | assigns `b` |
-| absent, closed / neverOpen | no | yes (attempts) | add | **`OpenViolationError`** |
+| absent | no (existence) | yes | add | assigns `b` |
 | present = `null` | yes | yes | overwrite | assigns `b` |
 | present = value | yes | no |, | no-op |
 
-The overwrite path cannot fail: a present key is readable and writable by whoever holds
-the table (tables §6). `???=`'s only failure is the same add-path `OpenViolationError` as
-`??=`'s.
-
-### Sealed tables and the caller's responsibility
-
-Adding to a `closed` or `neverOpen` table throws `OpenViolationError`; it is the caller's
-job to `open()` first. The irrevocable seal (`neverOpen`) can never be lifted, so the
-corresponding add throws *permanently*, the point of the seal, not a gap. Growth is the
-only concern: overwriting a present value is unconditionally legal (tables §6), so a
-`???=` overwrite succeeds even on a `closed` table — the seal governs new keys, not
-existing ones.
+Like `??=`, `???=` is **total** (R109): reads cannot be denied (R98), overwrites are
+unconditional (tables §6), and adds meet no seal (tables §5).
 
 ---
 
 ## Rulings
 
 **Laziness.** For all four operators, the right operand is evaluated only when the
-fallback/assignment fires. A non-firing `??=` / `???=` performs no write, and therefore
-triggers **no** open-check; nothing happened. (The old form of this rule also disclaimed
-`freeze` and `noSet` checks; both mechanisms are gone — mutation sealing in tables §5.2,
-per-key permissions in R98 — so there is nothing left to disclaim.)
+fallback/assignment fires. A non-firing `??=` / `???=` performs no write; nothing
+happened. (The old form of this rule disclaimed open-, freeze-, and `noSet`-checks on
+the non-firing path; all three mechanisms are gone — tables §5, R98, R109 — and the
+*firing* paths are total now anyway.)
 
 **No runtime "forbidden."** The coalescers distinguish *absent* from *empty*; there is no
 third runtime state for them to meet. What used to be denial (`TableReadViolationError`

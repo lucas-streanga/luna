@@ -1,8 +1,8 @@
 # Tables
 
 This document defines the concepts behind Luna's table type: keys and how they are
-accessed (§3), value semantics (§4), table-level growth sealing (§5), element access and
-encapsulation (§6), and flag propagation (§7). The built-in operations that act on tables
+accessed (§3), value semantics (§4), the removal of sealing (§5), element access and
+encapsulation (§6), and propagation (§7). The built-in operations that act on tables
 are catalogued separately in **iterable-functions.md** and **indexable-functions.md**
 (R91–R92). Behavior beyond the built-in operations is contributed by protocols: a table
 is also Luna's object, an empty or data-bearing table with protocols applied. Protocols
@@ -360,65 +360,60 @@ dynamic (a variable, a computed string, a loop key), which is precisely the case
 serve, and a conditional dynamic delete (`remove(k) if cond`) is fine, because dynamic key space is
 already runtime-shaped and has no static shape-knowledge to destroy.
 
-(A table's growth and mutation seals, §5, govern whether keys may be added or changed at all; a
-`neverOpen` table whose shape callers rely on being fixed, for instance, is not a place where
-removal should silently change the cached shape. The interaction of removal with the seals and with
-statically-declared shape is governed there.)
+(A fixed key-set that callers rely on is a **declared** invariant — a table-level
+constraint, §8, or a protocol — never a runtime seal; sealing is removed, §5. A declared
+shape invariant governs removal exactly as it governs addition: the constraint's
+predicate runs on every mutation.)
 
-### 4.2 `&`-write-back is a flag-respecting structural update
+### 4.2 `&`-write-back is ordinary assignment
 
-Write-back is **not** a blind rebind. It applies the result to the target while
-respecting the target's current structural flags, so the growth seal retains its
-force under references:
-
-```
-var b = closedTab.prepend(0);     // OK, b is a new, open table; closedTab untouched
-&closedTab.prepend(0);            // throws OpenViolationError, write-back would grow a closed table
-```
+Write-back assigns the function's result to the target binding, and is governed by
+exactly what any assignment is governed by: the binding's mutability (variables §1) and
+its declared type and constraints — `&myList.merge(...)`'s result re-enters the `list`
+constraint like any assigned value (§8, constraints §7). There are no per-value flags
+left for it to respect (the mutation seal is removed in §5.2, the growth seal in §5.1,
+R109), so write-back is not a special operation, just assignment spelled at the call
+site.
 
 ---
 
-## 5. Table-level growth sealing
+## 5. Sealing is removed
 
-A table-level flag governs **growth**: whether *new keys* may be added. (An earlier design paired
-this with a *mutation* seal over existing values; that axis is removed, §5.2.) Growth sealing does
-not govern reading or removal.
+Earlier designs gave tables two runtime seal axes — a **mutation** seal (`freeze` /
+`thaw`) and a **growth** seal (`open` / `close` / `neverOpen`). **Both are removed**, by
+the same argument arriving at each in turn (§5.2 first, then §5.1, R109). A table
+carries no runtime seal state of any kind: a table you hold is yours to grow, change,
+and shrink (§6), and every shape guarantee worth having is a *declared* contract, never
+a toggled flag.
 
-> Design note: growth sealing is currently a **runtime** property set by functions (`close()`,
-> `neverOpen()`). Whether a fixed key-set is better expressed as a **compile-time contract** (a
-> fixed-shape table type, where adding a key is a *compile* error rather than a runtime
-> `OpenViolationError`), consistent with how protocol-member grants are compile-checked
-> (protocols §2.2), is an open direction under review. The runtime behavior below is the
-> current model.
+### 5.1 Growth sealing (`open` / `close` / `neverOpen`) is removed
 
-### 5.1 Growth: open, closed, neverOpen
+The growth seal let a table be closed to new keys at runtime — a three-state flag
+(`open` / `closed` / `neverOpen`), a revocability distinction, and two panic types
+(`OpenViolationError` on a sealed add, `InvalidOpenError` on reopening a `neverOpen`
+table). **It is removed** (R109), by §5.2's own argument transferred to the growth axis:
+tables are copy-on-write value types (§4), so a callee receives a copy and tasks never
+share a mutable table — nobody can add a key to *your* table but you, through your own
+binding or an `&`-write-back you explicitly granted. A growth seal therefore protected a
+table only from its own holder: runtime state spent encoding *discipline*, in a language
+whose charter is safety by construction. Every role it played has a declared owner:
 
-| State | Add new key? | Reached via | Reversible? |
-|-|-|-|-|
-| `open` | yes | `open()` | n/a |
-| `closed` | no → `OpenViolationError` | `close()` | yes, via `open()` |
-| `neverOpen` | no → `OpenViolationError` | `neverOpen()` | **no, permanently** |
+- **A fixed shape as contract** is a **protocol** (protocols §2): a closed,
+  compile-checked member space, where a violation does not compile.
+- **An element-space invariant** — including a fixed key-set — is a **table-level
+  constraint** (§8): value-carried, checked on mutation, compiler-elided where provable;
+  `list` is the built-in instance. This is the "compile-time contract" the old §5 design
+  note said the seal probably wanted to be.
+- **The optimization claim** (`neverOpen` as "cache the shape, skip existence checks")
+  belongs to `const` tables (Amendment A) for compile-known data, and to the deferred
+  `toImmutable()` (§5.2.1) for runtime-built data.
+- **Accidental key creation** (`tab['tpyo'] = v` growing instead of failing) is the one
+  use with no zero-setup replacement: declare the constraint or apply the protocol. That
+  is deliberate — an invariant you care about is declared, not toggled.
 
-```
-var myTable = [];
-myTable.name = 'Lucas';           // open: OK
-&myTable.close();
-myTable.lastName = 'Streanga';    // OpenViolationError: cannot add to a closed table
-&myTable.open();
-myTable.lastName = 'Streanga';    // OK
-&myTable.neverOpen();
-myTable.age = 0;                  // OpenViolationError
-&myTable.open();                  // InvalidOpenError: cannot open a table set neverOpen
-```
-
-`close()` is the **revocable** seal, you keep the key and may `open()` later.
-`neverOpen()` is the **irrevocable** seal, the key is discarded, and `open()` on
-such a table raises `InvalidOpenError`. Irrevocability is the whole point: code
-holding a `neverOpen` table may permanently rely on its key-set being fixed, cache
-the shape, skip existence checks, assume no growth. A reopen operation would destroy
-that guarantee, so it does not exist. The only path from `neverOpen` back to
-growable is to **derive a fresh, open table** holding the same values (§7),
-honest construction of a new value, not unsealing of the old one.
+What the deletion buys: element-space operations have **no runtime errors at all**
+(indexable-functions §5), `??=` / `???=` are **total** (coalescing spec), and
+`&`-write-back is ordinary assignment (§4.2).
 
 ### 5.2 Mutation sealing (`freeze` / `thaw`) is removed
 
@@ -533,36 +528,28 @@ To hand code a genuinely unconstrained, protocol-free table, derive a fresh one 
 
 ---
 
-## 7. Flag propagation: derived tables are born open and bare
+## 7. Propagation: derived tables are born bare
 
-The growth seal and the applied-protocol set are properties a table asserts about
-**itself**. A table *derived* by a transformer (`map`, `filter`, `merge`, `prepend`, …)
-is a new self and re-decides both:
+The applied-protocol set is a property a table asserts about **itself**. A table
+*derived* by a transformer (`map`, `filter`, `merge`, `prepend`, …) is a new self:
 
-- **Identity copy** (`var b = a;`) — the same logical value: keeps `a`'s growth seal
-  (including `neverOpen`) **and** its applied-protocol set with the per-table member
-  state. Under COW, the first divergent write splits storage; a growth attempt on a
-  sealed copy throws before any split.
+- **Identity copy** (`var b = a;`) — the same logical value: keeps `a`'s
+  applied-protocol set with its per-table member state. Under COW, the first divergent
+  write splits storage.
 - **Derived / transformed table** — a *different* value with different contents: born
-  **`open`** and born **bare** (no applied protocols), whatever the source carried.
+  **bare** (no applied protocols), whatever the source carried.
 
-Both halves follow from one fact: a transformer reads the source's *element space* and
-builds a new table from it. It never reads protocol space, so it could not reproduce a
-protocol's per-table member state, and carrying a protocol without its state would be
-incoherent. (The old model propagated per-key access grants "by key identity"; with
-element permissions deleted, R98, there is nothing to propagate — and the tension the
-old text carried, propagation in one section and "protocol membership is naturally shed"
-in another, resolves to the shed side uniformly.)
+Both follow from one fact: a transformer reads the source's *element space* and builds a
+new table from it. It never reads protocol space, so it could not reproduce a protocol's
+per-table member state, and carrying a protocol without its state would be incoherent.
+(Two older axes propagated here and are gone outright: per-key access grants, deleted
+with the permission model, R98; and the growth seal, deleted with sealing, §5.1, R109.)
 
-This is what makes deriving a fresh table the honest escape from the irrevocable growth
-seal (§5.1) and from a protocol's contract alike: `sealedTab.map(x => x)` yields an
-open, bare table with the same element values, without unsealing or un-applying
-anything. Re-attaching behavior is explicit — `derived apply person(...)` (protocols
-§4) — and requires re-supplying what the protocol requires, which is exactly the honesty
-the bare-birth rule enforces.
-
-Under `&`-write-back the **target's** own state governs the write (§4.2): writing a
-derived (open, bare) result back onto a sealed target answers to the target's seal.
+This is what makes deriving a fresh table the honest escape from a protocol's contract:
+`p.map(x => x)` yields a bare table with the same element values, without un-applying
+anything. Re-attaching behavior is explicit — `derived apply person(...)` (protocols §4)
+— and requires re-supplying what the protocol requires, which is exactly the honesty the
+bare-birth rule enforces.
 
 ---
 

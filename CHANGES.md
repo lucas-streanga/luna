@@ -2084,6 +2084,79 @@ panics stay possible in `to*` as everywhere, with `toJson`'s `typeError` on fn v
 "no error *handling*," not "cannot fail on misuse." Swept: `strings.md` §9,
 `conversion.md` §2, `bytes.md` §6; the R104 open is retired below.
 
+**R108 — named arguments and variadics: the call surface completed.** The R89/R90 flag —
+three parameter notations used across the std surface and defined nowhere — closes as
+functions §3.3.1–§3.3.3. **Named arguments** (§3.3.2), on the PHP rules: always optional,
+pure ergonomics (skipping defaulted parameters; `a.merge(b, preserveKeys: true)`),
+positional-first (a positional after a named is a compile error), usable with any
+function including a type-erased `fn` — parameter names ride fn values as runtime
+metadata, and are therefore **contract**: renaming a std parameter is a breaking change,
+stated in the spec. Double-binding and unknown names error on the established
+static/dynamic split: compile error against a known signature, the new
+**`NamedArgumentError`** panic (errors §2's tree, the sibling of `ArityError` — arity is
+the count-mismatch binding panic, this is the name-mismatch one) through erased calls.
+One deliberate asymmetry named: surplus *positional* arguments stay dropped (§3.3, the
+callback idiom) while a surplus *name* panics — an extra positional means the callee
+ignores it; a wrong name always means the caller was aiming at something. The PHP 8.1
+associative-spread-becomes-named-arguments behavior is **rejected** ("an evil, evil
+footgun", ruled): spread into arguments remains a list-only sequence context (spread
+§4); names are visible at call sites, never manufactured from data. Function resolution
+is untouched — names bind arguments, never select functions. **Variadics** (§3.3.3):
+`...name: T`, collected as a **`list`** always (zero arguments → `[]`, each element
+checked against `T`, bare is `any`, no declarable default) — and the R35 unification
+**now holds**: the variadic is destructuring's trailing rest in the *positional*
+parameter sublist, with what follows outside positional space. **Only defaulted
+parameters may follow a variadic**, named-only by construction — a *required* named-only
+parameter would make named arguments mandatory at every call, contradicting their
+always-optional charter. The `*,` keyword-only marker is **retired as redundant**
+("after the variadic" already says named-only); the four catalogue signatures shed it.
+Call-site spread composes as the identity (`f(...xs)` re-collects to `rest == xs`,
+COW-cheap; list-like streams fill variadics, R89). **`name?` settled** (§3.3.1): `?` is
+only ever the type (`T | null`, uniform with proto members, R96); a parameter `p?: T`
+with no written default reads as `= null` — sugar, not a divergence. And the convergence
+R97 hedged on is embraced: apply initializers and named arguments share one surface
+(`name: value`) by design, binding members and parameters respectively — protocols §4.2
+and §10 updated, the initializer-grammar open closed. Swept: `functions.md`
+(§3.3.1–§3.3.3), `errors.md` (the panic tree), `iterable-functions.md` (§1.6, four
+signatures), `spread.md` (§4's rejection bullet, §7 resolved), `protocols.md` (§4.2,
+§10), `associativity.md` (argument punctuation).
+
+**R109 — the growth seal is removed: tables carry no seal state at all.** `open()` /
+`close()` / `neverOpen()` are deleted, and `OpenViolationError` / `InvalidOpenError`
+with them — §5.2's freeze/thaw argument transferred verbatim to the growth axis: under
+copy-on-write value semantics a callee receives a copy and tasks never share a mutable
+table, so nobody can add a key to *your* table but you, and a growth seal protected a
+table only from its own holder — a three-state runtime flag, a revocability
+distinction, and two panic types spent encoding *discipline* in a
+safety-by-construction language. The old §5 design note had already confessed the
+direction ("better expressed as a compile-time contract… under review"); the
+replacements now exist, and the removal record names them (tables §5.1): a fixed shape
+as contract → a **protocol** (compile-checked member space, R95–R96); an element-space
+invariant including a fixed key-set → a **table-level constraint** (tables §8,
+value-carried, elided where provable, `list` the built-in instance); the `neverOpen`
+optimization claim → **`const` tables** (Amendment A) and the deferred `toImmutable()`
+(§5.2.1). One use has no zero-setup replacement, deliberately: accidental key creation
+(`tab['tpyo'] = v`) is now guarded only by a *declared* invariant — an invariant you
+care about is declared, not toggled. What the deletion buys: **element-space operations
+have no runtime errors at all** (indexable §5's inventory is empty — R98 took the
+permission errors, R109 takes the seal errors; ambient panics only, as everywhere);
+**`??=` and `???=` are total** (the seal was their only failure mode; both compound
+tables lose their error rows); **`&`-write-back is ordinary assignment** (§4.2's
+"flag-respecting structural update" had no flags left to respect — governed by the
+binding's mutability and declared constraints, like any assignment); and tables §7
+simplifies to "derived tables are born bare." Swept: `tables.md` (intro, §4.1.1's
+seal parenthetical → the declared-invariant note, §4.2 rewritten, §5 restructured as
+the two-axis removal record with §5.2 / §5.2.1 preserved and subsection numbers stable,
+§7), `indexable-functions.md` (intro, §2 → removal record with its section number kept
+so references land, §3's legality note, `splice` / `fill`, §5 — where a stale "denial"
+mention from before R100 was also caught), `iterable-functions.md` (intro,
+`prepend` / `append`), `optional-access-and-coalescing.md` (write-side totality, both
+tables, the sealed-tables section deleted, the laziness ruling), `bindings/variables.md`
+(the `const` paragraph — where two stale "table-protocol violation" phrases, R95–R98
+residue, were discovered and respelled as `typeError` panics), `index.md` (two rows).
+`indexable-functions` drops from 22 functions to 19; `defer.md` and the build-cache
+spec's `open()` / `close()` are file handles and untouched.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2096,21 +2169,14 @@ builtin error types' casing (keywords §6); and,
 newly, **a reflection query for a function value's capability requirement set** (R88's
 tail, functions §3, reflection §3).
 
-Two more, from R89 and R90, each large enough to want its own file rather than a ruling
-appended to someone else's:
+From R89 and R90, once the largest flag in this file, now closed:
 
-- **Variadic parameter declaration**, `...name` in a *parameter* list, the token's third
-  position after the pattern rest and the value spread. It is used across the std surface
-  (`merge(tab, ...tabs)`) and was ratified in R79 as "the variadic form"
-  (`secret(raw, ...gates: type)`), yet `functions.md` §3.3 defines it nowhere, along with the
-  `*,` keyword-only tail and the `name?` optional parameter that `table-api.md`'s notation
-  depends on. Whether the keyword-only tail means Luna has **named arguments** rides with it;
-  R89 removed spread's claim that it does not, without settling that it does. The tempting
-  unification — a parameter list is a pattern (R35), so a variadic simply *is* destructuring's
-  rest element, no new mechanism — does not currently hold: R35 ruled rest **trailing-only**,
-  while every `*,` signature (now in iterable-functions.md) places options after the variadic.
-  Settled already: a stream may fill a variadic (R89, spread §2, §4). Its own spec. (The
-  R90 audit's other half, the `preserveKeys` defaults, was discharged by R92.)
+- **Variadic parameter declaration and named arguments: resolved by R108** (functions
+  §3.3.1–§3.3.3). The R35 unification holds after all — the variadic is the positional
+  sublist's trailing rest, post-variadic parameters are defaulted and named-only, the
+  `*,` marker and the undefined `name?` form are retired/defined, and named arguments
+  landed on the PHP rules with `NamedArgumentError` as the binding panic. (The R90
+  audit's other half, the `preserveKeys` defaults, was discharged by R92.)
 
 And from R91–R93, the two big flagged remainders:
 
@@ -2127,12 +2193,12 @@ And from R91–R93, the two big flagged remainders:
   settled the string/bytes-iterability question it raised (R104: `foreach` yes for
   `bytes`, `iterable` stays `table | stream` exact). Future edits: iterable-functions
   §3's retired-spellings table is the guard against reintroduction.
-- **Opens from R95–R98, still standing:** the initializer grammar's final spelling
-  (rides the named-arguments question above); removal/`unapply` (unchanged, with §6.3's
+- **Opens from R95–R98, still standing:** removal/`unapply` (unchanged, with §6.3's
   monotonicity condition standing); the JSON nesting shape for serialized protocol
   members; `@@`'s type surface on non-table values; and mutable protocol-level state,
   deliberately inexpressible pending the concurrency model's task-ownership story. (The
-  `?->` token's placement, formerly here, landed in R101.)
+  `?->` token landed in R101; the initializer-grammar spelling closed with R108 — named
+  arguments share its `name: value` surface, binding members vs. parameters.)
 - **Opens from R102–R105: all resolved.** The conversion-family unification by R106
   (three prefixes, three contracts; the policy verbs; `parseInt` / `parseDouble`); the
   `toBytes`-over-iterable repack by R107 (the union arm, constraint-panic-checked per

@@ -160,16 +160,16 @@ result, the binding must be a `var`.
 `const` binding, neither the value nor anything reachable from it may be changed, **recursively**, so
 nested tables are immutable too, no key may be added and no value overwritten. On a stream it fixes
 the cursor: a `const` stream cannot be consumed. Any mutation attempt through a `const` binding is a
-compile error where the target is statically known, and otherwise raises a table-protocol violation
+compile error where the target is statically known, and otherwise panics (`typeError`)
 at runtime.
 
 This immutability is `const`'s own **compile-time** guarantee, a property of the *binding*, **not a
-revocable runtime seal** on the value: it is neither the removed `freeze` / `thaw` mutation-seal
-machinery nor the separate, program-settable growth seals `close` / `neverOpen` (tables §5). The
+revocable runtime seal** on the value: both former seal axes — the `freeze` / `thaw` mutation seal
+and the `open` / `close` / `neverOpen` growth seal — are removed outright (tables §5, R109). The
 runtime arm of the sentence above is therefore not a `const` flag being tested: where a mutation
 reaches a `const` value through a dynamic path the compiler could not rule out statically, the value
 is already in its **permanently-immutable representation** — frozen storage with no mutation
-machinery at all (tables Amendment A) — so the write meets an ordinary table-protocol violation and
+machinery at all (tables Amendment A) — so the write panics (`typeError`) and
 the value still never changes. Because a `const` table is known immutable at compile time, the
 compiler can specialize it (perfect-hashing, inlining; compiler spec), and, as concurrency relies on,
 it can be shared by reference across tasks without copying, since it can never change.

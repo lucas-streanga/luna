@@ -8,7 +8,7 @@ everywhere, no import, no module, no protocol. A call is written directly or thr
 
 There is no table method surface. `tab.name` is element access, `tab.name(...)` is UFCS to a
 free function, `tab->P` is a named user protocol — each spelling has exactly one meaning.
-Table-only operations (keyed access, seal state, mutation, and the whole-input family) live
+Table-only operations (keyed access, mutation, and the whole-input family) live
 in **indexable-functions.md**. Stream-only operations (`peek`, `isConsumed`, `restart`,
 `canRestart`, and producing via `yield`) live in **stream-api.md**. Concepts remain
 authoritative in **tables.md** and **stream.md**.
@@ -370,8 +370,7 @@ fn append(it: iterable, value: any): iterable
 ```
 **prepend O(n) table / O(1) stream · append O(1), lazy on streams.** Add `value` at the
 front / back. On a table, `prepend` reindexes a list and `append` is O(1) amortized; on a
-stream both are lazy stages. On a table these are grow operations: legal in pure form, and
-answering to open-state only under `&`-write-back onto a sealed target (tables §5).
+stream both are lazy stages.
 
 #### remove()
 ```
