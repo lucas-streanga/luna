@@ -184,6 +184,10 @@ Two consequences worth stating:
   and does not apply here; a value spread is just elements in written order.
 - **Spread contributes by value** (§1), so `...` can never fill a `&` reference parameter:
   `&` marks a whole named argument (variables §5.1, operators §0.2), never a spread element.
+- **A string-keyed table never spreads into named arguments** (R108): spread into an
+  argument list is a sequence context and requires a `list`, full stop. Named arguments
+  (functions §3.3.2) are visible at the call site, never manufactured from data — the
+  PHP 8.1 associative-spread behavior is deliberately rejected.
 
 Note that `f(...t)` is deliberately stricter than `[...t]`, which reindexes `[5=>50]` to
 `[50]` without complaint. A literal is *building* a table, where integer keys carry no
@@ -230,14 +234,11 @@ whose parts happen to be spreads.
 
 ## 7. Open questions
 
-- **Variadic parameter declaration.** `...name` in a *parameter* list is the token's third
-  position, used across the std surface (`merge(tab, ...tabs)`, and R79's
-  `secret(raw, ...gates: type)`) and specified nowhere: functions §3.3 defines neither
-  variadic parameters, nor the keyword-only `*,` tail, nor the `name?` optional-parameter form
-  that iterable-functions' notation relies on. It gets its own spec. The tempting unification,
-  that a parameter list is a pattern (R35) and so a variadic *is* destructuring's rest
-  element, does not currently hold: R35 ruled rest **trailing-only**, while every `*,`
-  signature in iterable-functions places options after the variadic. That a list-like stream
-  may fill a variadic is settled (§2, §4); how the variadic is *declared* is not.
+- *(**Resolved by R108.** `...name: T` in a parameter list is specified in functions
+  §3.3.3 — the pattern rest element in parameter position, so the R35 unification holds
+  after all: the variadic is the trailing rest of the *positional* sublist, with only
+  defaulted, named-only parameters after it. The `*,` marker is retired, `name?` is
+  defined in functions §3.3.1, and named arguments landed in §3.3.2. The token's three
+  positions are all specified.)*
 - **Spread of `bytes` / `string`**: whether `[...someBytes]` yields a table of `byte`
   elements (plausible, cheap) or is an error pending a use case; deferred.

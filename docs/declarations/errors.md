@@ -45,6 +45,7 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── outOfMemory
 │   ├── typeError
 │   ├── ArityError
+│   ├── NamedArgumentError (unknown or double-bound named argument; functions §3.3.2)
 │   ├── OverflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── DivisionByZero    (int division or remainder by zero; int spec)
 │   └── ... (runtime-defined)

@@ -75,11 +75,13 @@ themselves consumed.
 - **Parameter order:** `it`, required operands, function hooks (`transformFn` /
   `predicateFn` / `compareFn` / `keyFn`), `mode`, then result-shaping flags
   (`preserveKeys`, `all`, `recursive`, `depth`).
-- **Keyword-only tail.** Where a function takes a `...` variadic, the variadic is terminal
-  and any options following it are keyword-only, written after a `*,` marker.
-- **Notation.** `name?` marks an optional parameter (default `null` unless shown). Hook
-  parameters are of type `fn`. Every enum parameter is written out in full, so each synopsis
-  stands alone.
+- **Post-variadic options.** Where a function takes a `...` variadic, the variadic is the
+  last positional parameter; the defaulted options after it are **named-only by
+  construction** (`a.merge(b, preserveKeys: true)`, functions §3.3.3 — the former `*,`
+  marker is retired, R108).
+- **Notation.** `name?: T` is `T | null` (the global `?` rule); with no written default it
+  reads `= null` (functions §3.3.1). Hook parameters are of type `fn`. Every enum parameter
+  is written out in full, so each synopsis stands alone.
 - **Retired.** The former `onNoGet` / `onNoSet` permission enums are gone for good (R98):
   element space carries no permissions, and protocol-member grants are compile-time
   assertions (protocols §3.1).
@@ -319,7 +321,7 @@ first false. `takeWhile` short-circuits like `take`.
 #### merge()
 ```
 fn merge(it: iterable, ...its: iterable,
-         *, recursive: bool = false, preserveKeys: bool = false): iterable
+         recursive: bool = false, preserveKeys: bool = false): iterable
 ```
 **O(n), lazy on streams.** Appends `its` onto `it` in order: integer keys reindex from 0 and
 append, string keys overwrite by key. This is exactly the spread fold (spread §1), so
@@ -333,9 +335,9 @@ concatenation, duplicate string keys flowing through in order and resolving at `
 #### diff() · intersect()
 ```
 fn diff(it: iterable, ...tabs: table,
-        *, compareFn?, mode: enum {values, keys, both} = {both}): iterable
+        compareFn?, mode: enum {values, keys, both} = {both}): iterable
 fn intersect(it: iterable, ...tabs: table,
-             *, compareFn?, mode: enum {values, keys, both} = {values}): iterable
+             compareFn?, mode: enum {values, keys, both} = {values}): iterable
 ```
 **O(n²), lazy on streams.** Keeps elements of `it` **not present in all** / **present in
 all** of `tabs`. Keys preserved. Uses `==` unless `compareFn` (`fn(a, b): bool`) is set. The
@@ -354,7 +356,7 @@ original keys of the surviving elements.
 
 #### replace()
 ```
-fn replace(it: iterable, ...replacements: table, *, recursive: bool = false): iterable
+fn replace(it: iterable, ...replacements: table, recursive: bool = false): iterable
 ```
 **O(n), lazy on streams.** Replaces values in `it` by matching key against `replacements`.
 When `recursive` and a matched value is a table, descends and replaces within it.

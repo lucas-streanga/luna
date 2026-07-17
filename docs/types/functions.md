@@ -489,6 +489,80 @@ be defaulted. Extra *required* parameters remain a deficit error; only defaulted
 tolerated. (This is the precise sense in which "more parameters" can be fine, it is defaults,
 not an exception to the deficit rule.)
 
+A parameter's `?` marks only its **type** (`p?: T` is `T | null`, the same rule everywhere,
+R96); it is never an optionality marker. One piece of sugar (R108): in a parameter list,
+`p?: T` with **no written default** reads as `p?: T = null` — a nullable parameter's natural
+default is its null, and requiring the `= null` to be spelled would be noise. A non-`?`
+parameter without a default remains required.
+
+### 3.3.2 Named arguments
+
+Any argument may be passed **by name** — `f(x, mode: {both})`. Named binding is always
+optional and exists for ergonomics: skipping defaulted parameters and making option-heavy
+calls readable (`a.merge(b, preserveKeys: true)`). The rules (R108):
+
+- **Positional first.** Positional arguments precede named ones; a positional argument
+  after a named one is a compile error.
+- **Names bind scalar parameters.** A named argument binds the parameter of that name. The
+  variadic is not nameable (it has no single slot, §3.3.3); a destructured parameter
+  (destructuring §4) has no name and is not nameable; the receiver *is* nameable in call
+  form (`join(it: parts, glue: ", ")`) — no special case.
+- **Double-binding is an error.** A parameter bound both positionally and by name: a
+  compile error where the signature is statically visible, a **`NamedArgumentError`** (a
+  `panic`, errors §2) through an erased `fn`.
+- **An unknown name is an error**, on the same static/dynamic split — never silently
+  dropped. This is a deliberate asymmetry with §3.3's surplus-positional rule: an extra
+  positional argument means "the callee ignores what it does not name" (the callback
+  idiom); a wrong *name* always means the caller was aiming at something, and dropping it
+  would hide the typo forever.
+- **The deficit check runs after named binding** (§3.3): a required parameter filled by
+  name is not a deficit.
+- **Named arguments work through any function value**, including a type-erased `fn`: a
+  `fn` value carries its parameter names as runtime metadata, and named binding resolves
+  against them at the call. Two consequences, both accepted: **parameter names are
+  contract** (renaming a parameter is a breaking change for name-using callers; std
+  parameter names are stable API), and function values pay a small, fixed metadata cost.
+- **Names are never manufactured from data.** Spread into an argument list is a sequence
+  context requiring a `list` (spread §4); a string-keyed table does **not** spread into
+  named arguments. A named argument is visible at the call site, always.
+- **Resolution is untouched.** Names play no part in *function* resolution (UFCS is name
+  lookup, §3.4; there is no overloading); they only bind arguments once the callee is
+  known.
+
+Grammar: `name: value` at the top level of an argument is decidable at one token (`IDENT`
+followed by `:` in argument position is a named argument; nothing else begins that way
+there). The apply operator's initializer list (protocols §4.2) reads identically on
+purpose — same surface, different binding target (protocol members, not parameters).
+
+### 3.3.3 Variadic parameters
+
+A signature's final positional parameter may be a **variadic**, `...name: T` — the pattern
+rest element in parameter position. The R35 unification holds (a parameter list is a
+pattern): the variadic is the trailing rest of the **positional** parameter sublist, and
+what follows it sits outside positional space entirely.
+
+```
+fn merge(it: iterable, ...its: iterable,
+         recursive: bool = false, preserveKeys: bool = false): iterable
+
+merge(a, b, c)                        // its = [b, c]
+merge(a, b, c, recursive: true)       // post-variadic options: named-only, necessarily
+```
+
+- **Collected as a `list`, always.** The variadic's arguments are collected into a `list`
+  bound to `name`; zero arguments yield `[]`. It declares no default (its default *is*
+  `[]`), and each argument is checked against `T` (`...rest` bare is `...rest: any`).
+- **Last positional, by law.** After the variadic, positional resolution is undecidable,
+  so parameters declared after it are **named-only by construction** — and they must all
+  be **defaulted** (R108): a *required* named-only parameter would make named arguments
+  mandatory at every call, contradicting their always-optional charter (§3.3.2). The
+  former `*,` keyword-only marker is retired as redundant — "after the variadic" already
+  says named-only.
+- **Spread composes as the identity.** `f(...xs)` explodes a list into arguments and the
+  variadic re-collects them, so the callee's `rest` equals `xs` (COW makes the round trip
+  nearly free); a list-like stream may fill a variadic (R89, spread §2, §4); mixed forms
+  fill in written order (spread §4).
+
 ---
 
 ### 3.4 UFCS: `x.f(args)` is `f(x, args)`, resolved statically by shape

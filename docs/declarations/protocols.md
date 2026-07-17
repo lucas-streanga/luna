@@ -329,8 +329,9 @@ defaults, §2.2). Each value is checked against the member's declared type and c
 ```
 
 The `name: value` list is the **apply operator's own grammar** — like the proto block's
-declarations, it is not an expression form, and in particular it is *not* function named
-arguments (whether Luna has those is a separate, open question; this does not decide it).
+declarations, it is not an expression form. It deliberately reads identically to function
+**named arguments** (functions §3.3.2, R108): same surface, different binding target —
+initializers bind protocol *members*, named arguments bind *parameters*.
 No code runs: initializers are typed data, installed by machinery. There is deliberately
 no constructor concept — no ordering semantics, no partially initialized value, no
 overloading; anything smarter than typed installation is a factory function (§4.5).
@@ -544,10 +545,9 @@ Open questions:
 - **Removal** (`unapply`): still deferred, with the standing condition (§6.3): removal
   would make `@P` a breakable promise and must get invariant-constraint treatment
   (constraints §7.1) — it cannot be added as a free mutation.
-- **Initializer grammar, final form:** the operator's `name: value` list is committed;
-  whether its spelling should later unify with function named arguments rides on the open
-  named-arguments question (CHANGES R89/R90 tail) and may be revisited without semantic
-  change.
+- *(The initializer-grammar question is **closed by R108**: named arguments landed with
+  the same `name: value` surface; the initializer list stays its own grammar, binding
+  members rather than parameters — §4.2.)*
 - **Serialization nesting:** *what* serializes is fixed (§5); the JSON shape protocol
   members take (nested under the protocol name, flattened, tagged) is the json spec's
   decision.

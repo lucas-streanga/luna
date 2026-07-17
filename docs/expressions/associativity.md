@@ -28,7 +28,8 @@ Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr whil
 control-flow spec) are statement grammar, not operators, and sit outside this table; `where`
 exists only inside `match` arms (match §3) and `constraint` bodies (constraints §1), and can
 never extend a type expression, which is what lets it terminate the type in `n: int where n > 10`
-(match §2.1); `=>` is arrow/arm punctuation, not an operator;
+(match §2.1); `=>` is arrow/arm punctuation, not an operator; `name:` at the head of a call
+argument is named-argument punctuation (functions §3.3.2), decided at one token;
 string interpolation is lexical, not an operator; `...` is pattern punctuation (destructuring §1.2), never an expression operator.
 
 ## 2. Type-position precedence, tightest to loosest
