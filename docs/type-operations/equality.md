@@ -279,7 +279,9 @@ surface, and the serialization surface.
   **identity surface** deep-matches by `==` — `message`, the declared fields, `data`, and
   `cause` (recursively, each level by its own surface). **`stacktrace` never compares**: it is
   runtime-attached provenance (*where*), not authored identity (*what*), so two equal errors
-  thrown at different sites are equal — the tests-and-dedup case. This is the surface
+  thrown at different sites are equal — the tests-and-dedup case. (R111 wraps the trace in a
+  `secret`; because the surface already excludes it, no contagion arises — the two
+  exclusions interlock.) This is the surface
   principle's third instance (protocols' granted members §4.5; tables' element space §4):
   equality compares what the author declared, never what the runtime attaches. `toTable(e)`
   reifies the surface for structural `match` (errors §2.2). Errors are reflexive except by

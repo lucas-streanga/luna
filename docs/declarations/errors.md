@@ -96,16 +96,23 @@ narrowing:
 ```
 error {
   message: string;        // human-readable description; "" if none
-  stacktrace: table;      // list of frames; sealed (§6.1); [] until first thrown
+  stacktrace: secret;     // the trace: a secret-wrapped table of frames (R111); written only by throw (§6.1)
   cause: error?;          // the underlying error when wrapping (§6.2); null otherwise
   data: table?;           // arbitrary ad-hoc fields for throwaway errors (§5.2); null otherwise
 }
 ```
 
 - **`message`** is the description, empty string when unspecified.
-- **`stacktrace`** is a list of frames, **sealed**: user code may read it but never write
-  it; only the `throw` operator writes it (§6.1). It is `[]` until the error is first
-  thrown, so `stacktrace.isEmpty()` is a sound, unforgeable test for "never thrown."
+- **`stacktrace`** is a **secret-wrapped table** of frames (R111, secret §6): only the
+  `throw` operator writes it (§6.1), and reading its *contents* is a reveal —
+  `revealTable(e.stacktrace)`, gated (by the default `[@reveal]` set; whether traces
+  deserve a dedicated capability is open, §10). User-facing display therefore **redacts
+  traces by construction** (secret §4) — no internal paths in user-visible output — while
+  the runtime's crash reporter reveals at its boundary, the secret §5.1 pattern. The one
+  bit that is *not* secret is whether the error was thrown:
+  **`fn wasThrown(e: error): bool`** — the unforgeable test the old
+  `stacktrace.isEmpty()` idiom provided, now a dedicated predicate disclosing no
+  contents and needing no capability.
 - **`cause`** links a wrapping error to the error it wraps (§6.2), `null` when there is no
   cause.
 - **`data`** carries arbitrary keyed data for throwaway errors that want structure without
@@ -135,7 +142,7 @@ fn toTable(e: error): table     // total: the identity surface, reified
 
 **`toTable`** converts an error to a table of its identity surface — `message`, the
 declared fields, `data`, and `cause` (as an error value) — excluding `stacktrace`
-(readable separately as `e.stacktrace`). It is total (`to*` contract, conversion §2),
+(holdable as `e.stacktrace`, its contents revealed only under its gate, R111). It is total (`to*` contract, conversion §2),
 it is *the* definition of the surface (`a == b` ⇔ same typeid ∧
 `toTable(a) == toTable(b)`), and it is the **shape-matching bridge**: error structure is
 matched through ordinary table patterns, `match (e.toTable()) { ['code' => 11] => … }`,
@@ -145,7 +152,9 @@ for subtree membership, `@` for reflection).
 One consequence to know: a declared field of type `secret` makes its error **never
 equal**, including to itself — secret contagion, the same rule as a table holding a
 secret and the same family as nan (equality §5). Don't put secrets in fields you intend
-to compare; match on the others.
+to compare; match on the others. (The `stacktrace` being a secret, R111, adds **no**
+contagion: it sits outside the identity surface — the R110 exclusion and the R111
+wrapping interlock exactly.)
 
 ---
 
@@ -329,25 +338,25 @@ A `throw` whose expression is root-`error`-typed is treated as origination (it r
 p; }` is the `!`-free relay spelling (§8.3). Throwing a **non-error** value is a
 compile error; only `error`-typed values are throwable.
 
-### 6.1 `throw` populates the sealed stacktrace
+### 6.1 `throw` populates the secret stacktrace
 
 Writing the `stacktrace` field is a privileged effect of the `throw` operator. The field
-is **sealed**: user code may read it (freely, anywhere) but never write it, and there is
-no user-reachable name that grants the write, `throw` is an operator with a built-in
-capability, not a function that can be aliased. This is what makes the empty-trace state
-unforgeable.
+is a **secret** (R111, §2.1): user code may hold it, but neither writes it nor reads its
+contents without the gate, and there is no user-reachable name that grants the write —
+`throw` is an operator with a built-in capability, not a function that can be aliased.
+This is what makes the trace state unforgeable.
 
-`throw` writes the trace by checking whether it is empty:
+`throw` writes the trace by checking whether the error has been thrown:
 
-- **Empty (`stacktrace.isEmpty()`, i.e. never thrown)** , `throw` **captures** the current
-  call stack into it. This is the origin: the full stack where the error first failed.
-- **Non-empty (already thrown)** , `throw` **appends the single current throw site** as
-  one frame. This records a propagation hop without re-dumping the whole stack.
+- **Never thrown (`!wasThrown(e)`)** , `throw` **captures** the current call stack into
+  it. This is the origin: the full stack where the error first failed.
+- **Already thrown** , `throw` **appends the single current throw site** as one frame.
+  This records a propagation hop without re-dumping the whole stack.
 
 So the trace accumulates the path the error travelled: a full stack at the origin, then a
-breadcrumb for each place it was re-thrown. Because `throw` never yields an empty trace
-(it always at least captures its own site) and no other writer exists, a non-empty trace
-reliably means "has been thrown," and `stacktrace.isEmpty()` reliably means "has not."
+breadcrumb for each place it was re-thrown. Because `throw` always at least captures its
+own site and no other writer exists, thrown-ness is reliable, and `wasThrown(e)` reports
+it (§2.1) without revealing contents.
 
 ### 6.2 Re-throwing and wrapping
 
@@ -671,3 +680,6 @@ contract.
 - **Stack frame shape:** what a single `stacktrace` frame contains (function, file,
   line, and how a re-throw breadcrumb is distinguished from an origin frame), pending the
   runtime spec.
+- **The trace's gate:** the stacktrace secret is gated by the default `[@reveal]` set
+  (R111); whether traces deserve a **dedicated capability** (finer audit: who may see
+  internal structure) is open.

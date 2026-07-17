@@ -2183,6 +2183,42 @@ the global `toTable` name under one-name-one-signature; nothing else wants it. S
 `errors.md` (§2.2 added), `equality.md` (§2's list, §5's error bullet and the secret
 contagion line, §6's row, §7 resolved), `conversion.md` (§2's table, §5's catalogue).
 
+**R111 — secrets widen to `table`; the gate-constraint idiom; the stacktrace becomes a
+secret.** Three rulings in one motion. **The payload set gains `table`** — §6's old "there
+is no meaningful secret table" met its counterexample: data whose *structure itself* is
+the disclosure, the stacktrace (frames leak paths and internal shape) being the motivating
+case. The kind tag goes three-way, `revealTable` joins the extractor family, and the
+doctrine is re-scoped rather than deleted: **wrap the leaves** when only values are
+sensitive (the credentials object stays the canonical example), **wrap the table** when
+the shape is the secret — the whole-table secret is the exception, not the default. The
+challenge was run and found obligations, not blockers, all discharged in the sweep: the
+`stacktrace.isEmpty()` idiom (unreadable through a secret) is replaced by
+**`wasThrown(e: error): bool`**, a dedicated predicate disclosing one bit and no
+contents; the crash reporter becomes a named reveal boundary (secret §5.1's
+infrastructure pattern — and user-facing display now redacts traces *by construction*,
+the display concern from R110's discussion solved as a feature); and **the R110/R111
+interlock is stated in three files**: because R110 already excluded the trace from the
+identity surface, wrapping it in a secret adds no equality contagion — had equality been
+ruled structural-in-full, this widening would have made every error never-equal to
+itself. Discharged in passing: the `revealBytes` deferral (`bytes` exists). **The
+gate-constraint idiom** delivers "secrets parameterized over capabilities" with zero new
+mechanism — no generics, the `json` pattern over the immutable base `secret`:
+`export const dbSecret = constraint { s: secret where gatesOf(s).exists(@dbCred) };`
+entry-checked once, then `fn (cred: dbSecret) use (dbCred): conn!` tells the whole story
+(authority in `use`, material in the type, `reveal` joining them at the effect site with
+the existing requirement-⊆-grant test, statically discharged through constraint-typed
+parameters in matching frames); convention recorded — a module exports its secret
+constraint beside its capability. **A membership operator was considered and scratched**:
+the draft spelling `@dbCred in gatesOf(s)` would have made `in` a membership operator,
+which keywords §6 explicitly reserved against ("`in` remains spoken for by `foreach`") —
+and the survey surfaced that protocols §8's `stringBuilder in @@b` example (inherited
+from the retired views spec) had been illegal under that ruling all along; both spellings
+land on the catalogue's `exists`, the note stands, and `in` stays foreach-only. The
+trace's gate is the default `[@reveal]` for now, with the dedicated-trace-capability
+question flagged (errors §10). Swept: `secret.md` (intro, §3, §3.1, §3.3 added, §5, §6),
+`errors.md` (§2.1, §2.2, §6.1, §10), `equality.md` (the interlock clause),
+`protocols.md` (§8's example).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2229,6 +2265,11 @@ And from R91–R93, the two big flagged remainders:
   (three prefixes, three contracts; the policy verbs; `parseInt` / `parseDouble`); the
   `toBytes`-over-iterable repack by R107 (the union arm, constraint-panic-checked per
   element and therefore `!`-free; `parseBytes` rejected by R106's own table).
+- **Opens from R111:** whether the stacktrace's gate becomes a **dedicated capability**
+  rather than the default `[@reveal]` (errors §10); and **`toJson` over a value whose
+  surface holds a `secret`** — the serialization interaction flagged since R96, still
+  unruled, now spanning three payload kinds (redact like display, error like fn values,
+  or a `skipSecrets` flag).
 
 Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
 table of `byte` elements or is an error, deferred for want of a use case (spread §7).

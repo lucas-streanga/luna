@@ -489,7 +489,7 @@ yields the table's applied protocols as an application-ordered list of `proto` v
 (Its former view-related half is retired with views.)
 
 ```
-if (stringBuilder in @@b) { ... }         // membership, by value
+if (@@b.exists(stringBuilder)) { ... }    // membership, by value (iterable-functions §2.3)
 foreach (p in @@b) { &other.apply(p); }   // protocols are data; re-apply elsewhere
 protoName(p)                              // the name string, for tooling (free function)
 ```

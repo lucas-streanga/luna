@@ -6,10 +6,11 @@ distinct type**, and its defining behavior is that it **redacts itself everywher
 be displayed** and can be unwrapped only through a deliberate, visible `reveal`. So a secret
 is protected by default and exposed only on purpose.
 
-`secret` wraps a **sensitive payload**: a `string` today, and `bytes` once that type exists
-(binary keys and blobs). It does **not** wrap arbitrary values; there is no meaningful
-"secret table" or "secret function" (§6). The payload set is small and concrete: sensitive
-text or bytes.
+`secret` wraps a **sensitive payload**: a `string`, a `bytes` (binary keys and blobs), or a
+`table` — the last for data whose **structure itself** is the disclosure, an error's
+stacktrace being the motivating case (R111, errors §2.1). It does **not** wrap arbitrary
+values; there is no secret function, command, or regex (§6). The payload set is small and
+concrete: sensitive text, bytes, or structure.
 
 ---
 
@@ -66,8 +67,9 @@ let token = "ghp_xxxxxxxxxxxx" as secret;    // token : secret (of a string)
 let pw     = userInput as secret;             // wrap a runtime string
 ```
 
-`string -> secret` is a **total, free** coercion: like `int -> string`, any string is
-trivially a valid secret, so the coercion can never fail. The reverse is **not** free: a
+Wrapping a payload kind (`string`, `bytes`, or `table`) is a **total, free** coercion: any
+value of a payload kind is trivially a valid secret (a `table` payload is a COW snapshot,
+immutable by unreachability), so the coercion can never fail. The reverse is **not** free: a
 `secret` does not coerce back to a `string`, only `reveal` (§5) extracts it. So the two
 directions are asymmetric by design, wrapping is free and explicit (`as secret`), unwrapping
 is deliberate and explicit (`reveal`), and neither happens implicitly.
@@ -80,15 +82,14 @@ would be fail-safe, would hide that, and auditability is the point.
 
 ### 3.1 A secret carries its payload kind
 
-A `secret` records **which payload kind it holds**, a secret *string* or a secret *bytes*,
-as part of its type. This is a two-way tag (string or bytes), not a type parameter; Luna has
-no generics, and this is not one. It exists so that extraction is **statically checked**:
-`reveal` (string) on a secret-bytes, or `revealBytes` on a secret-string, is a **compile
-error**, not a runtime surprise (§5). Because there are only two payload kinds, carrying this
-tag is cheap and needs no general parameterization.
+A `secret` records **which payload kind it holds** — string, bytes, or table — as part of
+its type. This is a three-way tag, not a type parameter; Luna has no generics, and this is
+not one. It exists so that extraction is **statically checked**: the wrong extractor for
+the payload kind (`reveal` on a secret-bytes, `revealTable` on a secret-string) is a
+**compile error**, not a runtime surprise (§5). Because there are only three payload
+kinds, carrying this tag is cheap and needs no general parameterization.
 
-`secret` wraps a `string` (now) and `bytes` (deferred, when that type exists), and nothing
-else (§6).
+`secret` wraps `string`, `bytes`, and `table`, and nothing else (§6).
 
 ---
 
@@ -115,6 +116,35 @@ const c = secret(raw, @dbCred, @prodAccess); // gated by BOTH (AND, §5)
 - **Re-gating is reveal-then-rewrap** (`secret(reveal(s), @newGate)`), so changing a
   secret's gates requires authority over its current ones, by construction.
 
+### 3.3 Naming a gate in a signature: the constraint idiom (R111)
+
+Gates ride values (§3.2); a **signature** names them through an ordinary constraint — the
+`json` pattern (json §1), here over the immutable base `secret`, so the predicate runs
+**once, at entry**, and never again:
+
+```
+export const dbCred   = capability;
+export const dbSecret = constraint { s: secret where gatesOf(s).exists(@dbCred) };
+
+const connect = fn (cred: dbSecret) use (dbCred): conn! => {
+  let raw = reveal(cred);      // gate ⊆ frame grant: statically discharged here
+  ...
+};
+```
+
+- **No generics.** The "parameterization over a capability" is a named type, which is how
+  Luna spells every refinement. `@dbCred` in the predicate is the capability's typeid
+  (pure data, §3.2), and membership is the catalogue's `exists`
+  (iterable-functions §2.3) — one typeid compare per gate.
+- **The signature tells the whole story**: `use (dbCred)` declares the *authority*,
+  `cred: dbSecret` declares the *material*, and `reveal` joins them at the effect site
+  with the one requirement-⊆-grant test that already exists (§5). Through a
+  constraint-typed parameter inside a matching `use` frame, the compiler can prove the
+  gate check passes and **elide it** (constraints §9.5); through bare `secret`, the
+  runtime check stands.
+- **The convention**: a module that exports a capability exports its secret constraint
+  beside it — one line, the same convention as capabilities-are-consts.
+
 ## 4. Redaction: secret hides itself everywhere it displays
 
 The core behavior: a `secret` renders as a redaction marker, never its contents, on **every**
@@ -134,13 +164,13 @@ value redacts itself wherever it goes, and only `reveal` (§5) exposes it.
 
 ## 5. `reveal`: the sole, deliberate exposure
 
-The underlying value is obtained only through `reveal` (for a secret string) or `revealBytes`
-(for a secret bytes):
+The underlying value is obtained only through the extractor matching the payload kind:
 
 ```
-fn reveal(s: secret): string          // the underlying string; compile error on a secret-bytes
-fn revealBytes(s: secret): bytes      // the underlying bytes;  compile error on a secret-string (deferred)
-fn gatesOf(s: secret): list           // the gate set, as typeids: check before revealing
+fn reveal(s: secret): string          // the underlying string; compile error on other kinds
+fn revealBytes(s: secret): bytes      // the underlying bytes;  compile error on other kinds
+fn revealTable(s: secret): table      // the underlying table;  compile error on other kinds (R111)
+fn gatesOf(s: secret): list           // the gate set, as typeids (elements are type values)
 ```
 
 - **`reveal` checks the secret's gate set against the executing frame's grant** (R79):
@@ -158,21 +188,22 @@ fn gatesOf(s: secret): list           // the gate set, as typeids: check before 
   opens `as secret` / `secret(raw)` values and nothing gated tighter. A function with no
   relevant grant **cannot** reveal a secret it holds, so "this code does not expose this
   secret" is still read off signatures, just precisely now.
-- **`reveal` / `revealBytes` are the only way** to get a payload out. They are named loudly,
-  so every exposure of a secret is a visible `reveal` in the source. Getting a secret's value
-  is always a deliberate act, never incidental. Reached by call or UFCS: `reveal(token)` or
-  `token.reveal()` (both still require the capability).
-- **The pair is asymmetric on purpose.** `reveal` (string) is the short, common name because a
-  secret is overwhelmingly a string (token, password, key-as-text); `revealBytes` is the
-  marked exception for binary payloads. This mirrors the string API's convention of a plain
-  name for the common operation and a qualified name for the variant.
-- **Extraction is statically checked** against the payload kind (§3.1): `reveal` on a
-  secret-bytes, or `revealBytes` on a secret-string, is a **compile error**, not a runtime
-  failure. So `reveal` returns a concrete `string` with no coercion and no possibility of a
-  wrong-type surprise; the payload kind guarantees the right extractor.
+- **`reveal` / `revealBytes` / `revealTable` are the only way** to get a payload out. They
+  are named loudly, so every exposure of a secret is a visible `reveal*` in the source.
+  Getting a secret's value is always a deliberate act, never incidental. Reached by call or
+  UFCS: `reveal(token)` or `token.reveal()` (both still require the capability).
+- **The family is asymmetric on purpose.** `reveal` (string) is the short, common name
+  because a secret is overwhelmingly a string (token, password, key-as-text);
+  `revealBytes` and `revealTable` are the marked variants for binary and structural
+  payloads. This mirrors the string API's convention of a plain name for the common
+  operation and a qualified name for the variant.
+- **Extraction is statically checked** against the payload kind (§3.1): the wrong extractor
+  for the kind is a **compile error**, not a runtime failure. So each extractor returns a
+  concrete type with no coercion and no possibility of a wrong-type surprise; the payload
+  kind guarantees the right extractor.
 
-`revealBytes` and the `bytes` payload are **deferred** until the `bytes` type exists; `reveal`
-and secret strings are the present surface.
+The `bytes` type exists (bytes spec), so the old `revealBytes` deferral is discharged
+(R111): all three extractors are the present surface.
 
 ### 5.1 Reveal is concentrated at infrastructure boundaries
 
@@ -194,17 +225,20 @@ confines exposure to controlled, reviewable points.
 
 ## 6. Scope: what secret does and does not wrap
 
-- **Wraps `string`** (now) and **`bytes`** (deferred, when the `bytes` type exists). These are
-  the sensitive-payload types: text and raw bytes.
-- **Does not wrap `any`.** There is no real use for a secret table, secret function, secret
-  command, or secret regex; admitting arbitrary payloads adds nonsense cases for no benefit.
-  Because the payload set is small and its kind is carried in the type (§3.1), `reveal` /
-  `revealBytes` return a concrete type rather than `any`, and the right extractor is checked
-  at compile time, which is why revealing needs no coercion.
-- **Sensitive compound data is modeled as secret *fields*, not a secret container.** A
-  credentials object is an ordinary table whose sensitive leaf values are secret
-  (`['host' => "db.example", 'password' => pw as secret]`), so the non-sensitive structure stays
-  readable and secrecy is localized to the actual sensitive values.
+- **Wraps `string`, `bytes`, and `table`** (R111): text, raw bytes, and structure.
+- **Does not wrap `any`.** There is no real use for a secret function, secret command, or
+  secret regex; admitting arbitrary payloads adds nonsense cases for no benefit. Because
+  the payload set is small and its kind is carried in the type (§3.1), the extractors
+  return a concrete type rather than `any`, and the right extractor is checked at compile
+  time, which is why revealing needs no coercion.
+- **The structure-vs-leaves line** decides which of two shapes sensitive compound data
+  takes. **Wrap the leaves** when only the values are sensitive: a credentials object is
+  an ordinary table whose sensitive leaf values are secret
+  (`['host' => "db.example", 'password' => pw as secret]`), so the non-sensitive
+  structure stays readable and secrecy is localized. **Wrap the table** when the
+  *structure itself* is the disclosure — an error's stacktrace, whose frames leak paths
+  and internal shape, is the motivating case (errors §2.1). A whole-table secret is the
+  exception, not the default; reaching for one should mean the shape is the secret.
 
 ### 6.1 A secret cannot be a table key
 
