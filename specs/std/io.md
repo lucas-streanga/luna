@@ -238,15 +238,21 @@ One table, because the categories were decided elsewhere and io just inherits th
 
 ## 9. Open questions
 
-- **The error taxonomy**: the exact `fileError` children (disk full on write? interrupted?)
-  pending real use; writes may yet warrant a declarable arm instead of the panic above.
+- *(**The error taxonomy: resolved at its home** — the `ioError` hierarchy is specified
+  in full, errno-grounded, in the io-errors spec (§4's own list here names it, `outOfSpace`
+  included; "interrupted" is absorbed by the runtime — `EINTR` never surfaces). What
+  genuinely remains is io-errors' kept revisit flag, next bullet.)*
+- **Write-side failures**: whether mid-write environmental failure (disk full *during*
+  a write) ever warrants a declarable arm instead of the §8 mid-operation panic —
+  io-errors' revisit flag, kept, pending real use.
 - **The encoding set**, and what an encoding error during decode does (currently: the
   mid-stream panic rule).
 - **Buffering policy**: sizes, when the runtime flushes implicitly, whether `stdout` is
   line-buffered on a tty.
-- **Boundary with `std.filesystem`** (renamed from `std.system`, R134): `exists`,
-  `stat`, deletion, directories are metadata and belong to the `filesystem` capability
-  (capabilities §9), not here.
+- *(**Boundary with `std.filesystem`: resolved** (R134/R135) — `exists`, `stat`,
+  deletion, directories are structure and belong to the `filesystem` capability
+  (std.filesystem; capabilities §9); file *contents* stay `io`'s. Not open; the split
+  is ruled and both modules cite it.)*
 
 ## 10. `platform`
 

@@ -4184,6 +4184,63 @@ std.json §1.1, the bare `import std.csv;` is the R136 form. Swept: `csv.md`
 §3 (new)/§4 (renumbered opens), `index.md` (the per-format row notes the
 writer).
 
+**R174 — io.md validated: current except its own §9, which had gone stale
+against §4 and the io-errors spec; one cross-spec contradiction discovered
+and left for ruling.** The finds, fixed: §9's taxonomy bullet asked about
+"the exact **`fileError`** children (disk full on write? interrupted?)" —
+the family is `ioError`, named by this file's own §4, whose list already
+contains `outOfSpace`, and "interrupted" is answered by io-errors' fates
+partition (`EINTR` absorbed by the runtime, never surfaced); the bullet is
+now a resolved marker, with the one genuinely-open remainder promoted to its
+own bullet — **write-side failures** (whether disk-full *during* a write ever
+warrants a declarable arm instead of the §8 mid-operation panic; io-errors'
+kept revisit flag). §9's filesystem-boundary bullet stated R134/R135's own
+answer while sitting under "Open questions" — now a resolved marker. The
+encoding-set and buffering opens stand as valid. Everything else checked
+current: the R121 layer (no-`&`, creation-authorized lazy reads, canRestart
+false), the R138 platform defaults, `defer close(fd)`, the §2.1 sink-naming
+note (already channels-aware), §7.1's composition example, the §8 category
+table, camelCase error names throughout. **Discovered and NOT ruled — the
+`@P` value-position contradiction** (added to the still-open tail): type.md
+§1.1 says `let t = @stringBuilder` (value position) is introspection on the
+proto value "and so yields `proto`", while type.md §5, protocols §7's tail,
+introspection §5, and io §2 all bless `export const file = @fileDescriptor`
+as binding the **application refinement** — the same spelling, two claimed
+meanings; §5's is the load-bearing one (a public type must alias), and the
+static-protohood steer §1.1 already applies *within* type position extends
+naturally to value position, but that is a ruling, not a sweep. Swept:
+`io.md` §9 ×2. *(Ruled the next day: R175.)*
+
+**R175 — `@P` in value position yields the induced refinement: the
+static-protohood steer extended, the §1.1/§5 contradiction resolved on §5's
+side.** The ruling: `@X` in an expression, where `X` is **statically a proto
+binding**, yields the **application refinement as a first-class `type` value**
+— the same interned typeid type position denotes — and introspection
+otherwise; never an error in value position. The unifying story is stated in
+§1.1: `@` hands over *the type associated with the operand* — for an ordinary
+value the type it **has**, for a proto the type it **induces**; a proto is a
+type-maker, and `@` on a type-maker hands over the made type. This is the
+steer §1.1 already used *within* type position ("@X is a refinement only when
+X is a protocol — a static fact"), now applied on both sides of the position
+split, so for protos the two positions **agree** and the disambiguation
+remains fully static (closed universe, value-representation §4.1 — the
+existing semantic-analysis paragraph gains the value-position arm). What it
+buys: the alias idiom is legal by construction (`export const file =
+@fileDescriptor;` — an initializer is value position), and §5's `@P == @P`
+one-typeid comparison means what it says. What it forecloses: the `@`
+spelling for "the type the proto value itself has" — near-useless, its real
+content being proto-membership, already spelled `x is proto`. The rejected
+alternative — uniform value-position introspection — would have broken the
+aliasing idiom at four blessed sites and demanded a new refinement-as-value
+spelling. En-route: §1's example block gains the proto line, and its
+`@someShape // Shape` comment was re-cased to `shape` (the R171 enum-casing
+class). Swept: `type.md` §1 (intro sentence, examples, the reflects-a-value
+note), §1.1 (both bullets, the agreement paragraph, the semantic-analysis
+paragraph), §5 (the alias parenthetical); `overview/types.md` (the
+value-position bullet's new arm). protocols §7, introspection §5, and io §2
+already spoke the ruled side and stand unchanged; the still-open tail item
+is discharged.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -4245,3 +4302,7 @@ One small deferral tracked here (reclassified from "open" with the spread.md val
 R168): spread of `bytes` / `string` — whether `[...someBytes]` yields `byte` elements or
 errors waits on a use case, not a decision, and `toList(b)` (R167) already spells the
 explicit form (spread §7).
+
+*(The `@P` value-position contradiction R174's validation surfaced here is **ruled:
+R175** — the static-protohood steer extends to value position, `@P` on a proto yields the
+induced refinement everywhere, the alias idiom legal by construction.)*

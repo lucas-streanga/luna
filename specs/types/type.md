@@ -24,17 +24,21 @@ Making `type` a primitive rather than a table is deliberate and buys three thing
 
 ## 1. `@`: the type of a value
 
-`@value` returns the value's **current type** as a `type` value. It is uniform: `@` always means
-"the type of this value," and always yields a comparable `type`.
+`@value` returns the value's **current type** as a `type` value. It is uniform in what it
+yields — always a comparable `type` — and near-uniform in what it means: "the type of this
+value," with one statically-steered arm for protos ("the type this proto *induces*", §1.1,
+R175).
 
 ```
-@5            // int
-@5.0          // double
-@"hi"         // string
-@someShape    // Shape
+@5              // int
+@5.0            // double
+@"hi"           // string
+@someShape      // shape (an enum value's type)
+@stringBuilder  // the induced refinement: stringBuilder is a proto (§1.1, R175)
 ```
 
-`@` reflects a **value**. It is protocol-blind and attribute-blind: the type it returns identifies
+`@` reflects a **value** (and, on a proto binding, hands over the induced type, §1.1). It is
+protocol-blind and attribute-blind: the type it returns identifies
 the value's structural type, not the protocols the value has applied (§6) or any attributes on its
 declaration (attributes spec), both of which are separate axes kept out of `@` so that type
 comparison is never perturbed by them (`@a == @b` compares types, nothing else).
@@ -47,16 +51,27 @@ parsing guarantee, not a runtime decision**: the position is known at parse time
 any runtime ambiguity about what `@` means.
 
 - **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **introspection**:
-  "the type of this value," always yielding a comparable `type`. This is the uniform meaning above.
+  "the type associated with this operand," always yielding a comparable `type`. For an ordinary
+  value that is **the type it has** (`@5` is `int`). For an operand that is **statically a proto
+  binding**, it is **the type the proto induces**: the application refinement, as a first-class
+  `type` value (R175 — the same static-protohood steer the type-position rule below already
+  uses). A proto is a type-*maker*, and `@` on a type-maker hands over the made type — which is
+  what lets a refinement be **aliased** (`export const file = @fileDescriptor;`, an initializer
+  being value position, §5) and **compared** (`@P == @P`, one `typeid`, §5). The question this
+  forecloses — "the type the proto value itself has" — has almost no use: its real content is
+  proto-membership, already spelled `x is proto`.
 - **In type position** (after `:`, after `as`, in a match pattern head), `@P` is a **type
   expression**: a protocol-application refinement (§6), "a table guaranteed to have `P` applied." It does not
-  reflect a value and does not produce a `type` value (§6, §5).
+  reflect a value (§6, §5).
 
-The two roles share the glyph but never collide, because a parser always knows which position it is
-in, without consulting any type information. So `@stringBuilder` in `var x: @stringBuilder` (type
-position) is the application refinement, while `@stringBuilder` in `let t = @stringBuilder` (value
-position) is introspection on the proto value, and so yields `proto` (a proto's own type). Same text,
-two meanings, disambiguated purely by position, like C's `*`.
+The two roles share the glyph and a parser always knows which position it is in without consulting
+any type information; on top of position, one **static** fact steers protos (protos are declared
+and the universe closed, value-representation §4.1). For a proto operand the two positions now
+agree (R175): `@stringBuilder` in `var x: @stringBuilder` (type position) is the application
+refinement, and `@stringBuilder` in `let t = @stringBuilder` (value position) is the **same
+refinement, reified as a `type` value**. For a non-proto operand they diverge as before: value
+position is introspection (`@5` is `int`), type position is a compile error (below — "`@` in
+type position requires a protocol"). Same text, statically decided, like C's `*`.
 
 **Within type position, `@X` is an application refinement only when `X` is a protocol.** Whether `X` is a
 protocol is a **static** fact (protocols are declared, the type universe is closed,
@@ -67,9 +82,11 @@ position requires a protocol; `p` is a type"). The **parser stays context-free**
 into one node regardless of what `X` is; **semantic analysis** then assigns the meaning (application
 refinement, or error) once `X`'s kind is resolved. The parser never needs type information, and
 because every binding's kind (protocol, type, value) is statically fixed, the analyzer always has
-what it needs to decide. This is the concrete payoff of the closed type universe: an `@`
-disambiguation that asks "is this operand a protocol?" is always decidable, which it would not be
-if protocols or types could be constructed at runtime.
+what it needs to decide. The **same resolved kind steers value position** (R175): `@X` in an
+expression is the induced refinement when `X` is a proto, introspection otherwise — never an
+error there, since introspection covers everything else. This is the concrete payoff of the
+closed type universe: an `@` disambiguation that asks "is this operand a protocol?" is always
+decidable, which it would not be if protocols or types could be constructed at runtime.
 
 ---
 
@@ -212,8 +229,9 @@ unions (`int | double`), intersections (§3.1), and **protocol-application refin
 application refinement's `typeinfo` records its **protocol set**, canonicalized sorted and deduped
 so `@Q & @P` and `@P & @Q` intern to one id, and that id is what lets `@P` do everything a
 public type must: sit in a union's member list (`(@P & @Q) | null`), be bound to an alias
-(`export const file = @fileDescriptor`, std.io §2), and compare by `typeid` (`@P == @P` across
-modules, §3).
+(`export const file = @fileDescriptor`, std.io §2 — legal precisely because value-position `@P`
+on a proto yields this interned refinement, §1.1, R175), and compare by `typeid` (`@P == @P`
+across modules, §3).
 
 What stays exactly as before is the **membership semantics**, because protocol-applying remains
 a **value** property (the applied-protocol set, the `@@` axis, protocols §8), never encoded in a
