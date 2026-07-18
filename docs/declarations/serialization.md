@@ -8,7 +8,7 @@ serialization entry points**, generated and dynamic.
 ## 1. `json` is a constraint on `string`
 
 ```
-const json = constraint { str: string where isValidJson(str) };
+const json = constraint str: string where isValidJson(str);
 ```
 
 `json` is an ordinary **invariant constraint** (constraints §7.1) over `string`: a `json`

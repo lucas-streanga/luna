@@ -29,9 +29,11 @@ export isADirectory     = error : ioError {};   // EISDIR: opened a directory fo
 export permissionDenied = error : ioError {};   // EACCES, EPERM, ETXTBSY: not allowed
 export readOnlyTarget   = error : permissionDenied {};   // EROFS: a write on a read-only fs
 export alreadyExists    = error : ioError {};   // EEXIST: exclusive-create found a file
+export directoryNotEmpty = error : ioError {};  // ENOTEMPTY: non-recursive delete of a full dir
+                                                //   (std.filesystem §3.3, R135)
 export invalidPath      = error : ioError {};   // ENAMETOOLONG, ELOOP: filesystem-relative
                                                 //   invalidity the static `path` constraint
-                                                //   (std.io §2.0) cannot see
+                                                //   (std.filesystem §1, R135) cannot see
 export tooManyOpenFiles = error : ioError {};   // EMFILE, ENFILE: descriptor exhaustion
 export outOfSpace       = error : ioError {};   // ENOSPC, EDQUOT, EFBIG: the device or quota
 ```

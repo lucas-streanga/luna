@@ -3037,6 +3037,126 @@ front-page example), `examples/one-billion-rows.md` and `examples/log-scan.md`
 (imports). `pid`/hostname/username deferred inside the module. `std.filesystem`'s
 surface is next.
 
+**R135 — `std.filesystem`: the structure surface, the collect-idiom convention, and
+the slot-inhabitant rule.** The alpha-blocking module lands. **The import convention
+is the ruling's front door**, two lines, each forced by an existing rule: `import
+{ filesystem, path } from std.filesystem;` plus `const fs = import * from
+std.filesystem;` — names like `delete`/`copy`/`join` are too valuable to dump bare, so
+the **importer-collects idiom** (modules §6, the mechanism the user half-remembered)
+is the documented convention, keeping the author's exports free functions (the
+author-side forced table was rejected: modules §6 assigns namespacing to the
+importer's choice, selective import stays available to scripts, and static capability
+checking rides direct references). The user's storability challenge produced **the
+slot-inhabitant rule, now ruled in modules §6**: collection gathers every export that
+can inhabit a table slot — a **capability export is excluded**, because capability
+tokens never inhabit value slots (capabilities §3.1, the anti-laundering rule already
+on the books) and nothing is lost: `use` clauses name *bindings* (R19), so authority
+is only ever useful arriving through the name-dumping forms. Authority travels by
+name; data travels by value. Protos, types, enums, fns collect fine (all already
+load-bearing as table contents — `@@`, `requirements`, `unionMembers`). Adjacent
+wrinkle recorded: annotations take type *names*, never element accesses, so `path`
+also arrives bare (pinned against type.md if contested). **The surface**: `path`
+**relocated from io §2.0** (io imports it; `isValidPath` still rides std.platform);
+the pure half (`join` variadic, `dirname`, `basename`, `extension: string?` — null,
+coalesce if you want text — `normalize`), comptime-eligible, the
+pure-half/gated-half module shape for the third time running; the gated half under
+`use (filesystem)` — `exists` (the probe form, never errors, `false` covers absent
+*and* inaccessible, **advisory by declaration**: check-then-open is a race, the
+open's own error is the truth), `stat` following symlinks into a get-only
+`@fileInfo` (`size`, `modified: @datetime` UTC — the R133 payoff — `kind` as the
+`entryKind` enum; **permissions deliberately absent**, the model deferred whole),
+`entries`/`walk` as non-restartable stream producers yielding **paths only** (ruled:
+smallest surface; the runtime may cache d-type internally) under the
+creation-authorized-carrier law (R121), `walk` **never following directory symlinks**
+(cycle safety is not optional), `createDir(recursive:)`, **`delete(p, recursive:
+true)` as the visibly-flagged rm-rf** (no separately-named `deleteAll` to reach for by
+accident), `rename`, `copy` (file-only; recursive deferred with its
+metadata-preservation question), and `tempDir`/`tempFile` — the primitive tests.md
+waited on, with the soundness note (entropy inside an already-gated effectful
+function is as lawful as `now()`'s nondeterminism) and `tempFile` returning the
+opened `file`, not a path (a path would be a TOCTOU invitation). **Errors extend the
+`ioError` family** rather than minting a tree (errors classify what failed;
+capabilities classify who may — orthogonal): `alreadyExists` already existed
+(EEXIST), `directoryNotEmpty` added (ENOTEMPTY). **chmod deferred whole** with the
+reasoning recorded: a separate capability rejected (R121's split was
+contents-versus-structure and permissions are structure; `delete` is strictly more
+destructive and lives here), `exec chmod` the existing escape hatch, setuid flagged
+for the eventual permissions scrutiny. Deferred with owners: symlink axis, watching,
+recursive copy, `cwd()`. Swept: `std/filesystem.md` (new), `modules.md` §6 (the
+slot-inhabitant rule), `io.md` §2.0 (relocation pointer), `io-errors.md` (the new
+arm, the moved cite), `capabilities.md` §9 (row closed), `std/system.md` (surface
+landed), `tests.md` (primitives exist; only machinery remains open), `index.md` (the
+row).
+
+**R136 — the import grid: four forms, two axes, no `*`.** The module-import surface
+resolves into a **two-axis grid**, now stated as a table in modules §5 (the user's
+request — the table *is* the motivation): *position* decides dump-versus-collect
+(statement dumps names; assignment collects a table), *braces* decide all-versus-some.
+Statement-all is the bare **`import std.filesystem;`** — legalizing the form every
+example already wrote, which modules §5 had never defined (the wrinkle R135 parked
+resolves as ratification, not repair) — statement-some is the existing braced form,
+assignment-all is `const fs = import std.filesystem;`, and assignment-some is **new**:
+`const fs = import { stat, exists } from std.filesystem;`, partial collection with
+aliases renaming keys (`t.jsonParse` — §8's one mechanism, one more consumer). Under
+the grid, **`import * from p` is retired entirely**: bare-path already means
+"everything," so the glob sigil was a second spelling for the first cell — the `*`
+disappears from the import grammar (lexer note updated). Four supporting rules:
+**assigned imports are `const` only**, load-bearing not style — a const table with
+comptime-known members is what lets `fs.stat` fold to statically resolved, statically
+capability-checked calls (the `platform.lineEnding` precedent), so `let`/`var` would
+demote every call to the dynamic frontier for nothing; assignment-position imports are
+**top-level only** like the statement forms (§4, reaffirmed); **naming a capability in
+a braced assigned form is a compile error**, not a silent exclusion — an explicit
+request for what slots cannot hold (R135) fails loudly, with the fix in the message —
+while the bare assigned form keeps R135's silent exclusion (nothing you named is
+missing); and **the path never becomes a name** — `import std.filesystem;` binds
+nothing called `filesystem`, this is not Python's `import os`, and namespacing is
+exclusively the assignment form's job. The §5 coupling warning survives, rescoped:
+bare import is the happy path for `std.*` and your own modules; the
+entire-export-surface coupling stays worth a thought for third-party dependencies.
+`import` is the language's one bare directive, and that is fitting — mechanics, not a
+value. Swept: `modules.md` §5 (the grid table, the forms), §6 (partial collection,
+const-only, the loud error, the one-line distinction de-globbed), `std/filesystem.md`
+(the canonical import updated), `lexer.md` (the `*`-glob note now a retirement
+record).
+
+**R137 — constraints go braceless; inline `where` considered and rejected.** The user's
+parse observation held all the way down: the braces in `constraint { i: int where … }`
+had **no function**. Not parse — the keywords table already carried the proof, `where`
+is "never part of a type, which is what lets it terminate one," so the type ends and
+the predicate begins with no delimiter, the declaration's `;` ends the predicate, and
+a further `where` (reserved, never an expression operator) unambiguously starts the
+next conjunct — multi-clause survives braceless with its reason intact (which clause
+failed). Not purity — §2's "enforced by the form" was always the *declaration form's*
+property, not the braces'. Not content — every other brace-former holds a list (proto
+members, enum variants, error fields); a constraint holds one typed binder, and
+`capability`, the other fixed-shape form, never had braces. And dropping them
+*strengthens* §1's own claim that a constraint body "is exactly a match arm" — arms
+are braceless. New form: **`const byte = constraint i: int where i >= 0 && i <= 255;`**
+The companion ruling that makes the parse airtight: **constraint literals are
+const-initializer-only, stated explicitly** (the R126 proto precedent — §1 said
+"bound to a const" but never forbade expression position), with **name-capture now
+stated**: the binding identifier is the constraint's name, what `typeName` reports and
+a failing check cites — a rule the corpus relied on (`"byte"`, `"json"`) without ever
+writing down. **Inline `where` in signatures — anonymous constraints,
+`fn (n: int where n > 0)` — considered and rejected** (constraints §1.1, a tombstone
+because PHP/TS-lineage users will ask), three times over: it breaks R79
+*structurally* (the inline predicate sees sibling parameters, so
+`fn (lo: int, hi: int where lo <= hi)` — not a function of the value alone — becomes
+representable and needs a rule, where the named form makes it unrepresentable by
+construction); it forces a typeid identity crisis (per-occurrence minting makes
+identical signatures different types against R130's structural rule; interning
+demands alpha-equivalence over predicate ASTs — permanent machinery for a
+convenience); and it optimizes away the feature (the name is the API — `typeName`,
+the panic's citation, the third caller's reuse). Rejection costs one reusable line,
+cheaper now. Swept (28 sites, 14 files): `constraints.md` (§1 rewritten with the
+braceless rationale, const-only, name-capture, §1.1; §2's wording), `json.md`,
+`types/json.md`, `serialization.md`, `csv.md`, `yaml.md`, `xml.md`, `filesystem.md`
+(`path`), `secret.md` (`dbSecret`), `double.md`, `int.md` (the sized-int family),
+`bytes.md`, `tables.md` §8, `overview/types.md`, `keywords.md` (the `constraint` row,
+the `as` row's R87 note, the `where` row crediting its terminator property as the
+enabler).
+
 ---
 
 ## Still open (out of scope of these rulings)

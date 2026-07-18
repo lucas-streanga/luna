@@ -35,7 +35,7 @@ actual table/list of the bytes (paying the boxing cost), use `asList()` (§4).
 ## 2. Elements are `byte` (int constrained to 0..255)
 
 An element of `bytes` is a **`byte`**: an `int` constrained to `0..255` (constraints spec,
-`byte = constraint { i: int where i >= 0 && i <= 255 }`). There is no separate scalar "byte"
+`byte = constraint i: int where i >= 0 && i <= 255`). There is no separate scalar "byte"
 value distinct from int; a byte *is* an int in range, so all integer arithmetic and comparison
 apply, and a `byte` widens to `int` implicitly.
 

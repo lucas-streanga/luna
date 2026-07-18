@@ -150,9 +150,9 @@ The narrower signed and unsigned widths all **fit within signed 64-bit**, so the
 **constraints** (constraints spec), shipped as stdlib declarations, not new primitives:
 
 ```
-const u8  = constraint { i: int where i >= 0 && i <= 255 };            // == byte
-const i16 = constraint { i: int where i >= -32768 && i <= 32767 };
-const u32 = constraint { i: int where i >= 0 && i <= 4294967295 };
+const u8  = constraint i: int where i >= 0 && i <= 255;            // == byte
+const i16 = constraint i: int where i >= -32768 && i <= 32767;
+const u32 = constraint i: int where i >= 0 && i <= 4294967295;
 // i8, u16, i32, ... likewise
 ```
 

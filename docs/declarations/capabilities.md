@@ -511,7 +511,7 @@ adds no separate mechanism.
 | `env` | Enumerate environment variables (`envVars()`, values are `secret`, reading them needs `reveal`) | std.process (R134; ruled in exec §6) |
 | `argv` | Read the program's arguments (`args() use (argv): list`) | std.process (R134) |
 | `time` | The temporal environment: clock, `sleep`, local zone | std.time §4 (R132) |
-| `filesystem` | Enumerate, inspect, and alter filesystem *structure* (`stat`, delete, directories; contents stay `io`'s) | std.filesystem (named R134; surface pending) |
+| `filesystem` | Enumerate, inspect, and alter filesystem *structure* (`stat`, delete, directories; contents stay `io`'s) | std.filesystem (R135) |
 | `unsafeFfi` | Call foreign (native) code | (ffi, deferred) |
 | `unsafeSystem` | Dangerous syscalls, shell-string execution | (unsafeSystem, deferred) |
 

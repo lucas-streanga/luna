@@ -35,8 +35,8 @@ position, and grants stay invisible to programs, checkable only by exercising th
 A constraint is declared with the **`constraint` declaration form**, bound to a `const`:
 
 ```
-const byte = constraint { i: int where i >= 0 && i <= 255 };
-const port = constraint { i: int where i >= 1 && i <= 65535 };
+const byte = constraint i: int where i >= 0 && i <= 255;
+const port = constraint i: int where i >= 1 && i <= 65535;
 ```
 
 - **`name: base`** names the base type and binds the value under test to `name`. It is the
@@ -49,6 +49,21 @@ A constraint body is therefore exactly a match arm's `pattern where guard`, with
 narrowed to one typed binder and the body dropped, which is why the two share both the `:` and the
 `where`. The narrowing is deliberate: shape, literal, range, and alternation patterns are **not**
 available in a constraint body, so Luna gains no shape types by the back door (tables spec).
+
+The form is **braceless** (R137), and the parse needs no delimiter at either end: `where` is
+never part of a type — which is what lets it terminate one (keywords §2) — so the type ends and
+the predicate begins unambiguously; the declaration's own `;` ends the predicate; and a further
+`where`, a reserved word that can never appear inside an expression, unambiguously starts the
+next conjunct (below). The braces the form once carried held no list (every other brace-former
+holds one: proto members, enum variants, error fields), enforced nothing (§2's purity belongs
+to the declaration form, not to braces), and obscured the arm-identity this section claims —
+retired. A constraint now looks like the arm it is.
+
+A `constraint` literal is legal in exactly **one position**: as the initializer of a `const`
+declaration — the `proto` / `capability` precedent (R126, R137). The binding's identifier **is
+the constraint's name**: what `typeName` reports (`"byte"`, `"json"`, `"path"`) and what a
+failing check cites; aliases carry the type, never rename it. One declaration, one `typeid`
+(§9.1), one name.
 
 Earlier drafts spelled the binder `int as i` (R27 and before). That made `as` a binder, which it is
 nowhere else in the language, and inverted the type-on-the-right order every other binding form
@@ -63,7 +78,7 @@ introspection API for types is fleshed out, that distinction is visible there.
 Multiple `where` clauses are allowed and run in order as a **conjunction** (all must hold):
 
 ```
-const byte = constraint { i: int where i >= 0 where i <= 255 };   // same as i >= 0 && i <= 255
+const byte = constraint i: int where i >= 0 where i <= 255;   // same as i >= 0 && i <= 255
 ```
 
 The multi-clause form is sugar for `&&`; order affects only which failure is reported first. This
@@ -71,13 +86,36 @@ is the **one** place a constraint body diverges from a match arm, which takes a 
 (match §3): a constraint *reports which clause failed*, so the clauses are worth keeping apart,
 while a failing arm has nothing to report, it simply falls through.
 
+### 1.1 Inline `where` in signatures: considered and rejected (R137)
+
+Anonymous constraints in parameter position — `fn (n: int where n > 0)` — were considered
+and **rejected**, three times over:
+
+- **It breaks R79 structurally.** The inline predicate sits in a scope where sibling
+  parameters are visible, so `fn (lo: int, hi: int where lo <= hi)` — a predicate that is
+  not a function of the value alone — becomes *representable* and must be forbidden by
+  rule. The named form makes it unrepresentable by construction, and safety by
+  construction is the house rule; the frame-independence principle stays a property of
+  the grammar, not a lint.
+- **It forces a typeid identity crisis.** Constraints mint typeids (§9.1). Per-occurrence
+  minting makes textually identical signatures *different types*, against the structural
+  rule that same-shaped signatures are one type (functions §3.2, R130); interning instead
+  demands alpha-equivalence over predicate ASTs (`n > 0` ≟ `0 < x`) — permanent machinery
+  bought for a convenience.
+- **It optimizes away the feature.** The name is the API: `typeName` says `"port"`, the
+  panic names the check that failed, the third caller reuses the declaration instead of
+  forking a slightly-different copy. An anonymous constraint's diagnostic is a source
+  location.
+
+What rejection costs is one reusable line — cheaper still now that the form is braceless.
+
 ---
 
 ## 2. Pure by construction
 
 A constraint predicate **must be pure**: no side effects, no capability use (no `io`, no
 `reveal`), deterministic on its input. This is not a rule the author must remember; it is
-enforced by the form. A `constraint {}` body admits only a pure boolean expression over the
+enforced by the form. A `constraint` declaration's predicate slot admits only a pure boolean expression over the
 bound value, so an impure constraint is **unrepresentable**, the same "safe by construction"
 move used elsewhere (a `capability` cannot have a body, a regex literal is compiled once).
 
@@ -97,7 +135,7 @@ A constraint names its base inside the form (`i: int`), so the constraint **is**
 refined type on its own. There is no need to restate the base when using it:
 
 ```
-const byte = constraint { i: int where i >= 0 && i <= 255 };
+const byte = constraint i: int where i >= 0 && i <= 255;
 let x: byte = 65 as byte;        // byte is the type directly; no `int where byte` restatement
 ```
 
@@ -146,7 +184,7 @@ Constraints compose by **running predicates**, not by reasoning about them. A na
 used in another's `where` conjoins its predicate:
 
 ```
-const asciiByte = constraint { i: int where byte where i <= 127 };   // byte AND i <= 127
+const asciiByte = constraint i: int where byte where i <= 127;   // byte AND i <= 127
 ```
 
 `asciiByte` holds iff `byte`'s predicate holds **and** `i <= 127`. Composition is conjunction,
@@ -161,7 +199,7 @@ evaluated in order. Two rules govern it:
   automatically usable where `int where 0..255` is wanted; converting between them re-runs the
   target predicate via `as`, a runtime check that happens to always pass. Proving implication
   would require the solver Luna refuses to build, so a redundant clause is simply re-executed,
-  not optimized away. `constraint { i: int where byte where i <= 255 }` is sound but
+  not optimized away. `constraint i: int where byte where i <= 255` is sound but
   redundant (the second clause is already implied by `byte`); a *tightening* clause (`i <= 127`)
   is what makes composition useful.
 
@@ -169,7 +207,7 @@ So composition is "execute the conjoined predicates in order," with base-type ag
 at declaration and no predicate-implication reasoning ever. The **type-position spelling of the
 same conjunction is `&`** (type spec §3.1): `byte & even` in an annotation interns the anonymous
 conjunction with identical semantics, base-match, canonical order, no implication, while a
-`constraint {}` declaration like `asciiByte` gives the conjunction a name and its own `typeid`.
+`constraint` declaration like `asciiByte` gives the conjunction a name and its own `typeid`.
 
 ---
 
@@ -344,7 +382,7 @@ only removes a check the compiler can prove redundant.
 
 ## 10. Built-in instances
 
-- **`byte`** = `constraint { i: int where i >= 0 && i <= 255 }`. The element type of `bytes`
+- **`byte`** = `constraint i: int where i >= 0 && i <= 255`. The element type of `bytes`
   (bytes spec). An **immutable-base** constraint: checked on entry only (§7).
 - **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). An ordinary
   **invariant table-level constraint** (§7.1, tables §8), special only in **cost**: every
@@ -356,7 +394,7 @@ only removes a check the compiler can prove redundant.
   no promise, nothing to enforce.
 
 General user-defined constraints (ports, percentages, non-empty, sorted, and so on) use the same
-`constraint {}` form; those over `table` are table-level constraints (tables §8).
+`constraint` form; those over `table` are table-level constraints (tables §8).
 
 ---
 

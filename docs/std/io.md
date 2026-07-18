@@ -60,18 +60,12 @@ this module says `file`, it means `@fileDescriptor`.
 
 ### 2.0 `path`
 
-Paths are not bare strings. Like `json` (std.json §1), **`path`** is an invariant
-constraint over `string`:
-
-```
-export const path = constraint { p: string where isValidPath(p) };
-```
-
-`isValidPath` is **platform-dependent** (separators, forbidden characters, length limits) and
-its exact definition is deferred to `std.platform`'s maturation; the constraint exists now so
-the boundary is typed from day one: an entry into a `path` position validates once,
-immutable-base so entry is the only check (constraints §7), and a raw string reaching
-`openFile` is caught at the signature instead of at the OS.
+Paths are not bare strings. **`path`** is an invariant constraint over `string` in the
+`json` pattern — defined in **`std.filesystem` §1** (relocated there by R135, with the
+pure path operations; this module imports it). What io relies on is unchanged: an entry
+into a `path` position validates once (immutable-base, entry-only, constraints §7), and
+a raw string reaching `openFile` is caught at the signature instead of at the OS.
+`isValidPath` remains deferred to `std.platform`.
 
 ### 2.1 The standard handles
 

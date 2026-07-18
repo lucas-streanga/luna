@@ -12,7 +12,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `let` | fixed binding (never rebinds) | variables §1 |
 | `const` | deep-frozen binding | variables §1, §3 |
 | `fn` | function literal / function type | functions |
-| `constraint` | constraint declaration | constraints |
+| `constraint` | constraint declaration, braceless, legal only as a `const` initializer (`const byte = constraint i: int where …`, R137) | constraints §1 |
 | `proto` | protocol declaration, legal only as a `const` initializer (`const person = proto {…}`, R126) | protocols §1 |
 | `enum` | enum declaration | enum |
 | `error` | error declaration **and** the root error type (dual role, position-resolved) | errors §3 |
@@ -34,7 +34,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `return` | function return | functions |
 | `yield` | generator suspension (`yield v`, `yield k => v`); a function containing `yield` is a generator | stream §2 |
 | `match` | pattern dispatch (valued and open-ended) | match |
-| `where` | guard (match arms) **and** predicate clause (constraints); two homes, one meaning, "holds when"; never part of a type, which is what lets it terminate one | match §3, constraints §1 |
+| `where` | guard (match arms) **and** predicate clause (constraints); two homes, one meaning, "holds when"; never part of a type, which is what lets it terminate one — the property that makes the braceless constraint form parse (R137) | match §3, constraints §1 |
 | `defer` | scope-exit statement | defer |
 | `by` | range step clause (`lo..hi by s`, contextual: only after a range) | range §3, §4a |
 | `try` / `catch` | error recovery expression / block | errors §8 |
@@ -51,7 +51,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `comptime` | compile-time evaluation | functions §5 |
 | `comptype` | declaration descriptor operator **and** its type (dual, like `error`) | introspection §4.2 |
 | `is` | value-against-type test (tier 6; the single meaning) | is |
-| `as` | checked narrowing (tier 6); also the import alias (`import { parse as jsonParse }`). **Never a binder**: the constraint form is `constraint { i: int where ... }`, not `int as i` (R87) | as, modules §8 |
+| `as` | checked narrowing (tier 6); also the import alias (`import { parse as jsonParse }`). **Never a binder**: the constraint form is `constraint i: int where ...`, not `int as i` (R87) | as, modules §8 |
 | `apply` | protocol application: the expression operator (`[] apply P(name: v)`, `@P`-typed, never errorable) **and** the requirement declaration inside a `proto` block (`apply otherProto;`). The dynamic form is the free function `apply()`, an ordinary call, not a keyword use; its inverse `unapply()` is likewise a free function (protocols §4.6), no keyword at all | protocols §4, §7 |
 | `declared` | a binding's declared type | type §4 |
 | `use` | referential capture, in two positions with one meaning (capabilities flow where `use` names them): the declaration clause on a `fn` / `test` header, and the **call-site delegation clause** (`f(x) use (io)`, R112) | functions §2.2, capabilities §4, §5.2 |

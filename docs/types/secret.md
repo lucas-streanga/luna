@@ -124,7 +124,7 @@ Gates ride values (§3.2); a **signature** names them through an ordinary constr
 
 ```
 export const dbCred   = capability;
-export const dbSecret = constraint { s: secret where gatesOf(s).exists(@dbCred) };
+export const dbSecret = constraint s: secret where gatesOf(s).exists(@dbCred);
 
 const connect = fn (cred: dbSecret) use (dbCred): conn! => {
   let raw = reveal(cred);      // gate ⊆ frame grant: statically discharged here

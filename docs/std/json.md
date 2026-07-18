@@ -11,7 +11,7 @@ deliberate: importing a JSON parser never pulls an XML one.
 ## 1. The `json` type
 
 ```
-export const json = constraint { str: string where isValidJson(str) };
+export const json = constraint str: string where isValidJson(str);
 ```
 
 `json` is an ordinary **invariant constraint** (constraints §7.1) over `string`: a `json`

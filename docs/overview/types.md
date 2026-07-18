@@ -63,7 +63,7 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
   its defining module's exports (`reveal` from `std.secret`).
 
 A related declaration form is **`constraint`**, which refines a base type by a pure predicate
-(`byte = constraint { i: int where i >= 0 && i <= 255 }`). A constrained type is a subtype of
+(`byte = constraint i: int where i >= 0 && i <= 255`). A constrained type is a subtype of
 its base (`byte <: int`), widens to the base implicitly, and narrows from it via `as`
 (runtime-checked). Constraints are refinement types, checked at runtime, never solved
 (constraints spec); `byte` and `list` are instances.

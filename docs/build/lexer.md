@@ -225,7 +225,7 @@ no unary `+`, no `===`/`!==`, no ternary, no bitwise tokens, and no `&&=`
 /`||=` (numeric-operators §1.1; associativity §4; int §8). `:` serves annotations
 (`x: int`), slice bounds (`xs[1:3]`, `xs[:]`, tables §3), and default-bearing signatures.
 `#` occurs only as part of `ATTR_OPEN` (attributes §3), or as the leading `#!` of a
-first-line shebang (§2) — a bare `#` anywhere else is a lex error. `*` is also the import glob (`import * from m`). `SLASH` and `SLASH_ASSIGN`
+first-line shebang (§2) — a bare `#` anywhere else is a lex error. (`*` was the import glob until R136 retired it; bare-path imports mean "everything" now.) `SLASH` and `SLASH_ASSIGN`
 compete with `REGEX` and comments; see F2.
 
 ## 6. Interpolation sub-tokens (modes `DQ_STRING`, `REGEX_BODY`, `COMMAND`)

@@ -2,7 +2,7 @@
 
 **Status: deferred, and the most load-bearing stub in the corpus (R121).** `std.io` reads
 `platform.lineEnding` in `println`'s *default parameter* today, and the `path` constraint's
-`isValidPath` (io §2.0) and io-errors' `errno` portability question (io-errors §4) both
+`isValidPath` (filesystem §1 since R135) and io-errors' `errno` portability question (io-errors §4) both
 defer here — so this record exists to make the module's absence a decision on the ledger.
 
 What is fixed now (io §10): the module exports **`platform`**, a **`const` table of

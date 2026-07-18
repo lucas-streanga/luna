@@ -126,50 +126,82 @@ a fixed compile-time fact rather than something that depends on runtime control 
 
 `import` brings a module's `export` names into the current scope. It does **not** create a module
 object or a namespace construct; Luna is data-focused, and where a namespace is wanted, an
-ordinary **table** serves (§6). The forms:
+ordinary **table** serves (§6). The whole surface is a **two-axis grid** (R136): *position*
+decides dump-versus-collect, *braces* decide all-versus-some — and that grid is the motivation
+stated as a table:
+
+| | All exports | Some exports |
+|-|-|-|
+| **Statement** (dumps names) | `import std.filesystem;` | `import { stat, exists } from std.filesystem;` |
+| **Assignment** (collects a table, §6) | `const fs = import std.filesystem;` | `const fs = import { stat, exists } from std.filesystem;` |
 
 ```
-import { parse, split } from text.strings          // bring in parse and split
-import { parse as strParse } from text.strings      // bring in with a rename
-import * from text.strings                          // bring in every export name
+import text.strings                                 // every export name, bare
+import { parse, split } from text.strings           // exactly these names
+import { parse as strParse } from text.strings      // with a rename (collisions, §8)
 ```
 
-- **Selective** (`{ names }`): brings the named exports into scope. The common form.
-- **Aliased** (`{ name as newName }`): renames on import, the tool for resolving collisions
-  (§8).
-- **Glob** (`* from`): brings **all** `export` names into scope. Available but used sparingly,
-  since it couples the importer to the module's entire (and future) export surface.
+- **Bare** (`import path;`): brings **all** `export` names into scope — the happy path for
+  `std.*` and your own modules. The coupling cost is real and stays stated: it ties the
+  importer to the module's entire (and future) export surface, which is worth a thought for
+  third-party dependencies. **The path never becomes a name**: `import std.filesystem;` binds
+  nothing called `filesystem` — this is not Python's `import os`; namespacing is exclusively
+  the assignment form's job (§6).
+- **Selective** (`{ names } from`): brings exactly the named exports. The precise form.
+- **Aliased** (`{ name as newName }`): renames on import, the collision tool (§8).
 
-Each of these is a **statement that dumps names**; none produces a value. A namespace, when
-wanted, is a table (§6).
+There is deliberately **no `*`**: bare-path already means "everything," so a glob sigil would
+be a second spelling for the first cell (the pre-R136 `import * from p` is retired). Each
+statement form **dumps names** and produces no value; `import` is the language's one bare
+directive, and that is fitting — it is mechanics, not a value. Assignment position changes
+everything (§6).
 
 ---
 
 ## 6. Collecting a module into a table
 
-To get a namespaced handle instead of loose names, **assign a glob import**, which collects the
-module's `export` exports into an ordinary **table**:
+To get a namespaced handle instead of loose names, **assign the import** (the grid's second
+row, §5), which collects exports into an ordinary **table**:
 
 ```
-const strings = import * from text.strings;    // strings : table, holding all export exports
+const strings = import text.strings;                 // all exports, as a table
+const fs = import { stat, exists } from std.filesystem;   // just these two, as a table
 strings.parse(x);                                    // ordinary table access
+fs.stat(p);
 ```
 
-- The glob import **in assignment position** yields a `table` whose fields are the module's
-  `export` exports. `strings` is that table.
-- Its type is `table`, annotatable (`const strings: table = import * from ...`) and inferable.
-  This is the proof that **a module is not a value or a type**: what you get is a plain table,
-  not a "module object." After compilation the module itself is gone (§9); only this table, if
-  you built one, remains, as data.
+- **`const` only** (R136), and this is load-bearing, not style: a `const` table with
+  comptime-known members is what lets `fs.stat` **fold** — statically resolved member
+  access, statically checked capabilities on the call (the `platform.lineEnding`
+  precedent). A `let`/`var`-assigned import would demote every call through it to the
+  dynamic frontier for nothing; it is a compile error. Assignment-position imports are
+  top-level only, exactly as the statement forms (§4).
+- **Partial collection** (R136): the braced assignment form collects exactly the named
+  exports; an alias **renames the key** (`const t = import { parse as jsonParse } from
+  …` yields `t.jsonParse`) — §8's one mechanism, one more consumer.
+- Collection gathers every export **that can inhabit a table slot** (R135): a
+  **capability** export is excluded from the *bare* assigned form, because capability
+  tokens never inhabit value slots (capabilities §3.1, the anti-laundering rule) — and
+  nothing is lost, because a `use` clause names *bindings* resolved at compile time
+  (R19), so a capability is only ever useful arriving through the statement forms (§5),
+  which create bindings, not slots. The asymmetry is the design: authority travels by
+  name, data travels by value. **Naming a capability in a *braced* assigned form is a
+  compile error** (R136), not a silent exclusion: an explicit request for what slots
+  cannot hold fails loudly, with the fix in the message (import it as a statement).
+- The assigned import yields a `table` whose fields are the collected exports; its type
+  is `table`, annotatable and inferable. This is the proof that **a module is not a
+  value or a type**: what you get is a plain table, not a "module object." After
+  compilation the module itself is gone (§9); only this table, if you built one,
+  remains, as data.
 
 So there are two ways to get namespaced access, and they are the author's or the importer's
 choice: the **author** exports a single table (`export const strings = { parse: ..., ... }`, then
 `import { strings } from ...`), or the **importer** collects loose exports with `const ns =
-import * from ...`. Both yield `ns.parse`; both are just table access. No module-namespace
+import ...`. Both yield `ns.parse`; both are just table access. No module-namespace
 mechanism is needed because tables already are namespaces.
 
-The distinction in one line: a **bare** `import ... from X` is a statement that dumps names; an
-**assigned** `import * from X` is an expression that yields a table. Dumping creates no
+The distinction in one line: a **statement** `import` dumps names; an
+**assigned** `import` is an expression that yields a table. Dumping creates no
 variable; collecting creates one (an ordinary table).
 
 ---

@@ -9,7 +9,7 @@ serialization functions, and why the design is cheap.
 ## 1. The `json` constraint
 
 ```
-const json = constraint { str: string where isValidJson(str) };
+const json = constraint str: string where isValidJson(str);
 ```
 
 An ordinary **invariant constraint** (constraints §1, §7.1) over `string`: a value inhabits

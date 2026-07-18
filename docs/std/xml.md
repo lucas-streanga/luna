@@ -11,7 +11,7 @@ they use).
 ## 1. The `xml` type
 
 ```
-export const xml = constraint { s: string where isValidXml(s) };
+export const xml = constraint s: string where isValidXml(s);
 ```
 
 An invariant, entry-only constraint over `string` (constraints §7); the type is the

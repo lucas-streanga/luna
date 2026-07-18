@@ -568,18 +568,18 @@ table, and never conflict.
 
 ### 8.1 Declaring one
 
-A table-level constraint is an ordinary `constraint {}` (constraints spec §1) with base `table`
+A table-level constraint is an ordinary `constraint` declaration (constraints spec §1) with base `table`
 and a pure predicate over the whole table:
 
 ```
-const pair    = constraint { t: table where count(t) == 2 };
-const sorted  = constraint { t: table where isSorted(values(t)) };
-const tagged  = constraint { t: table where t.kind is string };
+const pair    = constraint t: table where count(t) == 2;
+const sorted  = constraint t: table where isSorted(values(t));
+const tagged  = constraint t: table where t.kind is string;
 ```
 
 The predicate is **any pure boolean expression over the table** (constraints §2, purity is enforced
 by the form): it may read counts, inspect keys, compare entries, or `match` the table's shape, as
-the author wants. `list` is exactly `constraint { t: table where <keys are 0..n-1> }`, with a
+the author wants. `list` is exactly `constraint t: table where <keys are 0..n-1>`, with a
 maintained-bit implementation instead of a scan.
 
 ### 8.2 It tests the whole table, and that is the cost

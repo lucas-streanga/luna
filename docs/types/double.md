@@ -142,8 +142,8 @@ rounding. A constraint filters which doubles are valid; it cannot reduce precisi
 Constraints on `double` instead restrict the **value set**, which is useful:
 
 ```
-const probability   = constraint { x: double where x >= 0.0 && x <= 1.0 };
-const finiteDouble   = constraint { x: double where isFinite(x) };       // excludes nan and inf
+const probability   = constraint x: double where x >= 0.0 && x <= 1.0;
+const finiteDouble   = constraint x: double where isFinite(x);       // excludes nan and inf
 ```
 
 So constraints give ranges and finiteness, not reduced precision.

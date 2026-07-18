@@ -11,7 +11,7 @@ they use).
 ## 1. The `yaml` type
 
 ```
-export const yaml = constraint { s: string where isValidYaml(s) };
+export const yaml = constraint s: string where isValidYaml(s);
 ```
 
 An invariant, entry-only constraint over `string` (constraints §7); the type is the
