@@ -58,7 +58,7 @@ import alias (modules §8).
 The form **produces a distinct type**. `byte` is a type usable in annotations (`let x: byte`),
 and, because of how types are stored (a constrained type has its own type identity), `int` and
 `byte` (int-plus-constraint) are **separate types**, not the same type with a flag. When the
-reflection API for types is fleshed out, that distinction is visible there.
+introspection API for types is fleshed out, that distinction is visible there.
 
 Multiple `where` clauses are allowed and run in order as a **conjunction** (all must hold):
 
@@ -250,8 +250,9 @@ operators, with no constraint-specific machinery:
 - **`x is byte` / `x as byte`** run the predicate (test-and-narrow / assert-and-narrow), the
   same `is`/`as` as any subtype.
 
-`int` and `byte` being separate types (§1) means reflection distinguishes them; the detailed
-type-reflection API is deferred.
+`int` and `byte` being separate types (§1) means introspection distinguishes them; the
+detailed query API lives in `std.introspection` (R127), where `baseOf` (R131) and
+`constraintPredicate` are specified (introspection §4.1, §4.2).
 
 ---
 

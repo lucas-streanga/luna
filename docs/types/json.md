@@ -77,7 +77,7 @@ const toJson = comptime fn (ct: comptype): fn (any): json;
 ```
 
 `toJson` is the canonical comptime generator (attributes §4): it takes a **`comptype`**
-descriptor (reflection §3.2), reads the declaration's fields and their `jsonTag` attributes,
+descriptor (introspection §4.2), reads the declaration's fields and their `jsonTag` attributes,
 extracts the key/tag pairs into **plain data**, and returns a runtime serializer that
 `const`-captures that data (functions §2.1) and emits the tagged JSON directly:
 
@@ -89,7 +89,7 @@ let body = writeUser(someUser);            // body: json; tags compiled in, no r
 The mechanics, guarantees, and enforcement are specified in attributes §4 and are not
 repeated here; the load-bearing points: the return is `fn (any): json`, **not** a dependent
 `fn (v: T)` (the specialization lives in the captured data, not the parameter's type);
-capturing `ct` itself is a **compile error** (comptype confinement, reflection §3.2), so
+capturing `ct` itself is a **compile error** (comptype confinement, introspection §4.2), so
 what reaches runtime is always plain data; and the generated function's result enters
 `json` under §1.2's cost rules.
 

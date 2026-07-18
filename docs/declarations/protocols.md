@@ -560,16 +560,17 @@ const employee = proto {
 
 ---
 
-## 8. Reflection: `@@`
+## 8. Introspection: `@@`
 
-`@@` is the reflection operator for the protocol axis, the sibling of `@` (type): `@@tab`
+`@@` is the introspection operator for the protocol axis, the sibling of `@` (type): `@@tab`
 yields the table's applied protocols as an application-ordered list of `proto` values.
 (Its former view-related half is retired with views.)
 
 ```
 if (@@b.exists(stringBuilder)) { ... }    // membership, by value (iterable-functions §2.3)
 foreach (p in @@b) { &other.apply(p); }   // protocols are data; re-apply elsewhere
-protoName(p)                              // the name string, for tooling (free function)
+protoName(p)                              // the name string (std.introspection §4.4, R127)
+members(p)                                // declaration rows, granted-value readers (§4.4, R129)
 ```
 
 The order is application order — deterministic, cheap, and **not** semantically

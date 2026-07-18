@@ -46,7 +46,7 @@ comparison is never perturbed by them (`@a == @b` compares types, nothing else).
 parsing guarantee, not a runtime decision**: the position is known at parse time, so there is never
 any runtime ambiguity about what `@` means.
 
-- **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **reflection**:
+- **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **introspection**:
   "the type of this value," always yielding a comparable `type`. This is the uniform meaning above.
 - **In type position** (after `:`, after `as`, in a match pattern head), `@P` is a **type
   expression**: a protocol-application refinement (§6), "a table guaranteed to have `P` applied." It does not
@@ -55,7 +55,7 @@ any runtime ambiguity about what `@` means.
 The two roles share the glyph but never collide, because a parser always knows which position it is
 in, without consulting any type information. So `@stringBuilder` in `var x: @stringBuilder` (type
 position) is the application refinement, while `@stringBuilder` in `let t = @stringBuilder` (value
-position) is reflection on the proto value, and so yields `proto` (a proto's own type). Same text,
+position) is introspection on the proto value, and so yields `proto` (a proto's own type). Same text,
 two meanings, disambiguated purely by position, like C's `*`.
 
 **Within type position, `@X` is an application refinement only when `X` is a protocol.** Whether `X` is a
@@ -205,7 +205,7 @@ operator, written prefix on a binding.
 ## 5. Every type-position form is a `type` value, including `@P`
 
 Everything that can appear in **type position** is a `type` value with an interned `typeid`
-(§3): scalars, `table`, `list`, `view`, `fn`, `stream`, `promise`, enums, constraints (`byte`),
+(§3): scalars, `table`, `fn`, `stream`, `promise`, enums, constraints (`byte`, `list`),
 unions (`int | double`), intersections (§3.1), and **protocol-application refinements** (`@P`,
 `@P & @Q`). The last of these follows the pattern unions established (value-representation
 §4.2): **identity from interning, membership from a test that is not the interval check.** A
@@ -216,9 +216,9 @@ public type must: sit in a union's member list (`(@P & @Q) | null`), be bound to
 modules, §3).
 
 What stays exactly as before is the **membership semantics**, because protocol-applying remains
-a **value** property (the applied-protocol set, the `@@` axis, views spec), never encoded in a
+a **value** property (the applied-protocol set, the `@@` axis, protocols §8), never encoded in a
 value's own `typeid`: `x is @P` and entry into a `@P`-declared position run the O(1)
-**applied-set test** (protocols §9, is spec §2), never an interval containment, and `@x` on a
+**applied-set test** (protocols §3.2, §6, is spec §2), never an interval containment, and `@x` on a
 applying table still reports the value's type (`table`, or its constraint), never `@P`, since
 `@` reads the typeid and applying is not in it. For `==` on *values*, a refinement's
 `valueBase` is `table` (equality §1): applying never perturbs value equality except through
@@ -232,21 +232,23 @@ question is answered by decomposition rather than intervals.
 ## 6. What a `type` value carries
 
 A `type` is a `typeid` indexing the `typetable` (value-representation §4), so "what a `type`
-exposes" is "what reflection over a type reveals." This is **tiered**: cheap, `typeid`-level facts
-are available at **runtime**; deep structural reflection is **comptime-only**, mirroring the
+exposes" is "what introspection over a type reveals." This is **tiered**: cheap, `typeid`-level facts
+are available at **runtime**; deep structural introspection is **comptime-only**, mirroring the
 attribute decision (attributes spec) and preserving the discipline that runtime values carry no
-per-value reflection cost.
+per-value introspection cost.
 
 **Runtime (cheap, O(1) `typetable` lookups):**
 
 - **Identity / comparison** (`==`), the core operation, a `typeid` compare.
 - **Name**, the type's display name (`int`, `Shape`, `int | double`), for output and debugging.
-- **Kind**, which declaration form or built-in category the type is (scalar, table, list, enum,
-  protocol, constraint, union, ...), so reflection can branch on type category.
+- **Kind**, which declaration form or built-in category the type is, as the closed `kind`
+  enum — scalar, table, refinement, union, the `*Type` dodges for reserved words
+  (introspection §4.3, R128) — so introspection can branch exhaustively on type category
+  (`kindOf`, introspection §4.1).
 - **Subtype tests.** On a **value**, `x is U`, the single meaning of `is` (is spec §2, §4): the
   value's current `typeid` (always concrete, never a union) against `U`, an interval check when
   `U` is a tree node, member decomposition when `U` is a union (value-representation §4.2).
-  Between two **`type` values**, the `isSubtype(t, of)` reflection function (reflection §3.1);
+  Between two **`type` values**, the `isSubtype(t, of)` introspection function (introspection §4.1);
   there is **no** type-to-type operator (is spec §4), and `<:` in these documents is notation
   for the relation, never grammar.
 - **Nullability**, whether the type admits null (`T` vs `T?`, value-representation §2).
@@ -256,11 +258,11 @@ per-value reflection cost.
 - **Constraint base**, for a constrained type (`byte`), its base type (`int`); the predicate itself
   is comptime-only.
 
-**Comptime-only (the deeper reflection surface, the `comptime fn` tier of the reflection spec):**
+**Comptime-only (the deeper introspection surface, the `comptime fn` tier of the introspection spec):**
 
 - **Field enumeration** (`fields(t)`), for a **protocol-typed** table, its protocol-declared
   element members and their types (what serialization and attribute-driven generation walk,
-  attributes spec §4, reflection spec §3.2). There is no record type and no shape types, so a bare
+  attributes spec §4, introspection spec §4.2). There is no record type and no shape types, so a bare
   `table` has no declared fields and `fields(table)` is empty.
 - **Attributes** (`attributes(t)`), readable only at comptime (attributes spec).
 - **Enum variants** (`variants(t)`), for an enum type, its variant set and payload types
@@ -269,9 +271,9 @@ per-value reflection cost.
 
 The dividing line is cost: the runtime tier is a handful of integer and string lookups on the
 `typetable`; the comptime tier is structural walking that, if permitted at runtime on arbitrary
-values, would reintroduce the per-value reflection cost the value model avoids. So the deep
-structural surface is a **comptime** capability (the `comptime fn` reflection tier), and a runtime
-`type` is the cheap, comparable identity plus its immediate typetable facts (the `fn` reflection
+values, would reintroduce the per-value introspection cost the value model avoids. So the deep
+structural surface is a **comptime** capability (the `comptime fn` introspection tier), and a runtime
+`type` is the cheap, comparable identity plus its immediate typetable facts (the `fn` introspection
 tier).
 
 ---
@@ -282,7 +284,7 @@ Protocol-applying is **not** part of a value's type (§1): `@t` on a table gives
 type, not the protocols applied to it, because protocols are applied to **values** (protocols spec),
 so two tables of the same `@`-type may differ in the protocols applied to them. Putting protocol-applying in
 `@` would break type comparison (two same-shape tables, one applying a protocol, would compare
-unequal). So protocol-applying lives on its **own axis**, reached by `@@` (protocol reflection), not
+unequal). So protocol-applying lives on its **own axis**, reached by `@@` (protocol introspection), not
 `@`.
 
 Therefore matching "a table with protocol applied `P`" is **not** a match on `@t`. It is a match against
@@ -303,14 +305,14 @@ a table type, not an application refinement). It compiles to "does `x`'s protoco
 clean), and `match` reaches it through application-refinement patterns.
 
 **A typed binding on an application refinement binds a table guaranteed to have `P` applied, reached
-through `->`.** This is the key point where the two spaces stay separate (views spec §1): the bound
-`b` is still a **table**, so `.` on it is still **element** access; the protocol's meta functions are
-reached through `->`, exactly as everywhere else. What the arm guarantees is that `b->P` is
-**present** (not `undefined`), so `b->stringBuilder.append("!")` is safe without `?.`. The match does
-**not** turn `b` into a `view` (a `view` is what `b->stringBuilder` *produces*, and on a view `.` is
-a meta call, views spec §3.1); it binds a table whose `->P` is guaranteed. So the arm body
-uses `->` to reach the meta, never bare `.`. Matching a protocol is therefore a test plus a
-presence guarantee, not a switch of `.` into meta space.
+through `->`.** This is the key point where the two spaces stay separate (protocols §3): the bound
+`b` is still a **table**, so `.` on it is still **element** access; the protocol's members are
+reached through `->`, exactly as everywhere else. What the arm guarantees is that `P` is
+**applied**, so `b->append("!")` (or qualified, `b->stringBuilder.append("!")`, protocols §3.1) is
+safe without `?->`. The match binds a table whose application is guaranteed — there are no views
+(R95), and nothing about the binding changes what `.` means. So the arm body uses `->` to reach
+protocol members, never bare `.`. Matching a protocol is therefore a test plus an application
+guarantee, nothing more.
 
 Note the **binder**, not the scrutinee, is what carries the guarantee. `_: @stringBuilder => ...`
 tests and discards; inside that arm `x` still has its declared type, because Luna does no
@@ -327,7 +329,7 @@ one:
 
 - a **concrete type** (`int`, `Shape`), a `typeid` compare (a fast switch),
 - a **application refinement** (`@stringBuilder`), a protocol-membership test (`@@`); the *binder*
-  is what carries the `->P`-present guarantee, and it is a table, not a view (§7),
+  is what carries the applied-`P` guarantee, and it is a table (§7),
 - a **constraint** (`byte`), the constraint predicate (constraints spec),
 - a **union** (`int | double`), "is the current type one of the members,"
 - an **enum variant** (`{circle ...}`), the variant-tag (refinement `typeid`) check (enum spec §8),
@@ -372,5 +374,5 @@ compiler's `typeinfo`/IR, not by any runtime structure.
   through destructuring or for a field of a declared table (whether it reports the enclosing
   declaration's element type or something finer), pending use. The written-vs-inferred case is
   resolved (§4: `declared` reports the binding's type either way); only nested and destructured
-  forms remain open. (The comptime reflection surface itself, `fields`, `variants`, `attributes`,
-  `constraintPredicate`, is specified in the reflection spec.)
+  forms remain open. (The comptime introspection surface itself, `fields`, `variants`, `attributes`,
+  `constraintPredicate`, is specified in the introspection spec.)

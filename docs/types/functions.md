@@ -186,7 +186,8 @@ function values carry their **requirement set on the value** (capabilities §3.1
 first-class, storable, passable, with direct calls checked statically and calls through
 `fn`-typed slots checked dynamically against the executing frame's grant, panic on
 shortfall. No capability information appears in the *type*, which is exactly why the check
-rides the value. The
+rides the value — and the set is introspectable off the value as inert capability
+*types*, `capabilitiesOf` (introspection §4.6, R130). The
 division of labor between §4 and this rule is principled, not accidental: **an error
 rides a return value**, it is data flowing to the caller, so it must be in the type or it
 smuggles (§4, §7); **a capability is authority**, it flows nowhere, so it confines
@@ -748,8 +749,8 @@ may be called in `comptime` without annotation. A function may also be **declare
   compile time. Every call to it folds, and it **may only be called with
   compile-time-known arguments** (or from within other comptime code). Such a function
   has **no runtime existence**: like an attribute (attributes spec), it is consumed during
-  compilation and is never emitted. This is the form the reflection API's structural
-  queries use (reflection spec): `const fields = comptime fn (t: type): table` is always
+  compilation and is never emitted. This is the form the introspection API's structural
+  queries use (introspection spec): `const fields = comptime fn (t: type): table` is always
   comptime, so calling it *requires* a compile-time-known `type` argument and *never*
   appears at runtime.
 
@@ -765,7 +766,7 @@ its arguments are compile-time-known there. Because the criterion is *compile-ti
 arguments*, not *const values*, a call like `fields(@x)` folds whenever `x`'s **type** is
 statically known (the common case, any typed binding), even when `x` itself is a mutable
 `var` whose value is computed at runtime, what must be static is the *type* passed in, not
-the value `x` holds (reflection spec §2).
+the value `x` holds (introspection spec §3).
 
 Conversely, a comptime-*eligible* plain function may be passed **into** a context that expects a
 `comptime fn` (the compiler checks eligibility and coerces, or errors if ineligible), while a
@@ -871,7 +872,7 @@ result must not depend on *which* phase ran it: same arguments, same result, at 
 runtime. Eligibility already guarantees most of this (no capabilities, no outside world, §5.5);
 the one further source of phase-divergence is comptime-only information, and it is closed by
 construction: the only such information is a value's comptime provenance, readable only through
-the `comptype` operator (reflection §3.2), and a function that touches `comptype` is not callable
+the `comptype` operator (introspection §4.2), and a function that touches `comptype` is not callable
 at runtime at all (its argument type cannot be inhabited there), so it is exempt from the rule
 vacuously rather than able to violate it. Every function that *can* run in both phases therefore
 computes from values alone, and folding is behavior-preserving.

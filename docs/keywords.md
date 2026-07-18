@@ -49,7 +49,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `spawn` | start a task, yielding its `promise` | concurrency |
 | `await` | park until a task completes; take the result | await |
 | `comptime` | compile-time evaluation | functions §5 |
-| `comptype` | declaration descriptor operator **and** its type (dual, like `error`) | reflection §3.2 |
+| `comptype` | declaration descriptor operator **and** its type (dual, like `error`) | introspection §4.2 |
 | `is` | value-against-type test (tier 6; the single meaning) | is |
 | `as` | checked narrowing (tier 6); also the import alias (`import { parse as jsonParse }`). **Never a binder**: the constraint form is `constraint { i: int where ... }`, not `int as i` (R87) | as, modules §8 |
 | `apply` | protocol application: the expression operator (`[] apply P(name: v)`, `@P`-typed, never errorable) **and** the requirement declaration inside a `proto` block (`apply otherProto;`). The dynamic form is the free function `apply()`, an ordinary call, not a keyword use; its inverse `unapply()` is likewise a free function (protocols §4.6), no keyword at all | protocols §4, §7 |

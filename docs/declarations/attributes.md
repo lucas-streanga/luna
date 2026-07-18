@@ -166,7 +166,7 @@ An attribute is fixed at the declaration and can never be added, removed, or com
 ## 4. Comptime reads attributes; generation is the use
 
 Attributes exist to be consumed by **comptime** (functions spec §5). The consumer is a
-**generator**: a `comptime fn` that takes a **`comptype`** descriptor (reflection spec §3.2),
+**generator**: a `comptime fn` that takes a **`comptype`** descriptor (introspection spec §4.2),
 walks its `fields` and their `attributes`, and returns a **plain runtime function**. The
 canonical example is JSON serialization, and its shape is fully expressible with no dependent
 types:
@@ -199,7 +199,7 @@ Three properties make this the right model, and each is enforced, not hoped for:
   signatures, and this pattern shows none are needed, the descriptor's information is
   extracted into plain values and rides an ordinary `const`-snapshot capture.
 - **Confinement forces the extraction.** The generator may not capture `ct` itself into the
-  returned function: a `comptype` value cannot survive lowering (reflection §3.2), and a
+  returned function: a `comptype` value cannot survive lowering (introspection §4.2), and a
   closure returned from comptime is spliced into the runtime program, so `use`-less capture of
   `ct` is a **compile error** at exactly the right place. The type system, not discipline,
   guarantees that what reaches runtime is plain data.
@@ -252,8 +252,8 @@ the value, nor its type, nor its assignability, nor anything at runtime.
 
 ### 6.1 Resolved
 
-- **Comptime introspection surface, and the keying problem**, resolved (reflection spec
-  §3.2): attributes are read through `comptime fn` queries and nowhere else. For **named**
+- **Comptime introspection surface, and the keying problem**, resolved (introspection spec
+  §4.2): attributes are read through `comptime fn` queries and nowhere else. For **named**
   declarations (typeid and declaration 1:1), `fields(t)` and `attributes(t)` on the `type` work
   directly; for **anonymous** shapes, where same-shape declarations share one `typeid` (§1), the
   bridge is the **`comptype` operator** (`comptype v`), which reads the **declaration descriptor** off the value's

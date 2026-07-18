@@ -47,8 +47,8 @@ string interpolation is lexical, not an operator; `...` is pattern punctuation (
 
 Position decides which table applies: `&x` in an argument is a reference (variables §5.1),
 `A & B` in an annotation is the meet; `!x` in an expression negates, `T!` in a type adds the
-error arm; same rule as `error` and `comptype` (dual keyword/type, errors §3, reflection
-§3.2). **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
+error arm; same rule as `error` and `comptype` (dual keyword/type, errors §3, introspection
+§4.2). **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
 tables above, a type occurs in it only after a `:`, and `|` is therefore the union operator
 inside a type and the alternation separator outside one (§4).
 

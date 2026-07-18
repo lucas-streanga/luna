@@ -50,7 +50,7 @@ export fn toJsonDynamic(v: any, skipFunctions: bool = false,
   descriptor's `fields`, reads each `jsonTag`, extracts the key/tag pairs into plain data,
   and returns a runtime serializer that const-captures that data (functions §2.1). The
   return is `fn (any): json`, no dependent signature; `comptype` confinement guarantees the
-  descriptor never reaches the closure (reflection §3.2, compiler §6).
+  descriptor never reaches the closure (introspection §4.2, compiler §6).
 
   ```
   const writeUser = toJson(comptype User);   // generated once, at compile time
@@ -171,7 +171,7 @@ export const fromJson = fn (j: json): table!;
 - **Document shape**: what a scalar-rooted document (`"5"` is valid JSON) yields when
   `fromJson` promises `table!`, a one-element wrapper or a declarable error.
 - **`fromJson` into declared shapes**: parsing into a protocol-typed table (the inverse of
-  the `toJson` generator), pending the reflection pipeline's read side — reconstruction is
+  the `toJson` generator), pending the introspection pipeline's read side — reconstruction is
   `apply` plus initializers over the granted surface (protocols §4.2, §5).
 - *(**Protocol-member nesting: resolved by R125** — the reserved `"@@"` section,
   protocol name → granted members, application order, off by default

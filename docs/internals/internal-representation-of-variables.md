@@ -266,7 +266,7 @@ properties:
   `int` *is* `int`, and `@a == @b` is never perturbed by tags. (Consequence for
   reflection: a bare `type` value identifies attributes only where typeid and declaration
   are 1:1, named declarations; anonymous shapes are reached through the `comptype`
-  operator, which reads comptime provenance, reflection spec §3.2.)
+  operator, which reads comptime provenance, introspection spec §4.2.)
 - **`valueBase`.** One precomputed `typeid`: the type's **constraint-erasure**. For a
   constraint type (constraints §9.1) it is the base's `valueBase`, so chains collapse
   transitively to the plain root (`byte` → `int`, `port` → `int`, `list` → `table`);
@@ -405,9 +405,9 @@ The typeof operator `@` returns the **type of a value** as a `type` value. A `ty
 So `@a == @b` is a single integer compare on the `typeid`, and a `type` is inherently const (the
 type universe is closed, §4.1). The runtime facts a `type` exposes (name, kind, subtype tests,
 nullability, union members) are reads of the statically-emitted `typetable` (§4) indexed by that
-`typeid`; deeper structural reflection (fields, attributes, enum variants) is comptime-only. The
-full model, declaration (`const number: type = int | double`), the `super` companion (a binding's
-declared type), structural type equality, and protocol matching via view types, is in the type
+`typeid`; deeper structural introspection (fields, attributes, enum variants) is comptime-only. The
+full model, declaration (`const number: type = int | double`), the `declared` companion (a binding's
+declared type), structural type equality, and protocol matching via `@P` refinements, is in the type
 spec.
 
 ---

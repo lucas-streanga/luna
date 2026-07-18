@@ -1,7 +1,7 @@
 # Serialization: the `json` constraint and `toJson`
 
 Serialization is the canonical consumer of attributes (attributes §4) and the proving ground
-for the comptime pipeline (`comptype`, reflection §3.2). This spec fixes its two public
+for the comptime pipeline (`comptype`, introspection §4.2). This spec fixes its two public
 pieces: the **`json` type**, so serializers never return a bare string, and the **two
 serialization entry points**, generated and dynamic.
 
@@ -48,7 +48,7 @@ fn toJsonDynamic(v: any): json;                              // structural, tags
   and returns a runtime serializer that const-captures that data (functions §2.1). The
   returned function is `fn (any): json`, no dependent signature, the specialization lives in
   the captured map, and `comptype` confinement guarantees the descriptor itself never reaches
-  the closure (reflection §3.2, compiler §6).
+  the closure (introspection §4.2, compiler §6).
 
   ```
   const writeUser = toJson(comptype User);   // generated once, at compile time

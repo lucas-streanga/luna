@@ -88,12 +88,12 @@ operands statically known, so its answer is a **compile-time constant**, not som
 operator. Where subtyping matters it is compiler machinery, surfaced to the programmer through `is`
 (test a value), `as` (narrow a value), and type declarations (unions, constraints, protocols). The
 rare metaprogramming need to compare two types directly is served by the `isSubtype` reflection
-function (reflection spec §3.1), not by a written operator.
+function (introspection spec §4.1), not by a written operator.
 
 So the whole surface of the subtype relation is: **`is`** (does this value have this type, at
 runtime), **`as`** (narrow this value to this type, or panic), **declarations** (state the
 relationships), and **`isSubtype`** (compare two `type` values, a runtime reflection function,
-reflection §3.1). `is` is the common one.
+introspection §4.1). `is` is the common one.
 
 ---
 
@@ -109,4 +109,4 @@ reflection §3.1). `is` is the common one.
   `match`), per the no-CFA guarantee.
 - There is **no `<:` operator**; the type-to-type subtype relation is compiler machinery, surfaced through
   `is` / `as` / declarations and, for two `type` values in hand, the `isSubtype` reflection function
-  (reflection §3.1, the runtime tier).
+  (introspection §4.1, the runtime tier).

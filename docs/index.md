@@ -161,7 +161,7 @@ table is a map.
 | Match | `match.md` | The pattern/guard selection expression, in valued and open-ended forms. |
 | Equality | `equality.md` | Strict `==`: same type and same value, no coercion. |
 | Conversion | `conversion.md` | Value conversion via functions, and how it differs from `as`. |
-| Reflection | `reflection.md` | Built-in functions that ask questions about a `type`. |
+| Reflection (retired name) | `reflection.md` | Retirement stub: moved to `std/introspection.md` as the `std.introspection` module (R127). |
 
 ### Values, bindings & access
 
@@ -174,6 +174,7 @@ table is a map.
 | Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
 | Associativity | `associativity.md` | Precedence and associativity: the expression and type grammars, word-prefix binding, resolved drift, parser-blocking questions. |
+| std.introspection | `introspection.md` | The introspection module (R127): principles, the two query tiers, `comptype`; capability-free by theorem. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |

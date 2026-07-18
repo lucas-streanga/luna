@@ -121,16 +121,16 @@ Not types, but how types are reached and tested:
     derive. This is the rule that makes `someEnum` (a type, bare) and `@someProto` (a protocol,
     needs `@`) consistent rather than arbitrary, and it is why `_: @int` is rejected in a pattern
     (match §2), pattern-type position being type position.
-  - **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **reflection**,
+  - **In value position** (an expression: `let t = @x`, `f(@x)`, `@a == @b`), `@` is **introspection**,
     "the type of this value," always yielding a comparable `type`. It applies to **any** value,
     including one that happens to be a type: `@someError` is its specific error type, `@f` is a
     function value's full type (`fn (int): string`, since function types are not erased, functions
     spec §3), and `@int` is `type`, since `int` is a `type`-valued binding. There is no error case
     here, only in type position.
 
-  value-representation, protocols, views.
-- **`@@x`** , protocol reflection over a table or view (distinct from `@`; not used for enum
-  variants or function signatures). views.
+  value-representation, protocols.
+- **`@@x`** , protocol introspection over any value (`[]` off tables, R126; distinct from `@`; not
+  used for enum variants or function signatures). protocols §8.
 - **`x as T`** , checked **narrowing** (union to member, supertype to subtype), runtime-checked
   with a `typeError` (panic) on mismatch; never transforms a value and never needs `!`. Value
   *conversion* (parsing, formatting) is a function (`parseInt`, `toString`), not `as`. See the

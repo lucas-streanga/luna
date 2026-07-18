@@ -19,7 +19,7 @@ const writeUser = toJson(comptype User);       // generated ONCE, at compile tim
 const main = fn () use (io): int! => {
   let alice = ['name' => 'Alice', 'age' => 30];
 
-  let doc: json = writeUser(alice);            // runtime: no reflection, tags compiled in
+  let doc: json = writeUser(alice);            // runtime: no introspection, tags compiled in
   println("$doc");                             // {"user_name":"Alice","user_age":30}
 
   println("${toJsonDynamic(alice)}");          // {"name":"Alice","age":30}: tags erased,
@@ -30,7 +30,7 @@ const main = fn () use (io): int! => {
 
 What it exercises:
 
-- **`comptype`** (reflection §3.2): `comptype User` reads the declaration descriptor off
+- **`comptype`** (introspection §4.2): `comptype User` reads the declaration descriptor off
   the value's comptime provenance, the only way attributes are reachable, since they have
   no runtime existence (attributes §1) and never perturb the type (`@alice == @User`'s
   value regardless of tags).

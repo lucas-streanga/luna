@@ -2,7 +2,7 @@
 
 `any` is the runtime-representable **top type**: every value is an `any`, and an `any`-typed
 position accepts everything (except `comptype`, which lives outside the runtime universe,
-reflection §3.2). This spec fixes what you can *do* with an `any`-typed value, the F22
+introspection §4.2). This spec fixes what you can *do* with an `any`-typed value, the F22
 question, and the answer is surgical rather than total: **universal operations work,
 type-specific operations require narrowing first.**
 

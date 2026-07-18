@@ -114,7 +114,7 @@ rather than a new mechanism.
 
 `any` is the top type: it accepts any value, and it is the one place the type is not statically
 known. Reaching into an `any` (its fields, its specific type) requires an explicit narrowing (`as`,
-`is`, or `match`), so dynamism is available but never silent. Runtime reflection still works on an
+`is`, or `match`), so dynamism is available but never silent. Runtime introspection still works on an
 `any` (you can ask its type name and kind), so `any` is inspectable rather than a dead end.
 
 ---

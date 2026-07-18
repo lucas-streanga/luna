@@ -415,8 +415,8 @@ constants.
   captured environment is **confinement-free plain data**: the code pointer references a literal
   already in the program, and the environment is a `const` snapshot (functions spec §2.1) of
   ordinary values. A `comptype` value, or any environment containing one, cannot be spliced,
-  lowering erases comptime provenance and confined values may not survive it (reflection spec
-  §3.2), so a generator that tried to capture its descriptor fails to compile at the capture,
+  lowering erases comptime provenance and confined values may not survive it (introspection spec
+  §4.2), so a generator that tried to capture its descriptor fails to compile at the capture,
   and what reaches the runtime program is always plain data (attributes spec §4). Determinism here is what
   keeps builds reproducible.
 - **Its main product is `const` data.** Comptime-built `const` tables become the

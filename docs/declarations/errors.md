@@ -152,7 +152,7 @@ it is *the* definition of the surface (`a == b` ⇔ same typeid ∧
 `toTable(a) == toTable(b)`), and it is the **shape-matching bridge**: error structure is
 matched through ordinary table patterns, `match (e.toTable()) { ['code' => 11] => … }`,
 while the *type* axis stays with the type system (typed binders `p: parseError`, `is`
-for subtree membership, `@` for reflection).
+for subtree membership, `@` for introspection).
 
 One consequence to know: a declared field of type `secret` makes its error **never
 equal**, including to itself — secret contagion, the same rule as a table holding a

@@ -2687,6 +2687,221 @@ opens dissolved); `operators.md` (`@@` row); `keywords.md` (`proto`
 row); `overview/types.md` (the literal); `stringBuilder.md` and `conversion.md` §3
 (example spellings); this file's tail.
 
+**R127 — introspection: the name, the module, the principles.** The reflection deep pass
+opens with structure rather than API: the surface moves to a standard module,
+**`std.introspection`** (new file `std/introspection.md`; `reflection.md` is a
+retirement stub with a was→is section map), and the name change is load-bearing, not
+cosmetic — names carry the contract (R94/R106's discipline), "reflection" is the
+industry's name for the mutable surface Luna structurally refuses (runtime type
+mutation, accessibility overrides, the PHP/Ruby failure), and *introspection* is the
+read-only word; the module's own name declines the feature requests. **The split:
+operators are language, functions are library.** `@`, `@@`, `declared`, `comptype`,
+`is`, `as` stay built-in — grammar, the hot path; every named query imports from
+`std.introspection`, and **the import is an audit signal**: a file that introspects says
+so on its first lines, the same greppable-declaration property `use` gives effects.
+**The module is capability-free, recorded as a theorem, not a choice**: every export is
+a pure read of static declaration data, and a surface that can neither mutate nor
+resolve names has no authority to protect. Comptime-tier exports fold exactly as
+builtins (modules resolve at compile time, the R19 argument). **The five principles**
+(introspection §1), each already latent in scattered rulings, now pillars: (1)
+introspection, never reconstruction — rebuilding is `apply` plus initializers (R125),
+never a query; (2) **no name→value resolution, ever** — no registry, no `forName`
+(R19), every query takes a value already held; (3) declarations, never values — the
+R126 encapsulation boundary, promoted; (4) results are inert value-semantic snapshots —
+no live link into the closed type universe; (5) **nothing grantable, nothing
+bypassed** — capability-shaped results are inert descriptors (the `gatesOf` precedent),
+never authority, and no query opens a side door: grants hold, constraints check,
+secrets stay sealed, the closed member space stays closed (dynamic member access by
+runtime name never exists). Plus the home rule: kind-specific value probes live in
+their kind's spec (`gatesOf`/`canReveal` in secret, `toTable`/`wasThrown` in errors);
+this module owns the declaration level. The sound content carried over intact (the two
+tiers, `comptype` and its confinement, `@P`-by-decomposition); the audit-condemned rows
+carried **with explicit in-place flags** naming their re-derivation slices (§7):
+`TypeKind` re-derived from the closed universe, `fields`/`attributes` re-grounded
+(errors/enums/constraints; the dead `@P` domain), the proto member surface, the
+fn-value cluster (R88's capability set + R108's parameter names, inert descriptors),
+`baseOf` (subsuming `constraintBase`), the `unionMembers`/`T!`/alias-`typeName` pins,
+and the §5 worked example rewritten onto the ratified `comptype` pipeline. En-route
+fixes: enum.md's live `IOError` → `ioError` (missed by R122's sweep — enum.md was not
+on its file list); overview/types.md's `@@`-over-"table or view" and two stray "views"
+cites; internals' "`super` companion" → `declared` and "view types" → `@P` refinements;
+constraints §8's dangling "detailed type-reflection API is deferred" now points at the
+module. Swept (cites `reflection §3.x` → `introspection §4.x` and prose):
+`serialization.md`, `any.md`, `json.md`, `attributes.md`, `is.md`, `enum.md`,
+`operators.md`, `keywords.md`, `type.md`, `compiler.md`, `functions.md`,
+`constraints.md`, `errors.md`, `protocols.md` §8 (retitled), `associativity.md`,
+`variables.md`, `internals/internal-representation-of-variables.md`,
+`overview/types.md`, `overview/high-level-overview.md`, `examples/serialization.md`,
+`index.md` (stub row + std row), this file's tail (the R88 open now names its slice).
+
+**R128 — the `kind` enum: nineteen closed variants, `kindOf`, and a fourth fossil
+layer.** The first API re-derivation slice. **Names**: the enum is **`kind`**
+(lowercase — `TypeKind` was a PascalCase island, the R122 argument) and the function
+is **`kindOf`** — the two cannot share one name (a module exports one binding per
+name), and `kindOf` joins the `*Of` query family (`gatesOf`, `baseOf` pending).
+**Spelling**: the old enum was illegal by Luna's own lexer — `fn`, `capability`, and
+`constraint` are reserved words (keywords §1) and cannot be variant names. The rule:
+**where the natural name is a reserved keyword, the variant appends `Type`** (`fnType`,
+`errorType`, `enumType`, `constraintType`, `capabilityType`); everything else keeps its
+bare name — including `type` and `protocol`, which are **not** reserved (`type` is a
+predeclared identifier, keywords §5; the keyword is `proto`), so the old `typeType`
+dodge was over-caution. Predeclared names are safe as variants because variant
+references are **fenced** (enum §3.3, R20) and resolve against the expected enum, never
+lexical scope — the precedent being the catalogue mode enum's `values` variant beside
+the live `values` function. **The derivation** (from keywords §5's closed predeclared
+list, no ellipsis — a closed universe deserves a closed, exhaustively matchable enum):
+`scalar` (int, double, bool, **string** — ruled a scalar, the enum dispatches
+structural queries and a string walks like an atom — null, undefined, never, and the
+committed tower primitives as they land), `bytes`, `table`, `stream`, `sink`,
+`promise`, `command`, `regex`, `secret`, the five `*Type` dodges, `protocol`,
+`refinement`, `union`, `type`, `any`. **`union` retained over the initial instinct to
+drop it**: `@x` never yields a union (R18, concrete typeids — the instinct was exactly
+right for the `@` path), but `declared x` does, `number` and `iterable` are predeclared
+union aliases, every `T!` is one, and `unionMembers`' guard *is* `kindOf(t) ==
+{union}`. `list` correctly absent (a constraint, R10 — and the reconciliation with
+tables §2.1 recorded: a value that entered `list` carries the constraint typeid, so
+`typeName` says `"list"` while `kindOf` says `{constraintType}`, a constraint name, not
+a kind). No `intersection` variant: `&` normalizes at interning (type §3.1, R25), with
+**one pin deferred** — the kind of the mixed normal form (`list & @drawable`).
+**The fourth fossil layer**: the carried §4.5 claimed "`@P` is not a `type` value, it
+has no `typeid`" while *citing* type.md §5, whose literal title is "Every type-position
+form is a `type` value, **including `@P`**" — a pre-R25 relic contradicting R25,
+type §5, and protocols §6 (refinements intern canonicalized protocol-set typeids).
+§4.5 rewritten on the corrected foundation: `kindOf(@P)` answers `{refinement}`; what
+survives is that membership stays the applied-set test on the value, `@x` never
+*reports* a refinement, structural queries have nothing to walk (decomposition via
+§4.4), and dispatch is `match`. En route, more pre-R95 residue cleaned from type.md:
+`view` in §5's universe list, "views spec" cites, a stale "protocols §9" cite, and
+§7's meta/view-vocabulary passage (the old `b->P`-produces-a-view story) rewritten in
+member-model terms with `?->` and the qualified form. Swept: `introspection.md` §2,
+§3, §4.1 (`kindOf` signature and bullet), §4.3 (rewritten), §4.5 (rewritten), §5, §7
+(slice closed, pins extended: mixed-intersection kind, refinement protocol-set query);
+`type.md` §5, §6 (the Kind bullet), §7/§7.1 (de-viewed); `reflection.md` (stub map row
+annotated).
+
+**R129 — the protocol member surface: declarations fully visible, granted values
+readable, ungranted values sealed.** The second and third re-derivation slices land
+together. **The foundational split** the ruling turns on: "introspecting a table's
+members" conflates two reads with different safety profiles. Member **declarations** —
+ungranted included — are fully visible: a declaration is source structure the author
+published by writing it, and knowing `stringBuilder` has a private `var buf: bytes`
+discloses nothing about any table (pillar 3's exact line, now exercised). Member
+**values** split by grant. **Ungranted values stay sealed** — the ruling's one refusal,
+against the initial trial balloon that reads are harmless because mutation is
+impossible. The mutation half is indeed structurally dead three times over (immutable
+typetable declarations, inert results, no spelling for a grant change — no
+`setAccessible` is *possible*), but disclosure is an independent, live danger the
+corpus already legislates against twice: serialization excludes ungranted members
+*because* emitting them would disclose (protocols §5), and secrets gate reads, not
+writes. A read-side bypass would make `get` advisory — privacy by discipline, not
+construction — and because grants never change retroactively, an ungranted member is
+*permanently* private by declaration; introspection reading it would be the one place
+the language lets that declaration lie. **Granted values become generically readable**
+via the `read` accessor: each `get`-granted row of `members(p)` carries
+`fn (t: table): any`, the `constraintPredicate` pattern (the declaration hands you its
+public reader *to run*), mirroring `->` exactly (`undefined` on an unapplied table,
+§3.2; the uniform value for definition-fixed members). No name→value resolution occurs
+(the accessor comes from the declaration you hold, pillar 2) and **no setter accessors
+exist** — introspection is read-only, and generic writing is not a walker's need
+because rebuilding is `apply` plus initializers (R125). This closes the R127
+asymmetry: user-space generic walkers (pretty-printers, differs) now have exactly the
+power of R125's builtin dynamic writer — the granted surface, nothing more. **The
+surface**: `members(p)` (runtime tier — `@@t` protos are runtime values; rows: name,
+`binding`, `get`/`set` bools, type, `required` = no-default, `definitionFixed` =
+const-with-default, `read`, `attributes` reserved against the `jsonTag` deferral) and
+`requirements(p)` (**direct** requirements only, proto values held never summoned; the
+transitive closure is a caller's fold), both in **declaration order** — resolving the
+last pre-R95 ordering pin (deterministic generated output; tables are ordered, proto
+blocks read top to bottom). The **`binding` enum** (`constBinding` / `letBinding` /
+`varBinding`) dodges the reserved ladder words per R128's suffix discipline; a
+semantic vocabulary (`{mutable, fixed, frozen}`) was rejected as a second name-set for
+a ladder users know by keyword. **The re-groundings**: `fields(t)` scoped to **error
+types** (the one nominal declaration form with fields; empty everywhere else — enums
+via `variants`, constraints via `constraintBase`/`constraintPredicate`, refinements
+decompose, anonymous shapes via `comptype`), and `attributes(t)` scoped to
+errors/enums/constraints (protos are not types). Swept: `introspection.md` §4.2 (both
+flagged bullets rewritten), §4.4 (the surface), §7 (two slices closed, ordering pin
+resolved); `protocols.md` §8 (the `members` pointer line).
+
+**R130 — the function axis: `capabilitiesOf`, `params`, signature decomposition; the
+`fn ≡ fn (...any): any` equation rejected.** The fn-value cluster lands
+(introspection §4.6), and with it the **last review-era open closes** — R88's
+"reflection-visible in principle" becomes an actual query. **The governing split was
+already law**: functions §3.2 says verbatim that the capability "requirement set rides
+the value, not the type," and the ruling generalizes it — *the signature lives in the
+type; names and capabilities ride the value* — with one sharpening recorded: **erasure
+is a declared-position phenomenon, never a value phenomenon** (function types are not
+erased, `@f` reports the full signature, typeids are concrete, R18; a bare-`fn` slot
+erases what the slot knows, not what the value is), and errorability sits in the type
+even at the wildcard tier (`fn`/`fn!` split on it alone). **`capabilitiesOf(f)`**
+returns the *declared* requirement set as **capability types** — `gatesOf`'s exact
+twin, inert by construction (a type can never appear in a `use` clause, so nothing
+grantable leaks; the user's own framing: nothing important leaks because the values
+cannot be used) — with delegation invisible (R112) and frame grants absent (not part
+of the value). **`params(f)`** is the home R108 promised its metadata: names are value
+metadata *by force* — structural typing makes `fn (x: int)` and `fn (y: int)` one
+type, yet named arguments bind through erased values at runtime, so the names
+demonstrably ride the value — rows name/type/optional/variadic in declaration order
+(R129). **`paramTypes(t)` / `returnType(t)`** decompose fn *types* for
+no-value-in-hand codegen (walking `members` rows' fn-typed member types), `null` on
+the wildcards — the existential has no signature to report. **The rejected equation**,
+recorded in place: bare `fn` is not `fn (...any): any`. The property the equation
+seems to buy already holds operationally (erased calls are statically accepted,
+dynamically checked — `arityError` / `typeError` / `namedArgumentError`), but the
+equation is unsound twice over: contravariance would make *no* concrete function a
+subtype of the wildcard (every argument list would have to fit each concrete
+signature), and the spelling belongs to a real citizen — `fn (...args: any): any` is
+R108's declarable `println` shape, the *most-accepting* signature, where the wildcard
+means the opposite quantifier, an existential, soundly formalized as the interval over
+the function typeid region (type §7.1). One spelling would conflate ∃ with the top
+signature: **`fn` calls like `(...any): any`; it is not typed as it.** Swept:
+`introspection.md` (intro, new §4.6, §7 slice closed), `functions.md` §3.2 (the
+`capabilitiesOf` pointer on the requirement-set law), this file's tail (the review-era
+opens list now reads *none*).
+
+**R131 — `baseOf`, `{intersection}`, `protocolsOf`, the sugar pins: the introspection
+re-derivation closes.** The final slice; introspection §7 is now a closure record and
+**nothing is open in that spec**. **`baseOf(t): type?`** is the general
+refinement-parent query — a constraint's base (`byte` → `int`, `list` → `table`,
+`json` → `string`), an error type's parent (`fileNotFound` → `ioError`; the root
+answers `null`), an enum variant's enum (`@Shape.circle` → `Shape`, resolving enum.md's
+standing recovery deferral on the **general** side, `enumOf` retired unminted), and a
+refinement's or mixed intersection's base (`@person` → `table`); atoms, unions, and
+`any` answer `null`. It **subsumes `constraintBase`** — one query, one question — with
+every cite swept. **The mixed-intersection pin resolves with a new kind**:
+`{intersection}` names exactly the mixed constraint-and-protocol normal form
+(`list & @drawable`), the *only* form that survives R25's normalization as an
+intersection (pure constraint meets conjoin to `{constraintType}`, pure protocol meets
+to `{refinement}`); it is genuinely both, so its kind privileges neither and dispatch
+queries both halves. The proposed third variant **`{complex}`** ("union and
+intersection both involved") was **rejected**: `&` distributes over `|` at interning,
+so the outermost form is always a union whose members are intersection-free-or-mixed —
+`kindOf` reports the outermost constructor and `unionMembers` recurses, which answers
+what `{complex}` would double-encode — and the name collides with the committed
+numeric type `complex` (a future `{scalar}`); the enum is now **twenty** variants,
+still closed. **`protocolsOf(t): list`** completes decomposition: a refinement's set,
+a mixed intersection's protocol half, `[]` for everything else — total, mirroring
+`@@`'s R126 totality, protos held through the type in hand (pillar 2). **The sugar
+pins**: `unionMembers` decomposes the sugar because the sugar *is* the union mechanism
+(`?` is `| null`, `!` adds the error arm — the governing small-surface idea) —
+`unionMembers(int!)` is `[int, error]`, `unionMembers(int?)` is `[int, null]`, no
+special case because no special type. And **`typeName` never shows alias names** —
+the answer the "could `baseOf` own this?" musing dissolves into: **forced, not
+chosen**. Aliases are pure sugar (R21), `iterable` and `table | stream` are one
+typeid, one typeid has one name, and with two aliases for one type a display-name slot
+would have no sound owner; `baseOf` cannot carry it either, because a union refines
+nothing (`baseOf` answers `null`, not a spelling). The alias name lives in source; the
+canonical structural spelling lives in output. **The §5 worked example** is rewritten
+on the module's own surface — a ten-line generic `describe` walker (imports as audit
+signal, `@@`'s totality, `members` rows, the granted-only `read` accessor) whose
+closing observation is the whole design: it *could not* see more if it tried. Swept:
+`introspection.md` §4.1 (`typeName` alias rule, `unionMembers` sugar rule,
+`constraintBase` → `baseOf`), §4.2/§4.3 (cites, the twenty-variant enum, the
+`{intersection}`/`{complex}` note), §4.5 (`protocolsOf`), §5 (the example), §7 (the
+closure record, external riders named: `jsonTag` reach, json §4/attributes §6.3; the
+deferred tower's numeric questions); `constraints.md` §8; `enum.md` (the deferral
+resolved).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2697,8 +2912,8 @@ by R34 — this list had simply gone stale while carrying them — and F6 (the `
 exceptions) is resolved by R124 itself: **lossless is the criterion**. Also closed along
 the way: view interior mutability (F25, **mooted by R95** — views no longer exist) and
 the builtin error types' casing (**resolved by R122** — camelCase everywhere). Still
-genuinely open from that review era: **a reflection query for a function value's
-capability requirement set** (R88's tail, functions §3, reflection §3).
+genuinely open from that review era: *(none — the last one, R88's function-value
+capability query, is **closed by R130**: `capabilitiesOf`, introspection §4.6.)*
 
 From R89 and R90, once the largest flag in this file, now closed:
 

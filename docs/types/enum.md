@@ -295,7 +295,7 @@ named enums).
 ## 6. Reflection: `@` gives the variant, `match` binds its payload
 
 `@x` gives the value's **current variant type**, the most-specific `typeid` it carries, exactly as
-`@` does everywhere (`@someByte` is `byte`, not `int`; `@someError` is `IOError`, not `error`). It
+`@` does everywhere (`@someByte` is `byte`, not `int`; `@someError` is `ioError`, not `error`). It
 is **not** widened to the enum type. For a **named** enum, `@x` is the variant, `Shape.circle`; for
 an **anonymous** enum, `@x` is the **structural** variant (and two structurally-equal anonymous
 enums still share `@`, so structural identity is preserved). This is the cheapest possible read:
@@ -391,10 +391,9 @@ representation is the sum type, built once, and enums are an instance of it.
 - **Parameterized enums.** An enum parameterized by a type (an `Option` over any element type
   rather than a fixed payload type) reads as generics, which the language does not have, so this
   is **out of scope** unless parametric types are ever adopted.
-- **Enum-recovery reflection.** Now that `@x` yields the *variant* `typeid` (§6), recovering the
-  **enum** type from a variant (e.g. `Shape` from `Shape.circle`) needs a reflection query. The
-  likely form is a general `baseOf(t: type): type` returning the immediate refinement parent, which
-  would serve enum variants (`Shape.circle` → `Shape`), constraints (`byte` → `int`), and error
-  subtypes (`IOError` → `error`) uniformly, since all three are interval-refinement `typeid`s; a
-  narrower enum-specific `enumOf` is the alternative. **Deferred**: the need is real but the
-  choice of general-vs-specific (and the reflection surface) is not yet settled (reflection spec).
+- *(**Enum-recovery introspection: resolved by R131** — the **general** form won:
+  `baseOf(t: type): type?` (introspection §4.1) returns the immediate refinement
+  parent, serving enum variants (`@Shape.circle` → `Shape`), constraints (`byte` →
+  `int`), and error subtypes (`ioError` → `error`) uniformly, plus refinements
+  (`@person` → `table`); it subsumes the narrower `constraintBase`, and the
+  enum-specific `enumOf` alternative is retired unminted — one query, one question.)*
