@@ -3990,6 +3990,25 @@ belongs. Swept: `bytes.md` §2, §4 ×2 (the signature, the bullet — its namin
 note now states the R106 rationale), `conversion.md` §5 (the canonical summary
 gains the `toList` row beside `toTable`).
 
+**R168 — spread.md validated; §7 reclassified as one resolution and one
+deferral; one intro fossil fixed.** §7 was never open: the variadic item is
+R108's resolution (already marked so in place) and the `bytes`/`string`-spread
+item waits on a use case, not a decision — the section is now "Resolved and
+deferred," and the deferral's pressure is noted as low since `toList(b)` (R167)
+already spells the explicit form, so deferring costs a name, not a capability
+(the Still-open tail's tracking line reworded to match). The validation's one
+find: **the intro's own parenthetical still said the parameter-list `...name`
+position "is not yet specified"** — contradicting §7's R108 resolved marker
+three sections down, the same fossil class R165 caught in the operators
+catalogue; it now cites functions §3.3.3. Everything else checked clean against
+the corpus: the §1 fold and its `merge` agreement (iterable-functions §2.7,
+`preserveKeys = false`), the §2 stream-spread/`collect` distinction (§2.11,
+R93), the `flatten` signature (verbatim match, §2.5), §4's list-only rule and
+R108 named-argument rejection, §5's lexer claims verified against lexer §6
+(`INTERP_IDENT` is `DQ_STRING`-only; `${...expr}` is `INTERP_OPEN` + `SPREAD`
+in commands and literals), and §6's "Amendment A" cite (live in tables.md).
+Swept: `spread.md` intro, §7; the CHANGES tail line.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -4047,5 +4066,7 @@ And from R91–R93, the two big flagged remainders:
   (`revealSecrets` + `use` on the call, R112). No `skipSecrets` flag exists; the
   placeholder is the graceful default.
 
-Also still open, and small: spread of `bytes` / `string`, whether `[...someBytes]` yields a
-table of `byte` elements or is an error, deferred for want of a use case (spread §7).
+One small deferral tracked here (reclassified from "open" with the spread.md validation,
+R168): spread of `bytes` / `string` — whether `[...someBytes]` yields `byte` elements or
+errors waits on a use case, not a decision, and `toList(b)` (R167) already spells the
+explicit form (spread §7).

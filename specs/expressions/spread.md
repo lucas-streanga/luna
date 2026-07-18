@@ -4,8 +4,8 @@
 elements. It is the same token as destructuring's rest element, disambiguated by position
 exactly like the rest of the `&`/`!`/`@` family: in a **pattern**, `...rest` collects
 (destructuring §1.2); in a **literal, argument list, command literal, or interpolation**,
-`...x` contributes. (A third position, `...name` in a *parameter* list, declares a variadic;
-that form is used across the std surface and is not yet specified, §7.)
+`...x` contributes. (A third position, `...name: T` in a *parameter* list, declares a
+variadic — specified in functions §3.3.3, R108; §7.)
 
 One distinction decides everything below. A **table literal** is the only spread context with
 a **key slot**: keys survive it, under the fold of §1. **Sequence contexts**, call arguments,
@@ -232,7 +232,9 @@ It folds into a `const` table at compile time, which then takes the const-table 
 representation. Nothing new is needed; comptime spread is ordinary const-table construction
 whose parts happen to be spreads.
 
-## 7. Open questions
+## 7. Resolved and deferred
+
+Nothing here is open — one resolution, one deferral:
 
 - *(**Resolved by R108.** `...name: T` in a parameter list is specified in functions
   §3.3.3 — the pattern rest element in parameter position, so the R35 unification holds
@@ -240,5 +242,8 @@ whose parts happen to be spreads.
   defaulted, named-only parameters after it. The `*,` marker is retired, `name?` is
   defined in functions §3.3.1, and named arguments landed in §3.3.2. The token's three
   positions are all specified.)*
-- **Spread of `bytes` / `string`**: whether `[...someBytes]` yields a table of `byte`
-  elements (plausible, cheap) or is an error pending a use case; deferred.
+- **Spread of `bytes` / `string` — deferred**, waiting on a use case, not a decision:
+  whether `[...someBytes]` yields a table of `byte` elements (plausible, cheap) or is an
+  error. The pressure is low because the explicit form already exists — `toList(b)`
+  (bytes §4, R167) spells "the bytes as list elements" today, so the deferral costs a
+  name, not a capability.
