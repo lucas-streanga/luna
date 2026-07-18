@@ -160,6 +160,43 @@ ignored); note the same syntax in a **match arm** has
 `undefined` (match §4.3), extract-what-is-there here, test-that-it-is-there there. Mixing is expected to be rare, a source shaped that way is usually two reads, but
 what the literal can build, the pattern can take apart.
 
+### 3.1 Nested patterns (R147)
+
+A position may hold a **nested pattern** instead of a name, to any depth:
+
+```
+let [[a, b], c] = pairs;                          // positional in positional
+let ['server' => ['host' => h, 'port' => p]] = config;   // keyed in keyed
+let ['points' => [[x1, y1], ...rest]] = shape;    // mixed, with a rest at depth
+```
+
+Nothing here is new machinery: match §4 already owns the nested shape grammar (a match
+pattern is the strict superset), and a destructuring statement reuses it **restricted to
+binding positions** — names, `_`, `...rest`, and nested patterns; **never literals and
+never typed binders**, at any depth. Tests belong to match, because a failed test needs
+a next arm to fall to and a statement has none. That restriction is what keeps the
+superset relation a relation rather than two homographs (match §4.3).
+
+**One rule for the recursion: a nested pattern destructures the value at its position
+under its own mode's rules** — each mode keeps its personality, and no new failure
+semantics exist:
+
+- **Keyed stays partial, and absence propagates.** An absent key binds `undefined`
+  (§2.1), and a nested *keyed* pattern under an absent or `undefined` value binds
+  **all** its names `undefined` — exactly what the flat spelling plus a second
+  statement would have produced, with `??` as the recovery (optional-access spec). No
+  panic is invented where the flat rules never had one.
+- **Positional stays exact, and asserts at every level.** A nested *positional*
+  pattern applies §1.1 to the value at its position: not a table, `undefined`, or the
+  wrong integer-keyed length — the same error as at top level (`typeError` panic;
+  compile error where the shape is statically known). `[[a, b], c]` asserts structure;
+  assertion failure stays loud, at any depth.
+
+`_` and `...rest` compose per level with their flat rules unchanged — a rest is
+trailing-only *within its own level* (§1.2) — and a stream encountered at any depth
+destructures by §1.4's take-what-you-bind, is taken, and leaves `...rest` as the
+advanced stream, exactly as at top level.
+
 ---
 
 ## 4. Binding forms
@@ -246,6 +283,7 @@ Four of the original questions are ruled (R35): mixed patterns are legal and mir
 literal (§3); the rest element is trailing-only (§1.2); patterns bind in parameters and
 `foreach` heads (§4). What remains:
 
-- **Nested destructuring**, deferred by decision: binding through nested structure
-  (`[[a, b], c]`, `['user' => ['name' => n]]`) and how `_` and `...` compose inside nesting;
-  flat patterns plus a second statement cover the cases until real code demands depth.
+- *(**Nested destructuring: landed, R147** — §3.1. The deferral's cost side collapsed
+  when match §4 built the nested shape grammar and declared itself the strict
+  superset: statements reuse that grammar restricted to binding positions, keyed
+  absence propagates, positional asserts at every level, tests stay match's.)*

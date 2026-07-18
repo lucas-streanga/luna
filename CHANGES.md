@@ -3465,6 +3465,31 @@ table). One process note, honestly: a careless sed corrupted three lines of
 concurrency.md mid-sweep; restored from git and redone with exact-match edits — the
 committed-before-sweeping discipline paid for itself.
 
+**R147 — nested destructuring lands; the deferral's cost had already collapsed.** The
+opens-combing pass begins, and the first question answers itself from the corpus:
+destructuring §7 deferred nesting "until real code demands depth," but **match §4 had
+already built everything** — the nested shape grammar, the recursion, the binding
+semantics, and the declaration that a match pattern is the *strict superset* of a
+destructuring pattern. So a `let` reusing that grammar costs nothing new, and the
+standing asymmetry (the same pattern legal in a `match` arm, a syntax error in a
+`let`, for data shaped exactly like the language's bread and butter) was a wart, not
+an economy. **The one genuinely new question** — statements have no next arm to fall
+to — resolves by the flat rules' own personalities, stated as one recursion rule
+(destructuring §3.1): *a nested pattern destructures the value at its position under
+its own mode's rules.* **Keyed stays partial and absence propagates** — a nested
+keyed pattern under an absent or `undefined` value binds all its names `undefined`
+(§2.1's philosophy extended; what the flat spelling plus a second statement would
+have produced; `??` recovers) — while **positional stays exact and asserts at every
+level** (§1.1's error, `typeError` panic or compile error where static, at any
+depth): `['server' => ['host' => h]]` navigates, `[[a, b], c]` asserts, each mode
+keeping the personality it always had. **Tests stay match's**: statement patterns
+exclude literals and typed binders at every depth — a failed test needs a next arm —
+which is precisely what keeps the superset relation a relation rather than two
+homographs (match §4.3). `_` and `...rest` compose per level with flat rules
+unchanged (rest trailing-only within its level); streams at any depth follow §1.4's
+take-what-you-bind. Swept: `destructuring.md` §3.1 (new), §7 (the open resolved);
+`match.md` §4 (the superset note gains the back-reference).
+
 ---
 
 ## Still open (out of scope of these rulings)

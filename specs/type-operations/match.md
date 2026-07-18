@@ -286,7 +286,10 @@ So a shape pattern is destructuring where positions may be **literals** (matched
 or nested patterns, with keyed-partial and list-exact semantics inherited unchanged. A bare name
 means the same thing in both, a binding that inherits the source element's type (§2,
 destructuring §5), which is what makes a match pattern a strict superset of a destructuring
-pattern rather than a homograph of one (§4.3).
+pattern rather than a homograph of one (§4.3). (The nesting flows back: destructuring
+statements reuse this nested grammar restricted to binding positions — no literals, no
+typed binders, since a failed test needs a next arm — with statement-side failure
+semantics per mode, destructuring §3.1, R147.)
 
 ### 4.1 A nested pattern that fails just falls to the next arm
 
