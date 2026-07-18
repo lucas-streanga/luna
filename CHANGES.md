@@ -2949,6 +2949,59 @@ as-they-land clause), `operators.md` (`+` and `-a` rows), `concurrency.md` §8 (
 timeout open now reads **unblocked**), `index.md` (the row). The timeout / `awaitAny`
 / select session is next, sitting directly on `sleep`.
 
+**R133 — `std.datetime`: mandatory timezones, two arithmetic families, the DST
+policies ruled.** The calendar module lands on R132's seam exactly as contracted
+(`duration` the currency; wall reading exiled here). **Three commitments**: every
+datetime has a timezone, always — no zoneless value exists or ever will (C#'s
+`DateTimeKind.Unspecified` is the recorded cautionary tale; the one legitimate
+pressure, recurring civil events, is deferred as a future `date`/`timeOfDay`
+component pair, never a zoneless datetime); **immutable by grants** — the `datetime`
+protocol's members (`epochSeconds: int`, `nano: int`, `zone: @timezone`, all
+`const get`, no `set` anywhere) make interface immutability free (protocols §2.2 +
+COW), derivations returning new values via the factory pattern; **no operators** —
+named functions (`difference`, `isBefore`/`isAfter`, `add*`), consistent with
+protocol-tables and the built-in-only rule. **Representation**: seconds-since-epoch +
+nanosecond-of-second (two integer members, ~24 bytes of heap-backed protocol state
+like any table's — the Go model, the PHP size) — a single `duration`-since-epoch was
+rejected because int64 nanos spans only 1678–2262, amputating history.
+**Strict `==` includes the zone** (the one-boundary rule: all three members granted),
+with `sameMoment(a, b)` as the named zone-blind instant question. **The default zone
+is UTC and the language decided it**: `localZone()` is an environment read under the
+`time` capability, so a pure constructor structurally cannot default to local —
+"local" is always a visible opt-in in the `use`-auditable position; the user's
+local-vs-UTC split dissolved on Luna's own rules. **Zones versus offsets**: one
+`timezone` type, two origins (`zone(id)!` with full IANA rules; `offset(d)` fixed and
+DST-blind; `isFixed` distinguishes), with the ISO-text trap recorded (parsed
+datetimes hold offset-zones; `withZone` is the upgrade). **The tzdb is bundled with
+the runtime** (the Go backend's `time/tzdata` makes it nearly free), which makes
+`zone` **pure and comptime-eligible** — `const chicago = zone('America/Chicago')`
+folds and a typo is a compile error; a `timezone` **enum was rejected** (~600 ids,
+renames in nearly every tzdb release = perpetual breaking changes; ids arrive as
+runtime data anyway; comptime folding already delivers the enum's static checking
+without its breakage). **The two arithmetic families** — absolute (`add`/`subtract`
+by `duration`, exact physics) versus calendar (`addDays`/`addWeeks`/`addMonths`/
+`addYears`, zone-aware) — with the three policies ruled: **month-end clamps** (Jan 31
++ 1 month = Feb 28/29, the C# answer); **DST gap: lenient shift-forward**; **DST
+overlap: earlier wins** (the first occurrence in real time — the java.time/NodaTime
+convention; the user's earlier-or-later question answered on convergence and
+physicality), overridable by named argument (`onAmbiguous: {later}`), policy visible
+per R106/R108. **Derivation**: `next`/`previous` over the **`weekday` enum** (ISO,
+Monday-first — ruled once, keeping the module out of locale space; months stay `int`
+1–12, arithmetic operands more often than names), `startOf*`/`endOf*`, `withZone`.
+**Construction**: `create(...): @datetime!` (errorable — the user's call, wide
+data-shaped failure surface), `now(zone = utc) use (time)`, `fromUnixSeconds!`
+(R106's `from*`), `parseDatetime!` (ISO 8601/RFC 3339; **PHP's format specification
+is the planned, deferred adoption** for custom formats — noted, stolen later).
+**Serialization is deliberately not special** (user-ruled): a datetime serializes
+like any protocol table (R125), and the wire idiom is `toString` into the field you
+mean — ISO 8601 with offset, round-trippable. **Leap seconds do not exist** (unix
+semantics); the calendar is **proleptic Gregorian**, named as such. One capability
+(`time`) covers both effects (`now`, `localZone`); everything else folds. Swept:
+`std/datetime.md` (new, the full module), `std/time.md` (three deferred-pointers now
+landed-pointers), `index.md` (the row). Deferred with reasons: PHP format spec,
+sequences/recurrence (a separate stream-shaped library), floating civil values,
+locale, non-Gregorian calendars.
+
 ---
 
 ## Still open (out of scope of these rulings)

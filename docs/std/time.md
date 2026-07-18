@@ -7,7 +7,7 @@ import std.time;
 The time module: two built-in types (`duration`, `instant`), one monotonic clock, and
 `sleep`. One exported capability, **`time`**, gates the two effects (reading the clock,
 waiting); everything else here is pure data. The module is **date-less by design** (§6):
-no wall clock, no calendar, no time zone — those are `std.datetime`'s (deferred), and
+no wall clock, no calendar, no time zone — those are `std.datetime`'s (R133), and
 their absence here is what kills the classic monotonic-versus-wall conflation bug
 *structurally*: there is no wall type in scope to conflate. This module supersedes the
 R120 deferral record it replaces (R132) and is the named prerequisite of the timeout /
@@ -159,11 +159,12 @@ export const sleep = fn (d: duration) use (time): undefined;
 
 ## 6. Deliberately absent
 
-- **Wall-clock time, dates, calendars, time zones** — `std.datetime`, deferred. The
-  seam is fixed now: `duration` is the shared currency; `std.datetime` consumes it
-  (a wall reading, when it exists, differences into ordinary durations); nothing
-  date-shaped enters this module. Nothing is lost by the exile — a program that wants
-  "what time is it" wants a calendar answer, which was never this module's question.
+- **Wall-clock time, dates, calendars, time zones** — `std.datetime` (landed, R133).
+  The seam held as designed: `duration` is the shared currency; `datetime` stores
+  seconds+nanos and differences into ordinary durations; `now`-for-datetimes and
+  `localZone` live there under this module's `time` capability; nothing date-shaped
+  enters this module. Nothing was lost by the exile — a program that wants "what time
+  is it" wants a calendar answer, which was never this module's question.
 - **`day` and larger units** — calendar claims (§3).
 - **A second (high-resolution/raw) clock** — a quality knob, not a type (§4).
 - **`tick(interval)` / timer streams** — an ordinary stream producer under R102,
@@ -175,5 +176,5 @@ export const sleep = fn (d: duration) use (time): undefined;
 
 Nothing in this module. The two consumers it unblocks are tracked at their homes: the
 **timeout / `awaitAny` / select surface** (concurrency §8 — the named top priority,
-now unblocked), and `std.net` behind it (net.md). `std.datetime` remains deferred in
-full, with §6's seam as its contract.
+now unblocked), and `std.net` behind it (net.md). `std.datetime` **landed** (R133) on
+§6's seam, exactly as contracted.
