@@ -884,7 +884,7 @@ Most capabilities do effects *within* Luna's guarantees: `io`, `http`, and safe 
 type and seal model, and error model. A small class of capabilities is different: reaching
 them **suspends** those guarantees, because the callee is untrusted native code that can
 corrupt memory, mutate frozen data, or ignore the error model. These are marked by an
-**`unsafe` camelCase prefix** on the capability name (`unsafeExec`, `unsafeReveal`); hyphens are not legal in identifiers, `-` is subtraction (associativity §1), so the prefix is a naming convention with zero lexer impact.
+**`unsafe` camelCase prefix** on the capability name (`unsafeShellExec`, `unsafeReveal`); hyphens are not legal in identifiers, `-` is subtraction (associativity §1), so the prefix is a naming convention with zero lexer impact.
 
 The test for the prefix: **a capability takes the `unsafe` prefix iff, after the call, Luna's guarantees
 may no longer hold.** Ordinary capabilities are effects inside the guarantees; `unsafe`

@@ -120,7 +120,7 @@ All seven original flags are ruled (R33):
   its own generator (stream §2). No flow analysis.
 - **`by` is reserved now** for future stepped-range syntax; rejecting it as an identifier
   today costs nothing and avoids a breaking change (associativity §4, R28).
-- **`unsafe` is a camelCase naming prefix** (`unsafeExec`), never a hyphen: `-` is
+- **`unsafe` is a camelCase naming prefix** (`unsafeShellExec`), never a hyphen: `-` is
   subtraction, hyphenated identifiers would make whitespace load-bearing (the disease
   removed with infix `.`), and this is the near-universal answer in infix-minus languages
   (functions §5.6).

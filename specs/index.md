@@ -188,6 +188,7 @@ table is a map.
 | std.crypto | `crypto.md` | Deferred in full, deliberately (R140): crypto surfaces are tight stuff and poor decisions last decades — designed as its own effort, never in passing. Today: `randomBytes` + `secret` + the exec hatch. |
 | std.math | `math.md` | Scalar mathematics (R141): `pi`/`e`, `abs`/`sign`/`clamp`/`lerp`, `sqrt`/`hypot`/`pow`/`exp`/`ln`/`log2`/`log10`, trig in radians with the `to*` degree pair, statistics split by the retention rule. Pure throughout; everything folds. |
 | std.net | `net.md` | The socket module (R143, closing the alpha): TCP/UDP under `egress`/`ingress`; connections wear `fileDescriptor` (io's byte surface free); accept is a stream; zero timeout parameters (R142 composes); plaintext — the crypto → tls → http chain recorded. |
+| std.exec | `exec.md` | The command-running module (relocated from concurrency/, R172): the `exec` capability + free `run`/`capture` over the built-in `command` type — built-in type, std-module effect, the `secret`/`reveal` shape; pipefail always; the `@commandResult`/`commandError` split. |
 | std.http | `http.md` | Deferred by decision (R143): a whole other beast atop net; its secure half gated by the crypto → tls → http chain. Today: hand-spoken HTTP/1.1 over net, or the exec hatch. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
@@ -211,7 +212,6 @@ table is a map.
 |-|-|-|
 | Concurrency | `concurrency.md` | Green threads: `spawn`, `promise`, `await`, and shared-nothing isolation. |
 | Channels | `channels.md` | Task communication: `channel()`, the stream receive end, the shared `sink`, the owner-task pattern. |
-| Exec | `exec.md` | Running a `command` as a capability-gated, error-governed effect. |
 
 ### Modules, tooling & implementation
 

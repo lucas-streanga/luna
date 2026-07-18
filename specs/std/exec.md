@@ -1,18 +1,38 @@
-# Exec
+# std.exec
 
-`exec` runs a `command` (command spec). Building a command is pure and inert; **running** it
-reaches outside the program (it spawns a process and does I/O), so execution is a
-**capability**, and its result is governed by the error model. This document specifies the
-`exec` capability, the two run functions (`run` and `capture`), the `commandError` raised on
-failure, and the pipefail semantics. The command value itself, its construction, backtick
-literal, interpolation, and `pipe()` pipelines (R146), is in the command spec.
+`std.exec` runs a `command` (command spec). Building a command is pure and inert; **running**
+it reaches outside the program (it spawns a process and does I/O), so execution is a
+**capability**, and its result is governed by the error model. This module owns the `exec`
+capability, the two run functions (`run` and `capture`), the `commandError` raised on
+failure, and the pipefail semantics. The command value itself — its construction, backtick
+literal, interpolation, and `pipe()` pipelines (R146) — is the built-in `command` type
+(types/command.md): **built-in type, std-module effect**, the same shape as
+`secret`/`reveal` (R172).
+
+```
+import { exec, run, capture } from std.exec;   // the capability travels by name
+```
+
+An assigned import (`const e = import std.exec;`) collects the *functions* but never the
+capability — capability tokens do not inhabit value slots (capabilities §3.1, R135) — so the
+old `exec.run(...)` spelling cannot arise: the functions are free, the capability is named
+in `use`, and `import std.exec` at the top of a file is the audit line for "this file can
+run programs" (the import-as-audit-signal force, introspection §0's argument applied here).
+
+The module placement is ruled (R172): running children is neither process-self
+(std.process, R134) nor filesystem structure (std.filesystem, R135) — it is its own effect
+with its own capability, exactly as the backend splits `os` from `os/exec`.
 
 ---
 
 ## 1. Execution is a capability
 
+```
+export const exec = capability;
+```
+
 Running a command is an outside-reaching effect, so `exec` is a `nocopy` capability reached
-only through `use` (functions §5.6), like `io` and `system`. Consequences:
+only through `use` (functions §5.6), like `io` and `filesystem`. Consequences:
 
 - **Building is free; running is gated.** Constructing and composing a `command` needs no
   capability (it is pure data, command spec). A function that *runs* a command holds `exec`
@@ -28,16 +48,16 @@ injection surface, no memory or type unsafety. It is a bounded, structured effec
 so it does not carry the `unsafe` prefix (functions §5.6). (The genuinely unsafe
 shell-string path is separate; §5.)
 
-A command argument that is a `secret` (secret spec) is `reveal`ed **internally by `exec`**,
-at the point the argument is handed to the spawned process, and nowhere else. `exec` is the
-canonical infrastructure boundary where a raw secret legitimately crosses out of the program:
-user code wraps a credential with `secret(...)`, passes the command around (redacted in every
-log and error), and `exec` reveals it once, at the syscall, so the raw value never appears in
-user-visible output.
+A command argument that is a `secret` (secret spec) is `reveal`ed **internally by the run
+functions**, at the point the argument is handed to the spawned process, and nowhere else.
+`exec` is the canonical infrastructure boundary where a raw secret legitimately crosses out
+of the program: user code wraps a credential with `secret(...)`, passes the command around
+(redacted in every log and error), and the runner reveals it once, at the syscall, so the
+raw value never appears in user-visible output.
 
 ```
 const countLines = fn (path: string) use (exec): int !=> {
-  let out = try exec.run(`wc -l ${path}`);
+  let out = try run(`wc -l ${path}`);
   return parseFirstInt(out);
 };
 ```
@@ -47,7 +67,7 @@ const countLines = fn (path: string) use (exec): int !=> {
 ## 2. `run`: stdout, or throw on failure
 
 ```
-fn run(cmd: command): string!
+fn run(cmd: command) use (exec): string!
 ```
 
 `run` executes `cmd`, and:
@@ -64,30 +84,31 @@ sitting in a return value to be checked (contrast the `$?`-inspection footgun of
 scripts).
 
 ```
-let files = try exec.run(`ls ${dir}`);              // stdout, or a thrown commandError
-let code  = files.exitCode if (files is commandError);  // inspect the failure via narrowing
+let files = try run(`ls ${dir}`);     // stdout, or the thrown commandError propagates
 ```
 
 The exit code is **not** in `run`'s success result, because a successful `run` always exited
 0 (any non-zero threw). The code is meaningful only on failure, where it rides on the thrown
-`commandError`. To reach the exit code without throwing, use `capture` (§3).
+`commandError` — reach it by catching (`catch (e: commandError)`, errors §8). To see the
+exit code *without* a throw, use `capture` (§3), which is the form that surfaces it.
 
 ---
 
 ## 3. `capture`: the full result, never throwing on non-zero
 
 ```
-fn capture(cmd: command): commandResult!
+fn capture(cmd: command) use (exec): @commandResult!
 ```
 
 `capture` executes `cmd` and returns a **result value** describing what happened, **without
-throwing on a non-zero exit**:
+throwing on a non-zero exit**. The result is a table wearing the `commandResult` protocol —
+the R135 `@fileInfo` pattern, a typed read-only record:
 
 ```
-commandResult = {
-  stdout:   string;      // captured standard output
-  stderr:   string;      // captured standard error
-  exitCode: int;         // the exit status (0 or non-zero; not an error here)
+export const commandResult = proto {
+  const get stdout:   string;    // captured standard output
+  const get stderr:   string;    // captured standard error
+  const get exitCode: int;       // the exit status (0 or non-zero; not an error here)
 };
 ```
 
@@ -97,17 +118,17 @@ those would throw for an ordinary, expected outcome; `capture` hands back the ex
 the caller decides what it means:
 
 ```
-let r = exec.capture(`grep ${pattern} ${file}`);
-matched(r.stdout)    if (r.exitCode == 0);      // 0: found
-noMatch()            if (r.exitCode == 1);      // 1: no match (not an error)
-throw error('grep failed') if (r.exitCode > 1); // >1: a real failure, the caller's call
+let r = try capture(`grep ${pattern} ${file}`);
+matched(r->stdout)   if (r->exitCode == 0);      // 0: found
+noMatch()            if (r->exitCode == 1);      // 1: no match (not an error)
+throw error('grep failed') if (r->exitCode > 1); // >1: a real failure, the caller's call
 ```
 
-`capture` still errors (`commandResult!`) for failures that are **not** just a non-zero exit,
-the process could not be spawned at all (program not found, permission denied). Those are
+`capture` still errors (`!`) for failures that are **not** just a non-zero exit: the process
+could not be spawned at all (program not found, permission denied). Those are
 `commandError`s like any other; a non-zero *exit* is not, because the process ran and
 reported a status. So the split is precise: **a process that ran and exited is always a
-`commandResult` (any code); a process that could not run is a `commandError`.**
+`@commandResult` (any code); a process that could not run is a `commandError`.**
 
 ### 3.1 Choosing `run` vs `capture`
 
@@ -170,17 +191,17 @@ It is deliberately marked dangerous on both axes:
 - **`shell` in the name**, because it genuinely runs a shell, unlike the shell-less
   `command`/`exec` path.
 
-So the safe, structured path is the easy default (`exec.run` / `exec.capture` on a
-`command`), and the dangerous shell-string path is possible but explicitly opt-in and
-visibly marked. `unsafeSystem` is a large, complex module (raw syscalls and shell access)
-and is **specified separately, later**; this section only records that `shellExec` is its
+So the safe, structured path is the easy default (`run` / `capture` on a `command`), and
+the dangerous shell-string path is possible but explicitly opt-in and visibly marked.
+`unsafeSystem` is a large, complex module (raw syscalls and shell access) and is
+**specified separately, later**; this section only records that `unsafeShellExec` is its
 home for shell-string execution and why it is unsafe.
 
 ---
 
 ## 6. Rulings and remaining questions
 
-Ruled (R42):
+Ruled (R42; module home ruled R172):
 
 - **Streaming output: yes.** A streaming variant yields stdout as a `stream` for large or
   long-running output (exact signature pending, alongside the buffered `capture`); it is
@@ -193,7 +214,7 @@ Ruled (R42):
   children; reading one's *own* environment is process-self, not command-running —
   exec composes with `std.process` when it needs an environment to pass.
 - **`commandResult` / `commandError` split: confirmed.** A process that **ran** yields a
-  `commandResult` for any exit code (an exit code is data, not an error); a process that
+  `@commandResult` for any exit code (an exit code is data, not an error); a process that
   **could not start** yields a `commandError` (declarable, the expected environmental
   failure). The obvious boundary, now ruled rather than assumed.
 

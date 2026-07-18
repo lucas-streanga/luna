@@ -56,7 +56,7 @@ not an identifier; `keywords.md` is the sole authority for the reserved set.
   are unavailable for the same family of reasons — no `char` type, range §10.)
 - **Hyphens are not identifier characters.** `-` is always subtraction; a hyphenated
   identifier would make whitespace load-bearing (the disease removed with infix `.`), so a
-  name that would otherwise hyphenate is camelCase instead (`unsafeExec`, not `unsafe-exec`)
+  name that would otherwise hyphenate is camelCase instead (`unsafeShellExec`, not `unsafe-shell-exec`)
   (functions §5.6, keywords §6).
 - **`_` is the discard.** It is identifier-shaped but is the wildcard/blank, lexed as its own
   token (`WILDCARD`, `_\b`, lexer §7), not an ordinary identifier (wildcard spec, keywords

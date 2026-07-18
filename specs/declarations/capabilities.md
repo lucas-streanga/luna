@@ -506,7 +506,7 @@ adds no separate mechanism.
 | Capability | Authority | Spec |
 |-|-|-|
 | `io` | Input/output (files, streams, console) | std.io |
-| `exec` | Spawn and run a structured `command` | exec |
+| `exec` | Spawn and run a structured `command` | std.exec (R172) |
 | `reveal` | Reveal a `secret`'s payload | secret |
 | `env` | Enumerate environment variables (`envVars()`, values are `secret`, reading them needs `reveal`) | std.process (R134; ruled in exec §6) |
 | `argv` | Read the program's arguments (`args() use (argv): list`) | std.process (R134) |

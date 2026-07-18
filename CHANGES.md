@@ -4125,6 +4125,44 @@ Verified live before citing: `moduleof` (modules §7.1), the slice/range rows
 (already R166-consistent). Swept: `high-level-overview.md` ×5,
 `overview/types.md` ×6.
 
+**R172 — exec is `std.exec`: the module home ruled, the file moved, the
+`exec.run` wrinkle dissolved by construction.** exec.md lived in
+`concurrency/`, which was never its subject; the question was std module
+versus built-in capability + free functions. Ruled: **`std.exec`**, on three
+converging precedents — every capability in the corpus is an std-module
+export, none predeclared (`reveal` ← std.secret, `time` ← std.time, `entropy`
+← std.random, `filesystem` ← std.filesystem, `egress`/`ingress` ← std.net,
+`env` ← std.process), and a built-in `exec` would be the lone exception while
+deleting the import-as-audit signal (`import { exec, run } from std.exec` is
+the grep-able "this file can run programs" line); the **built-in type,
+std-module effect** split is exactly `secret`/`reveal`'s shape (`command`
+stays types/command.md with literals and `pipe()`; the effect moves); and the
+backend itself splits `os` from `os/exec` — std.process (R134, process-self)
+plus std.exec mirrors it. Folding into std.process was rejected (children are
+a third concern; importing std.process for `argv` must not look exec-capable).
+The placement dissolves the parked spelling wrinkle: with free `run`/`capture`
+and the capability co-exported, `exec.run` cannot arise — an assigned import
+collects the functions but never the capability (the slot-inhabitant rule,
+R135/R136), so the file's own internal contradiction (free-function
+signatures beside `exec.run(...)` examples) is resolved on the free-function
+side, with `use (exec)` now on both signatures (the R143 std convention). The
+rewrite's other repairs: "like `io` and `system`" — `system` died in R134 —
+now `filesystem`; §2's broken example (element access on `string | error`
+plus `is`-as-narrowing, violating the file's own §4 note) replaced with
+propagation + a catch pointer; **`commandResult` re-expressed as the
+`commandResult` protocol** (`@commandResult`, const-get members) — the
+declaration used a record syntax Luna does not have, and R135's `@fileInfo`
+is the ruled pattern for typed read-only results (access is `->`, examples
+fixed) — flagged for review as the one substantive re-expression; §5's
+internal naming drift (`shellExec` vs `unsafeShellExec`) unified on
+`unsafeShellExec`, and the three generic `unsafeExec` illustrations of the
+prefix rule (keywords §6, lexical-structure, functions §5.6's table) aligned
+to the real planned name. Swept: `git mv concurrency/exec.md → std/exec.md`
+(history preserved), the full rewrite, `index.md` (row moved from Concurrency
+& effects to the std section), `capabilities.md` §9 (the grid row's home →
+std.exec), `keywords.md` §6, `lexical-structure.md`, `functions.md` §5.6.
+Command.md's seven "(exec spec)" cites are name-based and stand unchanged.
+
 ---
 
 ## Still open (out of scope of these rulings)
