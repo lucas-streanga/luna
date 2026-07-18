@@ -178,7 +178,7 @@ table is a map.
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
-| std.time | `time.md` | Deferred in full (R120): the missing time surface — clock, `sleep`, durations — recorded as a decision. |
+| std.time | `time.md` | The time module (R132): built-in `duration`/`instant` with dimensional operators, the one monotonic clock, `sleep`, the `time` capability. Date-less by design. |
 | std.platform | `platform.md` | Deferred (R121): the `const` target-facts table — the most load-bearing stub (println's default reads it). |
 | std.system | `system.md` | Deferred (R121): filesystem metadata (`exists`, `stat`, delete, directories) under the `system` capability. |
 | std.net | `net.md` | Deferred in full (R121): the network family — gated on the timeout surface, by design. |

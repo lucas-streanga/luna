@@ -2902,6 +2902,53 @@ closure record, external riders named: `jsonTag` reach, json §4/attributes §6.
 deferred tower's numeric questions); `constraints.md` §8; `enum.md` (the deferral
 resolved).
 
+**R132 — `std.time`: built-in `duration`/`instant`, one monotonic clock, `sleep`; the
+timeout surface is unblocked.** The R120 deferral record becomes a real module — the
+named prerequisite of the top post-alpha priority delivered. **The types are
+built-ins, and that is forced**: the essence of a chrono-style library is dimensional
+safety (`instant + instant` must not compile), Luna has no generics and no operator
+overloading, and the R120 record's own lean ("the constraint idiom, as everywhere")
+does not survive contact with arithmetic — a constraint over `int` erodes on first use
+(`byte + byte` widens) and can forbid nothing dimensional. So the built-in-only
+operator rule becomes the feature: only built-ins get operators, make them built-ins —
+the path the tower already reserves (breaking-change-before-1.0, universe-growth
+tolerance, tower §6). The **dimensional operator table** (time §2) is closed and its
+compile errors are the safety: `duration ± duration`, `-duration`,
+`duration * int`, `duration / int`, `duration / duration = int` (the ratio),
+`duration % duration`, `instant - instant = duration`, `instant ± duration`; nothing
+else — no point addition, no time-squared, no bare-number mixing, no `double` scaling
+(a policy question deferred with datetime's needs). **Representation: 64-bit signed
+nanoseconds** (one inline word, ±292 years, overflow panics never wraps, signed
+either-order subtraction). **One clock, monotonic** — "high resolution" ruled a
+quality of implementation, not a second type, killing cross-clock subtraction by
+construction; `now() use (time): instant`, arbitrary epoch, order-and-subtract only.
+An `instant` has no data form that survives the process, so `toJson` refuses it (the
+`fn` precedent); a `duration` serializes as its canonical string, round-trippable via
+`parseDuration`. **The `time` capability gates both effects** (clock read and
+`sleep`) — recorded as a theorem, not a taste: eligibility is empty-requirement-set,
+every ineligibility source is a capability (R43, capabilities §10), and a build must
+not depend on when it runs; the record's is-sleep-gated open closes on the same
+argument. Corollary recorded: `now: fn (): instant` parameters make virtual time the
+path of least resistance. **`sleep(d) use (time)`** is a suspension point *always*
+(cancellation delivers, R115; zero/negative returns immediately but still suspends —
+`sleep(seconds(0))` is the portable yield point), sleeps at least `d` monotonically,
+absorbs `EINTR` (R121). **Wall-clock time is exiled to `std.datetime` entirely**
+(user-ruled: nothing is lost — "what time is it" was always a calendar question),
+which kills the monotonic-versus-wall conflation bug structurally, and the seam is
+fixed: `duration` is the shared currency datetime will consume. Units: constructors
+`nanoseconds`…`hours` (total, pure, comptime-foldable; the ladder stops at `hours` —
+a "day" is a calendar claim); extraction is the `whole*` family (truncation named in
+the word; no `toSeconds` — one name one signature, and `to*` would hide the loss the
+spelling states, the R106 discipline); `parseDuration(s): duration!` joins the
+`parse*` family; `toString` is Go-style compound units, exact. Deliberately absent,
+each with its reason: days-and-up, a second clock, `tick` streams (an R102 stream
+producer, deferred so its shape follows the timeout surface), deadline objects
+(patterns layer). Swept: `std/time.md` (rewritten in full), `keywords.md` §5
+(`duration`/`instant` predeclared), `introspection.md` §4.3 (the `{scalar}`
+as-they-land clause), `operators.md` (`+` and `-a` rows), `concurrency.md` §8 (the
+timeout open now reads **unblocked**), `index.md` (the row). The timeout / `awaitAny`
+/ select session is next, sitting directly on `sleep`.
+
 ---
 
 ## Still open (out of scope of these rulings)

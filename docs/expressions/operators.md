@@ -21,12 +21,12 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 
 | Operator | Kind | Name | Function | Spec |
 |-|-|-|-|-|
-| `a + b` | arithmetic | add | numeric addition (never concatenation, never merge) | numeric-operators, int, double |
+| `a + b` | arithmetic | add | numeric addition (never concatenation, never merge); `duration`/`instant` add per their dimensional table (std.time §2, R132) | numeric-operators, int, double |
 | `a - b` | arithmetic | subtract | numeric subtraction | numeric-operators |
 | `a * b` | arithmetic | multiply | numeric multiplication | numeric-operators |
 | `a / b` | arithmetic | divide | numeric division (integer div-by-zero panics; float yields IEEE) | numeric-operators, int, double |
 | `a % b` | arithmetic | modulo | remainder | numeric-operators, int |
-| `-a` | arithmetic | negate | unary minus, the additive inverse (uniform across the numeric tower); there is no unary `+` (numeric-operators §1.1) | numeric-operators §1.1 |
+| `-a` | arithmetic | negate | unary minus, the additive inverse (uniform across the numeric tower; also `duration`, std.time §2); there is no unary `+` (numeric-operators §1.1) | numeric-operators §1.1 |
 | `a == b` | comparison | equal | semantic equality (strict, typeid-first; IEEE for doubles) | equality |
 | `a != b` | comparison | not equal | negation of `==` | equality |
 | `a < b`, `a > b`, `a <= b`, `a >= b` | comparison | ordering | relational comparison; operands must share a type (widening within a numeric family is implicit, crossing families needs an explicit conversion, as with arithmetic). Numbers order numerically; strings lexicographically by the total order | equality (total order) |

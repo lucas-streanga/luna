@@ -479,8 +479,9 @@ Open:
   cannot express "wait, but not forever" — so the one admitted deadlock shape,
   channel-wait cycles (§7, channels §6), has no in-language recovery. This is **safety,
   not convenience**. The surface rides R115's semantics (a deadline is a cancellation; a
-  select is a race), and its timer half is `std.time`'s `sleep` (std/time.md, deferred
-  with it) — the two should be designed together.
+  select is a race), and its timer half is `std.time`'s `sleep` — which **landed** (R132:
+  `duration`/`instant` built-ins, the monotonic clock, `sleep` as a suspension point
+  under the `time` capability), so this surface is now **unblocked** and next.
 - *(**Channels: designed, R119** — `channels.md`. `let [tx, rx] = channel(capacity)`; the
   receive end is literally a `stream`; the `sink` is a shared write-only handle
   (*ownership follows readability*, §2.1); per-handle `finish`, no whole-channel close;
