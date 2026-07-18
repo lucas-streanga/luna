@@ -11,6 +11,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | Tier | Operators | Associativity | Notes |
 |-|-|-|-|
 | 1 postfix | `f(...)` `x[...]` `x.name` `x->name` `x->P.m` `x?.name` `x?->name` | left | one chainable postfix tier: `a->P.b(c)[d]` parses left-to-right; `x.name(` is UFCS, `x.name` is access (functions §3.4); `->` reaches protocol space, bare or qualified, assignable where the member grants `set` (protocols §3); `?->` is its soft form, short-circuiting like `?.` (protocols §3.2) |
+| 1a structure | `x apply P(...)` | left | the `apply` operator (R158): the left operand is a complete tier-1 postfix expression; the right side is the operator's **own closed grammar** — a proto name plus an optional initializer list, never an expression (protocols §4.2) — so only the left edge needs a tier; chains left (`[] apply person(...) apply employee(...)`, protocols §7) and binds tighter than every comparison, so `x apply P is @P` needs no parens |
 | 2 prefix, symbolic | `!x` `-x` `@x` `@@x` | right (stack) | `!` is logical not, prefix, expression position only (operators §0; the postfix `T!` lives in the type grammar) |
 | 3 multiplicative | `*` `/` `%` | left | |
 | 4 additive | `+` `-` | left | `+` is numeric only; there is **no** concat operator (strings §11), interpolation joins |
@@ -21,7 +22,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 9 disjunction | `\|\|` | left | short-circuits |
 | 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
 | 11 | *(retired, R146 — was the pipeline `\|>`, retired/pipeline.md; the tier number is kept so tier-12 citations stand)* | — | — |
-| 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` | right | see §3: word prefixes bind the **whole expression** below assignment |
+| 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` `declared` | right | see §3: word prefixes bind the **whole expression** below assignment; `declared` is the degenerate member (R158) — its operand is exactly **one binding name**, never a general expression (type §4), so precedence barely bites, but it lives here as the word prefix it is |
 | 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (strings §11) |
 
 Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
@@ -64,7 +65,7 @@ a word reads like a clause head, and the alternatives are worse, tight binding w
 that would *usually* be caught but is a trap where it isn't. Nesting is by parentheses:
 `try (copy t)` and `copy (try f())` both parse.
 
-## 4. Resolved drift, and open questions
+## 4. Resolved drift and resolved rulings — nothing open (R158)
 
 **Resolved here** (each previously inconsistent between specs):
 

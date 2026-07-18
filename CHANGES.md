@@ -3706,6 +3706,23 @@ express the union of every format's semantics, the same argument that made
 per-format module layout already on the books (one format, one module, one
 generator). Swept: `serialization.md` §3 (retitled, both records).
 
+**R158 — associativity: `apply` and `declared` join the table; the stale heading
+retitles.** The make-sure pass found the table current on every existing row (the
+R95–R101 tier 1, the R146 tombstone, the R112/R108/R137 prose) — and **two operators
+missing entirely**. **`apply` gets its own tier, 1a**: keywords §3's "tier 12 unless
+noted" default mis-implied a prefix word, but `apply` is *infix* — and half its
+precedence question does not exist, because the right side is the operator's own
+closed grammar (a proto name plus initializer list, never an expression, protocols
+§4.2), so only the left edge needed a rule: a complete tier-1 postfix expression,
+chaining left (protocols §7's own `[] apply person(...) apply employee(...)`),
+binding tighter than every comparison so `x apply P is @P` needs no parens; the
+keywords row now notes the tier. **`declared` joins tier 12** as the degenerate
+member: a word prefix whose operand is exactly one binding name (type §4), so
+precedence barely bites, but it lives where it belongs. And §4's heading — "Resolved
+drift, and open questions" — promised opens it did not contain; retitled "nothing
+open." Swept: `associativity.md` §1 (two rows), §4 (the heading); `keywords.md` (the
+`apply` row's tier note).
+
 ---
 
 ## Still open (out of scope of these rulings)
