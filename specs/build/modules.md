@@ -156,6 +156,14 @@ statement form **dumps names** and produces no value; `import` is the language's
 directive, and that is fitting — it is mechanics, not a value. Assignment position changes
 everything (§6).
 
+**An unused import is a compile error** (R159, the sibling of the unused-binding rule,
+variables §4.1): a *selective* import none of whose names are used, or a *bare* import
+none of whose dumped names are used, is rejected. Beyond the Go alignment that forces
+both rules (compiler §1.7's no-ICE contract; Go rejects unused imports), this one earns
+its keep independently: a phantom import is a phantom **dependency edge**, and the
+interface-hash cache (build-cache §1) would rehash the importer on every interface
+change of a module it never uses.
+
 ---
 
 ## 6. Collecting a module into a table

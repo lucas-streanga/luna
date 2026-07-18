@@ -246,6 +246,24 @@ foreach (num in 0..10) {
 println(i);                        // compile error: i is undefined in this scope
 ```
 
+### 4.1 An unused local binding is a compile error (R159)
+
+A local `let`, `var`, or `const` that is **never read** after its declaration is a
+**compile error**. The discard is explicit — `_`, or do not bind. This is not only the
+Go stance adopted on its merits (dead bindings are bugs or noise, and the language
+already refuses silent nonsense); it is **forced by the backend contract**: compiler
+§1.7 rules that a Go compile failure is always a compiler bug, and Go rejects unused
+locals — so Luna either errors at its own level, with its own diagnostic, or the
+emitter must litter silencers to launder dead code through. Erroring aligns the
+semantics and keeps emission honest.
+
+Two boundaries, both Go's line and both principled: **unused *parameters* are not an
+error** — signature conformance is legitimate (a callback must match its slot,
+functions §3.2; name a parameter `_` when its unuse is the point) — and module-level
+unexported-unused bindings are not an error for alpha (dead-code elimination's
+territory, compiler §5). Unused **imports** are the sibling error, ruled at their home
+(modules §5, R159).
+
 ---
 
 ## 5. Passing semantics

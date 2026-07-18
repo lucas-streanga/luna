@@ -3723,6 +3723,33 @@ drift, and open questions" — promised opens it did not contain; retitled "noth
 open." Swept: `associativity.md` §1 (two rows), §4 (the heading); `keywords.md` (the
 `apply` row's tier note).
 
+**R159 — postfix modifiers get their exclusions; unused bindings and imports become
+errors.** The user's gap (`let x = 5 if (cond);` desugars to a binding scoped inside
+the sugar block — nonsense) is closed **at the grammar, not by a lint**: declarations
+take no postfix modifier, compile error — a conditional declaration is nonsense by
+construction, so it is unrepresentable, while the line sits one notch over exactly
+right (assignment with a modifier is legal and useful: `x = 5 if (cond);` writes the
+outer `x`). **The analysis found a trap worse than the nonsense case**: `defer f() if
+(cond);` would desugar to defer inside the sugar block, whose exit *is* the
+trigger — the cleanup would run **immediately**, silently, at the wrong time — so
+`defer` takes no postfix modifier either, and the conditional-cleanup idiom is the
+same syntax one level in (`defer { f() if (cond); };` — registration unconditional,
+execution conditional, captured at registration per defer §4). Pins completing the
+form: no `else` on postfix; postfix `if` is statement grammar, never an expression
+(conditional values are `match` and `??`); the desugar-is-the-semantics and
+one-modifier rules were already ruled (R46) and stand. **The unused rules, and Luna
+was forced to rule them**: compiler §1.7's no-ICE contract ("valid IR implies valid
+Go; a Go compile failure is always a compiler bug") meets Go's rejection of unused
+locals and imports — so Luna either errors at its own level or launders dead code
+through emitted silencers. Ruled: **an unused local binding is a compile error**
+(variables §4.1 — the discard is explicit, `_` or don't bind), **an unused import is
+a compile error** (modules §5 — earning its keep independently: a phantom import is a
+phantom dependency edge the interface-hash cache would rehash against), **unused
+parameters are not an error** (signature conformance is legitimate; `_`-name them),
+and module-level unexported-unused stays legal for alpha (dead-code elimination's
+territory). Swept: `control-flow.md` §4.1 (new), `variables.md` §4.1 (new),
+`modules.md` §5.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -152,6 +152,33 @@ warn()   if (bad);                // desugars to: if (bad) { warn(); }
 Postfix is sugar, not a distinct construct: anything a postfix form does, its block form does
 identically. It exists for readability of the common single-statement case.
 
+### 4.1 What the postfix body may not be (R159)
+
+The desugar *is* the semantics, and two statement kinds are nonsense or worse under it —
+so they are excluded at the grammar, not caught downstream:
+
+- **Declarations take no postfix modifier — compile error.** `let x = 5 if (cond);`
+  would desugar to `if (cond) { let x = 5; }` — a binding scoped inside the sugar
+  block, provably unusable (and then an unused-binding error besides, variables §4.1).
+  A conditional *declaration* is nonsense by construction, so it is unrepresentable.
+  The line sits exactly one notch over: **assignment with a modifier is legal and
+  useful** — `x = 5 if (cond);` on an existing `var` desugars to `if (cond) { x = 5; }`
+  with `x` in the outer scope, exactly as intended.
+- **`defer` takes no postfix modifier — compile error, and this one is a trap, not
+  nonsense.** `defer close(fd) if (cond);` would desugar to `if (cond) { defer
+  close(fd); }` — and defer is block-scoped (defer §1), so the sugar block's exit *is*
+  the trigger: the cleanup would run **immediately**, silently, at the wrong time. The
+  conditional-cleanup idiom is the same syntax one level in:
+  `defer { close(fd) if (cond); };` — registration unconditional, execution
+  conditional, `cond` captured by value at registration (defer §4).
+
+Two pins completing the form: **no `else`** on postfix (an else-bearing conditional is
+the block form), and **postfix `if` is statement grammar, never an expression** —
+`let x = (5 if (c))` does not exist; conditional *values* are `match` and `??`
+(associativity §1's prose already places modifiers outside the operator tables).
+Everything else statement-shaped composes fine: expression statements, assignments,
+`return`, `break`/`continue`, `throw`, `die`.
+
 ---
 
 ## 5. Resolved and deferred
