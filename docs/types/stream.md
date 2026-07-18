@@ -151,9 +151,11 @@ A stream is single-pass, so it does not restart implicitly. Restarting is an **e
 operation whose availability depends on the source:
 
 - **`restart()`** re-runs the generator from the beginning, valid only when the source can be
-  re-run (a file can be re-opened, a pure computation re-executed). On a source that cannot be
-  replayed (a consumed socket, stdin, a one-shot sensor), `restart()` is unavailable or
-  raises. The API is honest per-source about whether restart is possible.
+  re-run (an immutable retained snapshot — a range, a string producer, a pure computation
+  re-executed; the R105 rule). On a source that cannot be replayed (a consumed socket, stdin,
+  a one-shot sensor, **a file stream's live cursor** — io §6, R121), `restart()` is
+  unavailable or raises; a file re-traversal is explicit, `seek(fd, 0)` and a fresh view.
+  The API is honest per-source about whether restart is possible.
 - **Re-creating** the stream (calling `f.lines()` again) is the general way to traverse again,
   it makes a fresh stream from the source.
 

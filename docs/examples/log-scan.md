@@ -12,7 +12,7 @@ const isError = fn (line: any): bool => contains(line as string, 'ERROR');
 
 const main = fn () use (io, argv): int! => {
   var fd = openFile(args()[0] as path);
-  defer close(&fd);
+  defer close(fd);
 
   foreach (line in fd.lines() |> filter(isError) |> take(10)) {
     println("$line");

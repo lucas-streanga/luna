@@ -13,7 +13,7 @@ const main = fn () use (io, argv): int! => {
   die('usage: brc <measurements.txt>') if (arguments.count() != 1);
 
   var fd = openFile(arguments[0] as path);      // file!: in this fn!, failure propagates
-  defer close(&fd);
+  defer close(fd);
 
   var agg = [];                                  // station => ['min','max','sum','count']
 
@@ -50,7 +50,7 @@ What the example exercises, with the rulings it leans on:
   (undefined spec: holding is fine, using panics).
 - **Errorable `main`** (errors §5): `openFile` and `parseDouble` propagate bare, a missing
   file or a malformed row exits with the error; wrap either in `try` to recover instead.
-- **`defer close(&fd)`** (std.io §4), `&` on a `var` binding (variables §5.1).
+- **`defer close(fd)`** (std.io §4): files are referent-stateful, so `close` marks the value every alias sees — no `&` (R121).
 - **Element-path writes and compound assignment**: `agg[station].sum += temp` evaluates
   the target once (associativity §1) and writes through the path.
 - **`x.name` vs `x.name()`** (functions §3.4): `s.count` is element access (no call),

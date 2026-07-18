@@ -73,7 +73,7 @@ delivers **`cancelled`**, a runtime-minted type in the `panic` subtree (errors �
 user code can neither originate nor be forced to declare it), *instead of* performing the
 operation; catchable but re-delivered (observe, never stop); unwinding through `defer`s,
 which run **uncancelled** so cleanup and compensation complete (std.io §4's
-`defer close(&fd)` works unchanged). Preemptive cancellation — killing a task at an
+`defer close(fd)` works unchanged). Preemptive cancellation — killing a task at an
 arbitrary instruction, the async-exceptions trap Java deprecated with `Thread.stop` — does
 not exist and is **extremely unlikely** ever to (R120: foreclosed by the Go backend, which
 cannot kill a goroutine, and disfavored by the model regardless; only a backend change

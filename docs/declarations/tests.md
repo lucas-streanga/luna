@@ -15,7 +15,7 @@ test 'validate the lexer works' {
 
 test 'reads the fixture file' use (io) {
   var fd = try openFile('fixtures/config.json' as path);
-  defer close(&fd);
+  defer close(fd);
   _ = try fromJson(readAll(fd) as json);
 }
 ```

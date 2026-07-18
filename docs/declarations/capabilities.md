@@ -151,7 +151,16 @@ exists, and the confinement was stronger than the invariant needed. The model:
 of a capability occurs under a declared `use` on the executing path, because the dynamic
 caller must hold the requirement, and holding means having declared it, granted from `main`
 down. What travels through capability-free code is the closure as **inert data**, never as
-exercisable authority: possession of the value is not possession of the grant. So the audit
+exercisable authority: possession of the value is not possession of the grant. One
+precision, added when lazy io landed (R121): an effect **carrier** — a stream produced
+under a declared `use` (`lines(fd)`, std.io §6) — performs its authorized effect at
+*pull* time, possibly in a `use`-free frame, with no invocation check (streams are
+consumed by syntax, not called). The theorem's honest general form is therefore: **every
+capability exercise is authorized by a declared `use` — at the exercising call, or at the
+creation of the value that carries it** (the closure's creation-site check, §5.1; the
+stream's producing call). Possession remains a specific pre-authorized effect, never
+authority (§5.2's trust model, verbatim); what a lazy carrier adds is only *when* the
+pre-authorized effect runs. So the audit
 (§4, "who can do io" is a search for `use (io)`) is exactly as true as before; what moved is
 *when* a violation surfaces, compile time for direct calls, a panic at the call for
 value-mediated ones, the honest cost of first-classness, paid only on the dynamic frontier.

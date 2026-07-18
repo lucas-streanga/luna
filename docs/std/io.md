@@ -38,8 +38,15 @@ precedent exactly (protocols §10, equality §4.4, concurrency §2.1):
   later access through any alias panics (concurrency §2.3). Ownership, not locking, is what
   makes operations on an opened file race-free: the type system guarantees one task holds it
   at every instant.
-- **Meta state** (protocol-private): the OS handle, the `mode` / `format` / `sourceEncoding`
-  it was opened with, the cursor, and any buffer.
+- **Private per-table state** (ungranted `var` members, protocols §2.2): the OS handle,
+  the `mode` / `format` / `sourceEncoding` it was opened with, the cursor, and any buffer —
+  the same shape as the builder's `buf` (string-builder §3, R99/R121).
+- **Referent-stateful, so no `&` anywhere** (R121): a file follows the **stream**
+  convention, not the COW-table convention. Its cursor and terminal state live on the
+  heap referent that every alias dereferences (concurrency §2.3 — `close` *marks* the
+  referent, exactly as taken does), so operations take `fd` by value (the handle) and
+  mutate the referent: `close(fd)`, `seek(fd, 0)`, `defer fd.close()`. There is no
+  write-back, and the former `&fd` spellings are retired.
 
 **`file` is the exported name of the refinement**, a type alias (type spec, aliases are pure
 sugar: a name, not a new type):
@@ -78,7 +85,8 @@ The three standard handles are **`const file`** values, and `const` is what lets
 the single-owner rule safely: a `const` value is shared **by reference** across tasks with no
 copy (concurrency §2.1), its Luna-side value never mutates, writing through a handle is an
 **external** effect, the capability system's domain, not a value mutation, so `const`'s
-guarantee is intact. The runtime **locks** the sinks behind them; that lock is the only lock
+guarantee is intact. The runtime **locks the underlying outputs** behind them (the word
+`sink` now names the channel send end, channels §3); that lock is the only lock
 in this module, opened files need none (§2). The promise the lock buys is **line-level
 atomicity**: one `println` call is written indivisibly, two tasks' lines never interleave
 mid-line.
@@ -116,8 +124,8 @@ current target, in the io-errors spec: `fileNotFound`, `notADirectory`, `isADire
 caught by **type**, never by errno-switching.
 
 ```
-export const close = fn (&fd: file) use (io): undefined;
-export const flush = fn (&fd: file) use (io): undefined;
+export const close = fn (fd: file) use (io): undefined;
+export const flush = fn (fd: file) use (io): undefined;
 ```
 
 `close` releases the handle and marks the file's terminal state; any later operation on a
@@ -127,12 +135,12 @@ closed file **panics** (misuse, an invariant violation, the same category as wro
 ```
 // inside an errorable (fn!) context: a bare call propagates failure to the caller
 var fd = openFile('log.txt', {append});
-defer close(&fd);
+defer close(fd);
 // to HANDLE the failure here instead, `try` recovers it as a value:
 // let opened = try openFile(...);   // opened : file | error, match on it (errors §8)
 ```
 
-`flush` forces any buffered writes to the external sink; `close` implies it. A file never
+`flush` forces any buffered writes out to the external destination; `close` implies it. A file never
 closed explicitly is released by the runtime eventually (the Go collector), a **backstop, not
 a contract**: flush timing and error reporting are only defined through explicit `flush` /
 `close`. The standard handles are never closed and need no `defer`.
@@ -179,14 +187,26 @@ channel, environmental mid-read failure is rare, and the supervisor `try`/`catch
 the boundary that catches it (errors §8.2). Expected failure lives at `openFile`; everything
 after it is either correct or exceptional.
 
+**Lazy reads are creation-authorized effects** (R121). `lines(fd)` and `chunks(fd)` are
+called under `use (io)` — statically checked there — and the returned stream performs its
+reads at **pull time**, wherever it is consumed, with no further check or annotation: the
+stream is a pre-authorized effect in motion, the same trust model as a capability-carrying
+closure (capabilities §3.1, §5.2), minus the invocation check, because streams are
+consumed by syntax, not called. Handing a file stream to `use`-free code hands it exactly
+those reads and nothing else.
+
+**File streams are not restartable** (`canRestart` is `false` — R105's snapshot rule,
+R121): `lines()` is a view over a **live cursor** (§7), not an immutable snapshot.
+Re-traversal is explicit: `seek(fd, 0)` and a fresh `lines(fd)`.
+
 ## 7. Writing and seeking
 
 ```
-export const append     = fn (&fd: file, data: string | bytes) use (io): undefined;
-export const appendLine = fn (&fd: file, line: string,
+export const append     = fn (fd: file, data: string | bytes) use (io): undefined;
+export const appendLine = fn (fd: file, line: string,
                               lineEnding: string = platform.lineEnding) use (io): undefined;
-export const write      = fn (&fd: file, data: string | bytes) use (io): undefined;
-export const seek       = fn (&fd: file, pos: int) use (io): undefined;
+export const write      = fn (fd: file, data: string | bytes) use (io): undefined;
+export const seek       = fn (fd: file, pos: int) use (io): undefined;
 ```
 
 `append` writes at the **end** regardless of cursor; `write` writes **at the cursor** and is

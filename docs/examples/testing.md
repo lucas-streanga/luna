@@ -25,7 +25,7 @@ test 'parsePort rejects out-of-range' {
 
 test 'round-trips a config file' use (io) {
   var fd = openFile('fixtures/config.json' as path);
-  defer close(&fd);
+  defer close(fd);
   let cfg = fromJson(readAll(fd) as json);
   throw error('missing port') if (!(cfg is table));
 }

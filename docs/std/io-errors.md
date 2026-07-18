@@ -68,6 +68,8 @@ needs the whole partition in one view: every errno the target can return from `o
 - **Portability**: when targets grow beyond `linux-x86-64` (compiler §0), the type surface
   is the contract; whether `errno: int?` stays raw, becomes platform-tagged, or is dropped
   from non-POSIX targets is deferred with `std.platform`.
-- **`interrupted` as policy**: absorption of `EINTR` assumes restartable operations; if a
-  cancellation story arrives with structured concurrency, interruption may need to surface
-  deliberately rather than be absorbed.
+- *(**`interrupted` as policy: resolved by R115/R121.** The cancellation story arrived,
+  and `EINTR` absorption is unaffected — they are separate mechanisms: the runtime
+  restarts interrupted syscalls transparently, and *separately* checks cancel-pending at
+  the park, delivering `cancelled` refused-on-entry (concurrency §6.1). User code sees
+  neither an `EINTR` nor a torn operation.)*

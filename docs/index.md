@@ -23,7 +23,7 @@ const main = fn () use (io, argv): int! => {
   die("usage: ${arguments[0]} <config.json>") if (arguments.count() != 2);
 
   var fd = openFile(arguments[1] as path);      // file!: error propogates out of main
-  defer close(&fd);
+  defer close(fd);
 
   let config = fromJson(readAll(fd) as json);    // table!: bad JSON propagates too
 
@@ -178,6 +178,9 @@ table is a map.
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
 | std.time | `time.md` | Deferred in full (R120): the missing time surface — clock, `sleep`, durations — recorded as a decision. |
+| std.platform | `platform.md` | Deferred (R121): the `const` target-facts table — the most load-bearing stub (println's default reads it). |
+| std.system | `system.md` | Deferred (R121): filesystem metadata (`exists`, `stat`, delete, directories) under the `system` capability. |
+| std.net | `net.md` | Deferred in full (R121): the network family — gated on the timeout surface, by design. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
 | Spread | `spread.md` | `...x`: the table-literal fold, streams, call arguments, interpolation; one level, always. |

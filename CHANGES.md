@@ -2466,6 +2466,48 @@ compile time, and task observability (BEAM's observer) has no story yet. Swept:
 `concurrency.md` (§7, §8), `await.md` (§3), `channels.md` (§1, §7), `std/time.md`
 (created), `index.md`.
 
+**R121 — the io review: the stream convention for files, creation-authorized lazy
+effects, three deferral records.** The io family's verdict: the failure model is the
+best-reasoned corner of the corpus (the three-category table; io-errors' five-fates
+errno partition, where every errno the target can return has exactly one row) — but §2
+missed the protocol redesign, the `&fd` convention contradicted the settled model, and
+the review surfaced one genuine capability-model gap. Fixed: **(1)** io §2's "meta state
+(protocol-private)" — an R99-family straggler — respelled as ungranted per-table `var`
+members, the builder's shape. **(2) The `&` is gone from every file signature** (`close`,
+`flush`, `append`, `appendLine`, `write`, `seek`): a file is a **referent-stateful**
+value in the transferred/taken class, "like a stream or a builder" by io's own words, and
+`close` *marks the referent's terminal state* — the concurrency §2.3 model — so file
+operations follow the **stream** convention (take the handle by value, mutate the
+referent, no write-back), not the COW-table convention. The R119-flagged
+`&fd`-vs-`f.close()` drift resolves in **defer.md's favor** — it was right all along;
+seven call sites swept (`index.md`'s front page, both big examples, log-scan, tests,
+await §3's quote), and channels §5's `finish`-not-`close` rationale re-grounded on the
+capability axis alone (which was always sufficient). **(3) Lazy io ruled
+creation-authorized** — the interesting find: `lines(fd)` performs its reads at *pull*
+time, possibly in a `use`-free frame, with no invocation check (streams are consumed by
+syntax, not called), which made the laundering theorem's literal statement false for
+lazy carriers. Ruled (option (a)): the theorem's honest general form is now stated in
+capabilities §3.1 — *every capability exercise is authorized by a declared `use`, at the
+exercising call or at the creation of the value that carries it* — with the stream as a
+pre-authorized effect in motion, the §5.2 trust model verbatim; io §6 carries the
+companion paragraph. **(4)** io-errors §4's `interrupted` open **closed by R115**:
+`EINTR` absorption and cancellation are separate mechanisms (syscalls restart
+transparently; cancel-pending is checked at the park, `cancelled` refused-on-entry) —
+user code sees neither. **(5)** file streams ruled **non-restartable** (a live cursor is
+not an immutable snapshot; R105) in io §6 and stream §4, whose "a file can be re-opened"
+example was the drift; re-traversal is explicit, `seek(fd, 0)` plus a fresh view.
+**(6)** the `sink` wordage collision with R119's type reworded in io §2.1/§4. **(7)**
+Three more absences become decisions: **`std/platform.md`** (the most load-bearing stub
+in the corpus — `println`'s *default parameter* reads it today), **`std/system.md`**
+(the metadata boundary io §9 names, under the separate `system` capability), and
+**`std/net.md`** (the largest missing std family — with its gating dependency stated
+plainly: no network API before the timeout surface, the R120 lesson applied
+prospectively). Healthy and untouched: the capability story, the `path` constraint, the
+printing surface, the per-format composition seam, and exec's secret boundary. Swept:
+`std/io.md`, `std/io-errors.md`, `capabilities.md` §3.1, `stream.md` §4,
+`channels.md` §5, `await.md` §3, `index.md` + five example/spec call sites;
+`platform.md` / `system.md` / `net.md` created and indexed.
+
 ---
 
 ## Still open (out of scope of these rulings)

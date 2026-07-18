@@ -124,10 +124,10 @@ second `finish` on the same handle panics (misuse, loud).
 Per-handle finishing is why multi-producer completion needs **no coordination**: nobody
 can close the channel out from under a sibling; each producer finishes its own handle and
 the stream ends exactly when the last one does. (The name is `finish`, not `close`,
-because `close` is taken with a different shape — `fn close(&fd: file) use (io)`, std.io —
-whose reference mode and capability requirement a union signature cannot carry per-arm;
-one name, one signature, functions §3.4. The io spelling's own `&fd`-vs-`f.close()` drift,
-defer spec, is flagged for the io sweep.)
+because `close` is taken with a different shape — `fn close(fd: file) use (io)`, std.io —
+whose `use (io)` requirement a union signature cannot carry per-arm, a sink's finishing
+needing no capability; one name, one signature, functions §3.4. The io spelling's former
+`&fd` drift was resolved by R121: no `&`, the stream convention.)
 
 **The owner-task pattern** — the referent of protocols §2.1's "a task that owns it," and
 R96's mutable-static replacement, now expressible:
