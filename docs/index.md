@@ -188,7 +188,8 @@ table is a map.
 | std.random | `random.md` | Randomness (R139): seeding is the effect (`entropy`: `randomSeed`/`randomBytes`/`randomStream`), generation is pure (`prng` = a PCG-64 stream, `next*`); restart is replay; every run replayable from one logged seed. |
 | std.crypto | `crypto.md` | Deferred in full, deliberately (R140): crypto surfaces are tight stuff and poor decisions last decades — designed as its own effort, never in passing. Today: `randomBytes` + `secret` + the exec hatch. |
 | std.math | `math.md` | Scalar mathematics (R141): `pi`/`e`, `abs`/`sign`/`clamp`/`lerp`, `sqrt`/`hypot`/`pow`/`exp`/`ln`/`log2`/`log10`, trig in radians with the `to*` degree pair, statistics split by the retention rule. Pure throughout; everything folds. |
-| std.net | `net.md` | Deferred in full (R121): the network family — gated on the timeout surface, by design. |
+| std.net | `net.md` | The socket module (R143, closing the alpha): TCP/UDP under `egress`/`ingress`; connections wear `fileDescriptor` (io's byte surface free); accept is a stream; zero timeout parameters (R142 composes); plaintext — the crypto → tls → http chain recorded. |
+| std.http | `http.md` | Deferred by decision (R143): a whole other beast atop net; its secure half gated by the crypto → tls → http chain. Today: hand-spoken HTTP/1.1 over net, or the exec hatch. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
 | Spread | `spread.md` | `...x`: the table-literal fold, streams, call arguments, interpolation; one level, always. |

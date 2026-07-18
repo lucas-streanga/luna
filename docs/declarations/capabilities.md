@@ -512,6 +512,8 @@ adds no separate mechanism.
 | `argv` | Read the program's arguments (`args() use (argv): list`) | std.process (R134) |
 | `time` | The temporal environment: clock, `sleep`, local zone | std.time §4 (R132) |
 | `filesystem` | Enumerate, inspect, and alter filesystem *structure* (`stat`, delete, directories; contents stay `io`'s) | std.filesystem (R135) |
+| `egress` | Originate network connections and datagrams (`dial`, `send`) | std.net §1 (R143) |
+| `ingress` | Bind ports and accept (`listen`, `udpBind`); bytes on established connections stay `io`'s | std.net §1 (R143) |
 | `unsafeFfi` | Call foreign (native) code | (ffi, deferred) |
 | `unsafeSystem` | Dangerous syscalls, shell-string execution | (unsafeSystem, deferred) |
 

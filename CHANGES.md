@@ -3347,6 +3347,52 @@ no-cancel reaffirmed, `awaitAll` dissolved into §1's stream form); `channels.md
 (`timeoutError`, `doubleAwait`); `std/time.md` §5 (the seam closed as designed);
 `std/net.md` (**the gate is open** — pending real use alone).
 
+**R143 — `std.net`: TCP and UDP under `egress`/`ingress`; the alpha closes.** The
+last module, shaped by two principles stated as its header. **Zero timeout
+parameters, anywhere**: every net operation is a suspension point (R121), so every
+wait is bounded by the R142 family — Go threads `SetDeadline` through its entire net
+API because its timeouts do not compose; Luna's do, and this module collects that
+payoff by shipping no deadline in any signature. **Alpha net is plaintext, loudly**:
+TLS is gated on `std.crypto` (R140, deferred deliberately), and the chain is fixed
+and recorded — **crypto → tls → http**, no link before the one under it.
+**Two capabilities, not one** (superseding R121's provisional single `net`):
+**`egress`** (originate — `dial`, `send`) and **`ingress`** (bind and accept —
+`listen`, `udpBind`), because "may phone home" and "may open listening ports" are
+different authorities — the distinction every firewall draws, drawn in the `use`
+clause where Luna draws everything; splitting later would break, splitting now cost
+two good names. Bytes on established connections stay **`io`'s** — the R134 symmetry
+completed: `filesystem` : structure :: `egress`/`ingress` : connections :: `io` :
+contents. **A `connection` wears `fileDescriptor`** (its proto requires it, §7), so
+io's entire byte surface — `chunks`, `write`, `close`, `defer close` — works on
+connections with **no new functions**, per R121's referent-stateful no-`&`
+convention; `connection`'s own members are the socket facts, identityEquality,
+single-owner, transferred class. **Accept is a stream** — `connections(l)`, R102 —
+making the server three lines (`foreach` + `spawn`, handlers scope-bounded), lazy
+and creation-authorized (the listener carries the `ingress` grant, the laundering
+rule), non-restartable (a socket is the canonical non-replayable source), bounded by
+`receiveTimeout` like any wait. **UDP**: `udpBind` / `send` / `datagrams` — the
+datagram is the unit (rows of from/port/data), and the capability shape is honest:
+one socket can need both authorities, `use (ingress, egress)`, each word meaning
+itself. **`port` becomes real**: the constraint that has been the corpus's running
+example since R9 is exported by the module that owns it (constraints §1 notes the
+graduation). **Errors extend `ioError`** (the R135 orthogonality rule):
+`connectionRefused`, `connectionReset`, `hostUnreachable`, `addressInUse`,
+`dnsError` — all declarable (network failure is expected, recoverable, data-shaped —
+the `timeoutError` argument). Free by composition, stated: backpressure (pull-based
+streams — no buffering-policy surface exists because none is needed), cancellation
+(every park is a suspension point; R142's contract holds verbatim), credentials as
+secrets at the boundary. **`std.http` deferred by decision** (new record,
+std/http.md): a whole other beast atop net, its secure half gated two modules deep
+by the chain; today's answers are hand-spoken HTTP/1.1 over net or the exec hatch;
+future constraints fixed (no new authority — HTTP is a protocol, not a new reach;
+R142 timeouts; stream bodies; secret-shaped credentials). Also deferred with owners:
+socket options, unix domain sockets, half-close, explicit IPv6 surface. Swept:
+`std/net.md` (rewritten from the R121 record), `std/http.md` (new deferral record),
+`io-errors.md` (five arms), `capabilities.md` §9 (two rows), `constraints.md` §1
+(the graduation note), `index.md` (both rows). **With this ruling the alpha surface
+is complete**: every module on the ledger is landed or deliberately deferred with
+its reason recorded, and the corpus stands at R143 with no open contradiction.
+
 ---
 
 ## Still open (out of scope of these rulings)

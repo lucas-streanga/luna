@@ -36,6 +36,11 @@ export invalidPath      = error : ioError {};   // ENAMETOOLONG, ELOOP: filesyst
                                                 //   (std.filesystem §1, R135) cannot see
 export tooManyOpenFiles = error : ioError {};   // EMFILE, ENFILE: descriptor exhaustion
 export outOfSpace       = error : ioError {};   // ENOSPC, EDQUOT, EFBIG: the device or quota
+export connectionRefused = error : ioError {};  // ECONNREFUSED (std.net §4, R143)
+export connectionReset  = error : ioError {};   // ECONNRESET, EPIPE on a dead peer
+export hostUnreachable  = error : ioError {};   // EHOSTUNREACH, ENETUNREACH
+export addressInUse     = error : ioError {};   // EADDRINUSE
+export dnsError         = error : ioError {};   // name resolution failed (no errno; the resolver's own class)
 ```
 
 Grouping notes: `fileNotFound` folds the device-absent errnos (`ENXIO`, `ENODEV`) because a

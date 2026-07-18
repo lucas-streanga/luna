@@ -39,6 +39,9 @@ const byte = constraint i: int where i >= 0 && i <= 255;
 const port = constraint i: int where i >= 1 && i <= 65535;
 ```
 
+(`port`, this file's running example since R9, is exported for real by `std.net` §4
+as of R143.)
+
 - **`name: base`** names the base type and binds the value under test to `name`. It is the
   **typed binder** of the pattern grammar (match §2.1), the same form as a parameter (`fn (i: int)`)
   and a `let`, because that is what it is: a value of the base type, given a name.
