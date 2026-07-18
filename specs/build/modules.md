@@ -388,20 +388,26 @@ ordinary modules under a reserved, one-directional `std` virtual root.
 
 ---
 
-## 11. Open questions
+## 11. Deferred by decision
 
-The module system's own design is complete; what remains open is its integration with an
-external package ecosystem, deferred as a unit:
+The module system's own design is complete. Its integration with an external package
+ecosystem is **deferred as a unit** — and the deferrals are decisions with directions
+fixed, not open questions (R151):
 
-- **Packaging and distribution.** How separately-compiled module trees, both third-party
-  libraries and the standard library (§10), are mounted under a compilation and rooted.
-  Root-is-`main` (§3) is application-scoped: within one compilation there is a single empty-path
-  root, but consuming a separately-built library means mounting its tree under some path in the
-  consumer, which will likely want a project-marker root (a root file) rather than the
-  `main`/`--library` discovery used today. The full **organization of the standard library** (its
-  module set and grouping under the reserved `std` root, §10) is part of this and is deferred
+- **Packaging and distribution: source-based, ruled; the rest deferred.** Packages will
+  distribute as **source trees**, not compiled artifacts — the direction is fixed now
+  because so much of the corpus already leans on it: comptime evaluation folds imported
+  **bodies and const values** into dependents (build-cache §1.2, R149), so a binary
+  package would have to carry them anyway; artifacts are **per-compiler-version and
+  per-target** (R149), so binary distribution would mean a version × target matrix
+  where source is one tree; and the capability audit is a *source* audit — `use`
+  clauses are read, not trusted (capabilities spec). What stays deferred: how a
+  package's tree is mounted and rooted under a consumer (likely a project-marker root
+  file rather than today's `main`/`--library` discovery, §3), and the full
+  **organization of the standard library** under the reserved `std` root (§10) —
   deliberately, it is important to get right.
-- **Dynamic loading.** Loading a module chosen at runtime is deliberately excluded today (§4),
-  which is what makes the import graph fully static. Whether a controlled dynamic-import facility
-  is ever added, and how it would interact with the static DAG and with capabilities, is a later
-  question.
+- **Dynamic loading: excluded, deferred — not open.** Loading a module chosen at
+  runtime is deliberately excluded (§4); that exclusion is what makes the import graph
+  fully static, which the DAG (§2), the interface-hash cache (build-cache §1), and the
+  comptime sandbox all lean on. This is a standing decision, revisited only if a
+  concrete need survives contact with those three dependents — none is on any horizon.

@@ -3602,6 +3602,22 @@ authority); `bytes.md` §7 (repointed, the bytes-only rationale in place);
 rows), G4/G5 (records); `lexical-structure.md` §2 (casing), §4 (three bullets:
 closed, reaffirmed-R150, stale-closed).
 
+**R151 — modules §11: two opens become decisions.** The combing reaches modules.md,
+and both bullets convert from questions to directions-fixed deferrals. **Packaging
+and distribution: source-based, ruled** — packages will distribute as source trees,
+not compiled artifacts, and the direction costs nothing to fix now because the
+corpus already leans on it three ways: comptime folds imported bodies and const
+values into dependents (R149's interface rule — a binary package would carry the
+source-equivalent anyway), artifacts are per-version-and-per-target (R149 — binary
+distribution would be a version × target matrix where source is one tree), and the
+capability audit is a *source* audit. What stays deferred, deliberately: mounting
+and rooting (likely a project-marker root file), and the standard library's
+organization under `std`. **Dynamic loading: excluded and deferred, not open** — the
+exclusion is what makes the import graph fully static, which the DAG, the
+interface-hash cache, and the comptime sandbox all lean on; a standing decision,
+revisited only if a concrete need survives contact with those three dependents.
+Swept: `modules.md` §11 (retitled "Deferred by decision", both bullets rewritten).
+
 ---
 
 ## Still open (out of scope of these rulings)
