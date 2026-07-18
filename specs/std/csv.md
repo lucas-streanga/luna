@@ -30,10 +30,33 @@ Pure, comptime-eligible, source-agnostic; the entry into `csv` is the validation
 `!` arm carries semantic failures beyond well-formedness. File-to-table:
 `try fromCsv(readAll(fd) as csv)`.
 
-## 3. Open questions
+## 3. Writing: `toCsv`, the comptime generator
+
+```
+export const toCsv = comptime fn (ct: comptype): fn (any): csv;
+```
+
+The writing side exists (R173), shaped exactly as json §2's canonical generator — R157
+ruled this at the serialization level (one generator per format, each its own comptime
+generator; the format-parameterized writer is rejected there), and this module now
+carries its member of that family: `comptype` in, runtime serializer out, the
+specialization living in `const`-captured plain data (attributes §4's mechanics, not
+repeated here). The generated function's result enters `csv` typed — a writer produces
+valid CSV by construction, so the boundary constraint costs nothing on the way out.
+
+Two things are deliberately *not* committed with it: the **column story** — how fields
+map to columns, whether a header row is emitted, and the tag-attribute vocabulary for
+column names (a `jsonTag` analog) — is §4's headers question, one question shared by
+both directions; and a **dynamic walker** (`toCsvDynamic`, the `toJsonDynamic` mirror)
+is deferred pending use — a runtime `any`-walker needs the headers and dialect answers
+first.
+
+## 4. Open questions
+
+Valid opens, pending an implementation:
 
 - **Dialects**: parameterizing delimiter/quote/escape, and whether that is a predicate
-  argument or a family of constraints.
-- **Headers**: whether the first row maps to keys or `fromCsv` yields a list of rows.
-- **Writing side** (`toCsv`): whether the attribute-driven generator pattern
-  (std.json §2, attributes §4) transfers wholesale, pending use.
+  argument or a family of constraints. Applies to both directions (§2, §3).
+- **Headers**: whether the first row maps to keys or `fromCsv` yields a list of rows —
+  and, on the writing side, whether `toCsv` emits one and where column names come from
+  (§3). One question, both directions.

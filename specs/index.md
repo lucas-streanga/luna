@@ -178,7 +178,7 @@ table is a map.
 | std.introspection | `introspection.md` | The introspection module (R127): principles, the two query tiers, `comptype`; capability-free by theorem. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
-| std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
+| std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules; csv also carries its writer (`toCsv`, the R157-family comptime generator, R173). |
 | std.time | `time.md` | The time module (R132): built-in `duration`/`instant` with dimensional operators, the one monotonic clock, `sleep`, the `time` capability. Date-less by design. |
 | std.datetime | `datetime.md` | The calendar module (R133): the immutable `datetime` protocol (timestamp + mandatory timezone), `timezone` (IANA zones vs fixed offsets, bundled tzdb), the two arithmetic families with ruled DST policies, ISO 8601 text. |
 | std.platform | `platform.md` | The smallest module (R138): one export, the `const` target-facts table (`os`/`arch` as Go-vocabulary strings, `lineEnding`, `pathSeparator`); comptime access is conditional compilation, not a host leak. |

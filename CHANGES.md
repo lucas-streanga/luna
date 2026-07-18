@@ -4163,6 +4163,27 @@ to the real planned name. Swept: `git mv concurrency/exec.md → std/exec.md`
 std.exec), `keywords.md` §6, `lexical-structure.md`, `functions.md` §5.6.
 Command.md's seven "(exec spec)" cites are name-based and stand unchanged.
 
+**R173 — `toCsv` committed: csv.md's writing side lands as the R157-family
+comptime generator.** The bless completes what R157 already ruled at the
+serialization level — one generator per format, each its own comptime
+generator, `toCsv` named in that ruling's own list — so csv.md now carries its
+member of the family, shaped exactly as json §2's canonical generator:
+`export const toCsv = comptime fn (ct: comptype): fn (any): csv;` — `comptype`
+in, runtime serializer out, specialization in `const`-captured plain data
+(attributes §4), the result entering `csv` typed because a writer produces
+valid CSV by construction. Deliberately *not* committed with it: the column
+story (field-to-column mapping, header-row emission, the `jsonTag`-analog tag
+vocabulary) — folded into the headers open as one question shared by both
+directions — and a dynamic walker (`toCsvDynamic`, the `toJsonDynamic`
+mirror), deferred pending use since a runtime `any`-walker needs the headers
+and dialect answers first. The remaining opens (dialects, headers) stand as
+valid, per direction: both now noted as applying to reader and writer alike.
+The rest of the file validated clean: `fromCsv` is R106-conformant
+(typed-carrier `from*`, always `!`), the constraint-boundary pattern matches
+std.json §1.1, the bare `import std.csv;` is the R136 form. Swept: `csv.md`
+§3 (new)/§4 (renumbered opens), `index.md` (the per-format row notes the
+writer).
+
 ---
 
 ## Still open (out of scope of these rulings)
