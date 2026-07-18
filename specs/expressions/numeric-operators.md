@@ -37,8 +37,9 @@ future: `int`, `double` (including the IEEE signed zeros and infinities), and th
 types `decimal`, `rational`, and `complex` (numeric-tower spec) each have a well-defined additive
 inverse (`-(a/b)` is `(-a)/b`; `-(a+bi)` is `-a-bi`). So unary minus is **monomorphic**, the same
 operation everywhere, not an overload that means different things on different types, and it does
-**not** conflict with the future numeric types: those types *need* it (a `complex` literal like
-`-3-4i` relies on negation, since there is no negative-literal syntax). Keeping it upholds the
+**not** conflict with the future numeric types: those types *need* it (a negative complex value
+is written `-complex(3.0, 4.0)`, negation over the comptime-folding constructor, since there is
+no negative-literal syntax — and no complex literal at all, complex §4, R164). Keeping it upholds the
 no-overloading rule (operators §1) because there is exactly one meaning.
 
 There is **no unary plus** (`+x`): it would be a pure no-op (`+x` equals `x`), so it is removed as

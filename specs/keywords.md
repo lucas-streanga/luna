@@ -91,7 +91,8 @@ such restriction, they are ordinary producible doubles (`let x = nan;` is fine),
 
 Builtin type names (`int`, `double`, `bool`, `string`, `bytes`, `table`, `list`, `iterable`,
 `stream`, `sink`, `promise`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`,
-`duration`, `instant` — the last two committed with `std.time`, R132) and builtin
+`duration`, `instant` — committed with `std.time`, R132 — and `decimal`/`rational`/`complex`,
+specced R161/R162/R164, delivery post-alpha with the extended tower) and builtin
 values/functions are **predeclared identifiers**, resolved by ordinary scope, not reserved
 words, which keeps the lexer small and the keyword set closed. Whether they are
 **shadowable** is flagged (§6). Std exports (`io`, `json`, `path`, `file`, ...) are ordinary

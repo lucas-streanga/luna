@@ -126,6 +126,9 @@ table is a map.
 | Type | `type.md` | The `type` type: a type as a first-class, comparable value. |
 | Undefined | `undefined.md` | The language-produced absence sentinel (missing key / void return). |
 | Numeric tower | `numeric-tower.md` | The complete numeric type set and the widening/conversion rules relating them. |
+| Decimal | `decimal.md` | The exact radix-10 type (R161, post-alpha delivery): exact `+`/`-`/`*`, no `/` operator (`div` names scale and rounding), normalized equality, text boundaries. |
+| Rational | `rational.md` | The exact-fractions type (R162, post-alpha delivery): all four operators exact — division included, `%` omitted (no remainder exists); canonical reduced pair; the `exactDecimal!`/`toDecimal(scale)`/`toRational` trio. |
+| Complex | `complex.md` | The complex-plane type (R164, post-alpha delivery): a pair of doubles, IEEE per component; four operators, **no ordering** (a theorem); `complex(re, im)` comptime constructor as the literal story; `real`/`imag`/`conj`/`magnitude`. |
 
 ### Structured & composite types
 

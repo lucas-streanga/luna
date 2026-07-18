@@ -102,7 +102,10 @@ which is why they are built-in rather than library: they are meant to be ergonom
   surprise, which is why it is heap-backed rather than an inline primitive.
 - **`rational`**, an exact fraction held as a reduced numerator/denominator pair of integers. Exact
   rational arithmetic (`1/3 + 1/3` is exactly `2/3`).
-- **`complex`**, a real/imaginary pair of `double`s, with the standard complex arithmetic.
+- **`complex`**, a real/imaginary pair of `double`s, with the standard complex arithmetic —
+  the tower's one *inexact* heap-backed member (IEEE per component) and its one **unordered**
+  member: `<`/`<=`/`>`/`>=` are compile errors, since no total order can coexist with the
+  arithmetic (complex spec §2, R164).
 
 There is **no arbitrary-precision integer** (`bigint`): Luna does not provide one, because its
 motivation is diffuse, `decimal` covers the concrete need for exactness (currency), and 64-bit `int`
@@ -110,9 +113,11 @@ and `u64` cover ordinary integers. A **fixed** wide integer (`int128`) is a *pos
 type* (method syntax), not committed and not built-in, since it is rarely needed and `decimal` and the
 64-bit integers cover the common cases.
 
-The backend can implement `decimal` by wrapping Go's arbitrary-precision facilities (`math/big`'s
-`big.Float` / `big.Rat`, or a dedicated decimal library), so the arbitrary-precision machinery is not
-written from scratch.
+The backend mapping is recorded (compiler §7.5, R163/R164): the shared internal bignum is
+`big.Int`, `rational` is backed by `big.Rat` nearly wholesale, `decimal` is a thin
+`{unscaled, scale}` struct over `big.Int` (`big.Float` is arbitrary-precision *binary* — a
+semantic mismatch, never used), and `complex` is Go's native `complex128`, boxed. None of the
+machinery is written from scratch.
 
 ---
 
@@ -157,7 +162,7 @@ predictable: an operator never silently reinterprets one family as another.
 
 ### 3.1 Fixed to arbitrary-precision is explicit, though lossless
 
-Widening a fixed type to an arbitrary-precision one (`int`/`double` to `decimal`, `int` to the
+Widening a fixed type to an arbitrary-precision one (`int` to `decimal`, `int` to the
 numerator of a `rational`) is **lossless** (every `int` is exactly a `decimal`), so by the
 within-family logic it *could* be implicit. It is nonetheless **explicit**, because the conversion has
 a **representation cost** (it allocates a heap value), and Luna makes cost visible: an implicit `int`
@@ -167,6 +172,20 @@ is lossless but not cheap (it allocates), so it is explicit: **`n as decimal`** 
 because the move is lossless (as spec §3, R124), explicit because the cost should be seen. This is a
 deliberate, principled exception: losslessness alone does not earn *implicit* widening when the
 representation cost should be seen.
+
+**`double as decimal` is rejected** (R161, resolving R124's hedge): it would be
+lossless in the worst way, faithfully embedding the double's true dyadic value
+(`0.1` → `0.1000000000000000055511151231257827…` — Java's `new BigDecimal(0.1)`
+trap). The deliberate crossing is the composition `parseDecimal(toString(d))`, which
+yields the decimal a human reads off the double and makes the lossy moment visible
+(decimal §5). **`double as rational` is rejected identically** (R162), and the trap
+is sharper there — the embedding would be *mathematically exact* (every finite
+double is a dyadic rational), which is precisely the problem; the crossing is
+`parseRational(toString(d))` (rational §4). **`double as complex` is legal** (R164),
+and the asymmetry is the point: the component is carried bit-for-bit, not
+reinterpreted into another radix or reduced form — the same double, now on the
+plane — so R124's lossless criterion is met with no trap to reject. Explicit
+because it allocates, like every entry on this list (complex §4).
 
 So the arbitrary-precision types are their **own** families for widening purposes: you enter them by
 an explicit, lossless `as`, and once in them, their arithmetic is exact and their operators are the
@@ -231,7 +250,9 @@ integer; a fixed `int128` is a possible future library type only (§1.4).
 
 The current specced primitives are `int`, `double`, and the `byte` constraint. The rest of this tower,
 `u64` and the signed and unsigned small-width constraints, `float` and `f16`, and the
-arbitrary-precision and exact built-ins `decimal`/`rational`/`complex`, is **committed** but
+arbitrary-precision and exact built-ins `decimal`/`rational`/`complex` (all three now
+**specced** — decimal.md R161, rational.md R162, complex.md R164 — delivery
+unchanged), is **committed** but
 **deferred past the alpha surface** (§6): int and double cover the majority of code, and
 the remaining types slot into mechanisms fixed now (the built-in-only operator rule of operators §1,
 the constraint-subtype widening, explicit cross-family conversion), so adding them later is **new
@@ -247,16 +268,27 @@ exhaustiveness or type-set reflection.
 
 ## 7. Open questions
 
-- **`decimal` rounding and context.** How `decimal` handles operations that are not exact under a
-  target scale (division producing a repeating decimal), whether it carries a precision/rounding
-  context, pending the `decimal` spec.
-- **`rational` normalization and overflow.** Whether `rational`'s numerator and denominator are
-  fixed integers (so reduction can overflow and panic) or a wider representation (so a rational never
-  overflows), pending the `rational` spec. Since there is no `bigint`, the wide option would need its
-  own arbitrary-precision integer internal to `rational`, a decision for that spec.
+- *(**`decimal` rounding and context: resolved by R161** — the `decimal` spec exists
+  (decimal.md). `+`/`-`/`*` are exact always; **`/` and `%` are omitted from the
+  operator table** (compile error naming `div`), and division is the policy-carrying
+  function `div(a, b, scale, rounding: roundingMode = {halfEven})` — the R106
+  discipline applied to the one operation where exactness is impossible. **There is no
+  context**, rejected permanently: ambient precision/rounding state is frame-dependent
+  arithmetic, the R79-family violation, and a comptime poison.)*
+- *(**`rational` normalization and overflow: resolved by R162** — the `rational` spec
+  exists (rational.md). The wide option won, and cheaply: the pair is two
+  **arbitrary-precision integers** on the same internal bignum `decimal`'s unscaled
+  value already needs (R161) — this table's own committed row said "grows" all along —
+  held in **canonical form as an invariant** (reduced, denominator positive), which
+  makes equality structural and `1/2`-vs-`2/4` unrepresentable. There is still no
+  user-facing `bigint`; the bignum stays internal, with two public faces.)*
 - **Literals for the wider types.** Whether there are literal forms for `decimal` and the
   unsigned/float types (suffixes, or context-driven), with the literal grammar.
 - **Bit operations.** Bitwise `and`/`or`/`xor`/`not` and shifts on the integer types (arithmetic vs
   logical shift, shift-amount edges), pending the bitwise spec (int spec §8).
-- **`complex` over what component type.** Whether `complex` is always over `double`, or can be over
-  `float` or exact types, pending the `complex` spec.
+- *(**`complex` over what component type: resolved by R164** — always `double`,
+  permanently (the `complex` spec exists, complex.md). A `float`-component complex is an
+  array-storage optimization for an audience Luna does not serve, exact-component complex
+  (Gaussian rationals) has no practical audience, and there is no parameterization
+  mechanism to express either. One component type also makes the backend Go's native
+  `complex128`, boxed — the cheapest tower member to deliver.)*

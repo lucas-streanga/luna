@@ -3764,6 +3764,152 @@ any language's scope (`SIGKILL` runs nothing; signals generally are their own fu
 question, not defer's). Section retitled "Resolved — nothing open." Swept:
 `defer.md` §8.
 
+**R161 — `decimal` specced: exact arithmetic, policy-explicit division, the Java
+traps killed by construction.** The committed tower member gets its spec (new
+decimal.md; delivery stays post-alpha with the extended tower, §6 unchanged). **The
+model**: `unscaledInteger × 10⁻ˢᶜᵃˡᵉ` with an arbitrary-precision integer —
+string-like exactness without string storage; the user's arbitrary-vs-fixed question
+was already answered by the tower's committed row ("grows, no overflow"), and the
+*real* question underneath was division. **The centerpiece ruling**: `+`/`-`/`*` are
+exact operators, always; **`/` and `%` are omitted from the operator table** —
+compile error naming `div` — because `1/3` has no finite decimal expansion, so
+decimal division *is* a rounding decision, and a rounding decision hidden in an
+operator is what R106's policy-verb discipline exists to prevent:
+`div(a, b, scale, rounding: roundingMode = {halfEven})`, scale required, banker's
+rounding the default, `{halfUp}`/`{trunc}`/`{floor}`/`{ceiling}` completing the
+closed enum. The exact-division desire has a committed home that is not this type —
+`rational` — the family split doing the work. **Python's ambient context rejected
+permanently** (frame-dependent arithmetic, the R79-family violation, comptime
+poison): every rounding is written at its site. **Equality is normalized value
+equality** (`1.10 == 1.1` true — scale is representation; Java's
+`equals`-vs-`compareTo` split, the industry's most infamous decimal footgun, is
+unrepresentable; display scale is formatting, never identity). **Boundaries**:
+`parseDecimal(s): decimal!` is primary (text is how exact decimals arrive), and
+**comptime dissolves the literal question** — `const price = parseDecimal("19.99")`
+folds, literal ergonomics with zero grammar; `int as decimal` stands (R124);
+**`double as decimal` rejected**, resolving R124's hedge to *no* — it would embed
+the double's true dyadic value (`0.1` → `0.1000000000000000055…`, the
+`new BigDecimal(0.1)` trap), and the deliberate crossing is
+`parseDecimal(toString(d))`, the `valueOf` behavior with the lossy moment visible;
+`decimal as int` stays nonexistent with the R124 promise honored (the policy verbs
+widen to `double | decimal` on landing). **Serialization is the canonical string**
+(the R132 duration precedent — a JSON number would round-trip through doubles and
+destroy the point), `parseDecimal(toString(d)) == d` the round-trip law.
+**Deliberately absent**: transcendentals (an exact type cannot hold inexact results
+honestly — that is `double`'s arithmetic), contexts, scale-preserving display.
+Swept: `decimal.md` (new), `numeric-tower.md` §3.1 (the `double as decimal`
+rejection), §6 (specced note), §7 (the rounding-and-context open resolved),
+`index.md` (the row), `keywords.md` §5 (`decimal` predeclared, post-alpha noted).
+
+**R162 — `rational` specced: exact division, the mirror table, and the
+two-integers-not-two-decimals model.** The tower's second exact type gets its spec
+(new rational.md; delivery post-alpha, §6 unchanged), closing decimal's hole exactly
+as R161's family split promised: **decimal is exact radix-10 arithmetic; rational is
+exact division — now a theorem, not a pointer**, because the operator tables are
+deliberate mirror images: rational **owns `/`** (all four operations exact, always,
+re-reducing to canonical form; `/0` panics per the committed row) and **omits `%`**
+with the shortest rationale in the tower — *exact division leaves no remainder*.
+**The representation question the user probed lands precisely**: a rational is *not*
+two decimals — it is **two of the thing inside a decimal**, two arbitrary-precision
+integers on the same internal bignum decimal's unscaled value needs (no user-facing
+`bigint`, still), held in **canonical form as an invariant** (gcd-reduced,
+denominator positive, sign on numerator) — two-decimals could not even be the
+semantics, since the scales are redundant degrees of freedom canonicalization
+immediately clears, and one-representation-per-value is what makes equality
+structural and `1/2`-vs-`2/4` unrepresentable; the tower §7 normalization-and-
+overflow open resolves with it (the wide option won, cheaply — the committed row
+said "grows" all along). **The crossing trio** (the user's decimal-from-rational
+question, R106-clean): `toRational(d): rational` total and exact (a decimal already
+*is* rational-shaped, `n/10ˢ`); **`exactDecimal(r): decimal!`** the errorable demand
+(finite expansion iff the reduced denominator's primes are only 2 and 5), shelved
+beside the policy verbs outside the prefix families; and **`toDecimal(r, scale,
+rounding = {halfEven}): decimal`** — total *because* scale is required, so the
+`to*`-means-total contract survives untouched — decimal's `div` philosophy arriving
+from the other side. The policy verbs widen once more (`double | decimal |
+rational`, completing R124's promise through R161's extension). **Boundaries**:
+`parseRational!` (`"2/3"`, integer and decimal text; `"1/0"` is a parse *error*, not
+a panic — no division was attempted), comptime-folded literals (the R161 story
+verbatim), `int as rational` lossless (R124), and **`double as rational` rejected**
+with the trap sharper than decimal's — the embedding would be *mathematically exact*
+(every finite double is a dyadic rational), which is precisely the problem;
+`parseRational(toString(d))` is the visible crossing. Canonical-string
+serialization, third application of the R132 precedent; integral rationals print
+without `/1`. Deliberately absent: accessors for alpha (their honest return type is
+the nonexistent `bigint` — recorded, not forgotten), reciprocal (three tokens),
+transcendentals (decimal §7's argument verbatim). `complex` is now the tower's last
+unspecced member. Swept: `rational.md` (new), `numeric-tower.md` §3.1 (the
+symmetric rejection), §6, §7 (the open resolved), `conversion.md` §2/§5 (the
+widening completed, the trio pointed), `index.md`, `keywords.md` §5.
+
+**R163 — the exact types map onto `math/big`: recorded, with the three wrapper
+divergences named.** The implementation question answered and pinned (compiler §7.5,
+the R148 backend-record pattern): the shared internal bignum is **`big.Int`** (pure
+Go, platform-deterministic — what keeps comptime folds and R149's cache keying
+sound); **`big.Rat` backs `rational` nearly wholesale** — its always-normalized
+invariant is verbatim rational §1's canonical form, `SetString` accepts
+`parseRational`'s text forms, `RatString` matches the no-`/1` display; **`decimal`
+has no Go counterpart** (`big.Float` is arbitrary-precision *binary*, a semantic
+mismatch never to be touched) and is a thin runtime struct
+`{unscaled: big.Int, scale: int32}` — the shape of Go's dominant third-party
+decimal, well-trodden. Three divergences, all wrapper-level, none semantic:
+zero-denominator `Rat` panics in Go where `parseRational("1/0")` is a Luna error
+(one validation); `FloatString` rounds half-away-from-zero only, so the
+`roundingMode` enum is implemented over quotient/remainder primitives;
+`math/big`'s mutable receiver API is emitter plumbing that becomes an
+allocation-reuse optimization where uniqueness is proven. Consequence worth the
+record: the exact-types implementation cost is far lower than the specs'
+sophistication suggests — relevant to post-alpha scheduling. Swept: `compiler.md`
+§7.5 (the mapping bullet).
+
+**R164 — `complex` specced: a pair of doubles, IEEE per component, and the tower's
+one unordered member.** The last unspecced tower member exists (complex.md): the
+one-sentence model is **`double`'s semantics on a plane** — unlike its shelf-mates
+it is *inexact*, and what it adds is closure (roots for negatives), not precision.
+Component type is **always `double`, permanently** (numeric-tower §7's last
+tower-open resolved): `float`-component complex is an array-storage optimization
+for an audience Luna does not serve, exact-component (Gaussian rational) complex
+has none at all, and no parameterization mechanism exists to express either — and
+one component type makes the backend **Go's native `complex128`, boxed**, zero
+wrapper divergences, the cheapest tower member to deliver (compiler §7.5). All
+four arithmetic operators, `/` included — the deliberate anti-mirror of decimal:
+decimal banished `/` because rounding is a policy decision hidden in an exact
+type; complex is already inexact, so `/` hides nothing `double`'s own does not,
+and division by complex zero is IEEE inf/nan per component, never a panic (the
+float family's rule, not `rational`'s `divisionByZero`). `%` omitted (no meaning
+on the plane). **No ordering: `<`/`<=`/`>`/`>=` are compile errors — a theorem,
+not taste** (were `i > 0`, `i·i = -1 > 0`; were `i < 0`, the same), making
+`complex` the tower's first type without comparison operators, noted in
+operators §2's ordering row. `==` is componentwise IEEE, nan-contagious,
+non-reflexive like `double`. Accessors `real`/`imag`/`conj`/`magnitude` —
+**`magnitude` deliberately not `abs`**: math's `abs` contract is
+kind-follows-the-operand (R92), which complex-in-double-out cannot honor. The
+literal story is the R161 story verbatim: the pure constructor
+`complex(re, im)` comptime-folds; an `i`-suffix literal is deferred, with the
+finding recorded that numeric-operators §1.1's illustrative `-3-4i` could never
+typecheck under the family rules (`int` minus `complex`) — a literal form means
+untyped-constant machinery (rejected as a mechanism) or a fused lexical form, and
+the constructor makes the question idle; that passage now reads
+`-complex(3.0, 4.0)`. Crossings: **`double as complex` legal** — the asymmetry
+against R161/R162's rejections is the point, the component is carried bit-for-bit,
+not reinterpreted, so R124's lossless criterion is met with no trap; explicit
+because it allocates (§3.1's rule). No `complex as double` (a projection is an
+accessor, `real(z)`, never a narrowing); **no exact-type interop, ever**
+(rational §6's parked item resolved as *never*): components are doubles, and
+`double`'s exact-type crossings are already ruled string-mediated — a direct path
+would smuggle the lossy moment out of sight, twice. `toString` canonical
+(`"3+4i"`, both components always, `i` always); `toJson` is the canonical string,
+fourth application of the R132 precedent; `parseComplex!` at the boundary.
+Transcendentals and polar form deferred (not decimal §7's exactness argument —
+an inexact type could hold them honestly; the surface waits for its audience).
+Two stale sites found and fixed en route: numeric-tower §1.4's backend paragraph
+still recommended `big.Float` (contradicting R163's never-used ruling — now
+points at compiler §7.5), and decimal §7 still called rational interop "deferred
+with `rational` itself" (delivered by R162's trio). Swept: `complex.md` (new),
+`numeric-tower.md` §1.4 ×2, §3.1, §6, §7 (the open resolved), `operators.md` §2
+(the ordering row's exception), `numeric-operators.md` §1.1, `rational.md` §6,
+`decimal.md` §7, `conversion.md` §5 (verbs do not widen to complex; `parseComplex`
+joins the family), `compiler.md` §7.5, `index.md`, `keywords.md` §5.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -566,6 +566,27 @@ in dependency order, so a module's imports are initialized before it.
   compile-time: the type system checks that only `use`-ing functions reach them, and the comptime
   sandbox that comptime reaches none. The backend emits no runtime capability representation beyond
   what threading a reference requires.
+- **The exact numeric types map onto `math/big`** (R163; decimal spec, rational spec). The
+  internal bignum both types share is **`big.Int`** — arbitrary-precision, sign-and-magnitude,
+  pure Go and platform-deterministic, which is what keeps comptime folds and the cache keying
+  (build-cache §1, R149) sound. **`rational` is backed by `big.Rat` nearly wholesale**: its
+  always-normalized invariant (gcd-reduced, denominator positive, sign on numerator) is
+  verbatim rational §1's canonical form, its `SetString` accepts the same text forms
+  `parseRational` does, and `RatString` matches the no-`/1` display rule. **`decimal` has no
+  Go counterpart** (`big.Float` is arbitrary-precision *binary* — a semantic mismatch, never
+  used): it is a thin runtime struct `{unscaled: big.Int, scale: int32}` with `div` and the
+  `roundingMode` conversions implemented over `big.Int` quotient/remainder — the
+  well-trodden shape of Go's dominant third-party decimal. Three divergences, all
+  wrapper-level, none semantic: a zero-denominator `Rat` panics in Go where
+  `parseRational("1/0")` must be a Luna *error* (one validation before `SetString`);
+  `Rat.FloatString` rounds half-away-from-zero only, so the `roundingMode` enum
+  (`{halfEven}` default) is implemented over quotient/remainder primitives instead; and
+  `math/big`'s mutable receiver API is emitter plumbing — Luna-level value immutability is
+  preserved because emitted code controls every access, and the mutability becomes an
+  allocation-reuse optimization where the emitter proves a value unshared. **`complex` is
+  Go's native `complex128`, boxed** (R164; complex spec §1): the arithmetic, including
+  IEEE-per-component division, is the Go compiler's own, with no wrapper divergences —
+  the cheapest tower member to deliver.
 
 ---
 

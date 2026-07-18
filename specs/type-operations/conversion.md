@@ -64,7 +64,7 @@ decision, and its failures (nan, the infinities, out-of-range) belong to that de
 It is spelled by **policy verbs**, each `fn (d: double): int!` — `trunc` (toward zero),
 `round` (nearest, ties away from zero), `floor`, `ceil` (double spec §7) — so the policy
 the retired generic `toInt(d)` silently applied is now a visible choice in the source.
-(When `decimal` lands, the verbs widen to `double | decimal`: a fractional `decimal` has
+(When the exact types land, the verbs widen to `double | decimal | rational` (R161, R162): a fractional `decimal` or `rational` has
 no lossless `int` reading either — numeric-tower §4, R124.) The verbs sit outside the
 prefix families on purpose: they are decisions, not conversions.
 
@@ -204,8 +204,12 @@ specs and summarized here:
   each `fn (d: double): int!` (§2; double spec §7).
 - **Deferred with their types (R124):** `toFloat(d: double): float`, total — IEEE
   round-to-nearest-even, overflow to `float` inf — lands with `float`, and the policy
-  verbs widen to `double | decimal` when `decimal` lands (numeric-tower §4, §6). Both
-  directions are lossy, which is why neither is ever `as` (as spec §3).
+  verbs widen to `double | decimal | rational` when the exact types land (R161, R162;
+  numeric-tower §4, §6; the exact-type conversion trio — `toRational`, `exactDecimal`,
+  `toDecimal(scale)` — is rational §3). The verbs do **not** widen to `complex` — a
+  complex has no `int` reading of any policy; its exits are the accessors `real`/`imag`
+  (complex §3, R164), and `parseComplex` joins the `parse*` family with the type. Every
+  widened direction is lossy, which is why none is ever `as` (as spec §3).
 - **Bool (total out):** `toInt(b: bool): int` (`true` to 1), `toString(b)` (`true` to `"true"`);
   there is deliberately no `int`-to-`bool` conversion (write the comparison; bool spec §3).
 

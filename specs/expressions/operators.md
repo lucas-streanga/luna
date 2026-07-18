@@ -29,7 +29,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `-a` | arithmetic | negate | unary minus, the additive inverse (uniform across the numeric tower; also `duration`, std.time §2); there is no unary `+` (numeric-operators §1.1) | numeric-operators §1.1 |
 | `a == b` | comparison | equal | semantic equality (strict, typeid-first; IEEE for doubles) | equality |
 | `a != b` | comparison | not equal | negation of `==` | equality |
-| `a < b`, `a > b`, `a <= b`, `a >= b` | comparison | ordering | relational comparison; operands must share a type (widening within a numeric family is implicit, crossing families needs an explicit conversion, as with arithmetic). Numbers order numerically; strings lexicographically by the total order | equality (total order) |
+| `a < b`, `a > b`, `a <= b`, `a >= b` | comparison | ordering | relational comparison; operands must share a type (widening within a numeric family is implicit, crossing families needs an explicit conversion, as with arithmetic). Numbers order numerically; strings lexicographically by the total order. One numeric exception when it lands: `complex` has **no ordering** — these four are compile errors on it, since no total order coexists with its arithmetic (complex §2, R164) | equality (total order) |
 | `a && b` | logical | and | short-circuiting logical and (both operands `bool`) | bool |
 | `a \|\| b` | logical | or | short-circuiting logical or (both operands `bool`) | bool |
 | `!a` | logical | not | logical negation (**prefix, expression position**; distinct from postfix, type-position `T!` errorable) | bool |
