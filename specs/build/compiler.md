@@ -345,7 +345,7 @@ What every IR node carries and makes explicit:
   marked so the comptime evaluator (§6) knows what it may evaluate.
 - **Explicit control and cleanup.** `match` is lowered to decision logic (match spec), coalescing
   to branches (coalescing spec), loops to their consuming form over streams/ranges (control-flow
-  spec), and `defer` registrations to explicit scoped-cleanup nodes (defer spec, §7.3).
+  spec), and `defer` registrations to explicit scoped-cleanup nodes (defer spec; the lowering is §7.3 below, R148).
 - **Capability threading.** `use` clauses and the resulting reference captures (functions spec §2)
   are explicit, so emission can thread captured references and so the comptime sandbox can verify
   the absence of capability use (§6).
@@ -510,13 +510,39 @@ table folded at link time, their relation being a DAG the interval numbering can
   `try` is a check of the error bit (with the subtype read from the `typeid`). There is no tagged
   tuple, interface, or side channel; the representation is the same 16-byte `lval` used
   everywhere.
-- **`defer` to scoped cleanup.** Luna's `defer` is **block-scoped** (defer spec §1), whereas Go's
-  `defer` is function-scoped, so Luna `defer` cannot map one-to-one onto Go `defer`. It lowers to
-  explicit scoped cleanup: the block's deferred statements run at every exit edge of that block
-  (normal, `return`, `break`/`continue`, and panic unwinding), in LIFO order, which emission
-  realizes with per-block cleanup code (or a scoped closure carrying a Go `defer`). Operands
-  captured by value at registration (defer spec §4) are snapshotted into the cleanup at the
-  registration point.
+- **`defer` to scoped cleanup — implementable, two lowerings, ruled (R148).** Luna's `defer` is
+  **block-scoped** (defer spec §1), whereas Go's is function-scoped, so it cannot map one-to-one
+  onto Go `defer` *at function granularity* — but the differences end there: registration-on-reach
+  with by-value operand capture (defer spec §4) is exactly Go's argument-evaluation rule, LIFO
+  matches, and panic-in-defer supersession with remaining-defers-run (defer spec §6) is Go's own
+  behavior. Two sound lowerings:
+
+  1. **Blocks become functions**: each defer-carrying block wraps in an immediately-invoked Go
+     func holding real Go `defer`s — block exit is function exit, and Go's machinery delivers
+     every §3/§4/§6 property natively; `return`/`break`/`continue` crossing the wrapper use the
+     classic control-signal return the emitter switches on. Simple to verify; costs a closure
+     per defer-carrying block.
+  2. **The zero-cost hybrid (the target)**: on normal exit edges, *no runtime machinery* — the
+     pending-defer set at each edge is statically known modulo conditionals, so emission inlines
+     guarded cleanup calls (a registered-flag per conditional defer, the destructor-flag
+     lowering). Panic paths use a **per-task defer list with block-depth markers**, drained at
+     recovery sites — and the constraint that decides *where* is `catch (p: panic)` (errors §8):
+     panics are catchable mid-stack, so defers between the throw and an intervening catch must
+     run **before** the catch body. Every catch lowers to a Go `recover` boundary anyway (above),
+     so its handler **drains the list down to the catch's depth marker** first; the
+     goroutine-entry trampoline — which already exists, because a task panic must resolve its
+     promise (concurrency §4.1) — drains the remainder. Same trampoline, one added drain.
+
+  **Goroutine composition is free by construction**: the defer list is per-task state beside the
+  cancellation flag and promise; scope-bounding means defers never outlive their task and
+  const-snapshot capture means they never reference another task's frame. Cancellation is
+  delivered as a panic-class unwind at suspension points (concurrency §6.1, R115), so defers run
+  on cancellation through the *same* machinery — plus the one addition R115 demands, the
+  **shield flag**: a per-task in-defer bit suppressing `cancelled` delivery at suspension points
+  inside defer bodies (cleanup is io and must not be re-cancelled mid-close), checked exactly
+  where delivery already checks. A task leaked on an uncancellable loop (concurrency §5.1's
+  bounded-waiting contract) runs its defers when it eventually reaches a suspension point and
+  unwinds — consistent, not special.
 
 ### 7.4 Module initialization
 

@@ -3490,6 +3490,47 @@ unchanged (rest trailing-only within its level); streams at any depth follow §1
 take-what-you-bind. Swept: `destructuring.md` §3.1 (new), §7 (the open resolved);
 `match.md` §4 (the superset note gains the back-reference).
 
+**R148 — defer on the Go backend: implementable, two lowerings ruled; three defer.md
+opens close.** The combing reaches compiler.md's hard question — Luna `defer` versus
+Go `defer`, especially around goroutines — and the answer is **yes, cleanly**, with
+the differences smaller than feared: registration-on-reach with by-value capture
+(defer §4) is *exactly* Go's argument-evaluation rule, LIFO matches, panic-in-defer
+supersession with remaining-defers-run (§6) is Go's own behavior, and return-value
+mutation never arises (we never emit named returns). The one real difference is the
+known one — **block-scoped versus function-scoped** — so Go `defer` is unusable at
+Luna-*function* granularity only. **Two sound lowerings recorded** (compiler §7.3):
+(1) *blocks become functions* — each defer-carrying block wraps in an
+immediately-invoked Go func holding real Go `defer`s, every property delivered
+natively, control-signal returns for `return`/`break`/`continue` crossing the
+wrapper; and (2) **the zero-cost hybrid, the target** — normal exit edges get inlined
+guarded cleanup (the destructor-flag lowering; the pending set is statically known),
+panic paths use a **per-task defer list with block-depth markers** drained at
+recovery sites. **The constraint that decides where to drain is `catch (p: panic)`**:
+panics are catchable mid-stack (errors §8), so defers between throw and catch must
+run before the catch body — every catch is a Go `recover` boundary anyway, so its
+handler drains to the catch's depth marker, and the goroutine-entry trampoline —
+which *already exists*, because a task panic must resolve its promise (concurrency
+§4.1) — drains the remainder. Same trampoline, one added drain. **Goroutine
+composition is free by construction**: the defer list is per-task state beside the
+cancellation flag and promise; scope-bounding and const-snapshot capture mean
+nothing crosses tasks; cancellation unwinds through the same machinery (R115), with
+the one addition R115 demands — the **shield flag**, a per-task in-defer bit
+suppressing `cancelled` delivery inside defer bodies, checked exactly where delivery
+already checks; a task leaked on an uncancellable loop runs its defers at its
+eventual suspension point, consistent not special. **The combing bonus — defer §8
+was stale on three of four bullets**: cancellation cleanup was resolved by R115 two
+eras ago (now a landed record); early stream cleanup was answered by the R121 file
+model (the owner-scope `defer close(f)` pattern — the file, not the stream, owns the
+descriptor, so abandoned short-circuited chains leave nothing unclosed; recorded
+closed); and the panicking-defer residue is **resolved by R148 with machinery that
+now exists** — supersession is *chained, not lossy*: the displaced panic rides the
+superseding one as its **`cause`** (R110's identity surface), recursively, so control
+flow moves on and the record loses nothing. The top-level-defer question stays open,
+correctly (pending the process-exit model). Also clarified: §1.6's "(defer spec,
+§7.3)" cite read as a defer-spec section that does not exist; it now says what it
+meant (compiler's own §7.3). Swept: `compiler.md` §7.3 (the lowering record), §1.6
+(the cite); `defer.md` §6 (the `cause` chain), §8 (three closures).
+
 ---
 
 ## Still open (out of scope of these rulings)

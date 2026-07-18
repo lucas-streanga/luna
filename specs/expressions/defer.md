@@ -153,6 +153,12 @@ error inside the `defer` (with `try`) rather than letting it panic out. The rema
 block still run: a panic in one deferred statement does not skip the others (each is unwound in
 turn).
 
+The supersession is **chained, not lossy** (R148): the superseding panic carries the panic it
+displaced as its **`cause`** (errors §2.2 — the field already exists in every error's identity
+surface), recursively if cleanup panics stack. So the original failure is displaced from control
+flow but never from the record: a `catch (p: panic)` or the task-failure report walks `cause` to
+the root. Nothing is invented — the machinery is R110's.
+
 ---
 
 ## 7. What `defer` is and is not
@@ -173,18 +179,19 @@ turn).
 
 ## 8. Open questions
 
-- **`defer` and early stream cleanup.** How a `defer` interacts with a stream pipeline that
-  short-circuits (`take(10)` abandoning a file, stream spec §8): the intended pattern is
-  `let f = open(...); defer f.close();` at the scope that owns the file, so the file closes on
-  block exit whether or not the stream is fully consumed. Confirming this covers the abandoned
-  pipeline case, and whether streams also expose their own scoped-cleanup convenience, is pending
-  the stream resource model.
+- *(**Early stream cleanup: confirmed closed by the R121 file model.** The owner-scope
+  pattern — `let f = open(...); defer close(f);` — is *the* pattern (io §4, §6): the
+  file, not the stream, owns the descriptor, so an abandoned short-circuited chain
+  (`take(10)`) leaves nothing unclosed — the descriptor closes at the owning block's
+  exit regardless of consumption. No separate stream-scoped cleanup convenience exists
+  or is needed.)*
 - **Deferring in the outermost program scope.** Whether a `defer` at top level (the program's
   entry block) runs at program exit, and how that interacts with abnormal termination, pending the
   program-entry and process-exit model.
-- **Cleanup during green-thread cancellation.** How deferred cleanup runs when a green thread is
-  cancelled or the program is torn down (whether cancellation unwinds and runs defers like a
-  panic), pending the concurrency model.
-- **A panicking defer during unwinding.** The precise semantics when a deferred statement panics
-  while another panic is already propagating (§6), whether the second panic chains, supersedes,
-  or is reported alongside the first, pending the final panic/unwinding model.
+- *(**Cleanup during cancellation: resolved by R115** (concurrency §6.1): cancellation
+  delivers `cancelled` as a panic-class unwind at suspension points, so defers run
+  through the ordinary §2 unwinding path — and they run **uncancelled** (the
+  compensation context; implementation: the shield flag, compiler §7.3, R148).)*
+- *(**A panicking defer during unwinding: resolved by R148** — supersession is chained
+  via `cause` (§6): the displaced panic rides the superseding one's identity surface,
+  recursively, so control flow moves on and the record loses nothing.)*
