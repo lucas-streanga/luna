@@ -11,7 +11,7 @@ overview, not a definition; each type's spec is authoritative.
 |-|-|-|
 | `int` | 64-bit signed integer, inline; overflow panics | int |
 | `double` | 64-bit IEEE 754 float, inline; IEEE semantics (inf/nan, no throw); never a key | double |
-| `float` | 32-bit IEEE 754 float (separate primitive, lower precision) | double §6 (own spec deferred) |
+| `float` | 32-bit IEEE 754 float (separate primitive, lower precision) | numeric-tower §1.3 (own spec deferred) |
 | `string` | Immutable, valid-UTF-8 text | string-representation, string-api |
 | `bool` | `true` or `false`, inline; no truthiness; conversions are functions | bool |
 | `null` | The explicit "present nothing" value | value-representation, coalescing |
@@ -20,11 +20,17 @@ overview, not a definition; each type's spec is authoritative.
 | `secret` | Sensitive `string`/`bytes` payload, redacts everywhere, `reveal` to extract | secret |
 | `bytes` | Packed, mutable, growable byte buffer (own type, not a table) | bytes |
 | `byte` | An `int` constrained to `0..255` (the element of `bytes`); a constraint instance | constraints, bytes |
+| `duration` | A span of time, nanosecond-backed; dimensional arithmetic | std.time §2 |
+| `instant` | A monotonic point in time; `instant - instant` is a `duration` | std.time §3 |
 | `type` | A type as a first-class value (inline `typeid`; comparable, const; `@` yields one) | type |
 
 `undefined` is the absence sentinel (a missing key or a void return), distinct from `null` (a present
 nothing); it is language-produced (never written), storable but panics on use, and unstorable *in a
 table*. See the undefined spec (and value-representation, coalescing).
+
+The wider numeric set — `u64`, the sized-integer constraints, `f16`, and the built-in
+`decimal`/`rational`/`complex` — is committed and fully specced (decimal/rational/complex
+specs, R161/R162/R164), with delivery deferred past alpha (numeric-tower §6).
 
 ---
 
@@ -34,7 +40,7 @@ table*. See the undefined spec (and value-representation, coalescing).
 |-|-|-|
 | `table` | The general keyed/ordered structure; lists are tables | tables |
 | `list` | A `table` whose keys are exactly `0..n-1` (a refinement of `table`, `list <: table`) | tables §2.1 |
-| `view` | A table seen through one applied protocol (single surface type) | views |
+| `sink` | The send end of a channel; `stream` is the receive end | channels §3 |
 | `fn` | A function value (`fn` cannot throw; `fn!` may throw a declarable error) | functions |
 | `stream` | A lazy, single-pass sequence (generator producer, `foreach` consumer) | stream |
 | `promise` | A single future value from a spawned green thread; `await` collapses it to `T!` | concurrency |
@@ -68,7 +74,7 @@ its base (`byte <: int`), widens to the base implicitly, and narrows from it via
 (runtime-checked). Constraints are refinement types, checked at runtime, never solved
 (constraints spec); `byte` and `list` are instances.
 
-Another declaration form is **`enum`**, a discriminated union (tagged sum): `Shape = enum {
+Another declaration form is **`enum`**, a discriminated union (tagged sum): `shape = enum {
 circle ['radius' => int], point, ... }`. A value is exactly one variant at a time, each carrying
 at most one payload value (a table for structured data, or any other type). Named enums are
 **nominal** (distinct by name); an anonymous enum written inline (`enum {a, b}`) is
@@ -94,7 +100,7 @@ specific type inside its form's union supertype, the same is-a relationship in a
 
 | Type | What it is | Spec |
 |-|-|-|
-| `any` | The top type: the union of all types; every value is an `any` | value-representation |
+| `any` | The top type: the union of all types; every value is an `any` | any |
 | `never` | The bottom type: no values; `never <: T` for all `T`; identity for `\|` | never |
 
 `any` is to all types what each union supertype above is to its form's members: the natural
@@ -155,7 +161,9 @@ Not types, but how types are reached and tested:
 
 ## Deferred types
 
-The core type inventory is now specified. Remaining work is in the module system, control
-flow and grammar (loops as stream consumers, destructuring in binding positions, spread into
-call arguments, operator precedence), and later API surfaces (typed multi-byte reads on
-`bytes`, a stream decoder), rather than new foundational types.
+The core type inventory is specified, and the committed remainder is **delivery, not
+design**: the extended numeric tower (`u64`, the sized smalls, `float`, `f16`, and
+`decimal`/`rational`/`complex` — all specced, R161/R162/R164) lands post-alpha as new
+typeids under existing rules (numeric-tower §6). What stays genuinely later is API
+surface, not types: typed multi-byte reads on `bytes` and a stream decoder wait on need
+(bytes spec).

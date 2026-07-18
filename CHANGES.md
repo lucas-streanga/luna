@@ -4096,6 +4096,35 @@ returns zero live PascalCase error names). The four unqualified "16-byte
 (the review), casing ×11; `compiler.md` §7 (error model);
 `internal-representation-of-strings.md` §3, §10.
 
+**R171 — the orientation layer brought current: both overview files, same
+fossil classes, swept together.** high-level-overview.md and overview/types.md
+each still carried a **`view` row in the structured-types table** — the R95
+retirement's most visible survivors, types.md's even pointing its Spec column
+at the retired `views` file — both replaced with the missing **`sink`** row
+(the send end of a channel, channels §3), which had never been added when
+channels landed. The other repairs, applied to whichever file carried them:
+the wider-numeric sentence updated from "committed but deferred" to committed
+**and fully specced** (R161/R162/R164, delivery post-alpha) in both;
+**`duration`/`instant` rows added** to both value-type tables (committed with
+std.time, R132 — alpha types absent from the orientation layer the whole
+time); `constraint` added to high-level-overview's declaration-forms list (it
+was the one form missing); the stale multi-apply example `[] apply proto1,
+proto2` corrected to the ruled chaining form `apply proto1 apply proto2`
+(R158's grammar — the comma form was this file's alone, corpus-wide); the
+"how a table composes *capabilities*" phrase de-collided to "roles"
+(capability means the effect token, R43 vocabulary, nothing protocol-shaped);
+types.md's `Shape` enum example re-cased to `shape` (the corpus's enum names
+are camelCase: `roundingMode`, `weekday`, `kind`); the `float` row's cite
+moved to numeric-tower §1.3; the `any` row's Spec pointer fixed to the `any`
+spec (it pointed at value-representation); and types.md's closing "Deferred
+types" section — which still deferred the module system, destructuring,
+spread-into-calls, and operator precedence, all long since ruled (R136, R147,
+spread §4, R28/R158) — rewritten to the honest remainder: the extended tower
+is delivery-not-design, and only need-gated `bytes` API surface stays later.
+Verified live before citing: `moduleof` (modules §7.1), the slice/range rows
+(already R166-consistent). Swept: `high-level-overview.md` ×5,
+`overview/types.md` ×6.
+
 ---
 
 ## Still open (out of scope of these rulings)

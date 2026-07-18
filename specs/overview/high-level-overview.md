@@ -45,11 +45,14 @@ the types spec is the authoritative index, and each type has its own spec.
 | `regex` | a compiled regular expression |
 | `command` | a structured, inert program/pipeline |
 | `secret` | a redacting sensitive payload (`reveal` to read) |
+| `duration` | a span of time (nanosecond-backed; dimensional arithmetic, std.time) |
+| `instant` | a monotonic point in time; `instant - instant` is a `duration` |
 | `type` | a type as a first-class, comparable value |
 
 `undefined` is the **absence** sentinel (a missing key), distinct from `null` (a present nothing) and
 unstorable. The wider numeric set (`u64`, `float`, `f16`, sized-integer constraints, and the built-in
-`decimal`/`rational`/`complex`) is committed but deferred (numeric-tower spec).
+`decimal`/`rational`/`complex`) is committed and now fully specced (decimal/rational/complex specs,
+R161/R162/R164), with delivery deferred past alpha (numeric-tower §6).
 
 **Structured types:**
 
@@ -59,12 +62,13 @@ unstorable. The wider numeric set (`u64`, `float`, `f16`, sized-integer constrai
 | `list` | a `table` keyed exactly `0..n-1` (`list <: table`) |
 | `fn` | a function value (`fn` cannot throw; `fn!` may) |
 | `stream` | a lazy, single-pass sequence |
+| `sink` | the send end of a channel; `stream` is the receive end (channels spec) |
 | `promise` | a future value from a spawned task; `await` collapses it |
-| `view` | a table seen through one applied protocol |
 
 **Declaration forms** introduce user-defined types: `proto` (a protocol), `enum` (a discriminated
-union), `error` (an error type), `attribute` (compile-time declaration metadata), and `capability`
-(a permission to reach an effect). Each is its own spec.
+union), `constraint` (a refinement of a base type by predicate), `error` (an error type),
+`attribute` (compile-time declaration metadata), and `capability` (a permission to reach an
+effect). Each is its own spec.
 
 ## Composing types: unions and intersections
 
@@ -73,15 +77,15 @@ Types combine with the **union** operator `|` ("one of") and the **intersection*
 
 ```
 var x: stream | fn = fn (): null => null;      // a stream or a function
-var y: @proto1 & @proto2 = [] apply proto1, proto2;   // a table with both applied protocols
+var y: @proto1 & @proto2 = [] apply proto1 apply proto2;   // a table with both applied protocols
 var z: (@proto1 & @proto2) | null = null;
 ```
 
 Union and intersection are structural and canonical: `int | double` and `double | int` are the
 same type, and `@Q & @P` is `@P & @Q`. Intersection is **general** (type spec §3.1), defined for
 every pair by normalization, though the single-inheritance tree makes it collapse everywhere
-except the multi-membership axes, protocol sets (`@P & @Q`, a table with both applied, how a table
-composes capabilities) and constraint conjunctions (`byte & even`).
+except the multi-membership axes: protocol sets (`@P & @Q`, a table with both applied — how a
+table composes roles) and constraint conjunctions (`byte & even`).
 
 ## Type inference
 
