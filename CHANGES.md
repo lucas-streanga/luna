@@ -3531,6 +3531,46 @@ correctly (pending the process-exit model). Also clarified: §1.6's "(defer spec
 meant (compiler's own §7.3). Swept: `compiler.md` §7.3 (the lowering record), §1.6
 (the cite); `defer.md` §6 (the `cause` chain), §8 (three closures).
 
+**R149 — the build cache audited against the current language: two miscompile holes
+closed, the target dimension added, two fossil layers cleaned.** The
+incremental-compilation spec predated most of R91–R148, and its own correctness
+standard ("never serve a stale artifact") is what convicts the drift. **Fossils**:
+§1.2's protocol clause still hashed "the full meta-function surface and element
+contract" (pre-R95 — now the member surface: binding keywords, grants, types,
+required-versus-defaulted, defaults and definition-fixed values reachable as `P->m`,
+the requirement set, `identityEquality` — R129's row shape exactly), and its function
+clause claimed comptime-eligibility is "type identity" (pre-R43/R130 — eligibility is
+a value fact; the interface now lists the signature *plus the declared capability
+set*, interface because dependents observe it twice: comptime eligibility and `use`
+obligations). **The two silent-miscompile holes**, both caught by §1.2's own logic
+run against the current language: exported **const values** (a dependent
+comptime-folds them into its binary; §1.2 hashed only the types) and **attributes on
+exported declarations** (a dependent's generated serializer reads `jsonTag` at
+comptime, attributes §4/json §2) — closed under the generalized rule the corpus can
+now state precisely: **the interface is everything comptime-observable through a
+dependent**. Which also grounds §5's serialization open: the extraction *is* the
+introspection surface computed at compile time (R127–R131 — `members(p)` rows,
+signatures, `capabilitiesOf`, `fields`, `variants`), so cache, tooling, and
+introspection agree on what an interface is **by construction**, and only byte-level
+details remain open. **The missing key dimension**: R138 made platform facts target
+facts that fold at comptime, so per-target artifacts differ *by design* — the cache
+namespace (§3) and the run-cache key (compiler §0.1) now carry **compiler version
+and compile target**, with "version" noted to cover bundled data (the tzdb R133, the
+PCG pin R139); latent while one target exists, recorded so the second target finds
+it waiting. **The R136 coupling cost gains its build face**, noted in §1.3: a bare
+or bare-assigned import couples a dependent to the whole export surface, so adding
+any export recompiles every bare-importing dependent — correct, and a real argument
+for selective imports in hot dependency cones. **Sibling fossils in compiler.md**:
+"protocol devirtualization" survived R144 in three places (the load-bearing-choices
+intro, the §1 pipeline diagram, §5's pass list — all now "protocol-member
+resolution"; §4's IR note respelled onto applied-set facts) and §7.3's "the full
+concurrency model is pending" was four eras stale (the model completed R115–R119 and
+R142; the bullet now enumerates the per-task runtime state the defer lowering
+already fixed). Eviction tuning stays open, correctly. Swept:
+`incremental-compilation-build-cache.md` §1.2 (both clauses, the new
+comptime-observable bullet), §1.3 (the coupling note), §3 (version-and-target), §5
+(the grounded open); `compiler.md` intro, §1 diagram, §0.1 (the key), §4, §5, §7.3.
+
 ---
 
 ## Still open (out of scope of these rulings)

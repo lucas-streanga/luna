@@ -17,7 +17,7 @@ The two load-bearing choices:
   AST. It lowers the typed AST to a **Luna IR** (a typed, lowered tree, not a linear instruction
   stream), runs Luna-semantic optimization passes there, and emits Go from the optimized IR. This
   is where the language specs' optimizations live (constraint-check elision, const-table
-  specialization, protocol devirtualization) and where **comptime** is evaluated, none of which
+  specialization, protocol-member resolution — R144) and where **comptime** is evaluated, none of which
   Go's compiler can do, because by the time it sees Go source the Luna semantics are gone.
 
 ---
@@ -47,7 +47,9 @@ One binary, the complete suite. Known flags:
 
 **Run mode and the binary cache.** `luna someProgram` compiles (if needed) and runs. Builds
 are **content-addressed**: the cache key is a hash over the resolved module set's sources
-plus the compiler version, so unchanged programs skip straight to execution, and the
+plus the compiler version **and the compile target** (R149 — platform facts are target
+facts that fold at comptime, R138, so per-target artifacts differ by design; the build-cache
+spec §3 carries the same dimension), so unchanged programs skip straight to execution, and the
 determinism that comptime already guarantees (§ the comptime evaluator; functions §5.5) is
 what makes the cache sound, same inputs, same binary, always.
 
@@ -87,7 +89,7 @@ source
   -> parse               (lossless CST -> AST)     [parallel per module]
   -> semantic analysis   (typed AST)               [parallel by DAG layer]
   -> lower to Luna IR    (typed IR)
-  -> optimize IR         (comptime, elision, specialization, devirtualization)
+  -> optimize IR         (comptime, elision, specialization, member resolution)
   -> emit Go             (Go source per module)    [parallel per module]
   -> assemble + build    (Go program -> Go toolchain -> binary)
 ```
@@ -228,8 +230,8 @@ unresolved dispatch: every operation is a concrete, typed node.
 ### 1.6 Optimize IR
 
 The Luna-semantic optimization passes (§5) run on the IR: **comptime evaluation** (§6),
-**constraint-check elision**, **const-table specialization**, **protocol-dispatch
-devirtualization**, and ordinary constant folding and dead-code elimination where Luna semantics
+**constraint-check elision**, **const-table specialization**, **protocol-member
+resolution** (R144), and ordinary constant folding and dead-code elimination where Luna semantics
 make them safe. These are the optimizations Go cannot perform because they depend on Luna-level
 invariants (a constraint predicate, a frozen table's shape, a statically-known protocol set) that
 are erased by the time Go source exists.
@@ -334,9 +336,9 @@ What every IR node carries and makes explicit:
   `string`, error), following the `lval` layout (value-representation §1). This lets emission
   choose the Go representation without re-deriving it.
 - **Explicit dispatch sites.** Element access (`.` static-key, `[]` dynamic-key) and meta dispatch
-  (`->`) are distinct node kinds (tables spec §3.2, §3.3), and protocol-method calls carry their
-  resolved protocol and, where statically known, their concrete target (enabling
-  devirtualization, §5).
+  (`->`) are distinct node kinds (tables spec §3.2, §3.3), and protocol-member accesses carry
+  their resolved protocol and, where statically known, the applied-set fact (enabling static
+  member resolution, §5, R144).
 - **Explicit constraint boundaries.** Every point where a value *enters* a constrained type
   (construction, assignment to a constrained slot, `as`, constraints spec §7) is a marked node
   carrying the predicate, so the optimizer can elide the check where it is provably satisfied
@@ -500,8 +502,10 @@ table folded at link time, their relation being a DAG the interval numbering can
 
 - **Green threads to goroutines.** Luna's green threads map to goroutines; the enforced-copying
   discipline (value-representation, functions specs) is realized by the IR inserting copies at task
-  boundaries, so tasks share no mutable state. (The full concurrency model is pending; this fixes
-  only the mapping.)
+  boundaries, so tasks share no mutable state. (The concurrency model is **complete** —
+  R115–R119, R142: cancellation, channels, the timeout family — and the runtime obligations it
+  places here are the per-task state the defer lowering already enumerates: the cancellation
+  flag, the promise, the defer list, the shield bit, §7.3.)
 - **Error model.** Luna panics (errors §9) map to Go panic/recover: a panic propagates ambiently
   and `try` recovers it at the boundary, converting it to a value. Errorable results (`!`,
   value-representation §3.1) need **no special calling convention**: an errorable value is just an

@@ -59,14 +59,26 @@ makes incremental builds incremental.
 
 The interface is what a dependent could compile differently against, reached transitively:
 
-- **Every exported binding and its full type**, functions (all of the signature: parameters,
-  result, errorability, and comptime-eligibility, since all four are type identity, functions spec
-  §3), consts and their types, enums, constraints, protocols, capabilities.
+- **Every exported binding and its full type**, functions (the full signature — parameters,
+  result, errorability — which is the type, functions spec §3, **plus the declared capability
+  set**: not type identity (R43 made eligibility a value fact; R130 put the requirement set on
+  the value) but interface all the same, because dependents observe it twice — their own
+  comptime eligibility, and their `use` obligations), consts, enums, constraints, protocols,
+  capabilities.
+- **Every exported value a dependent can fold** (R149, the generalized rule: the interface is
+  **everything comptime-observable through a dependent**): an exported **const's value**, not
+  just its type — a dependent's comptime folds it into their binary, so a value edit must
+  rehash; and the **attributes** on exported declarations — a dependent's generated serializer
+  reads `jsonTag` data off imported declarations at comptime (attributes §4, json §2), so an
+  attribute edit changes the dependent's emitted writer.
 - **The full structural content of each exported type**, not just its name: an enum's complete
   variant set and payload types (dependents' `match` exhaustiveness and destructuring depend on
   them, match spec §9), a constraint's **predicate** (dependents' `as` checks and check-elision
-  depend on it, constraints spec §10), a protocol's full meta-function surface and element
-  contract. Two definitions that share a name but differ in content must hash differently.
+  depend on it, constraints spec §9.3, §9.5), a protocol's full **member surface** — binding
+  keywords, grants, types, required-versus-defaulted, **defaults and definition-fixed values**
+  (reachable as `P->m`), the requirement set, `identityEquality` (protocols §2, §7; the R129
+  `members(p)` row shape, exactly). Two definitions that share a name but differ in content
+  must hash differently.
 - **Transitively-reachable types, even private ones exposed through a public signature.** If an
   exported `fn f(): Internal` returns a non-exported `Internal`, then `Internal`'s structure is
   observable through `f` (a dependent can `match` and destructure the result), so `Internal`'s
@@ -93,6 +105,12 @@ cannot exclude and what makes the interface hash worth having:
 
 So the interface is a true **interface fingerprint**: it changes only when a dependent could
 compile differently, and implementation churn (the common case) does not cascade.
+
+One honest cost made visible here (R149): under the import grid (modules §5, R136), a **bare
+or bare-assigned import** couples the dependent to the module's **entire export surface** —
+the collected table's shape is the export list — so *adding any export* recompiles every
+bare-importing dependent, correctly. That is modules §5's coupling warning acquiring a
+build-cost face, and a real argument for selective imports in hot dependency cones.
 
 ### 1.4 One primitive, several consumers
 
@@ -149,13 +167,19 @@ the remedy is a manual full rebuild (`--clean`), which the cache cannot infer on
 
 ---
 
-## 3. The cache is namespaced by compiler version
+## 3. The cache is namespaced by compiler version **and target**
 
-Cache entries are stored under a **compiler-version-stamped** namespace, because a new compiler may
-emit different Go or different artifacts for identical source. Namespacing by version prevents an
-upgraded compiler from serving artifacts built by the old one. Comptime results are deterministic
-(compiler spec §6, §8), so they cache cleanly under the same keying, an unchanged comptime-eligible
-module reuses its computed constants.
+Cache entries are stored under a namespace stamped by **compiler version and compile target**
+(R149). Version, because a new compiler may emit different Go or different artifacts for
+identical source — and "version" covers the toolchain's **bundled data** too (the tzdb, R133;
+the pinned PCG algorithm, R139), since both feed comptime results. Target, because R138 made
+platform facts *target facts that fold at comptime*: the same module compiled for two targets
+produces **different artifacts by design** (that is what conditional compilation means), so the
+target triple is a key dimension, not an environment detail. Latent while `linux-x86-64` is the
+only target (compiler §0); recorded now so the second target finds it waiting rather than
+discovers it missing. Comptime results are deterministic per version-and-target (compiler spec
+§6, §8), so they cache cleanly under this keying — an unchanged comptime-eligible module reuses
+its computed constants.
 
 ---
 
@@ -231,13 +255,14 @@ decision ever rests on a frail timestamp guess.
 
 ## 5. Open questions
 
-- **Canonical interface serialization (§1).** The precise, deterministic serialization of a
-  module's extracted public interface that the hash fingerprints, in particular the canonical form
-  and ordering (so semantically-equal interfaces serialize identically), and the exact inclusion
-  boundary already fixed in §1.2 and §1.3 (full exported types, transitively-reachable private
-  types exposed through public signatures, and comptime-eligible bodies; excluding ordinary bodies,
-  unexposed-private definitions, comments, and formatting). This is shared with the tooling that
-  extracts the same interface.
+- **Canonical interface serialization (§1) — now grounded, no longer from-scratch** (R149):
+  the extraction *is* the introspection surface computed at compile time — `members(p)` rows,
+  signatures, `capabilitiesOf`'s declared sets, `fields`, `variants`, `constraintPredicate`
+  (std.introspection, R127–R131) — so the canonical form is the canonical form of *that*
+  surface (declaration order where ruled, R129; canonical type spellings, R131), and §1.4's
+  one-primitive-several-consumers argument strengthens: the cache, the tooling, and the
+  introspection module agree on what an interface is **by construction**, because they read
+  the same extraction. What remains open is only the byte-level serialization details.
 - **Eviction tuning and cache-directory layout.** The exact default size cap, the on-disk layout
   of the version-namespaced cache directory, and whether the age threshold and size cap adapt to
   available disk, pending implementation experience.
