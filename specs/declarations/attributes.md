@@ -278,3 +278,10 @@ the value, nor its type, nor its assignability, nor anything at runtime.
   a list), pending use.
 - **Attributes on other declaration forms** (enum variants, protocol members, constraint
   declarations), deferred by decision pending a concrete need.
+- **A documentation attribute** (tooling hover — the residue of tooling §7's dissolved
+  trivia question, R152). Luna has no doc comments (lexical-structure §3), so
+  documentation, when formalized, is an attribute — and its one design constraint is
+  fixed now: it must pick an **observability class**. Comptime-observable (like every
+  attribute today) means interface-hash-bearing (R149), so a doc edit recompiles every
+  dependent; a tooling-only class would be excluded from both comptime and the hash but
+  is a new attribute category. Choose knowingly, when designed.

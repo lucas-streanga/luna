@@ -3618,6 +3618,25 @@ interface-hash cache, and the comptime sandbox all lean on; a standing decision,
 revisited only if a concrete need survives contact with those three dependents.
 Swept: `modules.md` §11 (retitled "Deferred by decision", both bullets rewritten).
 
+**R152 — tooling §7: four deferrals marked, and the trivia question dissolves.** The
+formatter, LSP, finer-grained incrementality, and debugger designs are **deferred by
+decision** to their own dedicated specs — tooling.md fixes the foundations they slot
+into (the pass library, the lossless CST, error tolerance), not their surfaces. **The
+trivia-in-interface-extraction question dissolves** on a stance the corpus already
+held: it assumed a doc-comment subset of trivia, and **no such class exists** — Luna
+deliberately has no doc-comment syntax (lexical-structure §3), so comments are
+uniformly ordinary trivia, uniformly excluded from the extracted interface and its
+hash (build-cache §1.3), never semantic. Hover documentation, when tooling wants it,
+arrives through the one declaration-metadata mechanism the language has — attributes —
+and **the question's sharp residue is recorded at that future feature's home**
+(attributes §6.3): a documentation attribute must pick its **observability class**,
+because R149 made comptime-observable attributes interface-hash-bearing, so a doc
+edit under today's one attribute class recompiles every dependent — the exact cascade
+§1.1 exists to fight; a tooling-only class avoids it but is a new attribute category.
+The constraint is fixed now so the eventual design chooses knowingly. Swept:
+`tooling.md` §7 (retitled, four deferrals, the dissolution record);
+`attributes.md` §6.3 (the doc-attribute constraint).
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -156,16 +156,28 @@ debug builds, are decided now, because retrofitting them means rewriting the fro
 
 ---
 
-## 7. Open questions
+## 7. Deferred, and one dissolved
 
-- **Formatting rules.** The formatter's style (indentation, wrapping, alignment, comment handling,
-  idempotence guarantees) is unspecified; to be a separate design.
-- **LSP feature set and protocol.** Which language-server features are supported, and the exact
-  server behavior, pending the LSP design.
-- **Finer-grained incrementality.** The mechanism for intra-module incremental re-analysis (below
-  module granularity), pending measurement of where module-level incrementality is too coarse.
-- **Debugger protocol and UI.** The debug wire protocol, breakpoint/stepping model, and value
-  inspection surface, pending the debugger design.
-- **Trivia in interface extraction.** Whether doc comments (a subset of trivia) are carried into the
-  extracted interface for tooling (hover documentation), distinct from ordinary comments excluded
-  from the interface hash (incremental-compilation spec §1.3).
+The first four are **deferred by decision** (R152), each to its own dedicated design —
+this spec fixes the foundations they slot into (the pass library, the lossless CST,
+error tolerance), not their surfaces:
+
+- **Formatting rules** — the formatter's style (indentation, wrapping, alignment, comment
+  handling, idempotence guarantees); a separate design.
+- **LSP feature set and protocol** — pending the LSP design.
+- **Finer-grained incrementality** — intra-module re-analysis below module granularity,
+  pending measurement of where module-level incrementality is too coarse.
+- **Debugger protocol and UI** — wire protocol, breakpoint/stepping model, value
+  inspection, pending the debugger design.
+
+*(**Trivia in interface extraction: dissolved, R152.** The question assumed a
+doc-comment subset of trivia; **no such class exists** — Luna deliberately has no
+doc-comment syntax (lexical-structure §3), so comments are uniformly ordinary trivia,
+uniformly excluded from the extracted interface and its hash (build-cache §1.3), never
+semantic. Hover documentation, when tooling wants it, arrives through the one
+declaration-metadata mechanism the language has: **attributes** — and the residue of
+this question is recorded where that future feature lives (attributes §6.3): a doc
+attribute must pick its observability class, because R149 made comptime-observable
+attributes interface-hash-bearing, and "editing a doc string recompiles every
+dependent" is a cascade a documentation feature must choose knowingly or design
+around.)*
