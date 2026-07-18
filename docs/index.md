@@ -181,7 +181,7 @@ table is a map.
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
 | std.time | `time.md` | The time module (R132): built-in `duration`/`instant` with dimensional operators, the one monotonic clock, `sleep`, the `time` capability. Date-less by design. |
 | std.datetime | `datetime.md` | The calendar module (R133): the immutable `datetime` protocol (timestamp + mandatory timezone), `timezone` (IANA zones vs fixed offsets, bundled tzdb), the two arithmetic families with ruled DST policies, ISO 8601 text. |
-| std.platform | `platform.md` | Deferred (R121): the `const` target-facts table — the most load-bearing stub (println's default reads it). |
+| std.platform | `platform.md` | The smallest module (R138): one export, the `const` target-facts table (`os`/`arch` as Go-vocabulary strings, `lineEnding`, `pathSeparator`); comptime access is conditional compilation, not a host leak. |
 | std.system (retired name) | `system.md` | Split record (R134): the metadata surface became `std.filesystem` (capability renamed `filesystem`; surface pending), the process half `std.process`. |
 | std.process | `process.md` | The process-self module (R134): `args()` under `argv`, `envVars()` under `env` (secret-valued, relocated from exec); no `chdir`, no `exit()`. |
 | std.filesystem | `filesystem.md` | The structure module (R135): the `path` constraint + pure path ops, `exists`/`stat`/`entries`/`walk`, create/delete/rename/copy, temp files — under `filesystem`; the ioError family extended. |

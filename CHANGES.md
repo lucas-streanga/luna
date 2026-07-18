@@ -3157,6 +3157,38 @@ braceless rationale, const-only, name-capture, §1.1; §2's wording), `json.md`,
 the `as` row's R87 note, the `where` row crediting its terminator property as the
 enabler).
 
+**R138 — `std.platform`: one export, target facts, the tension inverted.** The most
+load-bearing stub in the corpus becomes the smallest module in std, deliberately: one
+export, the `const` **target-facts** table (`os`, `arch`, `lineEnding`,
+`pathSeparator`). **The comptime tension dissolves on one distinction**: these are
+facts about the *target* — an input to the build; in script mode the host is the
+target — never the build machine's ambient environment. So comptime access is not a
+portability hazard but **conditional compilation done right**: the same source
+compiled for linux folds `"\n"`, for windows `"\r\n"`, each binary correct for its
+target, reproducible under the only definition that survives cross-compilation (same
+source + same target = same binary); and the flip side is decisive — without
+comptime-visible platform facts, portable libraries are unwritable. No capability,
+recorded as **the R43 theorem run in reverse**: capabilities mark what must not fold;
+deterministic per-build inputs are eligible, nothing to gate. **`os`/`arch` are
+strings, not enums** (the Go `GOOS`/`GOARCH` vocabulary): an exhaustive `match` over
+an `os` enum would break on every toolchain release that adds a target — the R133
+enum-growth hazard arriving through slow growth rather than volatility; strings grow
+silently, and one matches an open set with a wildcard arm. **Module over ambient
+global** (considered and rejected): predeclaring the table would erase the audit
+trail — platform-dependence is exactly the cross-cutting concern a portability review
+wants greppable, the R127 import-as-audit-signal argument — and the cost is nothing,
+since under R136's grid `import std.platform;` dumps exactly one name and the table
+is its own namespace, pollution-free by construction (the user's
+global-const-table instinct, landed as the module's shape). **The debtors settle**:
+`isValidPath`'s deferral chain (io → filesystem → platform) terminates — it is
+`std.filesystem`'s export, comptime-branched on `platform.os`, and for the sole
+current target the rule is real: nonempty, no NUL byte, ≤ 4096 bytes; errno
+portability stays io-errors' own question. Deferred: endianness, word size, CPU
+features — FFI-era facts; a row is added only when a *target* fact earns it. Swept:
+`std/platform.md` (rewritten from the R121 record), `std/filesystem.md` §1
+(`isValidPath` ruled), `std/io.md` §2.0 and §10 (the stub note now a landed
+pointer), `index.md` (the row).
+
 ---
 
 ## Still open (out of scope of these rulings)

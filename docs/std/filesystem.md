@@ -30,9 +30,11 @@ export const path = constraint p: string where isValidPath(p);
 
 Relocated from io §2.0 (R135; `std.io` now imports it — the DAG is clean). Paths are
 not bare strings, on the `json` precedent: an entry into a `path` position validates
-once, at the boundary, and everything downstream trusts it. `isValidPath` remains
-deferred to `std.platform` (platform-dependent; cheap while `linux-x86-64` is the only
-target). Relative paths resolve against the working directory **at process start**,
+once, at the boundary, and everything downstream trusts it. **`isValidPath` is this
+module's export** (R138, terminating the io → filesystem → platform deferral chain):
+its body comptime-branches on `platform.os` (std.platform §4), and for the sole
+current target the rule is **nonempty, no NUL byte, at most 4096 bytes**; other
+targets add branches when they land. Relative paths resolve against the working directory **at process start**,
 always — there is no `chdir` (std.process §3, R134).
 
 ## 2. The pure half: path operations

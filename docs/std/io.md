@@ -65,7 +65,8 @@ Paths are not bare strings. **`path`** is an invariant constraint over `string` 
 pure path operations; this module imports it). What io relies on is unchanged: an entry
 into a `path` position validates once (immutable-base, entry-only, constraints §7), and
 a raw string reaching `openFile` is caught at the signature instead of at the OS.
-`isValidPath` remains deferred to `std.platform`.
+`isValidPath` is ruled (R138): filesystem's export, comptime-branched on `platform.os`
+(std.platform §4).
 
 ### 2.1 The standard handles
 
@@ -247,10 +248,12 @@ One table, because the categories were decided elsewhere and io just inherits th
   `stat`, deletion, directories are metadata and belong to the `filesystem` capability
   (capabilities §9), not here.
 
-## 10. `platform` (stub)
+## 10. `platform`
 
-`std.platform` exports **`platform`**, a `const` table of compile-time-known facts about the
-target: `platform.lineEnding` (`"\n"` or `"\r\n"`), `platform.os`, `platform.pathSeparator`.
-Being `const` and comptime-known, its members are legal in default-parameter expressions
-(functions §3.3.1) and fold at compile time. Its own spec is deferred; this module needs only
-`lineEnding`.
+`std.platform` (landed, R138) exports **`platform`**, a `const` table of
+compile-time-known facts about the target: `platform.lineEnding` (`"\n"` or `"\r\n"`),
+`platform.os`, `platform.arch`, `platform.pathSeparator` — strings for `os`/`arch`,
+the Go vocabulary. Being `const` and comptime-known, its members are legal in
+default-parameter expressions (functions §3.3.1) and fold at compile time — target
+facts, so folding is conditional compilation, not a host leak (std.platform §1). This
+module needs only `lineEnding`.
