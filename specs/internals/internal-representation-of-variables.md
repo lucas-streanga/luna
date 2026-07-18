@@ -25,8 +25,9 @@ struct lval {
   in the string-inline field (see string-representation, tier-1 inline). Longer
   strings and other managed types (`table`, `stream`) point to their own memory.
 
-Copying a variable copies the 16-byte `lval` and nothing else. The payload is
-duplicated only when copy-on-write is triggered by a mutation.
+Copying a variable copies the `lval` (logically 16 bytes; physically 24 under the Go
+hosting, §1.1) and nothing else. The payload is duplicated only when copy-on-write is
+triggered by a mutation.
 
 **Referencing an inline scalar.** A reference (`&`, or a `use`-capture of a `var`,
 variables §5.1) to a heap-backed value shares the `lval`'s pointer, which already names a
@@ -85,6 +86,48 @@ emits a raw Go primitive (`int64`, `*Table`) and never materializes an `lval` at
 three-word value appears only at genuinely dynamic sites (`any`, heterogeneous table elements,
 un-narrowed unions). A move to a self-hosted GC (compiler spec, the native-runtime alternative)
 would restore the 16-byte single-word union, at the cost of writing and owning a collector.
+
+**The escape hatches, pressure-tested (R170).** Every known way around the static bitmap was
+reviewed and fails for a specific, checkable reason — recorded so none is re-attempted
+piecemeal:
+
+| Candidate | Why it fails |
+|-|-|
+| scalars in an `unsafe.Pointer` word | actively fatal, not merely risky: the runtime's `invalidptr` check throws on a non-pointer value in a traced slot — and a `double` whose bit pattern aliases a live span address **silently retains arbitrary objects**, a leak-by-coincidence that never reproduces |
+| pointers in a `uintptr` word | the GC frees the referent under you unless something else holds it; Go's GC being non-moving *today* is explicitly non-contractual |
+| NaN-boxing / low-bit pointer tagging | the LuaJIT/JSC classics are the two rows above in costume: they work only where the collector is taught to read the tag — which is the fork (below) |
+| Go's own `any` interface value | *is* a 16-byte tagged union, but its payload word is always a pointer (Go ≥ 1.4): every stored `int`/`double` **allocates and boxes** (bar the runtime's 0..255 cache) — an allocation plus a pointer chase per scalar, catastrophic for numeric-heavy dynamic slots; and 48 bits of `typeid` plus flags plus the string-inline field do not fit a Go type word |
+| handle/slab indirection (payload word = index into a GC-visible slab) | GC-sound at 16 bytes, but the slab pins everything it holds: freeing slots requires tracking liveness yourself — a memory manager built to avoid a memory manager, plus a double-hop on every read |
+| off-heap memory (cgo / mmap) | pointers from off-heap into the Go heap are invisible to the GC — forbidden without handles (row above), with cgo overhead throughout |
+
+**Two legal recoveries, beyond static unboxing** (both stock Go, both emitter-level):
+
+- **The traced word goes first.** The physical field order is `{dataPtr, scalar, typeAndFlags}`
+  (the §1 struct is the *logical* model; physical order is the emitter's), so the type's
+  `ptrdata` is 8: the GC scans **one word in three** and the scan metadata is minimal. 24 bytes
+  is also an exact Go size class, so boxed singles waste nothing.
+- **Homogeneous storage specialization for tables.** The maybe-pointer union is a *per-slot*
+  problem, and it vanishes when a whole array is provably one class: a list whose elements are
+  all inline scalars can be stored as **noscan** parallel words (16 bytes per element; 8 for a
+  monotyped numeric list, one header serving all) with **zero** GC scanning — where bulk data
+  actually lives, this *beats* the 16-byte C layout. List-ness and element type are maintained
+  O(1) facts (tables §2.2), Amendment A is the compile-time version of the same idea, and
+  genuinely mixed tables fall back to `[]lval` at 24. The honest residue: heterogeneous dynamic
+  arrays fit 2.67 `lval`s per cache line instead of 4, paid only on data that is actually mixed.
+
+**The fork, scoped and declined (R170).** The pinned Go toolchain makes patching the GC
+*possible*, and a conditional-pointer slot is what the 16-byte union needs — but it is not one
+function: it permeates the per-type `gcdata` bitmaps and the `typePointers` scan iterator,
+`scanobject`, **the write barrier** (emitted unconditionally on pointer stores today; a tagged
+slot needs a *conditional* barrier, which is compiler codegen, not runtime code), stack scanning
+and liveness maps, and the span classes. That is a permanent fork of the hottest,
+most safety-critical code in Go, rebased every release, and it damages two recorded premises:
+"the backend is Go source handed to the Go toolchain" (compiler §0) and the determinism that
+R149's cache keying leans on. The verdict: **forking the GC is the self-hosted runtime on an
+installment plan** — the moment this project owns the collector's invariants, it owns a
+collector. Declined now; reserved, deliberately, beside the string refcount-completeness theorem
+(string-representation §11.1, R169) for a future self-hosted backend, which would take the
+16-byte union and string refcounting together.
 
 ---
 
@@ -167,8 +210,8 @@ union. This keeps the id a single full-width id, and lets the current field poin
 the shared, plain entries for `string`, `int`, and so on, instead of minting a
 narrowed variant for each declared union a concrete type appears in.
 
-Membership is a subtype check: a current type `IOError` satisfies a declared
-`string | error` because `IOError <: error`. The concrete subtype is what the value
+Membership is a subtype check: a current type `ioError` satisfies a declared
+`string | error` because `ioError <: error`. The concrete subtype is what the value
 stores; the union is what the location declares.
 
 ### 3.1 Errors are declared, not dynamic
@@ -206,12 +249,12 @@ freely and order-independently: `string?!` and `string!?` both denote
 
 The concrete error subtype is stored the way any current type is, **as the value's
 current `typeid`** in the high 48 bits. The location declares the coarse
-`string | error`; the value carries the precise subtype (`IOError`, …). Because
+`string | error`; the value carries the precise subtype (`ioError`, …). Because
 every type is statically declared, that subtype id already exists in the `typetable`;
 a throw introduces no new type (§4.1).
 
 **The error arm of a `try` result is always the root `error`**, written `error` or
-`!`, never a specific subtype. `let myVal: string | IOError = try someFunc()` is a
+`!`, never a specific subtype. `let myVal: string | ioError = try someFunc()` is a
 compile error. `try` is **not total**: it converts every **declarable-error** throw
 (anything outside the `panic` subtree, errors §2) into the value, and a **`panic`
 unwinds through it** untouched (errors §8.1), so a panic never dynamically lands in
@@ -220,19 +263,19 @@ the declarable category has no type of its own, so the root is the tightest hone
 spelling (errors §7). Within the caught category, Luna keeps throw types opaque, a
 call is known to throw, but not *what* (precise throw-set inference would have to
 chase transitive calls and dies at dynamic dispatch). The compiler cannot prove
-`someFunc` throws only `IOError`, so a `string | IOError` result would assert an
+`someFunc` throws only `ioError`, so a `string | ioError` result would assert an
 exhaustiveness it cannot verify.
 
 No precision is lost. The thrown value's exact subtype is its runtime current
-`typeid`, recovered by narrowing, `catch (e: IOError)`, `is IOError`, via the O(1)
+`typeid`, recovered by narrowing, `catch (e: ioError)`, `is ioError`, via the O(1)
 subtype test (§4.2). Coarse in the declared type, precise in the value: the same split
 as everywhere else.
 
 The restriction is scoped strictly to `try`. Error subtypes are otherwise
-**first-class**: declarable ones may be constructed (`IOError('disk full')`; `panic`
+**first-class**: declarable ones may be constructed (`ioError('disk full')`; `panic`
 types are runtime-minted only, errors §9), and any error value may be stored and named
-in ordinary declared types, `let e: IOError = IOError('disk full')`, or a function
-that returns `IOError`. Only the arm *introduced by catching a throw* is pinned to the
+in ordinary declared types, `let e: ioError = ioError('disk full')`, or a function
+that returns `ioError`. Only the arm *introduced by catching a throw* is pinned to the
 root `error`, because only there is the thrown type unknown. The two `try` rules
 together make that arm **exactly** `| error` (or `!`): it must be *present*, a `try`
 into a non-errorable type is a compile error, since the error must be handled, and it
@@ -332,7 +375,7 @@ many types (no generics means no generative, deeply-nested type families to comp
 Errors are their own type, **not** tables, and support inheritance. Because
 inheritance is a property of the *type*, it lives entirely in the `typetable`, never
 in the value: each error `typeinfo` records its supertype. A value carries only its
-concrete error `typeid`; every `<: error`, `catch (e: IOError)`, or `is` test is a lookup
+concrete error `typeid`; every `<: error`, `catch (e: ioError)`, or `is` test is a lookup
 over `typeinfo` ancestry.
 
 Since the hierarchy is statically known, subtype tests over the **nominal tree** are
@@ -393,7 +436,7 @@ Honest cost, restated: **O(1) for tree edges and for function signatures** (the 
 `O(F² · arity)` fold), **O(members) for unions and intersections**.
 
 Under **single inheritance** a subtype's fields are laid out as a **prefix** of its
-supertype's, so a pointer to an `IOError` is already a valid pointer to `error`:
+supertype's, so a pointer to an `ioError` is already a valid pointer to `error`:
 upcast to the declared type is a no-op, and the `typeid` discriminates for downcast.
 (Both this layout and the interval numbering above assume a single-inheritance tree;
 a multiple-inheritance DAG would require ancestor sets or a pairwise table instead.)

@@ -4055,6 +4055,47 @@ the only surviving "concatenation operator" mentions are denials and strings
 §9 ×2, §10, §11 (+ new §11.1), `conversion.md` §3.1, `stringBuilder.md` §0,
 §3.1, §6, §7.
 
+**R170 — the 24-byte `lval` confirmed forced under stock Go; the escape hatches
+pressure-tested and recorded; the GC fork scoped and declined; the
+value-representation fossil layer cleared.** The question was whether any way
+around the three-word hosted `lval` exists; the answer is no, and §1.1 now
+carries the review so no hatch is re-attempted piecemeal: scalars in an
+`unsafe.Pointer` word (actively fatal — `invalidptr` throws, and bit patterns
+aliasing live spans silently retain arbitrary objects); pointers in `uintptr`
+(freed under you; non-moving-today is non-contractual); NaN-boxing/tagging (the
+same two rows in costume — they need a collector that reads the tag); Go's own
+`any` (a 16-byte tagged union whose payload word is always a pointer — every
+stored scalar allocates, and 48-bit typeid + flags + string-inline don't fit a
+Go type word); handle/slab indirection (the slab pins everything — a memory
+manager built to avoid one, plus a double-hop per read); off-heap cgo/mmap
+(off-heap-to-heap pointers are GC-invisible). Two stock-Go recoveries recorded
+beyond static unboxing: **traced-word-first physical order** (`ptrdata` = 8 —
+the GC scans one word in three; 24 is an exact size class) and **homogeneous
+table-storage specialization** (a provably-scalar list stores as noscan
+parallel words, 16 or even 8 bytes per element with zero scanning — beating
+the C layout where bulk data lives; Amendment A is the compile-time version;
+the honest residue is 2.67-vs-4 lvals per cache line on genuinely mixed data
+only). **The fork verdict**: a conditional-pointer slot permeates gcdata,
+`typePointers`/`scanobject`, the write barrier (a *conditional* barrier is
+compiler codegen, not runtime), stack maps, and span classes — a permanent
+fork of Go's most safety-critical code, damaging the Go-source-to-Go-toolchain
+premise and R149's determinism. Ruling: **forking the GC is the self-hosted
+runtime on an installment plan** — declined now, reserved beside R169's string
+refcount-completeness theorem for a future self-hosted backend that would take
+the 16-byte union and string RC together. En-route finds, both fixed:
+**compiler §7's error-model bullet claimed an "error bit"** on the errorable
+`lval` — contradicting value-representation §2.1's ruling that error-ness is
+never a flag (derived, `currentType <: error`, the §4.2 interval test) — now
+states the derived check; and the value-representation file carried an
+**11-site `IOError` PascalCase layer** (R122-missed; the corpus-wide grep now
+returns zero live PascalCase error names). The four unqualified "16-byte
+`lval`" sites (value-representation §1, string-representation §3/§10, compiler
+§7) now defer to §1.1's logical/physical split. Checked and left standing:
+`let v!: string` (the binder-suffix errorable form) is specified in errors
+§463, not drift. Swept: `internal-representation-of-variables.md` §1, §1.1
+(the review), casing ×11; `compiler.md` §7 (error model);
+`internal-representation-of-strings.md` §3, §10.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -509,11 +509,12 @@ table folded at link time, their relation being a DAG the interval numbering can
 - **Error model.** Luna panics (errors §9) map to Go panic/recover: a panic propagates ambiently
   and `try` recovers it at the boundary, converting it to a value. Errorable results (`!`,
   value-representation §3.1) need **no special calling convention**: an errorable value is just an
-  `lval` with its **error bit** set and its **`typeid`** giving the concrete error subtype. Errors
-  are lvals like every other value, so an errorable return is returned as an ordinary `lval`, and
-  `try` is a check of the error bit (with the subtype read from the `typeid`). There is no tagged
-  tuple, interface, or side channel; the representation is the same 16-byte `lval` used
-  everywhere.
+  `lval` whose **`typeid`** is a concrete error subtype — there is **no error flag**
+  (value-representation §2.1: error-ness is derived, `currentType <: error`, the O(1) interval
+  test of §4.2, never a stored bit that could disagree with the id). Errors are lvals like every
+  other value, so an errorable return is returned as an ordinary `lval`, and `try` is that
+  subtype test. There is no tagged tuple, interface, or side channel; the representation is the
+  same `lval` (logically 16 bytes, hosted as 24 — value-representation §1.1) used everywhere.
 - **`defer` to scoped cleanup — implementable, two lowerings, ruled (R148).** Luna's `defer` is
   **block-scoped** (defer spec §1), whereas Go's is function-scoped, so it cannot map one-to-one
   onto Go `defer` *at function granularity* — but the differences end there: registration-on-reach

@@ -71,8 +71,9 @@ optimization behind the same inline-versus-pointed-to branch (§11).
 ## 3. Memory management
 
 Go's garbage collector owns every non-static allocation. Because strings are
-immutable, a value copy is just a copy of the 16-byte `lval` (its `dataPtr` now
-refers to the same descriptor); no refcount, no COW, no duplication. The descriptor
+immutable, a value copy is just a copy of the `lval` (logically 16 bytes;
+value-representation §1.1) — its `dataPtr` now refers to the same descriptor; no
+refcount, no COW, no duplication. The descriptor
 and any owned buffer stay alive as long as some `lval` reaches them, and are reclaimed
 when none does.
 
@@ -222,8 +223,8 @@ R105).
 
 ## 10. Performance summary
 
-- **Copy / pass:** O(1). Copy the 16-byte `lval`; inline bytes come along, a
-  descriptor is shared. No refcount (immutable), no COW.
+- **Copy / pass:** O(1). Copy the `lval` (value-representation §1.1); inline bytes come
+  along, a descriptor is shared. No refcount (immutable), no COW.
 - **Creation (tiny, <= 8 bytes):** inline, **zero allocation**.
 - **Creation (generic, > 8 bytes):** allocate + copy + validate-at-ingress. No map,
   no lookup, no lock.
