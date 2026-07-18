@@ -68,9 +68,21 @@ callable in both phases while phase-divergent, exactly what functions §5.5 forb
 contracts, stated once: **`toJson` serializes the declaration; `toJsonDynamic` serializes
 the value.**
 
-## 3. Open questions
+## 3. Resolved and deferred (R157)
 
-- **Parsing.** `fromJson(j: json): any` (or into a protocol-typed shape) is the inverse
-  pipeline and is deferred; the `json` type is designed to be its natural input.
-- **Other formats.** Whether the pattern generalizes as one generator per format
-  (`toYaml`, ...) or a format-parameterized generator, pending use.
+- *(**Parsing: `fromJson` exists and is ratified** — this bullet had gone stale twice:
+  `fromJson` landed long ago as `fn (j: json): table!` (json §3 — pure,
+  comptime-eligible, the `!` carrying only semantic failures past the constraint's
+  well-formedness), not the `: any` this bullet remembered, and it was never still
+  deferred. What *is* deferred, correctly and at its home: the read-side **generator**
+  — parsing into a declared or protocol-typed shape, the inverse of `toJson(comptype
+  …)` — json §4, riding the `jsonTag`-reach question.)*
+- *(**Other formats: one generator per format, ruled** (R157) — `toJson`, `toCsv`,
+  `toYaml`, each its own comptime generator; the format-parameterized alternative is
+  **rejected**, because formats legitimately differ in semantics (csv is flat and
+  tabular, xml splits attributes from elements, yaml carries anchors), so one
+  parameterized signature would have to express the union of every format's semantics —
+  the same argument that made `toJson`/`toJsonDynamic` deliberately two names (§2:
+  paths that differ in observable output get different names). This also matches the
+  ruled per-format module layout (json §0: importing a JSON parser never pulls an XML
+  one) — one format, one module, one generator.)*

@@ -3692,6 +3692,20 @@ list retitled "Resolved and rejected — nothing open." The protocol spec — th
 conversation's first major redesign — now carries no open question at all. Swept:
 `protocols.md` §10.
 
+**R157 — serialization §3: `fromJson` was never still open, and formats get one
+generator each.** The user's recall question exposed a doubly stale bullet:
+`fromJson` landed eras ago as `fn (j: json): table!` (json §3), but serialization.md
+still listed it deferred *and* remembered a drifted signature (`: any`). The bullet
+is now a record pointing at the one genuinely deferred piece — the read-side
+generator, json §4. **One generator per format, ruled**: `toJson`, `toCsv`, `toYaml`
+each their own comptime generator; the format-parameterized alternative rejected
+because formats legitimately differ in semantics (flat-tabular csv,
+attributes-versus-elements xml, yaml anchors) — one parameterized signature would
+express the union of every format's semantics, the same argument that made
+`toJson`/`toJsonDynamic` deliberately two names, and the ruling matches the
+per-format module layout already on the books (one format, one module, one
+generator). Swept: `serialization.md` §3 (retitled, both records).
+
 ---
 
 ## Still open (out of scope of these rulings)
