@@ -375,9 +375,12 @@ see, which is the reason the IR must exist.
   contiguous-struct layout with a perfect hash, and static `.` accesses on it lower to direct
   offset loads rather than hash probes. This pass chooses the representation and rewrites the
   access nodes.
-- **Protocol-dispatch devirtualization** (protocols, views specs). Where the protocol set a table
-  has is applied statically known at a `->` site, resolve the meta-function to a direct call instead of
-  a runtime view lookup. Where it is not known, emit the dynamic dispatch.
+- **Protocol-member resolution** (protocols spec). Where a table's applied set is statically
+  known at a `->` site (a `@P`-typed binding, protocols §6.2), resolve the member to a direct
+  access instead of a runtime applied-set check. Where it is not known, emit the dynamic
+  check (protocols §3.2). (Pre-R95 this pass spoke of views and meta-function lookups; the
+  member model has no virtual dispatch to devirtualize — protocols §2.1 — so the pass is
+  resolution, not devirtualization.)
 - **Ordinary folding and dead-code elimination**, applied where Luna semantics make them sound
   (pure expressions, unreachable arms). Go repeats much of this on the emitted code, but doing the
   Luna-level cases here is what enables the passes above (e.g. folding a constant key so a const

@@ -7,7 +7,7 @@ import std.process;
 The process-self module: the program's own arguments and environment, under two
 capabilities (**`argv`**, **`env`**). Small on purpose — a process's identity is data
 you read, not machinery. Born in R134's split of the retired `std.system` name
-(std/system.md): the filesystem half is `std.filesystem`; everything process-shaped
+(retired/system.md): the filesystem half is `std.filesystem`; everything process-shaped
 lives here.
 
 ## 1. Arguments

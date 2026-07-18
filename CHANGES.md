@@ -3393,6 +3393,24 @@ socket options, unix domain sockets, half-close, explicit IPv6 surface. Swept:
 is complete**: every module on the ledger is landed or deliberately deferred with
 its reason recorded, and the corpus stands at R143 with no open contradiction.
 
+**R144 — housekeeping: `docs/retired/`, and one more fossil.** Routine cleanup, on
+the ledger so future greps understand the moves. The four retirement stubs leave the
+live directories for **`docs/retired/`** (git-moved, history preserved):
+`table-api.md` (R91–R93), `views.md` (R95), `reflection.md` (R127), `system.md`
+(R134) — each a was→is tombstone map, none authoritative, and the rule stated in the
+index's new **Retired** section, which replaces their four scattered rows. Path
+references swept: `process.md` (the split-record pointer), `indexable-functions.md`
+(the R98 retirement cite), `index.md` (consolidated). The deep name-sweep caught
+**one live fossil the R95 passes missed**: compiler.md's optimization pass still
+read "protocol-dispatch devirtualization (protocols, **views** specs)… resolve the
+**meta-function**… instead of a runtime **view lookup**" — pre-R95 on all three
+counts, and conceptually stale besides: the member model has **no virtual dispatch
+to devirtualize** (protocols §2.1), so the pass is rewritten as **protocol-member
+resolution** (static applied-set at `@P`-typed sites → direct access; otherwise the
+dynamic check, protocols §3.2/§6.2), with the correction recorded in place. Frozen
+history untouched, as always: retired names inside `retired/` stubs and CHANGES
+entries keep their spellings.
+
 ---
 
 ## Still open (out of scope of these rulings)

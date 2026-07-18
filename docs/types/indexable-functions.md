@@ -17,7 +17,7 @@ An operation is indexable for one of two reasons, and the catalogue is organized
 Every function returns a new table (COW); mutation is caller-side write-back, `&tab.pop()`
 (tables §4: `&` at the call site means "assign the return value back to me"; no function
 takes a `&table` parameter). Signatures follow the conventions of iterable-functions §1.6;
-the former `onNoGet` / `onNoSet` enums are retired for good (R98, table-api.md).
+the former `onNoGet` / `onNoSet` enums are retired for good (R98, retired/table-api.md).
 
 ---
 

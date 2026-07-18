@@ -132,10 +132,8 @@ table is a map.
 | Spec | File | What it is |
 |-|-|-|
 | Tables | `tables.md` | The core concepts of the table type: keys, value semantics, constraints, propagation. |
-| Table API | `table-api.md` | Retired pointer (R91–R93): the protocol catalogue's successor map, and the protocol-redesign deferrals. |
 | Iterable functions | `iterable-functions.md` | Built-in free functions over `iterable` (tables and streams): traversal, transform, aggregate, bridges. |
 | Indexable functions | `indexable-functions.md` | Built-in table-only free functions: keyed access, mutation, and the whole-input (sort) family. |
-| Views | `views.md` | Retired pointer (R95): the `view` type is gone; what replaced each piece, and where. |
 | Functions | `functions.md` | The `fn` value: capture, errorability, and comptime-eligibility. |
 | Stream | `stream.md` | The lazy, single-pass sequence type and its two defining properties. |
 | Stream API | `stream-api.md` | The stream-only surface: producing, `peek`/`isConsumed`, `foreach`, restart; the shared catalogue is iterable-functions. |
@@ -162,7 +160,6 @@ table is a map.
 | Match | `match.md` | The pattern/guard selection expression, in valued and open-ended forms. |
 | Equality | `equality.md` | Strict `==`: same type and same value, no coercion. |
 | Conversion | `conversion.md` | Value conversion via functions, and how it differs from `as`. |
-| Reflection (retired name) | `reflection.md` | Retirement stub: moved to `std/introspection.md` as the `std.introspection` module (R127). |
 
 ### Values, bindings & access
 
@@ -182,7 +179,6 @@ table is a map.
 | std.time | `time.md` | The time module (R132): built-in `duration`/`instant` with dimensional operators, the one monotonic clock, `sleep`, the `time` capability. Date-less by design. |
 | std.datetime | `datetime.md` | The calendar module (R133): the immutable `datetime` protocol (timestamp + mandatory timezone), `timezone` (IANA zones vs fixed offsets, bundled tzdb), the two arithmetic families with ruled DST policies, ISO 8601 text. |
 | std.platform | `platform.md` | The smallest module (R138): one export, the `const` target-facts table (`os`/`arch` as Go-vocabulary strings, `lineEnding`, `pathSeparator`); comptime access is conditional compilation, not a host leak. |
-| std.system (retired name) | `system.md` | Split record (R134): the metadata surface became `std.filesystem` (capability renamed `filesystem`; surface pending), the process half `std.process`. |
 | std.process | `process.md` | The process-self module (R134): `args()` under `argv`, `envVars()` under `env` (secret-valued, relocated from exec); no `chdir`, no `exit()`. |
 | std.filesystem | `filesystem.md` | The structure module (R135): the `path` constraint + pure path ops, `exists`/`stat`/`entries`/`walk`, create/delete/rename/copy, temp files — under `filesystem`; the ioError family extended. |
 | std.random | `random.md` | Randomness (R139): seeding is the effect (`entropy`: `randomSeed`/`randomBytes`/`randomStream`), generation is pure (`prng` = a PCG-64 stream, `next*`); restart is replay; every run replayable from one logged seed. |
@@ -232,3 +228,15 @@ table is a map.
 |-|-|-|
 | Value representation | `internal-representation-of-variables.md` | Runtime storage: the `lval`, the `typetable`, and where per-value/type/binding state lives. |
 | String representation | `internal-representation-of-strings.md` | Runtime storage of the `string` payload an `lval` points at. |
+
+### Retired (tombstone pointers, `retired/`)
+
+Each file below is a **retirement stub** — a was→is map preserving where the retired
+concept's pieces went. No content in `retired/` is authoritative.
+
+| Was | File | Retired by |
+|-|-|-|
+| The built-in table protocol | `retired/table-api.md` | R91–R93 (the iterable/indexable catalogue) |
+| The `view` type | `retired/views.md` | R95 (the protocol member model) |
+| The reflection spec | `retired/reflection.md` | R127 (moved: `std/introspection.md`) |
+| `std.system` | `retired/system.md` | R134 (split: `std.filesystem` + `std.process`) |
