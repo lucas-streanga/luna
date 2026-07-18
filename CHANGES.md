@@ -2644,6 +2644,49 @@ riding with the generated read side (json §4). Swept: `json.md` §2 (signatures
 `jsonTag` open added); `protocols.md` §5 (boundary reworded, serialization bullet), §10
 (open closed); this file's tail.
 
+**R126 — `@@` is total; protos are const-declared brands; a pre-R95 fossil deleted.**
+The last R95–R98 open closes. **Operand surface**: `@@` is total over `any` — on a value
+with no protocol axis (everything but a table) it yields `[]`, joining any.md §1's
+universal-question set beside its sibling `@`. The coherence argument decided it:
+`5 is @person` is already `false`, not an error — the language answers protocol
+questions about non-tables with "no," and `@@` is the same question through the sibling
+operator; refusing statically would make the two answers disagree. The result value
+pinned: a **fresh snapshot `list`** of `proto` values in application order (value
+semantics — mutating the copy touches nothing; after `unapply` (R123) the next `@@`
+reflects the shrunk set), carrying the `list` commitment into inference. **Protos are
+const-declared**: a `proto` block is legal in exactly one position, the initializer of a
+`const` declaration (the `capability` precedent), and the binding identifier *is* the
+protocol's name — captured at declaration, carried by the value, never renamed by
+aliases or reexports. Anonymous protos do not exist (small use case; may be added
+later). One declaration, one identity, one name makes a proto a **brand**, and the brand
+settles equality: **protos join the identity-equality class** (equality §2) — two
+structurally identical protos from different modules are deliberately distinct, so
+structural proto comparison is meaningless. Honest cost, recorded in protocols §1:
+membership-shape tests ("does this table wear something *shaped like* X") cannot be
+spelled structurally — you need the proto value in hand — and that is not the hot path.
+Both rulings are what R125 quietly needed: `protoName`, now the JSON section key and
+collision comparator, is well-defined for every proto that can exist. **The fossil**:
+reflection.md missed the R95–R98 sweep in six places — §3.4's pre-R95 query set
+(`elementMembers`, `metaMembers`, `metaFunctions`, `hasApply`), views citations in
+§3.4/§3.5 and the §5 operator summary, a `view` variant still in §3.3's `TypeKind`
+enum, the closing-summary bullet still routing meta members through the deleted
+queries, and two §6 opens premised on protocol-installed *element members* (a thing
+R95 made structurally impossible — both dissolved, the `fields`-ordering half
+surviving alone) — all reflecting a protocol model (meta space, declared element
+members, custom apply bodies) that R95–R98 retired. **Deleted, not renamed** (per the tombstone rule
+the deletions are recorded here and in place); `protoName` and
+`declaresIdentityEquality` survive; the member-model query surface (members with
+binding keyword / grants / type / default-presence; requirements) is **explicitly
+deferred to the reflection deep pass**, with the two boundaries any future surface must
+keep recorded in place: keyed on the proto, not the table; declarations, never values.
+Swept: `protocols.md` §1 (const-only, the brand paragraph), §2/§7/§10 examples
+(`const` added), §8 (totality and snapshot pins), §10 (open closed); `any.md` §1
+(`@@v` universal); `equality.md` §2 (proto in the identity list); `reflection.md` §3.3 (the `view`
+variant), §3.4 (rebuilt short), §3.5 (views cites), §5 (summary bullets), §6 (two
+opens dissolved); `operators.md` (`@@` row); `keywords.md` (`proto`
+row); `overview/types.md` (the literal); `stringBuilder.md` and `conversion.md` §3
+(example spellings); this file's tail.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2681,8 +2724,9 @@ And from R91–R93, the two big flagged remainders:
   settled the string/bytes-iterability question it raised (R104: `foreach` yes for
   `bytes`, `iterable` stays `table | stream` exact). Future edits: iterable-functions
   §3's retired-spellings table is the guard against reintroduction.
-- **Opens from R95–R98, still standing:** `@@`'s type surface on non-table values —
-  the last one. (The JSON nesting shape is **closed by R125** — the `"@@"` section, off
+- **Opens from R95–R98: all closed.** (`@@`'s type surface is **closed by R126** —
+  total over `any`, `[]` off tables, protos const-declared identity-class brands; the
+  JSON nesting shape is **closed by R125** — the `"@@"` section, off
   by default; removal/`unapply` is **closed by R123** — the free function, refusal where
   an applied requirer still requires,
   wrong-write checks for the rest, the §6.3 condition repaid as stated; the `?->` token landed in R101;

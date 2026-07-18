@@ -50,7 +50,7 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
 
 | Form | Declares | Union supertype | Members are | Spec |
 |-|-|-|-|-|
-| `proto` | A protocol (`p = proto {...}`) | `proto` | distinct protocols | protocols |
+| `proto` | A protocol (`const p = proto {...}`, const-only) | `proto` | distinct protocols | protocols |
 | `error` | An error type (`e = error {...}`) | `error` | distinct error types (the `panic` subtree, and declarable errors under the root) | errors |
 | `capability` | A capability (`c = capability`) | `capability` | distinct capability types | capabilities |
 

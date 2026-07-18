@@ -30,6 +30,18 @@ are applied to tables **at runtime** (§4), so which protocols a table carries i
 property of that table value, not a fact fixed at its declaration. A table does not
 inherit or subclass a protocol; it *has applied* one.
 
+A `proto` block is legal in exactly **one position**: as the initializer of a `const`
+declaration — `const person = proto {…};` — the `capability` precedent (R126). The
+binding's identifier **is the protocol's name** (`protoName`, §8), captured at
+declaration and carried by the value: aliases and reexports carry the proto, never
+rename it. Anonymous protos do not exist (the use case is small; they may be added
+later). One declaration, one identity, one name is what makes a proto a **brand**:
+proto values compare by **identity** in `==` (equality §2) — two structurally identical
+protos from different modules are deliberately distinct. The recorded cost: a
+membership-shape test ("does this table wear something *shaped like* X") cannot be
+spelled structurally, you need the proto value itself in hand — and that is not the hot
+path.
+
 A protocol contributes exactly **one kind of thing**: **members**. A member is a named,
 typed slot in protocol space, declared with the ordinary binding ladder (`const` / `let` /
 `var`) and optional access grants (`get` / `set`). Behavior is not a separate category:
@@ -50,7 +62,7 @@ A `proto` block contains member declarations and nothing else. Each declaration 
 ```
 
 ```
-person = proto {
+const person = proto {
   const get name: string;                  // required at apply; immutable after (§2.1)
   const get species: string = 'human';     // definition-fixed: a protocol constant (§2.1)
   let get set nickname?: string = null;    // write-once: externally settable exactly once
@@ -517,7 +529,7 @@ never unchecked; no `@P` promise held anywhere can be broken by either.
 A protocol may require others, spelled with the same keyword doing the same thing:
 
 ```
-employee = proto {
+const employee = proto {
   apply person;                       // employee requires (and applies) person
   const get badge: int;
   ...
@@ -562,8 +574,13 @@ protoName(p)                              // the name string, for tooling (free 
 
 The order is application order — deterministic, cheap, and **not** semantically
 load-bearing (protocols are an unordered capability set; nothing dispatches on order).
-`@@tab == []` means a plain table. `@@` on a non-table value is settled by the type
-surface of `@@` (open question, §10). The `@`-family stays coherent: `@` reflects types,
+`@@tab == []` means a plain table. **`@@` is total over `any`** (R126): on a value with
+no protocol axis — anything but a table — it yields `[]`, the same answer `is @P`
+already gives as `false`; asking is never an error, which places `@@` in the universal
+question set (any §1) beside its sibling `@`. The result is a **fresh snapshot** `list`
+of `proto` values (value semantics — mutating it touches no table, and after `unapply`
+(§4.6) the next `@@` reflects the shrunk set), carrying the `list` commitment into
+inference (variables §1). The `@`-family stays coherent: `@` reflects types,
 `@@` reflects protocols-as-data, `@P` in type position is a static promise *about* the
 `@@` axis (§6).
 
@@ -589,7 +606,7 @@ the contract, `.` is an extension.
 ## 10. Worked example, and open questions
 
 ```
-stringBuilder = proto {
+const stringBuilder = proto {
   identityEquality;                       // builders compare by identity (§5)
   var buf: bytes = bytes();               // per-table, ungranted: private state
 
@@ -622,4 +639,6 @@ Open questions:
   build-spec sweep's concern.
 - **Bound functions:** rejected (§3.4); revisit only if a concrete need survives the
   explicit-closure idiom.
-- **`@@` on non-table values:** error or `[]`, pending the `@@` type surface.
+- *(**`@@` on non-table values: closed by R126** — `[]`, total over `any`, coherent
+  with `is @P` answering `false` off tables; §8. With it: protos are const-declared
+  named brands (§1) comparing by identity (equality §2).)*

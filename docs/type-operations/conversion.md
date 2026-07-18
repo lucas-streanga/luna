@@ -89,7 +89,7 @@ itself renderable by applying the well-known **`stringify` protocol**, whose one
 initializer (protocols §4.2), immutable thereafter —
 
 ```
-stringify = proto {
+const stringify = proto {
   const get toString: fn (any): string;   // required: bound per application, at apply
 };
 

@@ -48,7 +48,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |
 | `T!` | type | errorable | adds the error arm (`| error`, errors §7) to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
 | `@x` | type | type-of | value position: the value's `type`; type position: application-refinement `@P` | type §1.1 |
-| `@@x` | type | protocol-reflect | reflect the protocols a table has applied | reflection, protocols §8 |
+| `@@x` | type | protocol-reflect | reflect a value's applied protocols; total over `any`, `[]` for any non-table (R126) | reflection, protocols §8 |
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |

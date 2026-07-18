@@ -13,7 +13,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `const` | deep-frozen binding | variables §1, §3 |
 | `fn` | function literal / function type | functions |
 | `constraint` | constraint declaration | constraints |
-| `proto` | protocol declaration | protocols |
+| `proto` | protocol declaration, legal only as a `const` initializer (`const person = proto {…}`, R126) | protocols §1 |
 | `enum` | enum declaration | enum |
 | `error` | error declaration **and** the root error type (dual role, position-resolved) | errors §3 |
 | `capability` | capability declaration (`const io = capability`) | capabilities §1 |

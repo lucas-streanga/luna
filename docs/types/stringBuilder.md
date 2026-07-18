@@ -70,7 +70,7 @@ The builder's operations are `stringBuilder`'s protocol functions, reached with 
 (protocols §3). The protocol:
 
 ```
-stringBuilder = proto {
+const stringBuilder = proto {
   identityEquality;                    // builders compare by identity (protocols §5)
 
   var buf: bytes = bytes();            // ungranted: private, per-table (Go-backed)

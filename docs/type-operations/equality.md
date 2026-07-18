@@ -81,11 +81,14 @@ every type belongs to exactly one:
   `byte`, `null`), `string`, `table` (structural, §4), and `error` (nominal type plus the
   identity surface, §5). Two distinct values with the same contents are equal.
 - **Identity-equality types**, compared by **identity** (same underlying object): `stream`, `fn`,
-  `promise`, `capability`, `command`, and a **table that has an applied `identityEquality` protocol**
+  `promise`, `capability`, `command`, `proto` (R126), and a **table that has an applied
+  `identityEquality` protocol**
   (§4.4, which is how builders compare). Two of these are equal only if they are the **same** value,
   because comparing their contents is impossible (a `stream` cannot be read without consuming it,
   and may be infinite), undecidable (`fn` extensional equality), or meaningless (a `capability` is a
-  zero-data singleton; a builder is a transient accumulator). Identity equality is a pointer compare.
+  zero-data singleton; a builder is a transient accumulator; a `proto` is a **brand** — one `const`
+  declaration, one identity, protocols §1 — so two structurally identical protos are deliberately
+  distinct). Identity equality is a pointer compare.
 - **The `type` value**, compared by **`typeid`** (§3): a single integer compare on the canonical
   type identity. This is a degenerate value-equality (the "content" of a type is its `typeid`).
 

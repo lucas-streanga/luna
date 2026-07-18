@@ -212,7 +212,7 @@ already make the results safe, because there is nothing behind them to modify.
 
 ```
 const TypeKind = enum {
-  scalar, string, table, list, view, fn, stream, promise, capability,
+  scalar, string, table, list, fn, stream, promise, capability,
   enumType, protocol, constraint, union, typeType, ...
 };
 ```
@@ -229,44 +229,30 @@ unlike reflecting an application refinement (§3.5). Protocol reflection queries
 
 ```
 fn protoName(p: proto): string
-comptime fn elementMembers(p: proto): list
-comptime fn metaMembers(p: proto): list
-comptime fn metaFunctions(p: proto): list
 fn declaresIdentityEquality(p: proto): bool
-fn hasApply(p: proto): bool
 ```
 
-- **`protoName(p)`**, the protocol's name (runtime-tier; the same name `protoName` already provides,
-  views spec §7.3).
-- **`elementMembers(p)`**, the element members the protocol declares (protocols spec §5), each
-  `['name' => string, 'type' => type]`. These are the public, element-space members, the same space
-  `fields` reports on a table.
-- **`metaMembers(p)`**, the protocol's declared meta members (its protocol-private state, protocols
-  spec §3.3), each `['name' => string, 'type' => type]`. This reflects the **declaration** of the
-  private state, never any table's **values**.
-- **`metaFunctions(p)`**, the protocol's meta functions (its behavior), each `['name' => string,
-  'signature' => type]` where the signature is the `fn` type.
+- **`protoName(p)`**, the protocol's name: the identifier of the `const` declaration that
+  created it (protocols §1, R126) — load-bearing since R125, where it keys the `"@@"`
+  serialization sections and their collision refusal.
 - **`declaresIdentityEquality(p)`**, whether the protocol declares `identityEquality` (equality spec
   §4.4), a cheap fact.
-- **`hasApply(p)`**, whether the protocol has an `apply` meta function (protocols spec §4), a cheap
-  fact bearing on errorability of application.
 
-Two boundaries make protocol reflection safe for encapsulation:
+The **member-model query surface** — enumerating a proto's members with their binding
+keywords, grants, types, and default-presence, and its requirements (protocols §2, §7) —
+is **deferred to the reflection deep pass** (R126). The pre-R95 queries this section
+carried (`elementMembers`, `metaMembers`, `metaFunctions`, `hasApply`) reflected a
+protocol model that no longer exists — meta space, protocol-declared element members,
+custom apply bodies, all retired by R95–R98 — and are **deleted, not renamed**. Two
+boundaries any future surface must keep: queries are **keyed on the protocol, not the
+applying table** (reached from a value via `@@t`, then reflected), and they expose
+**declarations, never values** — no table's private member state is reachable, because
+deep introspection of private state is exactly what encapsulation exists to prevent;
+reflection stops at the declaration boundary.
 
-- **It is keyed on the protocol, not the applying table.** Meta members are the same for every table
-  applying a protocol (they are the protocol's declaration), so they are reflected off the `proto`,
-  reached from a value via `@@t` (views spec §7: the protocols a table has applied), then reflected. You do
-  not reflect meta members off a table.
-- **It exposes declarations, never values.** `metaMembers(p)` tells you a protocol declares
-  `meta buffer: bytes`; it does **not** expose any table's actual buffer contents. Meta *values* stay
-  private, reachable only inside the protocol's own meta functions (protocols spec §3.3). Reflection
-  sees the protocol's public *shape*, not any application's private *state*. This is deliberate: deep
-  introspection of private state is exactly what encapsulation exists to prevent, so reflection stops
-  at the declaration boundary.
+### 3.5 Application refinements (`@P`) are reflected by decomposition, not directly
 
-### 3.5 Application refinements (`@P`) and views are reflected by decomposition, not directly
-
-A application refinement `@P` and a `view` value are **not** in the domain of type reflection, because
+An application refinement `@P` is **not** in the domain of type reflection, because
 `@P` is **not a `type` value** (type spec §5): it has no `typeid`, so `typeName`/`kind`/`fields` do
 not take it. This is not a gap; it is a consequence of the type model, protocol-applying lives on the
 `@@` axis, not the `@` axis, so type reflection structurally cannot apply to it.
@@ -277,7 +263,7 @@ Reflecting "a table with `P` applied" therefore **decomposes** along the two axe
   is `table`. A bare `table` type has **no declared fields** (no shape types), so `fields(@t)` is
   the **empty list**; a table's per-key types are declared by a protocol, so they surface through
   the protocol reflection below, not through `@t`.
-- **The protocols** are reflected via `@@t` (the protocols the value has applied, views spec §7), each a
+- **The protocols** are reflected via `@@t` (the protocols the value has applied, protocols §8), each a
   `proto` reflected by §3.4.
 
 And to **dispatch** on whether a value has a protocol applied, the tool is **`match`** (type spec §7):
@@ -331,7 +317,8 @@ Reflection functions complement, and never replace, the reflection **operators**
 
 - **`@x`** (type spec) produces the `type` value that reflection functions take. `@` is how you get
   a type; the functions are how you query it. `typeName(@x)`, `kind(@x)`, `fields(@x)`.
-- **`@@x`** (views spec) reflects a value's **protocols**, a separate axis from type reflection. The
+- **`@@x`** (protocols §8) reflects a value's **protocols**, a separate axis from type reflection —
+  total over `any`, `[]` for any non-table (R126). The
   functions here are about the type layer (`@`), not the protocol layer (`@@`).
 - **`declared x`** (type spec §4) gives a binding's declared type, itself a `type`, so reflection
   functions apply to it too (`unionMembers(declared x)` enumerates what the binding admits).
@@ -352,20 +339,21 @@ tier (static type, structural).
 - **`constraintPredicate` returns a runnable predicate** (§3.2): a comptime-eligible plain `fn`,
   runnable at both comptime and runtime; the body is not introspectable (never needed), only
   callable.
-- **`fields` reports element (table) fields only** (§3.2); meta members are reflected off the
-  **protocol** via `metaMembers`/`metaFunctions` (§3.4), keyed on the `proto`, exposing declarations
+- **`fields` reports element (table) fields only** (§3.2); protocol members are reflected off the
+  **protocol** (§3.4 — the member-model query surface is deferred, R126), keyed on the `proto`,
+  exposing declarations
   never values (encapsulation).
-- **`@P` / views are reflected by decomposition, not directly** (§3.5): the table via `@`-reflection,
+- **`@P` is reflected by decomposition, not directly** (§3.5): the table via `@`-reflection,
   the protocols via `@@`, dispatch via `match`, because `@P` is not a `type` value.
 - **Reflection results are value-semantic and safely mutable** (§3.2): mutation is harmless (no live
   link to a type), so no freezing is needed.
 
 **Open:**
 
-- **Field ordering and applied-member inclusion.** Whether `fields(t)` reports fields in declaration
-  order (the natural choice, given tables are ordered) and whether it includes element members
-  installed by *applied protocols* (which are element-space, so arguably yes) or only the type's own
-  declared fields, pending use with the protocol model.
-- **`elementMembers` vs `fields` overlap.** Whether a table type's fields and a applied protocol's
-  declared element members are reported through one unified query or the two separate ones here,
-  pending the same protocol-model use.
+- **Field ordering.** Whether `fields(t)` reports fields in declaration
+  order (the natural choice, given tables are ordered). *(The applied-member half of this
+  open is **dissolved by R95/R126**: protocols never touch element space, so there are no
+  protocol-installed element members for `fields` to include, structurally.)*
+- *(**`elementMembers` vs `fields` overlap: dissolved by R95/R126** — protocols declare
+  no element members and the pre-R95 query is deleted; the protocol axis gets its own
+  member-model surface in the reflection deep pass, §3.4.)*

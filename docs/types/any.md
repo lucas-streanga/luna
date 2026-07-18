@@ -17,6 +17,8 @@ asked for:
 - **`as T`**: the checked narrowing, the door out of `any`.
 - **`match` with typed bindings**: the structured door out (`match (v) { n: int => ... }`).
 - **`@v`**: the type of the value, always answerable.
+- **`@@v`**: the value's applied protocols, always answerable — `[]` for any non-table,
+  the same "no" that `v is @P` gives (protocols §8, R126).
 - **`toString(v)` and interpolation** (`"$v"`): rendering is total (conversion §3).
 - **`copy v`**, crossing `spawn` (deep copy applies per the actual value's class).
 
