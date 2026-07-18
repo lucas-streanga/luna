@@ -3265,6 +3265,36 @@ nothing in `std.random` will ever claim security. Swept: `std/random.md` §3
 (attribution), §3.1 (new), §7 (crypto pointed home), `std/crypto.md` (new),
 `index.md` (the row).
 
+**R141 — `std.math`: the alpha standard library completes.** The shortest real module
+after platform, everything pure, capability-free, comptime-eligible, IEEE-sentinel
+throughout (`sqrt(-1.0)` is `nan`, nothing errors, nothing panics — double.md's
+stance applied). **What it deliberately does not duplicate** frames the module: the
+catalogue owns collection aggregates (`sum`/`average`/`product`/`min`/`max`/`mode` —
+so `mean` is not added, it is `average`), double.md owns the special-value probes and
+the rounding **policy verbs** — and a double-returning `floor`/`ceil` family is
+**recorded absent**: the policy verbs own rounding, and a parallel float family would
+put two meanings behind one name. **The surface**: `pi`/`e`; `abs`/`sign`/`clamp`
+over `number` with **kind following the operand** (the R92 precedent; `abs(minInt)`
+panics, the int rule); **`lerp`** (user-added — simple, very useful for graphics)
+with the C++20 endpoint discipline (`lerp(a,b,0)` and `lerp(a,b,1)` exact; `t`
+unclamped, extrapolation is the graphics convention, compose with `clamp`);
+`sqrt`/`hypot`/`pow`/`exp` — `hypot` stating the module's inclusion criterion, a
+function earns a row when the obvious composition is a trap (`sqrt(x*x+y*y)`
+overflows); **`ln`, not `log`** (bare "log" is ambiguous between mathematics and
+engineering, so no export bears it; `log2`/`log10` round out three
+precision-optimized names, a general base being a one-liner); trig in **radians
+only** with `toRadians`/`toDegrees` at the boundary (R106's `to*` contract exactly);
+and **statistics split by the R92 retention rule**, which slots them perfectly —
+`variance`/`stddev` take `iterable` (single-pass Welford, stream-legal, `sample:
+bool = false` for Bessel's correction), `median`/`percentile` take `table` only (they
+sort; whole-input family), empty input yielding `nan`, the IEEE answer to an
+undefined statistic. Deferred until earned: hyperbolics, `gcd`/`lcm`, combinatorics,
+integer `pow`. Swept: `std/math.md` (new), `index.md` (the row). **With this, the
+alpha standard library is complete below the network tier**: io, json, time,
+datetime, introspection, process, filesystem, platform, random, math, secret, exec,
+channels — all landed; what remains is the designed-last networking sequence, the
+timeout / `awaitAny` / select session and `std.net` behind it.
+
 ---
 
 ## Still open (out of scope of these rulings)

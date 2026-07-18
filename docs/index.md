@@ -187,6 +187,7 @@ table is a map.
 | std.filesystem | `filesystem.md` | The structure module (R135): the `path` constraint + pure path ops, `exists`/`stat`/`entries`/`walk`, create/delete/rename/copy, temp files — under `filesystem`; the ioError family extended. |
 | std.random | `random.md` | Randomness (R139): seeding is the effect (`entropy`: `randomSeed`/`randomBytes`/`randomStream`), generation is pure (`prng` = a PCG-64 stream, `next*`); restart is replay; every run replayable from one logged seed. |
 | std.crypto | `crypto.md` | Deferred in full, deliberately (R140): crypto surfaces are tight stuff and poor decisions last decades — designed as its own effort, never in passing. Today: `randomBytes` + `secret` + the exec hatch. |
+| std.math | `math.md` | Scalar mathematics (R141): `pi`/`e`, `abs`/`sign`/`clamp`/`lerp`, `sqrt`/`hypot`/`pow`/`exp`/`ln`/`log2`/`log10`, trig in radians with the `to*` degree pair, statistics split by the retention rule. Pure throughout; everything folds. |
 | std.net | `net.md` | Deferred in full (R121): the network family — gated on the timeout surface, by design. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
