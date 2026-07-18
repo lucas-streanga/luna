@@ -56,6 +56,10 @@ list**, not a shell string:
 // args:    ["-n", "foo", "file.txt"]
 ```
 
+- The literal's escapes are `` \` `` (a literal backtick), `\\`, and `\$` (a literal
+  dollar) — the authoritative table is strings §13.1 (R150, superseding the earlier
+  no-escapes ruling, lexer G5: the `${'\u{60}'}`-style interpolation workaround for a
+  literal backtick was ceremony where one escape pair suffices).
 - The literal is tokenized into a program name and arguments by whitespace, like a shell
   argument vector, but it is **never handed to a shell**. Execution uses a direct
   program-and-arguments call (exec spec), the equivalent of `execve` / Go's `exec.Command`,

@@ -233,11 +233,11 @@ compete with `REGEX` and comments; see F2.
 |-|-|-|
 | `${` | `INTERP_OPEN` | `\$\{` — pushes `INTERP_EXPR` |
 | `$name` | `INTERP_IDENT` | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (strings §13) |
-| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | `(?s)\\.` — one backslash-pair; `DQ_STRING` and `REGEX_BODY` only (commands have no escapes, command §2.2). Decoding is a later pass (G4) |
+| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, strings §13.1 (R150) |
 | text run (dq) | `DQ_TEXT` | `[^"\\$]+` |
 | lone `$` | text (fallback, all modes) | `\$` — a `$` not starting an interp form is literal text (in commands: `$` not followed by `{`, command §2.2) |
 | text run (regex) | `REGEX_TEXT` | `[^/\\$]+` |
-| text run (command) | `CMD_TEXT` | ``[^`$]+`` |
+| text run (command) | `CMD_TEXT` | ``[^`\\$]+`` (backslash excluded since R150 — commands have escapes) |
 | `${...expr}` | `INTERP_OPEN` + `SPREAD` + … | spread-splice in commands and literals (command §3, spread §5); the `...` lexes as `SPREAD` inside `INTERP_EXPR` |
 
 Closing delimiters end the mode: `"` (`DQ_CLOSE`), unescaped `/` plus `[imsxb]*`
@@ -353,13 +353,18 @@ Seven gaps surfaced during cross-referencing; six are now ruled, one stays open.
   and C-style `/* … */` block comments that do **not** nest, so §2's regex is the complete
   rule. There is no doc-comment syntax — attributes carry documentation — and the corpus's
   doc-comment references are gone.
-- **G4 — open.** The double-quote escape set is still only exemplified (`\n`, `\t`, `\0`,
-  `\$`, plus `\"`/`\\` implied; bytes adds `\xNN`). The token *span* is unaffected (`\\.`
-  covers any pair) but the string decoder needs the full table (`\r`? `\u{…}`?).
-- **G5 — resolved.** Command literals have **no escape sequences** (command §2.2): `\` is
-  an ordinary byte, and a literal `` ` `` or `${` is written through interpolation
-  (``${'`'}``, `${'${'}`), which the new adjacency rule (command §3) joins into the
-  surrounding argument. The lexer's `COMMAND` mode is unchanged and correct as specified.
+- *(**G4 — resolved by R150.** The full escape table is authoritative in strings §13.1:
+  per-context rows for `"…"`/`'…'`/`b"…"`/`` `…` ``/`/…/`, with `\u{…}` added (the
+  strings-side codepoint escape; `\xNN` stays bytes-only on the UTF-8-validity split),
+  `\r` confirmed, the exemplified `\0` retired (no shorthand; `\u{0}`), and unknown
+  escapes ruled lex errors. The token *span* is unaffected — `\\.` covers any pair —
+  except `\u{…}`, whose braces ride the existing brace-depth machinery.)*
+- *(**G5 — superseded by R150.** The earlier resolution gave command literals no escapes,
+  spelling a literal backtick through interpolation (``${'`'}``, joined by the adjacency
+  rule) — ceremony where one escape pair suffices, and the mode table's "unescaped
+  `` ` ``" terminator had implied the escape reading all along. Commands now escape
+  `` \` `` `\\` `\$` (command §2, strings §13.1); `COMMAND` mode gains `ESCAPE_PAIR`
+  and `CMD_TEXT` excludes the backslash, §4.)*
 - **G6 — resolved.** The identifier grammar is now formal (lexical-structure §2): ASCII
   `[A-Za-z_][A-Za-z0-9_]*` as actual bytes, no Unicode identifiers, and all source files
   must be valid UTF-8 (lexical-structure §1) — the lexer rejects anything else up front.

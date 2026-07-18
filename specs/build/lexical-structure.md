@@ -66,8 +66,8 @@ not an identifier; `keywords.md` is the sole authority for the reserved set.
   not keywords (keywords §5). They fit this grammar and obey it.
 
 **Casing carries no semantics.** The compiler enforces no capitalization rule; the house
-conventions (camelCase for bindings and functions; the builtin error-type casing question is
-still open, keywords §6) are style, not grammar.
+conventions (camelCase for bindings and functions; error and panic type names camelCase too,
+ruled R122, keywords §6) are style, not grammar.
 
 ---
 
@@ -129,8 +129,12 @@ compile.
 
 **Open.**
 
-- The full **escape-sequence table** for string and numeric literals is exemplified but not
-  closed (lexer G4); it is owned by `strings.md` (and bytes/double), noted here only because
-  it is lexical.
-- Block-comment **nesting** stands deferred (§3), not rejected.
-- The **casing convention** for builtin error types awaits its own ruling (keywords §6).
+- *(The full **escape-sequence table** is **closed by R150** — strings §13.1, the one
+  authority: per-context rows, `\u{…}` added on the UTF-8-validity split (`\xNN` stays
+  bytes-only), unknown escapes are lex errors, no `\0`/octal, and command literals gained
+  their three escapes, superseding lexer G5.)*
+- Block-comment **nesting** stands deferred (§3), not rejected — **reaffirmed R150**: do not
+  implement; the depth counter is cheap but the failure-mode change (miscounting on unbalanced
+  delimiters inside commented-out content) has still not earned its keep.
+- *(The **casing convention** for builtin error types was **resolved by R122** — camelCase
+  everywhere, keywords §6; this bullet had gone stale.)*

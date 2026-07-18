@@ -431,7 +431,8 @@ Interpolation is lexer-level surface syntax that lowers to builder calls (§12),
 joins. The rules follow PHP for quoting and Perl for what may be spliced:
 
 - **Double quotes interpolate and honor escapes.** `"$name"`, `"${expr}"`, and escapes
-  like `"\n"`, `"\t"`, `"\0"`, `"\$"` are all live in a double-quoted literal.
+  like `"\n"`, `"\t"`, `"\$"`, `"\u{1F600}"` are all live in a double-quoted literal —
+  the complete set is §13.1's table, the one authority.
 - **Single quotes are literal.** `'...'` neither interpolates nor processes escapes;
   `'$name\n'` is the eight characters `$`, `n`, `a`, `m`, `e`, `\`, `n` (and a literal
   `$`). The only single-quote escape is `\'` for a quote itself (and `\\` for a
@@ -446,6 +447,36 @@ Lowering: a double-quoted literal with interpolations becomes a builder that app
 the literal runs and the `toString` of each splice in order, then `build()`s once. So
 interpolation and manual builder use share one mechanism, and interpolation carries no
 hidden O(n^2) cost.
+
+### 13.1 The escape table (R150)
+
+The complete escape set, per literal context — this table is the one authority
+(lexical-structure §4 and lexer G4 point here; bytes §7 and command §2 defer to it for
+their shared rows):
+
+| Context | Escapes |
+|-|-|
+| `"…"` double-quoted string | `\n` `\t` `\r` `\\` `\"` `\$` (a literal dollar — suppresses interpolation) `\u{H…}` (1–6 hex digits, a Unicode scalar value) |
+| `'…'` single-quoted string | `\'` `\\` only (above — literal strings stay literal) |
+| `b"…"` bytes literal | `\n` `\t` `\r` `\\` `\"` `\xNN` (one raw byte) — no `\$` (no interpolation), no `\u{}` (bytes §7) |
+| `` `…` `` command literal | `` \` `` `\\` `\$` |
+| `/…/` regex literal | the regex spec's own escape language (`\/` plus RE2's), passed through undecoded (regex §2) |
+
+Three rules, each ruled (R150):
+
+- **`\u{…}` is the strings-side codepoint escape, and the `\xNN` split is safety, not
+  taste**: a raw byte in a *string* could break the UTF-8 validity guaranteed at
+  ingress (lexical-structure §1 — a lone `\xFF` is not valid UTF-8), so `\xNN` is
+  **bytes-only**, while `\u{…}` encodes a codepoint to valid UTF-8 *by construction*.
+  Surrogates (`\u{D800}`–`\u{DFFF}`) and values above `\u{10FFFF}` are lex errors.
+  Without `\u{…}`, control and invisible characters would be unwritable in strings,
+  since the raw-byte door is (correctly) closed.
+- **An unknown escape is a lex error.** Any `\` followed by a character not in its
+  context's row is a compile error — never PHP's silent pass-through (`"\q"` staying
+  `\q`), which is a silent-wrong-value.
+- **No `\0` shorthand, no octal**: `\u{0}` spells NUL when genuinely wanted; octal
+  escapes are a C-ism with no constituency. (An earlier §13 example showed `"\0"`; it
+  is retired by this table.)
 
 ---
 

@@ -3571,6 +3571,37 @@ already fixed). Eviction tuning stays open, correctly. Swept:
 comptime-observable bullet), §1.3 (the coupling note), §3 (version-and-target), §5
 (the grounded open); `compiler.md` intro, §1 diagram, §0.1 (the key), §4, §5, §7.3.
 
+**R150 — the escape table lands; lexer G4 closes, G5 is superseded; two lexical
+opens settle.** The lexical-structure combing: block-comment nesting **reaffirmed
+deferred** (do not implement — the depth counter is cheap but the failure-mode
+change has still not earned its keep), the error-casing bullet closed as stale
+(resolved by R122; this file missed that sweep), and **the escape-sequence table is
+ready and ruled** — the corpus had already fixed most rows piecewise (bytes §7's
+enumeration, strings §13's single-quote rule, regex's own language, the COMMAND
+mode's "unescaped `` ` ``" terminator), and assembling them surfaced the three
+decisions now blessed. **The authoritative table is strings §13.1**, per context:
+`"…"` gets `\n` `\t` `\r` `\\` `\"` `\$` and **`\u{H…}`**; `'…'` keeps its ruled
+pair; `b"…"` gets the shared set plus `\xNN`, minus `\$` and `\u{}`; `` `…` `` gets
+`` \` `` `\\` `\$`; `/…/` passes RE2's language through. **The three rulings**: (1)
+the **`\xNN`/`\u{…}` split is safety, not taste** — a raw byte in a string could
+break the UTF-8 validity guaranteed at ingress, so `\xNN` is bytes-only, while
+`\u{…}` encodes valid UTF-8 by construction (surrogates and >`10FFFF` are lex
+errors; without it, control characters would be unwritable in strings since the
+raw-byte door is correctly closed); (2) **an unknown escape is a lex error**, never
+PHP's silent pass-through; (3) **no `\0` shorthand, no octal** — `\u{0}` spells NUL,
+and §13's exemplified `"\0"` is retired by the table. **Two internal contradictions
+resolved en route**: lexer G4 closes (span unaffected — `\\.` covers any pair, and
+`\u{…}`'s braces ride the existing depth machinery; decoding reads §13.1), and
+**lexer G5 is superseded** — its no-command-escapes resolution (a literal backtick
+via the ``${'`'}`` interpolation workaround) was ceremony where one escape pair
+suffices, and the mode table's "unescaped `` ` ``" terminator had implied the escape
+reading all along; `COMMAND` mode gains `ESCAPE_PAIR`, `CMD_TEXT` excludes the
+backslash. Swept: `strings.md` §13 (the example list de-`\0`'d) and §13.1 (new, the
+authority); `bytes.md` §7 (repointed, the bytes-only rationale in place);
+`command.md` §2 (the three escapes, G5's supersession noted); `lexer.md` §4 (two
+rows), G4/G5 (records); `lexical-structure.md` §2 (casing), §4 (three bullets:
+closed, reaffirmed-R150, stale-closed).
+
 ---
 
 ## Still open (out of scope of these rulings)
