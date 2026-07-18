@@ -3919,6 +3919,36 @@ joins the family), `compiler.md` §7.5, `index.md`, `keywords.md` §5, and the
 only "a panic") and the errors §2 panic-tree annotation widened from int-only to
 tower-wide (int `/` `%`, rational `/`, decimal `div`).
 
+**R165 — operators.md catalogue validated against the corpus: no new decisions,
+ten repairs.** A full row-by-row pass of the master catalogue (§0) against
+everything ruled through R164, requested as validation; every fix applies an
+existing ruling, none makes a new one. The finds: **`await` appeared twice**
+(two rows, drifted independently — merged into one, which now also names the
+`doubleAwait` second-await panic, R142); **the compound-assign row contradicted
+the coalescing rows** — it glossed `??=` as "assigns only when null", but `??=`
+is *absent*-assign and `???=` (which the row omitted entirely) is null-assign;
+**two `&`-intersection rows** — the older protocol-only row predated the general
+type meet (type §3.1) and was absorbed into it; **the `@@` row still cited the
+retired `reflection` spec** and used the retired read-write word ("reflect",
+R127's whole point) — now "applied protocols", protocols §8/introspection; **the
+spread row called variadics "unspecified"** (resolved by R108, functions §3.3);
+**the `?->` token was missing outright** (landed R101, present in five specs,
+absent from the table claiming every operator); **`try`, `throw`, `comptime`,
+and `yield` had no rows** though the catalogue includes their siblings (`match`,
+`defer`, `copy`, `comptype`) and keywords §2–§3 lists all four — added;
+**`comptype`'s kind said "reflection"** — now "introspection", and the §0 intro's
+kind enumeration was reconciled with the kinds the table actually uses (it
+promised "bitwise", which has no rows — deferred, int §8 — and omitted
+structure/introspection/comptime); **the `/` and `%` rows** gained the extended
+tower's exclusions (decimal has no `/`; `%` omitted for the exact types and
+complex) and their `duration` arms (std.time §2); **§2's tail** still called
+`decimal`'s representation an open question (R161) — rewritten to point at the
+tower's real remainders (literal forms, bitwise). Not touched deliberately:
+"green thread" in the `spawn` row is corpus-legitimate terminology (overview,
+compiler §7), not drift. Swept: `operators.md` §0 (the catalogue and intro),
+§2 (the tail) — single-file by nature; the catalogue is a mirror, and the
+corpus it mirrors was already consistent.
+
 ---
 
 ## Still open (out of scope of these rulings)

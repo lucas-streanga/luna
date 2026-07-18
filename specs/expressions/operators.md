@@ -14,7 +14,7 @@ operator's full semantics live in the spec named in its catalogue row.
 
 This is **every operator in Luna**, in one table. The **Kind** column groups them by role
 (arithmetic, comparison, logical, access, coalescing, type, reference, assignment, control flow,
-concurrency, bitwise). Several tokens have **more than one meaning, disambiguated by grammatical
+concurrency, structure, introspection, comptime). Several tokens have **more than one meaning, disambiguated by grammatical
 position** (prefix vs. infix vs. postfix, or value-position vs. type-position), the same way C's `*`
 is both multiplication and pointer-deref; this is a static parsing fact, not overloading (§1).
 Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, marked by position.
@@ -24,8 +24,8 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `a + b` | arithmetic | add | numeric addition (never concatenation, never merge); `duration`/`instant` add per their dimensional table (std.time §2, R132) | numeric-operators, int, double |
 | `a - b` | arithmetic | subtract | numeric subtraction | numeric-operators |
 | `a * b` | arithmetic | multiply | numeric multiplication | numeric-operators |
-| `a / b` | arithmetic | divide | numeric division (integer div-by-zero panics; float yields IEEE) | numeric-operators, int, double |
-| `a % b` | arithmetic | modulo | remainder | numeric-operators, int |
+| `a / b` | arithmetic | divide | numeric division (integer and `rational` div-by-zero panic, `divisionByZero`; float and `complex` yield IEEE; `decimal` has no `/` — `div` carries the policy, decimal §3); also `duration / int`, `duration / duration` (std.time §2) | numeric-operators, int, double |
+| `a % b` | arithmetic | modulo | remainder (also `duration % duration`, std.time §2; omitted for the exact types and `complex` — numeric-operators §1) | numeric-operators, int |
 | `-a` | arithmetic | negate | unary minus, the additive inverse (uniform across the numeric tower; also `duration`, std.time §2); there is no unary `+` (numeric-operators §1.1) | numeric-operators §1.1 |
 | `a == b` | comparison | equal | semantic equality (strict, typeid-first; IEEE for doubles) | equality |
 | `a != b` | comparison | not equal | negation of `==` | equality |
@@ -37,6 +37,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `x[k]` | access | dynamic key | runtime element access (miss yields `undefined`) | tables §3.2 |
 | `x->name` | access | protocol | protocol-member access and call, compile-time resolved; assignable where the member grants `set` | tables §3.3, protocols §3 |
 | `x?.y` | access | optional access | guarded access: a `null`/`undefined` receiver short-circuits to `undefined` | coalescing |
+| `x?->name` | access | optional protocol access | guarded `->`: a `null`/`undefined` receiver short-circuits to `undefined` (the `?->` token, R101) | coalescing, protocols §3 |
 | `a ?? b` | coalescing | absent-coalesce | `b` if `a` is `undefined`, else `a` (preserves a stored `null`) | coalescing |
 | `a ??? b` | coalescing | null-coalesce | `b` if `a` is `undefined` **or** `null`, else `a` | coalescing |
 | `a ??= b` | coalescing | absent-assign | assign `b` to `a` only if the key is absent | coalescing |
@@ -44,19 +45,19 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `x is T` | type | type test | total **boolean** test: does value `x` have type `T`? never panics, never narrows | is |
 | `x as T` | type | checked narrow | narrow `x` to `T`, or panic (`typeError`); yields a value of `T`, never transforms | as |
 | `A \| B` | type | union | type union ("one of"; **type position**) | types |
-| `@P & @Q` | type | intersection | protocol-application intersection ("all of"; **infix, type position**; distinct from prefix `&` reference) | types, protocols |
 | `T?` | type | optional | `T \| null` shorthand (**postfix, type position**) | variables, coalescing |
 | `T!` | type | errorable | adds the error arm (`| error`, errors §7) to a type / function (**postfix, type position**; distinct from prefix `!`) | errors, functions |
 | `@x` | type | type-of | value position: the value's `type`; type position: application-refinement `@P` | type §1.1 |
-| `@@x` | type | protocol-reflect | reflect a value's applied protocols; total over `any`, `[]` for any non-table (R126) | reflection, protocols §8 |
+| `@@x` | type | applied protocols | the value's applied-protocol set; total over `any`, `[]` for any non-table (R126) | protocols §8, introspection |
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
-| `A & B` | type | intersection | the type meet, canonical and total (**infix, type position**; distinct from prefix `&` reference) | type §3.1 |
-| `await p` | concurrency | await | park until the task completes; move its result out; consume the promise (word prefix) | await |
-| `a += b` (and `-=` `*=` `/=` `%=` `??=`) | assignment | compound assign | `a = a op b`, target evaluated once; `??=` assigns only when `a` is null | associativity §1 |
-| `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | introspection §4.2 |
-| `...x` | structure | spread / rest | position-disambiguated: in a **table literal** it **spreads** a table or stream into entries, keys surviving the fold; in **argument lists, command literals, and interpolation** it spreads a `list` (a sequence context has no key slot, spread §4); in a **pattern** it is the trailing **rest** element (destructuring §1.2). A third position, `...name` in a parameter list, declares a variadic and is unspecified (spread §7) | spread, destructuring |
+| `A & B` | type | intersection | the type meet ("all of"), canonical and total (**infix, type position**; distinct from prefix `&` reference); protocol applications are the common case (`@P & @Q`) | type §3.1, protocols |
+| `await p` | concurrency | await | park until the task completes; resolve the `promise` to `T!` and consume it — a second `await` panics (`doubleAwait`, R142) (word prefix) | await, concurrency |
+| `a += b` (and `-=` `*=` `/=` `%=`; `??=` `???=` above) | assignment | compound assign | `a = a op b`, target evaluated once; the coalescing assigns follow their own rows (absent-assign / null-assign) | associativity §1 |
+| `comptype x` | introspection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | introspection §4.2 |
+| `comptime expr` | comptime | comptime eval | force compile-time evaluation of a pure expression (word prefix) | functions §5 |
+| `...x` | structure | spread / rest | position-disambiguated: in a **table literal** it **spreads** a table or stream into entries, keys surviving the fold; in **argument lists, command literals, and interpolation** it spreads a `list` (a sequence context has no key slot, spread §4); in a **pattern** it is the trailing **rest** element (destructuring §1.2). A third position, `...name: T` in a parameter list, declares a variadic (functions §3.3, R108) | spread, destructuring |
 | `a = b` | assignment | assign | assign `b` to `a`; **the expression evaluates to the assigned value** (§0.3) | variables, operators §0.3 |
 | `a .. b [by s]` | control flow | range | lazy range stream, sugar for an immediately-invoked generator (range §4a); `by` takes any once-evaluated int expression, sign = direction, `0` panics, `b < a` without a negative step is empty | range |
 | `.. by n` | control flow | step | range step | range |
@@ -64,9 +65,11 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `pattern where guard` | control flow | guard | boolean guard on a match arm / comprehension | match |
 | `match` / `match!` | control flow | match | pattern selection (total `match`, panicking `match!`) | match |
 | `defer stmt` | control flow | defer | run `stmt` on scope exit | defer |
+| `try expr` / `try {} catch (e) {}` | control flow | try | error recovery: the error arm becomes a value (word prefix) or is handled by the `catch` block | errors §8 |
+| `throw e` | control flow | throw | raise an error (word prefix) | errors §4 |
+| `yield v` / `yield k => v` | control flow | yield | generator suspension; a literal whose own body contains `yield` is a generator (lexical, per literal) | stream §2 |
 | `t apply P(name: v)` | structure | apply | static protocol application: `@P`-typed result, initializers checked at compile time, never errorable; dynamic application is the free function `apply()`, removal its inverse `unapply()` (protocols §4.6) | protocols §4 |
 | `spawn f()` | concurrency | spawn | start a green thread, yielding a `promise` | concurrency |
-| `await p` | concurrency | await | resolve a `promise` to `T!` | concurrency |
 
 **Two things deliberately absent from the table**, each because the language provides the capability
 another way rather than as an operator:
@@ -209,5 +212,7 @@ reintroduces every hidden-cost and hidden-control-flow problem the rule exists t
 
 The **arithmetic operators** (`+`, `-`, `*`, `/`, `%`, unary `-`) are specified in the
 **numeric-operators** spec; the **numeric type set** they operate on is the **numeric-tower** spec.
-Open questions about the numeric types (signed smalls, `decimal` representation, mixed-width
-ergonomics, library-vs-built-in numerics) live with those specs, not here.
+The numeric type-set questions that once lived there are resolved (the family structure and
+smalls in the tower; `decimal` R161, `rational` R162, `complex` R164); what the tower still
+carries — literal forms for the wider types, the bitwise design (numeric-tower §7) — lives
+there, not here.
