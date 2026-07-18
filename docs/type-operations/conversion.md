@@ -64,8 +64,9 @@ decision, and its failures (nan, the infinities, out-of-range) belong to that de
 It is spelled by **policy verbs**, each `fn (d: double): int!` — `trunc` (toward zero),
 `round` (nearest, ties away from zero), `floor`, `ceil` (double spec §7) — so the policy
 the retired generic `toInt(d)` silently applied is now a visible choice in the source.
-The verbs sit outside the prefix families on purpose: they are decisions, not
-conversions.
+(When `decimal` lands, the verbs widen to `double | decimal`: a fractional `decimal` has
+no lossless `int` reading either — numeric-tower §4, R124.) The verbs sit outside the
+prefix families on purpose: they are decisions, not conversions.
 
 So **out is total, in is fallible**, and the `!` sits on the acquiring side only —
 readable off the prefix at every call site.
@@ -199,6 +200,10 @@ specs and summarized here:
   double spec §7).
 - **Numeric narrowing (policy verbs, fallible):** `trunc` / `round` / `floor` / `ceil`,
   each `fn (d: double): int!` (§2; double spec §7).
+- **Deferred with their types (R124):** `toFloat(d: double): float`, total — IEEE
+  round-to-nearest-even, overflow to `float` inf — lands with `float`, and the policy
+  verbs widen to `double | decimal` when `decimal` lands (numeric-tower §4, §6). Both
+  directions are lossy, which is why neither is ever `as` (as spec §3).
 - **Bool (total out):** `toInt(b: bool): int` (`true` to 1), `toString(b)` (`true` to `"true"`);
   there is deliberately no `int`-to-`bool` conversion (write the comparison; bool spec §3).
 

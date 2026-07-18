@@ -2567,17 +2567,58 @@ mutation class), `errors.md` §2 (`applyError` annotated), `keywords.md` §3 (th
 row; the keyword table itself untouched — `unapply` is a predeclared identifier, §5),
 `operators.md` (the `apply` row).
 
+**R124 — the F-series closes: F6 ruled (`as` is lossless), F4/F9/F22 were already
+dead.** The audit first: three of the four F-entries this file's tail still carried were
+stale, closed long ago — F4 (`list` drift vs panic) by R9/R10's fact/promise split keyed
+to the write path's declared type; F9 (union subtyping vs the interval test) by R18's
+two-tier test; F22 (`any` pipelines) by R34's types/any.md (universal operations work,
+`|>` demands narrowing). The tail now says so. F6 — "the `as` algebra exceptions" — was
+real: as.md §3 ruled "same bits, never a conversion" while the numeric tower granted
+`as` powers beyond subset-narrowing: `double as float` (rounds — a silently computed new
+value), `decimal as int` (panic-unless-exact over a precision-losing direction), and the
+representation-crossing `int as u64` / fixed-to-arbitrary entry. **Ruling: the criterion
+is losslessness, not representation.** "Same bits" was wrong on both sides — `int as
+u64` legally changes representation while preserving the value exactly, and a
+bit-preserving reinterpretation that changed the value would be exactly what `as`
+forbids. `as` may move a value between representations precisely when the value, where
+accepted, is preserved exactly, so the only possible failure is a membership/range check
+(panic), never precision. Consequences: `int as i8`, `u64 as u8`, `int as u64`, and
+`int as decimal` (total; §3.1's spelling updates from the `n.toDecimal()` placeholder —
+the cost argument there was against *implicit* widening, and `as` is explicit, so the
+rationale survives untouched) are all legal `as`. **`double as float` does not exist**:
+rounding is a computation, so it is the conversion `toFloat(d: double): float`, total
+(IEEE round-to-nearest-even, overflow to `float` inf, `nan` to `nan`), landing with
+`float`; `toF16` likewise when `f16` lands. **`decimal as int` does not exist**: a
+fractional `decimal` has no lossless `int` reading and picking a nearby one is a
+rounding *decision* — exactly the double→int question R106 answered with policy verbs —
+so `trunc` / `round` / `floor` / `ceil` widen to `double | decimal` when `decimal`
+lands. Corroboration that the algebra was already at work unnamed: R106 made int→double
+the *function* `toDouble` because it is lossy above 2^53, and R94 renamed `asStream` →
+`toStream` on the same instinct. En-route finds, both fixed: as.md §8's lone open ("`as`
+on secret payloads, pending `bytes`") was **resolved by R113** — `reveal`'s union
+narrows with ordinary `as string` / `match` (secret §5) — and is now recorded closed;
+and variables.md still used the retired `values()`-as-collector idiom
+(`(0..50).values()` "materializes… a list" — `values` has been the kind-preserving
+reindexer since R92, the materializer is `collect()`) plus an inference example claiming
+`t.values()` infers `list` against the catalogue's `iterable` signature — re-exampled
+onto a declared `fn (): list` producer. Swept: `as.md` §3 (the criterion, the table
+row), §6 (the numeric known-uses bullet), §8 (resolved); `numeric-tower.md` §1.3, §2,
+§3.1, §4 (all three narrowing rows rewritten), §5 footer; `conversion.md` §2 (the
+verbs-widen note), §5 (the deferred `toFloat` / verb-widening entry); `variables.md`
+(two sites); this file's tail (the stale F-list cleaned).
+
 ---
 
 ## Still open (out of scope of these rulings)
 
-A handful of contradictions surfaced by the review remain deliberately unresolved,
-each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
-exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
-(view interior mutability, F25, is **mooted by R95** — views no longer exist); (the
-builtin error types' casing is **resolved by R122** — camelCase everywhere); and,
-newly, **a reflection query for a function value's capability requirement set** (R88's
-tail, functions §3, reflection §3).
+The F-series is **closed** (audited by R124): F4 (`list` drift vs panic) was resolved
+by R9/R10, F9 (union subtyping vs the interval test) by R18, and F22 (`any` pipelines)
+by R34 — this list had simply gone stale while carrying them — and F6 (the `as` algebra
+exceptions) is resolved by R124 itself: **lossless is the criterion**. Also closed along
+the way: view interior mutability (F25, **mooted by R95** — views no longer exist) and
+the builtin error types' casing (**resolved by R122** — camelCase everywhere). Still
+genuinely open from that review era: **a reflection query for a function value's
+capability requirement set** (R88's tail, functions §3, reflection §3).
 
 From R89 and R90, once the largest flag in this file, now closed:
 

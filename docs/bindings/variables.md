@@ -41,8 +41,9 @@ against it.
   constraints: a **literal carries no constraint** (`var t = [1, 2, 3]` infers `table`;
   constraints enter only through declarations, constraints §7), while a value that
   already carries one keeps it (`var b = someByte()` infers `byte`, `var xs =
-  t.values()` infers `list`): a constraint is a validated commitment the producer made,
-  and inference preserves commitments, never manufactures them.
+  sortedNames()` infers `list` when that signature declares `fn (): list`): a
+  constraint is a validated commitment the producer made, and inference preserves
+  commitments, never manufactures them.
 
 ```
 var numbers: stream|table = 0..100;
@@ -50,8 +51,9 @@ println(@numbers.typeName);        // "stream"
 &numbers.map(fn (number: int) => number * 2);
 println("$num, ") foreach (num in numbers);   // 0, 2, 4, 6, 8 ...
 println(numbers.isConsumed());     // "true"
-numbers = (0..50).values();        // materialize the range into a list (a table);
-                                   // a conversion function, not `as` (`as` never transforms)
+numbers = (0..50).collect();       // materialize the range stream into a list (a table):
+                                   // collect is the one stream->retained bridge
+                                   // (iterable-functions §2.11); a function, never `as`
 println(@numbers.typeName);        // "list"
 numbers = null;                    // compile error incompatibleTypeError:
                                    // null is not a member of stream|table

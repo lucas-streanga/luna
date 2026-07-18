@@ -62,8 +62,8 @@ narrowing), and **`as`** when narrowing (which then types the binding). You rare
 
 ## 3. `as` is not a value conversion
 
-`as` narrows *types*; it never converts *values*. Transforming a value into a different value
-(with different bits) is a **function**, not `as`, because it runs custom code at runtime:
+`as` narrows *types*; it never converts *values*. Transforming a value into a **different
+value** is a function, not `as`, because it runs custom code at runtime:
 
 ```
 let text = toString(42);        // int -> string: a total function, "42"
@@ -80,10 +80,22 @@ The line between `as` and a conversion function is exact:
 
 | | `as` (narrowing) | conversion function |
 |-|-|-|
-| Transforms the value? | No, same bits | Yes, new value |
+| Transforms the value? | No: the exact value, preserved | Yes: a new value |
 | Runs custom code? | No, a type check | Yes |
 | Failure kind | `typeError` (panic) | declarable error (`!`), or total (no failure) |
 | Needs `!`? | Never | Yes if fallible (`parseInt`), no if total (`toString`) |
+
+The criterion, stated once (R124): **losslessness**. `as` may move a value between
+representations — `int as u64`, `int as decimal` (numeric-tower §3.1, §4) — exactly when
+the value, where accepted, is preserved **exactly**, so that the only possible failure is
+a membership/range check (`typeError` panic on a negative `int as u64`), never a
+precision question. A direction that loses information is a conversion no matter how it
+is dressed: `double as float` (rounds) and `decimal as int` (a fractional `decimal` has
+no lossless `int` reading) do not exist — they are `toFloat` and the policy verbs
+(conversion §2, numeric-tower §4). The retired shorthand "same bits" was wrong on both
+sides: `int as u64` legally changes representation while preserving the value, and a
+bit-preserving reinterpretation that changed the *value* would be exactly what `as`
+forbids.
 
 This split is why `as` keeps its clean "never `!`" property: everything that can fail with a
 *handleable* error is a function returning `!`, so `as` is left with only the panic-on-mismatch
@@ -209,6 +221,13 @@ and §3.2.1.
   type, checked. The `is` form (`e is commandError`) is the **boolean test** counterpart: it
   reports whether `e` is a `commandError` but does **not** narrow `e`; to obtain a `commandError`
   binding you use `as` (or `match`), which produces a new narrowed value.
+- **The numeric tower's `as` moves** (numeric-tower §2–§4): integer narrowing and crossing
+  (`int as i8`, `u64 as u8`, `int as u64`) and the arbitrary-precision entry
+  (`int as decimal`) are `as` because each is lossless where it accepts — range is the
+  only question, a panic. The lossy directions are functions, not `as`: `double as float`
+  and `decimal as int` do not exist (`toFloat`; `trunc`/`round`/`floor`/`ceil`). And
+  int-to-double was a function before the rule had its name: `toDouble` is lossy above
+  2^53, which is why R106 could never have spelled it `as`. §3's criterion, applied.
 
 ---
 
@@ -249,5 +268,7 @@ form, and `match` is the ergonomic one.
 
 ## 8. Open questions
 
-- **`as` on secret payloads:** interaction with `reveal` once `bytes` exists (whether a
-  revealed `string | bytes` is narrowed with `as`), pending the `bytes` type.
+- *(**`as` on secret payloads: resolved by R113.** `reveal` returns the union
+  `string | bytes | table`, and the result is ordinary union typing, narrowed with
+  `as string` (checked) or `match` (total) — secret §5. No special rule was needed;
+  the open predated the union form.)*

@@ -65,8 +65,12 @@ including subnormals, the zeros, the infinities, and nan, is an exact value of t
 information is lost widening up the chain, so **widening is implicit** (`f16` to `float`, `float` to
 `double`), on the same lossless-therefore-safe justification as integer widening (the mechanism is a
 lossless representation change rather than a subset relation). Narrowing down the chain (`double` to
-`float`, `float` to `f16`) is **lossy** (it rounds and can overflow to inf), so it is an explicit
-checked narrowing (`double as float`), parallel to integer narrowing.
+`float`, `float` to `f16`) is **lossy** (it rounds and can overflow to inf), so it is not `as` at
+all but an explicit **conversion function**: `toFloat(d: double): float`, total — IEEE
+round-to-nearest-even, overflow to `float` inf, `nan` to `nan` — and `toF16` likewise when `f16`
+lands. `as` re-types a value losslessly and never computes a new one (as spec §3, R124); a rounding
+step is a computation, so it gets a name. Integer narrowing, by contrast, stays `as` (§4): where it
+accepts, the value is exact.
 
 So the float family is a widening chain like the integer families, and the widen-to-widest rule (§2)
 applies: `float + double` is `double`, `f16 + float` is `float`.
@@ -126,8 +130,9 @@ someFloat + someDouble // double (the float widens to double, losslessly)
 This is safe because within-family widening loses no information (a subset relation for integers, a
 lossless representation change for floats). It is the constraint-subtype relation (constraints spec)
 doing the work for integers, and the lossless float embedding (§1.3) for floats. Narrowing (the
-reverse) is never implicit: it is an explicit checked `as` that panics (integers out of range) or
-rounds explicitly (`double as float`).
+reverse) is never implicit: integers narrow with an explicit checked `as` that panics out of range
+(lossless where accepted), and floats narrow with an explicit conversion, `toFloat` (§1.3) — a
+rounded result is a computed new value, which is never `as` (as spec §3, R124).
 
 ---
 
@@ -158,32 +163,40 @@ within-family logic it *could* be implicit. It is nonetheless **explicit**, beca
 a **representation cost** (it allocates a heap value), and Luna makes cost visible: an implicit `int`
 to `decimal` widening would hide an allocation inside an innocuous-looking mixed expression. So the
 rule for implicit widening is not merely "lossless" but "**lossless and cheap**"; fixed-to-arbitrary
-is lossless but not cheap (it allocates), so it is an explicit conversion (`n.toDecimal()`). This is a
-deliberate, principled exception: losslessness alone does not earn implicit widening when the
+is lossless but not cheap (it allocates), so it is explicit: **`n as decimal`** — legal `as`
+because the move is lossless (as spec §3, R124), explicit because the cost should be seen. This is a
+deliberate, principled exception: losslessness alone does not earn *implicit* widening when the
 representation cost should be seen.
 
 So the arbitrary-precision types are their **own** families for widening purposes: you enter them by
-explicit conversion, and once in them, their arithmetic is exact and their operators are the built-in
-operators (operators spec).
+an explicit, lossless `as`, and once in them, their arithmetic is exact and their operators are the
+built-in operators (operators spec).
 
 ---
 
 ## 4. Narrowing and violations
 
-Narrowing, moving to a narrower or lossier type, is always **explicit** and **checked**, consistent
-across the tower:
+Narrowing, moving to a narrower or lossier type, is always **explicit**, and the spelling follows
+one criterion (as spec §3, R124): **`as` where lossless, a function where not.** A move is `as`
+exactly when the value, where accepted, is preserved exactly, so range is its only question; a move
+that computes a new value gets a name.
 
 - **Integer narrowing** (`int as i8`, `u64 as u8`, and cross-family `int as u64`): an explicit `as`
   that **panics** if the value is out of the target range (the constraint-on-entry check, constraints
-  spec; int spec §6).
-- **Float narrowing** (`double as float`): explicit, rounding to the nearer `float`, and yielding
-  `float` inf if the magnitude overflows binary32 (an IEEE result, not a panic, double spec).
-- **Arbitrary to fixed** (`decimal as int`): explicit, panicking if the value does not fit or is not
-  exact (a fractional `decimal` narrowed to `int`, unless a rounding conversion is chosen).
+  spec; int spec §6). Lossless where accepted, so it is `as`.
+- **Float narrowing** (`toFloat(d: double): float`): a **conversion function**, total — IEEE
+  round-to-nearest-even, `float` inf if the magnitude overflows binary32, `nan` to `nan` (double
+  spec). It rounds, so there is no `double as float` (§1.3).
+- **Arbitrary to fixed**: the **policy verbs**. A fractional `decimal` has no lossless `int`
+  reading, and choosing a nearby one is a rounding *decision* — exactly the double→int question —
+  so when `decimal` lands, `trunc` / `round` / `floor` / `ceil` widen to `double | decimal`
+  (conversion §2), and there is no `decimal as int`. (The reverse entry, `int as decimal`, is
+  lossless and is `as`, §3.1.)
 
 The through-line is the language's uniform stance: **no silent wrong value.** Within-family widening
-is lossless (so implicit); everything narrowing or crossing is explicit and either panics or produces
-a well-defined IEEE sentinel. Overflow of the fixed integers panics (int spec §2); the
+is lossless and cheap (so implicit); every other move is explicit — `as` panicking where the value
+does not fit, or a named function where a new value is computed (IEEE sentinels where the format
+defines them). Overflow of the fixed integers panics (int spec §2); the
 arbitrary-precision `decimal` does not overflow (it grows); the floats produce IEEE infinities and nan
 rather than panicking (double spec).
 
@@ -206,8 +219,10 @@ rather than panicking (double spec).
 | `complex` | complex | heap-backed built-in | (none; explicit entry) | IEEE per component |
 
 All are **built-in** (all have operators). Crossing any family boundary (a horizontal move between
-family groups, or fixed to arbitrary-precision) is an **explicit conversion**. Widening within a
-family group (vertical, to a wider width) is **implicit and lossless**. There is no arbitrary-precision
+family groups, or fixed to arbitrary-precision) is **explicit** — `as` where the move is lossless
+(`int as u64`, `int as decimal`), a conversion function where it is not (`toDouble`, `toFloat`, the
+policy verbs; §4, as spec §3). Widening within a family group (vertical, to a wider width) is
+**implicit and lossless**. There is no arbitrary-precision
 integer; a fixed `int128` is a possible future library type only (§1.4).
 
 ---
