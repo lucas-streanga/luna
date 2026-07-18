@@ -212,6 +212,31 @@ same conjunction is `&`** (type spec §3.1): `byte & even` in an annotation inte
 conjunction with identical semantics, base-match, canonical order, no implication, while a
 `constraint` declaration like `asciiByte` gives the conjunction a name and its own `typeid`.
 
+### 6.1 Constrained bases: stacking (R155)
+
+The base position itself admits a constrained type — the third spelling of the same
+conjunction, and the best one when a refinement genuinely *builds on* another:
+
+```
+const asciiByte = constraint i: byte where i <= 127;    // ≡ constraint i: int where byte where i <= 127
+```
+
+- **Base-first execution is a typing necessity, not a convention**: the binder is
+  `i: byte`, so the new predicate's body may *assume base membership* — call
+  byte-taking functions, rely on the range — which is only honest if the base chain
+  ran first. Entry from an unconstrained value runs root-to-leaf.
+- **Delta checking falls out of the fact model** (§7): a value *already typed* `byte`
+  entering `asciiByte` skips `byte`'s predicate — the fact rides the value
+  (checked-on-write, trusted-on-read) — so `b as asciiByte` on a `byte` runs **one**
+  predicate, not two.
+- **Representation was already ready**: constraint typeids nest in their base's
+  subtype interval (§9.1), so `asciiByte <: byte <: int` is interval-in-interval;
+  widening is implicit down the whole chain (§5); `baseOf(asciiByte)` answers `byte`,
+  the *immediate* parent (introspection §4.1, R131).
+- The base-match rule above reads through the chain: an `int`-based constraint name is
+  usable in a `byte`-based constraint's `where` (`byte <: int`, widening is free);
+  a `float`-based one still is not.
+
 ---
 
 ## 7. When the check runs
@@ -401,18 +426,25 @@ General user-defined constraints (ports, percentages, non-empty, sorted, and so 
 
 ---
 
-## 11. Open questions
+## 11. Ruled and deferred (R155)
 
-- **Predicate expressiveness:** exactly which pure expressions a `where` may contain (calls to
-  pure user functions, references to `const` values), and whether any are restricted to keep
-  checks cheap.
-- **Static elision (optimization, not semantics):** the precise set of mutation sites at which the
-  compiler elides a runtime check because it can trivially prove the invariant preserved (§9.5),
-  distinct from the rejected static-verification model. The mechanism is fixed (§9.5); the exact
-  provable cases are open.
-- **Constraint over constrained base:** whether a constraint's base may itself be a constrained
-  type (`byte`-based constraint), stacking refinements, and how that interacts with the
-  base-match rule (§6).
-- **Constraints on other bases:** constraints over `string` (e.g. non-empty, matches-a-regex) and
-  `float`, and any base-specific concerns. Constraints over `table` are specified as table-level
-  constraints (tables §8); `list` and user structural refinements are their instances.
+- *(**Predicate expressiveness: ruled full.** A `where` may contain any expression whose
+  calls are all **capability-free** — the statically decidable meaning of pure (R43:
+  every ineligibility source is a capability), with R79's function-of-the-value-alone
+  requirement discharged by existing rules: capability-freedom bars ambient effects,
+  and const-snapshot capture (functions §2.1) freezes any referenced environment, so
+  nothing a legal predicate reads can go stale. **No cost carve-out**: the
+  runtime-checked stance (§7) already accepts per-entry cost, and an expensive
+  predicate is the user's code costing what it costs.)*
+- **Static elision: deferred by decision** — compiler optimization. The mechanism is
+  fixed (§9.5); the catalogue of trivially provable cases is pending implementation.
+- *(**Constraint over constrained base: ruled yes** — §6.1: the base position admits a
+  constrained type, desugaring to base-chain conjunction; base-first execution as a
+  typing necessity; delta checking from the fact model; nested intervals and `baseOf`
+  already in place.)*
+- *(**Constraints on other bases: confirmed by shipping practice** — the open never
+  closed while the corpus filled with its answers: `json` over `string` (R20), `path`
+  over `string` (R21), `probability` and `finiteDouble` over `double` (double §5).
+  Any base type works; §7 already splits the machinery by base mutability —
+  immutable bases are entry-only, mutable interiors check per mutation, tables are
+  §8's instance.)*

@@ -3659,6 +3659,28 @@ by decision pending a concrete need, with the likeliest first customer named (th
 deferred with its R152 observability-class constraint standing. Section retitled
 "Ruled and deferred." Swept: `attributes.md` §6.3.
 
+**R155 — constraints §11: three ruled, one deferred; stacking lands as §6.1.**
+**Predicate expressiveness ruled full**: any expression whose calls are all
+capability-free — the statically decidable meaning of *pure* (R43's theorem), with
+R79's value-alone requirement discharged by machinery already on the books
+(capability-freedom bars ambient effects; const-snapshot capture freezes referenced
+environments, so nothing a legal predicate reads can go stale) — and **no cost
+carve-out** (the runtime-checked stance already accepts per-entry cost; an expensive
+predicate is the user's code costing what it costs). **Static elision deferred by
+decision** (the §9.5 mechanism is fixed; the provable-case catalogue is compiler
+work). **Constrained bases ruled yes** (new §6.1) — the user's bottom-up instinct
+upgraded to a *typing necessity*: `constraint i: byte where i <= 127` binds `i: byte`,
+so the predicate may assume base membership, which is only honest if the base chain
+ran first; the spelling desugars to §6's own conjunction (`… where byte where …`),
+**delta checking falls out of the fact model** (a value already typed `byte` skips
+`byte`'s predicate — `b as asciiByte` runs one conjunct, not two), representation was
+already ready (nested intervals §9.1; chain-implicit widening §5; `baseOf` answers
+the immediate parent, R131), and the base-match rule reads through the chain.
+**Other bases confirmed by shipping practice** — the open never closed while the
+corpus filled with its answers (`json`, `path`, `probability`, `finiteDouble`); §7
+already splits machinery by base mutability. Swept: `constraints.md` §6.1 (new), §11
+(retitled, four records).
+
 ---
 
 ## Still open (out of scope of these rulings)
