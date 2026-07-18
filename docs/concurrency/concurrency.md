@@ -220,6 +220,31 @@ carry it, so storing a promise in a table is an error, and `collect` on a stream
 promises is likewise an error (it would retain them) — await the stream, then collect the
 *results*. A compile error where statically evident, a panic otherwise, the house split.
 
+**The carrier list extends by this rule's own criterion, and by nothing else** (R142).
+`awaitAny`'s variadic (§5.1) collects promises into a frame-bound **argument list** —
+textually a list, so the extension is ruled, never assumed: a carrier is legal iff it
+structurally cannot **retain, duplicate, or export** what it carries. Bindings and
+streams pass that audit; the argument list passes it too — it cannot cross a spawn
+boundary (banned for its elements already), it dies at frame exit (scope-exit
+cancellation stays syntactic), and it cannot be re-stored (the store ban fires on the
+bearing type). Enforcement is **type-directed, not container-directed**: `...ps:
+promise` makes the element type static, and the existing confinement checks fire
+transitively on promise-bearing types — no new check family, no special runtime
+representation. **Provenance is closed**: user code cannot construct a promise-bearing
+list (`[p1, p2]` is the banned store itself); the variadic calling convention is the
+only producer, joining the grammar-constructed-ephemera family (apply initializer
+lists, fenced enum literals).
+
+**A promise is `nocopy`** (R142; the `argv` precedent, capabilities §1 — legal because
+`promise` is a built-in type, and built-ins own their binding semantics). `let q = p;`
+is a **compile error**: one handle, one name. Parameter passing is **by reference**,
+joining the consumable class streams defined (variables §5: streams pass by reference
+*because* they are consumable; a promise is the same class) — which is what lets
+`awaitTimeout(p, d)` (§5.1) race the promise it is handed. `await` **consumes**: a
+promise is awaited at most once; a second await is a compile error where statically
+evident and a **`doubleAwait` panic** (errors §2) through the one dynamic path nocopy
+leaves open (callee awaited it, caller awaits after).
+
 ---
 
 ## 4. Errors: fail-fast by default, collection by opt-in
@@ -315,6 +340,68 @@ apply.
   read-then-write operations would still race), and hide a large cost behind ordinary access.
   Aggregation is return-and-fold; genuine inter-task *communication* is the job of channels (§7),
   not shared memory.
+
+### 5.1 Racing: `awaitAny` and the timeout family (R142)
+
+**One new primitive**; everything else is a library function over it plus `sleep`
+(std.time §5), and the ruling's central proof is that the loser story needs **no new
+cancellation machinery** — R115's scope-exit rule was the missing cancel primitive all
+along.
+
+```
+awaitAny(...ps: promise): [int, any]!     // builtin: first completion wins
+```
+
+- **First completion wins**; an already-completed entrant wins immediately; ties break
+  deterministically by position. The result destructures as `let [i, v] = …` — which
+  promise (by argument position) and its value. If the *winner* resolved to an error,
+  `awaitAny` yields that error (the per-promise channel, §4's `try await` discipline).
+- **Losers are not consumed and not cancelled**: they keep running, stay awaitable
+  (a promise is one-shot; `awaitAny` observes losers without taking them), and remain
+  owned by whatever scope spawned them — reclaimed by that scope's exit as always
+  (§6). Zero arguments is a compile error.
+
+```
+timeout(f: fn, d: duration): any!               // spawns f itself: scope-owning
+awaitTimeout(p: promise, d: duration): any!     // for work the caller already spawned
+receiveTimeout(rx: stream, d: duration): any!   // next element, or timeoutError
+```
+
+- **`timeout(f, d)`** spawns `f` and a `sleep(d)` timer *in its own frame*, races them
+  with `awaitAny`, and returns the work's result (or error), or **`timeoutError`**
+  (errors §2 — a *declarable* error, never a panic: a timeout is expected, recoverable,
+  data-shaped) if the timer wins. **Its return is its scope exit**, so the loser —
+  timer or work — is cancelled by the already-ratified scope-exit rule (§6, R115).
+  This is the user-facing timeout, and it is a *library function*, provably: no new
+  primitive, no user `cancel`, just scope ownership. Raw `spawn` stays timeout-free.
+- **`awaitTimeout(p, d)`** bounds the wait on work the caller already owns: the timer
+  is frame-local (cancelled on return); if `p` wins it is consumed (§3.1 — a later
+  await is `doubleAwait`); if the timer wins, `timeoutError` — and **`p` remains
+  unconsumed and running**, still the caller's to await again or abandon to its
+  scope. Bounded waiting on a promise you keep.
+- **`receiveTimeout(rx, d)`** is the channel-recovery form the BEAM scrutiny demanded
+  (§8, channels §6): the next element of `rx`, or `timeoutError` — "wait, but not
+  forever" on the one deadlock shape the model admits. The `GenServer.call`-with-
+  deadline pattern (channels §7) is now buildable.
+
+**The contract, stated loudly: timeout bounds *waiting*, never *execution*.** The
+caller always unblocks when the timer wins. The loser is cancelled
+runtime-initiated and cooperatively delivered (§6.1): it stops at its **next
+suspension point** — and a suspension-point-free compute loop has none, so it runs
+until it reaches one (§7's accepted cost; the Go backend cannot kill, R120). The
+mitigation is the existing discipline: yield points, `sleep(seconds(0))` being the
+portable one (std.time §5). This is the one place Luna is honestly weaker than BEAM,
+whose process isolation buys unconditional kill; the trade was made knowingly
+(§6.1, R120).
+
+**Go-style `select`: mostly dissolved, remainder deferred** (R142). Go needs `select`
+because bare channels are its primitive and fan-in requires choosing among them.
+Luna's channels are MPSC with shareable sinks (channels §2.1): **fan-in is one
+channel with N senders** — the owner-task pattern *is* the select loop, and "whichever
+is ready" is simply the merged channel's next element. Residual heterogeneous races
+(sources that cannot share a channel) get a merge task, or `awaitAny` over wrapper
+tasks. A dedicated `select` construct is deferred until a real case survives the
+merge idiom — recorded so the deferral is a decision, not a gap.
 
 ---
 
@@ -473,15 +560,14 @@ an accepted cost, mitigated by writing yield points and correct termination, not
 
 Open:
 
-- **Timeouts and `awaitAny` / select: deferred, and named the top post-alpha priority**
-  (R120). The scrutiny against BEAM made the stakes precise: Elixir's ubiquitous call
-  timeouts are its *universal hang-recovery mechanism*, and until this surface lands Luna
-  cannot express "wait, but not forever" — so the one admitted deadlock shape,
-  channel-wait cycles (§7, channels §6), has no in-language recovery. This is **safety,
-  not convenience**. The surface rides R115's semantics (a deadline is a cancellation; a
-  select is a race), and its timer half is `std.time`'s `sleep` — which **landed** (R132:
-  `duration`/`instant` built-ins, the monotonic clock, `sleep` as a suspension point
-  under the `time` capability), so this surface is now **unblocked** and next.
+- *(**Timeouts and `awaitAny`: landed, R142** — §5.1, the top priority delivered. The
+  BEAM scrutiny's stake — "wait, but not forever," the universal hang-recovery
+  mechanism — is expressible: `awaitAny` is the one new primitive, `timeout` /
+  `awaitTimeout` / `receiveTimeout` are library functions over it plus `sleep`
+  (R132), the loser story is R115's scope-exit rule doing its job, and the one
+  admitted deadlock shape has in-language recovery (`receiveTimeout`). Go-style
+  `select` is mostly dissolved by MPSC fan-in and its remainder deferred with the
+  reason recorded, §5.1.)*
 - *(**Channels: designed, R119** — `channels.md`. `let [tx, rx] = channel(capacity)`; the
   receive end is literally a `stream`; the `sink` is a shared write-only handle
   (*ownership follows readability*, §2.1); per-handle `finish`, no whole-channel close;

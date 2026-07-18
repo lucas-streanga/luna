@@ -174,22 +174,26 @@ same shape exists in every channel system.
   admits, and Luna admits it too, classed with logic-bug hangs: contained by
   scope-bounding, attributable, and **cancellable at the parks** when the scope fails
   elsewhere (a parked send is a suspension point, §4) — but not structurally prevented.
+  **In-language recovery exists** (R142): `receiveTimeout(rx, d)` bounds any wait —
+  "wait, but not forever" — so the admitted shape is now also *escapable*, not merely
+  contained (concurrency §5.1).
 
 ---
 
 ## 7. Open questions
 
-- **Select / racing over channels**: "whichever is ready next" across several receive
-  streams — the interleaving fan-in of independent channels. Deferred with the
-  `awaitAny` family (await §4): a select is a race, and races arrive together as surface
-  over R115's cancellation semantics.
+- *(**Select / racing over channels: mostly dissolved, remainder deferred — R142**
+  (concurrency §5.1): fan-in is one MPSC channel with N senders, so "whichever is ready"
+  is the merged channel's next element; residual heterogeneous races get a merge task or
+  `awaitAny` over wrappers; a dedicated `select` waits for a case that survives the
+  merge idiom.)*
 - **MPMC / work-stealing**: multiple consumers on one channel (each element to exactly
   one). Deferred; one consumer per stream is the model's grain, and fan-out has
   `spawn` / `await`.
 - **Channel-of-channels patterns** beyond request-reply (§5's reply sinks already work):
   nothing forbids them; idioms to document as they prove out.
 - **A stdlib patterns layer** (R120): `call(tx, req)` — mint a reply channel, send,
-  `first()`; the `GenServer.call` shape, wanting a deadline once the timeout surface
-  lands (concurrency §8) — plus the supervisor loop
+  receive with a deadline — the `GenServer.call` shape, **now buildable** (R142:
+  `receiveTimeout` is the deadline, concurrency §5.1) — plus the supervisor loop
   (`while (true) { try { runService(); } catch (e: error) { … } }`) and the registry
-  task (name → sink). Library, not language; wanted especially once timeouts land.
+  task (name → sink). Library, not language; unblocked, pending write-up.

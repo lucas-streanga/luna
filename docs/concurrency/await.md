@@ -51,8 +51,8 @@ pipelines and `take`, and eager collection is one spread away, streams can alway
 forced to a table. One consequence of the stream setting, stated: a stream has no error
 channel (std.io §8), so a task that **failed** surfaces as a **panic at the pull**; when
 per-task error handling matters, await the promises **individually** (`try await p`),
-where the declarable channel exists. Timeouts and racing remain deferred with
-cancellation (§3, §4).
+where the declarable channel exists. Timeouts and racing **landed** (R142): `awaitAny`
+and the timeout family, concurrency §5.1.
 
 ## 2. Never awaited
 
@@ -80,18 +80,20 @@ cannot kill a goroutine, and disfavored by the model regardless; only a backend 
 could reopen it); the suspension-point design slots into machinery that already
 exists (panic origination rules, defer unwinding, the io-errors §4 note on `EINTR`).
 
-What remains **deferred is the user-facing surface**: there is no `cancel(p)` primitive,
-and timeouts, racing, and deadlines (§4) arrive later *as* that surface. The alpha's only
-cancellers are the runtime's own: fail-fast sibling-cancel and scope exit (concurrency §4,
-§6). (The earlier form of this section deferred cancellation entirely, which contradicted
-concurrency §4/§6/§7's reliance on it; R115 resolved the contradiction by specifying the
-semantics and narrowing the deferral to the surface.)
+The user-facing surface **landed as the timeout family** (R142, concurrency §5.1) —
+and there is **still no `cancel(p)` primitive**, deliberately: `timeout` owns a scope
+and lets scope exit cancel the loser, so the only cancellers remain the runtime's own —
+fail-fast sibling-cancel and scope exit (concurrency §4, §6) — with the race adding no
+third kind, only a new reason for the second to fire. (The earlier form of this section
+deferred cancellation entirely, which contradicted concurrency §4/§6/§7's reliance on
+it; R115 specified the semantics and narrowed the deferral to the surface; R142 closed
+the surface.)
 
 ## 4. Open questions
 
-- **Timeouts and racing** (`awaitAny`, `awaitAll`, await-with-deadline): combinators over
-  promises, wanted eventually, deferred with cancellation since a deadline is a
-  cancellation.
+- *(**Timeouts and racing: landed, R142** — `awaitAny` (the primitive), `timeout`,
+  `awaitTimeout`, `receiveTimeout`; concurrency §5.1. `awaitAll` needs no combinator:
+  awaiting many is §1's stream form.)*
 - *(**Promise as a value: resolved by R117** — confinement wins, concurrency §3.1: a
   promise is a scope-local handle that flows only through bindings and **streams**
   (single-pass, scope-local — the §5 composition, load-bearing for §1.1); it may not

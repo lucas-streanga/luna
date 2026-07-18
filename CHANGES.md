@@ -3295,6 +3295,58 @@ datetime, introspection, process, filesystem, platform, random, math, secret, ex
 channels — all landed; what remains is the designed-last networking sequence, the
 timeout / `awaitAny` / select session and `std.net` behind it.
 
+**R142 — the timeout surface: `awaitAny` is the one primitive, scope exit was the
+cancel all along; the top priority delivered.** The ruling twenty rulings built
+toward (concurrency §5.1, new). **The central proof**: timeout is a *library
+function* with zero new cancellation machinery, because R115's scope-exit rule was
+the missing cancel primitive — `timeout(f, d)` spawns the work and the `sleep(d)`
+timer *in its own frame*, races them, and its **return is its scope exit**, so the
+loser is cancelled by the already-ratified rule; there is **still no user-facing
+`cancel(p)`** (R115 reaffirmed — the race adds no third canceller, only a new reason
+for scope exit to fire), and raw `spawn` stays timeout-free (the user's instinct:
+deadlines live in scope-owning wrappers, because scope ownership is what makes loser
+reclamation fall out for free). **The primitive**: `awaitAny(...ps: promise): [int,
+any]!` — first completion wins (already-completed → immediate; ties by position),
+winner's error propagates on §4's per-promise channel, **losers not consumed and not
+cancelled** (observed, still awaitable, still scope-owned). **The family over it**:
+`awaitTimeout(p, d)` (timer frame-local and reclaimed; `p` consumed if it wins,
+untouched and still the caller's if it loses) and `receiveTimeout(rx, d)` — the
+channel-recovery form the BEAM scrutiny demanded: the one admitted deadlock shape,
+channel-wait cycles, is now *escapable*, not merely contained (channels §6 amended;
+the `GenServer.call`-with-deadline pattern is buildable, channels §7). All three
+yield **`timeoutError`** — declarable, never a panic: a timeout is expected,
+recoverable, data-shaped (errors §2). **The contract, stated loudly**: timeout
+bounds *waiting*, never *execution* — the caller always unblocks; the loser stops at
+its next suspension point, and a suspension-point-free loop has none (§7's accepted
+cost, the Go backend cannot kill, R120; `sleep(seconds(0))` is the yield-point
+discipline) — the one place Luna is honestly weaker than BEAM, traded knowingly.
+**Go-style `select`: mostly dissolved, remainder deferred** — Go needs select
+because bare channels are the primitive and fan-in requires choosing; Luna's MPSC
+sinks make **fan-in one channel with N senders**, the owner-task pattern *is* the
+select loop, residual heterogeneous races get a merge task or `awaitAny` over
+wrappers, and a dedicated construct waits for a case that survives the merge idiom —
+recorded as a decision, not a gap. **Two supporting rulings in §3.1**: the
+**carrier-list extension by the rule's own criterion** — a carrier is legal iff it
+structurally cannot retain, duplicate, or export; the variadic's frame-bound
+argument list passes the same audit bindings and streams passed, enforcement is
+type-directed (`...ps: promise` makes the element type static; existing confinement
+checks fire transitively; no new check family, no special runtime representation —
+stock Go select underneath), and provenance is closed (user code cannot construct a
+promise-bearing list, the literal is the banned store; the variadic calling
+convention is the only producer, joining apply-initializer lists and fenced enum
+literals in the grammar-constructed-ephemera family). And **a promise is `nocopy`**
+(the user's call; the `argv` precedent, legal because built-ins own their binding
+semantics): `let q = p;` is a compile error — one handle, one name; parameter
+passing is **by reference**, joining the consumable class streams defined (variables
+§5); `await` consumes, a second await is a compile error where evident and a
+**`doubleAwait` panic** (errors §2, new leaf) through the one dynamic path nocopy
+leaves open. Swept: `concurrency.md` §3.1 (both rulings), §5.1 (new), §8 (the
+top-priority open is a landed record); `await.md` §1/§3/§4 (surface landed,
+no-cancel reaffirmed, `awaitAll` dissolved into §1's stream form); `channels.md` §6
+(recovery), §7 (select dissolved-record; patterns layer unblocked); `errors.md` §2
+(`timeoutError`, `doubleAwait`); `std/time.md` §5 (the seam closed as designed);
+`std/net.md` (**the gate is open** — pending real use alone).
+
 ---
 
 ## Still open (out of scope of these rulings)

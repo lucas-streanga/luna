@@ -153,9 +153,10 @@ export const sleep = fn (d: duration) use (time): undefined;
 - **Gated by `time`**: an ungated unbounded park would be comptime-hostile and
   scheduling-visible (the R120 record's own worry, now closed by the same R43
   argument as the clock).
-- **The timer half of the timeout surface.** "Await with deadline" is a race against
-  `sleep`; the timeout / `awaitAny` design (concurrency §8, the top priority) sits
-  directly on this export and should follow immediately.
+- **The timer half of the timeout surface — which landed** (R142): "await with
+  deadline" is a race against `sleep`, and `awaitAny` / `timeout` / `awaitTimeout` /
+  `receiveTimeout` (concurrency §5.1) sit directly on this export, exactly as
+  designed.
 
 ## 6. Deliberately absent
 

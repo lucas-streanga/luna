@@ -50,8 +50,10 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── closedChannelError (send after finish, or to a departed receiver; channels §4)
 │   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── divisionByZero    (int division or remainder by zero; int spec)
+│   ├── doubleAwait       (second await of a consumed promise; concurrency §3.1, R142)
 │   └── ... (runtime-defined)
 ├── applyError            (dynamic protocol application/removal: `apply()` / `unapply()`; protocols §4.4, §4.6)
+├── timeoutError          (a deadline expired: `timeout` / `awaitTimeout` / `receiveTimeout`; concurrency §5.1, R142 — declarable, a timeout is expected and recoverable)
 └── ... (user-defined: a definition with no explicit parent extends the root directly, §4)
 ```
 

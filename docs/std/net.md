@@ -26,4 +26,6 @@ std/time.md) — a network API without deadlines is the BEAM lesson in reverse, 
 R120 scrutiny is the reason this module waits for that one.
 
 Deferred: everything else — the surface (dial/listen/accept), DNS, TLS, datagrams, the
-error family. Pending the timeout surface, then real use.
+error family. **The timeout surface landed** (R142: `timeout` / `awaitTimeout` /
+`receiveTimeout`, concurrency §5.1), so the gate is open — what remains pending is
+real use alone.
