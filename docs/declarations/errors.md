@@ -51,7 +51,7 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── divisionByZero    (int division or remainder by zero; int spec)
 │   └── ... (runtime-defined)
-├── applyError
+├── applyError            (dynamic protocol application/removal: `apply()` / `unapply()`; protocols §4.4, §4.6)
 └── ... (user-defined: a definition with no explicit parent extends the root directly, §4)
 ```
 

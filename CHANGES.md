@@ -2526,6 +2526,47 @@ collision caught in passing: protocols §2.2's write-only example member was nam
 `numeric-operators.md`, `defer.md`, `int.md`, `protocols.md`, `variables.md`,
 `strings.md`, `keywords.md` §6 (the flag itself, now a resolution record).
 
+**R123 — removal exists: `unapply`, a checked write, never a free mutation.** The
+R95–R98 open closes on the side of existence, and the standing condition (§6.3: removal
+must get invariant-constraint treatment, constraints §7.1) turned out to be the design,
+not an obstacle. The soundness audit found the hard part already built: tables are
+copy-on-write values (tables §4) and Luna refuses flow narrowing (`as` §7), so no third
+party ever holds your table (`let q = t as @person` is a value copy a later `unapply` on
+`t` cannot reach) and no scoped static assumption exists to falsify — the only promises
+in the universe are the written-back binding's declared type and the value-carried
+constraint typeids, both checkable at the one place removal happens, the write. And the
+post-removal state needs no new semantics: a stripped protocol is an unapplied protocol,
+protocols §3.2's fully-specified world (`undefined` on bare read, panic on hard use,
+`?->` to ask). The shape: **a built-in free function mirroring dynamic `apply`** —
+`fn unapply(tab: table, protocol: proto): table!`, `&t.unapply(p)` write-back — no
+keyword, no operator: typed *construction* is common and fully compile-time-checkable,
+typed *deconstruction* is neither, and a static form would buy refinement-subtraction
+type algebra for a rare payoff. Failure taxonomy: **not applied → no-op** (the mirror of
+idempotent re-apply, §4.3); **still required by an applied requirer → `applyError`** —
+stripping `person` under an applied `employee` would leave `@employee <: @person`
+claiming members that no longer exist, so unapply refuses and the caller peels in
+reverse requirement order (**cascade removal rejected**: silently removes more than
+asked; **a minted `unapplyError` rejected**: one name for the protocol subsystem's
+runtime-data failures, `applyError` widened to application/removal); **a breaking write
+→ `typeError` panic**, never the error union, compile error where statically evident
+(`&p.unapply(person)` on `p: @person` always is — the operand's declared type contains
+what is being removed). Per-table member state is destroyed, apply-initialized `const`s
+included — data loss is the point — and re-apply after removal is a genuine fresh apply
+(the "already has" tests never fire); §2.1's heading is honest now: **"one binding per
+application," not "ever."** The audit also surfaced a **latent hole predating this
+ruling**: constraints §7 defined the checked-mutation class enumeratively (key writes,
+element writes), but predicates can observe protocol facts — negatively too (`where
+!(t is @tagged)`) — so a dynamic `apply` through an untyped container slot could break a
+constraint unchecked; monotonicity protects `@P` promises, never arbitrary predicates.
+Fixed by defining the class semantically: **every mutation a predicate can observe** —
+element-key writes, writes to `get`-granted protocol members through any path (a
+predicate's reach is the granted surface, so ungranted writes are exempt), and
+applied-set changes in either direction. Swept: `protocols.md` (§2.1 heading and body,
+§4.3, §4.4, new §4.6, §6.3 soundness rewritten, §10 resolved), `constraints.md` §7 (the
+mutation class), `errors.md` §2 (`applyError` annotated), `keywords.md` §3 (the `apply`
+row; the keyword table itself untouched — `unapply` is a predeclared identifier, §5),
+`operators.md` (the `apply` row).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2562,9 +2603,10 @@ And from R91–R93, the two big flagged remainders:
   settled the string/bytes-iterability question it raised (R104: `foreach` yes for
   `bytes`, `iterable` stays `table | stream` exact). Future edits: iterable-functions
   §3's retired-spellings table is the guard against reintroduction.
-- **Opens from R95–R98, still standing:** removal/`unapply` (unchanged, with §6.3's
-  monotonicity condition standing); the JSON nesting shape for serialized protocol
-  members; and `@@`'s type surface on non-table values. (The `?->` token landed in R101;
+- **Opens from R95–R98, still standing:** the JSON nesting shape for serialized protocol
+  members; and `@@`'s type surface on non-table values. (Removal/`unapply` is **closed by
+  R123** — the free function, refusal where an applied requirer still requires,
+  wrong-write checks for the rest, the §6.3 condition repaid as stated; the `?->` token landed in R101;
   the initializer-grammar spelling closed with R108; and **mutable protocol-level state
   closed with R119** — the task-ownership story exists now, the owner-task pattern of
   channels §5, so "statics stay inexpressible" is an answer with a referent, not a

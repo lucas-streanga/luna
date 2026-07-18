@@ -75,7 +75,7 @@ its ordinary meaning:
   same rule as function parameters (functions §3.3.1), by the same means, so there is no
   `required` / `optional` keyword and no marker.
 
-### 2.1 `const` means one binding, ever
+### 2.1 `const` means one binding per application
 
 The presence of a default splits `const` members into the two things they can be:
 
@@ -86,8 +86,10 @@ The presence of a default splits `const` members into the two things they can be
   functions; they are reachable off the proto value itself (`person->species`, §3.4) and
   excluded from equality, serialization, and the initializer surface (§5).
 - **Default absent → bound at apply.** `const get name: string` receives its one binding
-  from a required initializer (§4.2) and is immutable for the table's lifetime: a
-  per-table constant, the record-field case.
+  from a required initializer (§4.2) and is immutable for as long as the application
+  lives: a per-table constant, the record-field case. Removal (§4.6) destroys it with the
+  rest of the per-table state, and a later fresh application binds anew — hence *per
+  application*, not *ever*.
 
 This split is not a special rule; it is `const`'s own semantics. For `let` and `var`
 members a default is merely the initial value each table starts with, so an initializer
@@ -344,8 +346,8 @@ In the dynamic form the same list is an ordinary table: `tab.apply(person,
 
 Applying a protocol a table already has is a **no-op**: nothing is re-bound, member
 state is untouched, the applied set is unchanged. Application is thereby **monotone**
-(the applied set only grows), which is what makes unchecked statement-form application
-sound alongside `@P` promises (§6.3).
+(applying only ever adds; removal is its own checked operation, §4.6), which is what
+makes unchecked statement-form application sound alongside `@P` promises (§6.3).
 
 Re-application **with initializers** is an **error** — silently ignoring the supplied
 data would be data loss, and re-binding would break idempotency. A compile error where
@@ -354,11 +356,12 @@ the dynamic form otherwise.
 
 ### 4.4 Failure modes
 
-The operator form has none (§4.1). The dynamic form has exactly one error, `applyError`,
-covering: a required member missing from the initializer table, an initializer key naming
-no granted per-table member (unknown, definition-fixed, or ungranted), an initializer
-value failing the member's type or constraint, and re-application with initializers
-(§4.3). All other historical failure modes — declared-member collisions, present-member
+The operator form has none (§4.1). The dynamic forms have exactly one error,
+`applyError`, covering, from `apply()`: a required member missing from the initializer
+table, an initializer key naming no granted per-table member (unknown, definition-fixed,
+or ungranted), an initializer value failing the member's type or constraint, and
+re-application with initializers (§4.3); and from `unapply()` (§4.6): removal of a
+protocol an applied requirer still requires. All other historical failure modes — declared-member collisions, present-member
 type mismatches, incompatible shapes, throwing `apply` bodies — are structurally gone.
 
 ### 4.5 Factories are functions
@@ -375,6 +378,54 @@ export const newPerson = fn (fullName: string): @person! => {
 
 Same pattern as capabilities-are-consts and extensions-are-UFCS (§9): no mechanism,
 just a function. Errorability, if any, is the function's own and is declared in its type.
+
+### 4.6 Removal: `unapply`
+
+Removal is a built-in free function mirroring dynamic `apply` — not a keyword, not an
+operator:
+
+```
+fn unapply(tab: table, protocol: proto): table!
+```
+
+`&tab.unapply(p)` mutates in place by ordinary write-back. There is deliberately no
+static operator form: `apply`'s operator exists because typed *construction* is the
+common, fully compile-time-checkable path, and removal has no such path — its one real
+failure is a runtime property of the applied set, and a static form would buy
+refinement-subtraction type algebra for a rare payoff. `unapply` is a predeclared
+identifier (keywords §5); the keyword table is untouched.
+
+The semantics are exactly the stripping they sound like: the protocol leaves the applied
+set and its **per-table member state is destroyed** — apply-initialized `const`s
+included (§2.1). Data loss is the point. Removal is **atomic** like application (§4):
+the table lost the protocol entirely or is unchanged. What remains is §3.2's unapplied
+world — `undefined` on bare read, panic on hard use, `?->` to ask — so removal needs no
+new dynamic-access semantics; it re-enters a state this spec already covers.
+Definition-fixed members are untouched (they live on the proto, `P->m`, §2.1), element
+space is untouched, and equality, serialization, and `@@` shrink automatically, because
+all three read the applied set and its granted surface (§5, §8).
+
+The failure taxonomy:
+
+- **Not applied → no-op.** The mirror of idempotent re-application (§4.3): removing what
+  is absent asks for a state that already holds.
+- **Still required → `applyError`.** Removing a protocol an *applied* requirer still
+  requires (§7) would leave `@requirer <: @required` claiming members that no longer
+  exist — unsound, so unapply **refuses** and the table is unchanged; peel in reverse
+  requirement order. Cascading (stripping the requirer too) was rejected: it silently
+  removes more than asked. This is the function's one declarable error and the reason it
+  is errorable at all.
+- **A breaking write → `typeError` panic, never the error union.** Where the stripped
+  value would violate the written-back binding's declared type or a value-carried
+  constraint, the ordinary wrong-write machinery fires (constraints §7): a compile error
+  where statically evident — `&p.unapply(person)` on `p: @person` always is, since the
+  operand's declared type contains what is being removed — and a `typeError` panic
+  through wider paths.
+
+**Re-application after removal is a fresh apply.** The "already has" tests (§4.3) do not
+fire: required members need initializers again, defaults re-bind, and an
+apply-initialized `const` receives its new application's one binding (§2.1). Why this
+checking is *sufficient* — why nobody else's `@P` promise can break — is §6.3's argument.
 
 ---
 
@@ -442,8 +493,18 @@ compile time. The **dynamic function** records a *fact* — the value's applied 
 at runtime, no binding's static type changes, and later access through a non-`@P` binding
 is resolved dynamically (§3.2). No fact silently upgrades into a static assumption. The
 soundness of the unchecked dynamic form rests on monotonicity (§4.3): application only
-adds, so no `@P` promise can be broken by someone else's later apply. Removal, if ever
-added, must repay this debt (§10).
+adds, so no `@P` promise can be broken by someone else's later apply.
+
+**Removal (§4.6) repays its debt with checks rather than absence.** Two standing facts
+make every promise local. Tables are copy-on-write values (tables §4), so no third party
+ever holds *your* table: `let q = t as @person` is a value copy that a later `unapply` on
+`t` cannot reach. And Luna refuses flow narrowing (`as` spec §7), so no scoped static
+assumption exists to falsify. What is left is exactly the written-back binding's declared
+type and the constraint typeids carried on the value itself, and the write is checked
+against precisely those (§4.6, constraints §7): a compile error where statically
+evident, a `typeError` panic through wider paths, an `applyError` where an applied
+requirer's subtyping claim (§7) would break. Application stays monotone; removal is
+never unchecked; no `@P` promise held anywhere can be broken by either.
 
 ---
 
@@ -543,9 +604,10 @@ iteration and to `==` (ungranted — and the protocol is `identityEquality` besi
 
 Open questions:
 
-- **Removal** (`unapply`): still deferred, with the standing condition (§6.3): removal
-  would make `@P` a breakable promise and must get invariant-constraint treatment
-  (constraints §7.1) — it cannot be added as a free mutation.
+- *(Removal is **closed by R123**: the `unapply` free function, §4.6 — no-op on absent,
+  `applyError` where an applied requirer still requires, wrong-write checks for
+  everything else. The standing condition is repaid exactly as demanded: removal landed
+  as invariant-constraint machinery, never a free mutation — §6.3, constraints §7.)*
 - *(The initializer-grammar question is **closed by R108**: named arguments landed with
   the same `name: value` surface; the initializer list stays its own grammar, binding
   members rather than parameters — §4.2.)*

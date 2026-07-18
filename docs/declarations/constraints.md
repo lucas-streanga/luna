@@ -182,8 +182,17 @@ A constraint is checked on **every operation that could make the value violate i
   predicate. This is where an unconstrained value becomes constrained.
 - **On mutation (mutable-base constraints only):** a constrained value with a mutable interior,
   a table constrained as `list` or by a user table-level constraint (tables §8), or a `bytes`
-  buffer, runs the check on **every mutation that could break it** (every key write for a
-  table, every element write for `bytes`). The check reads the value's
+  buffer, runs the check on **every mutation that could break it** — and that class is
+  defined by what a predicate can *observe*, not by a list of write forms (R123). For a
+  table that is: every element-key write; every write to a `get`-granted protocol member,
+  through any path (external `set` or the protocol's own functions — a predicate's reach
+  is the granted surface, protocols §5, so ungranted writes are unobservable and exempt);
+  and every change to the applied-protocol set in **either direction** (dynamic `apply`
+  and `unapply`, protocols §4). For `bytes` it is every element write. The set-change
+  clause bites even in the monotone direction: a predicate can observe protocol facts
+  negatively (`where !(t is @tagged)`), so an `apply` can be a breaking write too —
+  monotonicity protects `@P` promises (protocols §6.3), never arbitrary predicates. The
+  check reads the value's
   **own constraint typeid** (§9.4), so it fires regardless of whether the mutating site is
   statically typed as the constraint or sees only a wider **container path** (references
   themselves never widen, variables §5.1). A violating mutation **panics** (`typeError`,

@@ -66,7 +66,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `match` / `match!` | control flow | match | pattern selection (total `match`, panicking `match!`) | match |
 | `defer stmt` | control flow | defer | run `stmt` on scope exit | defer |
 | `a \|> b` | control flow | pipeline | pipe left into right (command pipelines and stream stages) | pipeline, command §4 |
-| `t apply P(name: v)` | structure | apply | static protocol application: `@P`-typed result, initializers checked at compile time, never errorable; dynamic application is the free function `apply()` | protocols §4 |
+| `t apply P(name: v)` | structure | apply | static protocol application: `@P`-typed result, initializers checked at compile time, never errorable; dynamic application is the free function `apply()`, removal its inverse `unapply()` (protocols §4.6) | protocols §4 |
 | `spawn f()` | concurrency | spawn | start a green thread, yielding a `promise` | concurrency |
 | `await p` | concurrency | await | resolve a `promise` to `T!` | concurrency |
 
