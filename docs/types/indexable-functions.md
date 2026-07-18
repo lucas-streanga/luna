@@ -155,9 +155,10 @@ fn reverse(tab: table): table
 
 #### shuffle()
 ```
-fn shuffle(tab: table, randFn?): table
+fn shuffle(tab: table, rng: stream): table
 ```
-**O(n).** Randomizes order.
+**O(n).** Randomizes order, drawing from **`rng`** — required (std.random §5, R139;
+the old optional `randFn?` was unsound and fn-shaped PRNGs are unimplementable).
 
 #### groupBy()
 ```

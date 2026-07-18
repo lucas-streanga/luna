@@ -3189,6 +3189,82 @@ features — FFI-era facts; a row is added only when a *target* fact earns it. S
 (`isValidPath` ruled), `std/io.md` §2.0 and §10 (the stub note now a landed
 pointer), `index.md` (the row).
 
+**R139 — `std.random`: seeding is the effect, generation is pure; the catalogue's
+`randFn` was doubly unsound.** The last non-network alpha gap closes on one idiom —
+one capability-gated entropy read at the top, a pure deterministic stream everywhere
+after — whose consequence is a feature no bolted-on RNG gets: **every randomized run
+is replayable by logging one int**. **Two findings fixed the shape.** First, the known
+one: the catalogue's optional `randFn?` on `random`/`shuffle` defaulted the randomness
+source to nothing specced, and an ungated nondeterministic default breaks the R43
+theorem — a capability-free `shuffle(t)` would fold a "random" order into the binary.
+Second, the new one: **a function-shaped PRNG is unimplementable in Luna** — a PRNG
+carries mutable state between calls, closures capture a `const` snapshot (functions
+§2.1), so a stateful counter closure cannot exist; stateful sequence generation has
+exactly one home, the generator, which is to say a **`stream`** (the user's phrasing,
+now the spec's: stateful functions *are*, semantically, streams — and O(1) state
+besides). So `randFn` was mis-typed the day it was written, and the catalogue
+parameter becomes **`rng: stream`, required** (`random`/`shuffle` respecced; the
+retired-spellings table gains the row) — optional-with-default was the unsoundness,
+since a pure function cannot conjure entropy and a `use` set cannot be conditional on
+an argument's absence. **The surface**: the **`entropy`** capability (not `random` —
+the catalogue's picker owns that name, and the authority *is* the entropy source);
+gated `randomSeed`, `randomBytes` (the secure path — OS entropy, never the PRNG;
+tokens wrap `as secret`), and **`randomStream()`** — the everyday one-call spelling,
+which exists because the convenient alternatives died under scrutiny: **the seed
+default was considered and rejected** (§6, a tombstone) — an entropy-read default is
+structurally impossible (a capability set cannot be conditional on argument presence;
+defaults are comptime-known, functions §3.3.1), and a constant default is the C
+`rand()` footgun verbatim, the same sequence every program every run, shipped as the
+convenient spelling. Pure side: **`prng(seed)` with the algorithm pinned as contract —
+PCG-64** (Go `math/rand/v2`'s choice, backend-free; pinning matters because
+comptime-folded values and seeded tests must not change across toolchain releases),
+**no engine zoo** (PHP's Mt19937/Pcg/Xoshiro/Secure menagerie is compat history not
+inherited — one pinned engine plus one secure source); `nextInt` (unbiased, rejection
+sampling — nobody ships dice that roll low), `nextDouble` ([0,1), 53-bit), `nextBool`,
+each visibly consuming the by-reference stream. **Restart is replay, reseed is
+rebinding**: a PRNG's source is its seed, an immutable int, so `restart(rng)` replays
+the identical sequence — the *exemplar* of R105's immutable-snapshot rule (a range
+restarts from `lo`, a PRNG from its seed), holding for `randomStream` too (its
+snapshot is the seed drawn at creation — restart the rng, replay the exact randomized
+execution); fresh randomness is an ordinary new stream, never an in-place reseed —
+"same sequence again" and "different sequence now" never share a spelling. `prng`
+with a fixed seed is comptime-eligible (reproducible test data folds); the gated
+three are ineligible by the same theorem, landing the R43 fix exactly where it
+should. Deferred: distributions and sampling utilities (library territory over
+`prng`/`nextDouble`), cryptographic constructions (`randomBytes` covers secure
+material). Swept: `std/random.md` (new), `iterable-functions.md` §2.9 (`random`
+respecced; the retired-spellings row), `indexable-functions.md` §4 (`shuffle`
+respecced), `index.md` (the row).
+
+**R140 — the PCG security analysis on the record; `std.crypto` named and deferred,
+deliberately.** The user's lock-in scrutiny of PCG-64 produced three permanent
+records. **PCG-64's security is zero, settled, and irrelevant by design**: it is a
+statistical generator with no cryptographic claim, and prediction is not an open
+question — practical full-state recovery from a handful of outputs is published
+(Bouillaguet, Martinez & Sauvage, 2020). **The seed theorem** (random §3.1, new):
+`prng(seed: int)` has a 64-bit seed, so *no* engine in that slot could be secure — an
+attacker brute-forces 2⁶⁴ seeds offline regardless of the algorithm, and the module's
+headline feature (every run replayable from one logged int) is precisely the property
+a security RNG must never have; the slot is structurally non-secure, so engine choice
+is a statistics-and-speed question only, which is what makes the PCG pin a *low*
+lock-in risk (statistically battle-tested; the surface is engine-agnostic; the
+contract-pin makes any future change a visible versioned break in the pre-1.0
+window, never silent drift). **The Go attribution precised** (random §3): PCG is
+`math/rand/v2`'s *seedable* engine; Go's auto-seeded default is ChaCha8, a
+misuse-hardening chosen because Go's rand API predates the secure/statistical
+split — legacy pressure Luna does not have, because this module *is* the split.
+**`std.crypto` is named and deferred in full** (new record, std/crypto.md; the
+user's rationale verbatim in spirit: crypto surfaces are really tight stuff and poor
+decisions last a very long time — an ecosystem inherits its crypto API's mistakes
+for decades, the mcrypt precedent) — designed as its own dedicated effort, never in
+passing. The record fixes what exists today (`randomBytes` for secure material, the
+`secret` type for containment, the exec hatch) and the constraints any future design
+inherits: capability-gated effects, `secret`-shaped key material, and the permanent
+statistical/secure split — nothing in `std.crypto` will ever be seedable-for-replay,
+nothing in `std.random` will ever claim security. Swept: `std/random.md` §3
+(attribution), §3.1 (new), §7 (crypto pointed home), `std/crypto.md` (new),
+`index.md` (the row).
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -185,6 +185,8 @@ table is a map.
 | std.system (retired name) | `system.md` | Split record (R134): the metadata surface became `std.filesystem` (capability renamed `filesystem`; surface pending), the process half `std.process`. |
 | std.process | `process.md` | The process-self module (R134): `args()` under `argv`, `envVars()` under `env` (secret-valued, relocated from exec); no `chdir`, no `exit()`. |
 | std.filesystem | `filesystem.md` | The structure module (R135): the `path` constraint + pure path ops, `exists`/`stat`/`entries`/`walk`, create/delete/rename/copy, temp files — under `filesystem`; the ioError family extended. |
+| std.random | `random.md` | Randomness (R139): seeding is the effect (`entropy`: `randomSeed`/`randomBytes`/`randomStream`), generation is pure (`prng` = a PCG-64 stream, `next*`); restart is replay; every run replayable from one logged seed. |
+| std.crypto | `crypto.md` | Deferred in full, deliberately (R140): crypto surfaces are tight stuff and poor decisions last decades — designed as its own effort, never in passing. Today: `randomBytes` + `secret` + the exec hatch. |
 | std.net | `net.md` | Deferred in full (R121): the network family — gated on the timeout surface, by design. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |

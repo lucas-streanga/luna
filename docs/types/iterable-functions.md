@@ -385,9 +385,13 @@ predicate). To count removals, diff `count()` around the call.
 
 #### random()
 ```
-fn random(it: iterable, num: int = 1, randFn?, preserveKeys: bool = true): table
+fn random(it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table
 ```
-**O(n), consumes.** Picks `num` random elements; `preserveKeys = false` reindexes from 0.
+**O(n), consumes.** Picks `num` random elements, drawing from **`rng`** — a required
+randomness stream (`std.random`, R139: the old optional `randFn?` was doubly unsound —
+an ungated default breaks the R43 eligibility theorem, and a fn-shaped PRNG cannot
+exist under const-snapshot closures; `shuffle(deck, prng(42))` is the reproducible
+spelling, `randomStream()` the everyday one). `preserveKeys = false` reindexes from 0.
 Returns a `table` (the picks are retained), and on a stream uses reservoir sampling: one
 pass, O(num) working memory — the one member of the order family that never needs the whole
 input at once, which is why its siblings (`sort`, `shuffle`, `reverse`) are table-only
@@ -472,3 +476,4 @@ For the corpus sweep and for readers of older drafts; do not reintroduce:
 | `asStream: bool` parameters | output kind follows the primary operand (§1.3); bridge with `toStream()` |
 | `asStream(tab)` as the bridge's name | `toStream(it)` — `as` is narrowing (as spec); conversions are `to*` (conversion spec) |
 | `onNoGet` / `onNoSet` parameters | retired for good (R98): element space carries no permissions |
+| `randFn?` optional randomness | required `rng: stream` (std.random §5, R139): the ungated default broke R43, and fn-shaped PRNGs cannot exist under const-snapshot closures |
