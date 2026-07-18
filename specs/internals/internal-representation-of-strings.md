@@ -12,8 +12,8 @@ included here only because they fall out of the representation.
 - **Immutable.** A string never changes after creation. This is what lets copies
   share storage with no copy-on-write machinery: there is nothing to protect against.
 - **Always valid UTF-8.** Validity is established once, at ingress (§8), and every
-  internal operation preserves it, so no operation re-validates. A future `bytes`
-  type will cover arbitrary byte data.
+  internal operation preserves it, so no operation re-validates. Arbitrary byte data
+  is `bytes`' job (bytes spec), never a string's.
 - **Common operations are cheap.** Copy, pass, compare-common-cases, slice, and
   short-string creation are all O(1) or near it.
 - **No interning.** A string's identity is its contents; there is no canonical form
@@ -21,7 +21,8 @@ included here only because they fall out of the representation.
   string's birth cheap. (Content-based fast paths, and interning as an internal
   optimization, can be added later without changing this surface; see §11.)
 - **Go GC owns lifetime.** There is no manual refcounting and no manual free. Every
-  non-static allocation is Go-managed and reclaimed normally.
+  non-static allocation is Go-managed and reclaimed normally. (Refcounting is rejected
+  by review, not omitted by oversight — §11.1, R169.)
 
 ---
 
@@ -180,8 +181,9 @@ nothing to deep-copy.
 ## 8. UTF-8 validity
 
 Validity is a boundary property. It is checked once, with an O(n) validation pass, at
-every point where untrusted bytes enter: file and network reads, FFI, and any future
-`bytes` to `string` conversion. Construction from already-valid strings (slice,
+every point where untrusted bytes enter: file and network reads, FFI, and the
+`bytes`-to-`string` decodes (fallible, living in the string API; bytes §5).
+Construction from already-valid strings (slice,
 concatenation, view element) needs no re-validation, because slicing respects codepoint
 boundaries and concatenation joins two valid sequences.
 
@@ -200,7 +202,7 @@ across languages, so Luna does not offer one. Nor is there a bare `length`: it i
 
 - **`byteLength`** returns the byte count. O(1), stored in the descriptor.
 - **`bytes()`** returns the raw UTF-8 bytes as borrowed views. For I/O, hashing, and
-  low-level work; also the eventual bridge to the `bytes` type.
+  low-level work; the copying bridge to the `bytes` type is `toBytes()` (strings §9).
 - **`codepoints()`** returns Unicode scalar values, one per element. The safe technical
   unit: fixed meaning, no Unicode-version dependence. ASCII elements are inline strings
   (zero allocation); non-ASCII elements are borrowed slices into the parent (O(1), no
@@ -212,8 +214,9 @@ across languages, so Luna does not offer one. Nor is there a bare `length`: it i
   codepoints; if it meant codepoints, `"café"` with a combining accent would give a
   surprising count.
 
-Each view returns `stream | table`, following the same materialize-or-stream choice as
-the table protocol.
+Each view returns a **stream** — producers produce streams (R102, strings §1) — and every
+string-derived stream is restartable for free, because its source is immutable (stream §4,
+R105).
 
 ---
 
@@ -229,16 +232,21 @@ the table protocol.
   practice since unequal strings differ early.
 - **Slice:** O(1) borrow (buffer-backed parents) or O(<=8) copy (inline parents).
 - **`copy` (detach):** O(n) over the slice's bytes; drops the parent pin.
-- **Concatenation:** O(n + m); result <= 8 bytes is inline. Immutability makes repeated
-  `+` in a loop O(n^2), so a builder or `join` is the right tool for accumulation.
+- **Joining:** O(n + m) per pairwise join; a result <= 8 bytes is inline. There is no
+  concatenation operator (strings §11, R27) — joining is interpolation, `join`, and the
+  builder — and immutability makes a repeated pairwise-join loop O(n^2), so the builder
+  (stringBuilder spec) is the accumulation tool.
 - **`byteLength`:** O(1). **`codepoints()` / `graphemes()` counting:** O(n).
 - **Memory:** inline removes allocation for the common tiny case entirely; borrowed
   slices avoid copies at the cost of pinning parents until `copy`.
 
 ---
 
-## 11. Open decisions
+## 11. Resolved and deferred
 
+- **Concatenation builder type: resolved** — the builder exists in full (stringBuilder
+  spec): a table wearing the `stringBuilder` protocol, single-owner, `build()` handing
+  its buffer to an owned string with the COW copy elided.
 - **Interning, later and invisibly** (§4): if a comparison-heavy workload ever warrants
   it, the answer is a content-based fast path (the cached hash below) or invisible
   interning of a specific internal population (e.g. an interpreter's own identifiers),
@@ -249,4 +257,45 @@ the table protocol.
   not needed for correctness.
 - **Cached hash** (§6): whether to store a hash in the owned buffer header for a faster
   long-string `==` reject.
-- **Concatenation builder type** (§10): the accumulation API that avoids O(n^2) loops.
+
+### 11.1 The allocator review (R169): three optimizations rejected, one theorem kept
+
+Immutability invites owning the allocator, and the package was reviewed deliberately
+(R169): a dedicated string heap, deliberate close packing, and naive reference counting.
+All three are **rejected on the Go backend**. One fact from the review is a theorem and
+stays recorded.
+
+- **A separate string heap solves a problem Go has already solved.** The premise —
+  strings are expensive to GC — mostly dissolves on this backend: a pointer-free
+  `[]byte` buffer lives in a **noscan span**, so the collector never scans string
+  bytes; it marks the 16-byte descriptor and sweeps. The marginal GC cost of strings
+  is near the floor with no new machinery. An actual private heap under Go means
+  arenas (experimental, stalled) or manual memory via `unsafe` — reintroducing
+  exactly the two problems §3 records deleting (finalizer-driven frees, free-ordering),
+  and the first unsafe memory anywhere in the system. (The JVM analogy points the same
+  way: no modern JVM has a separate string heap — the interned pool moved into the
+  ordinary heap in Java 7 — and the live feature, G1 string *deduplication*, is
+  GC-time invisible interning: this file's §4 stance, not a heap.)
+- **Deliberate close packing** rides on the same allocator ownership and degrades §7:
+  a borrowed slice today pins one parent buffer, with `copy` as the escape hatch;
+  packed into an arena it pins the whole arena, promoting `copy` from optimization to
+  memory-correctness obligation.
+- **The refcount-completeness theorem — true, kept, and rejected.** The string
+  reference graph is **acyclic by construction**: an inline string references
+  nothing, an owned buffer references nothing, and a borrowed slice references
+  exactly one buffer that existed before it. Immutability means no edge is ever
+  added after birth, so no cycle can ever form — naive reference counting is
+  therefore **complete** for strings: no cycle collector, no tracing, no backup GC,
+  ever. That is a real theorem, and it stays recorded here for a hypothetical
+  self-hosted backend. It is rejected today because it buys nothing and costs on the
+  hottest path: under Go the GC already owns lifetime (and noscan spans already make
+  strings cheap to collect, above), so a refcount would be pure addition — an
+  inc/dec on **every `lval` copy and drop**, the most frequent operation in the
+  runtime — and because immutable strings are exactly the values safe to share by
+  reference across tasks, the counts would have to be **atomic**: cross-core
+  contention on every shared hot string, purchased for a collector we do not need.
+  "No refcount" (§1, §3) stays load-bearing.
+
+Not on the rejected list, because it was never a proposal: tier-1 inline (§2) — the
+review's fourth candidate was already this spec's ruled representation, flag bits and
+all (value-representation §2.2).

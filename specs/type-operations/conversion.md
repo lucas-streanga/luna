@@ -145,8 +145,8 @@ Because `toString` is total, it always yields a string:
   totality is **contract, not courtesy**: the member's declared type is `fn (any): string`,
   no `!`, and an apply initializer is checked against the member's declared type
   (protocols §4.2), so an errorable implementation cannot enter the protocol. Display
-  paths (logging, interpolation, `.`
-  concatenation, strings §11) therefore never fail through the extension point; only ambient
+  paths (logging, interpolation, `join` — strings §8, §13; there is no concatenation
+  operator, strings §11, R27) therefore never fail through the extension point; only ambient
   panics remain possible, as everywhere (errors §7).
 
 This totality is what lets **string interpolation** (string-builder spec) lower to `toString`

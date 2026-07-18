@@ -1,7 +1,7 @@
 # String builder
 
 Luna strings are immutable (string-representation, string-api), so accumulating a string
-with the concatenation operator in a loop reallocates on every step and is O(n^2) in the
+by repeated pairwise joining in a loop reallocates on every step and is O(n^2) in the
 total length. The **string builder** is the mutable accumulator that solves this: you
 append into it freely, then materialize an immutable `string` once. It is the single place
 in the string story where mutation lives.
@@ -110,8 +110,9 @@ forbidding protocol members from taking catalogue names died with the built-in p
 
 ### 3.1 `append` coerces via `toString`
 
-`append` takes `any` and appends the bytes of `value.toString()`, the same coercion the
-`.` concatenation operator uses (string-api §11). So `b->append(42)` appends `"42"`. To
+`append` takes `any` and appends the bytes of `value.toString()`, the same coercion
+interpolation and `join` use (string-api §8, §13; conversion §3 — there is no
+concatenation operator, string-api §11). So `b->append(42)` appends `"42"`. To
 append a raw scalar value by code point rather than its decimal text, use
 `appendCodepoint`.
 
@@ -232,7 +233,7 @@ A builder is **single-owner and not synchronized.** It is deliberately mutable, 
 shared state is exactly what the immutable-string design avoids elsewhere, so a builder is
 not meant to be shared across concurrent tasks. Under Luna's green threads with enforced
 copying, a builder is not shared across threads in the first place; each task builds its
-own and the immutable results are combined (with `join` or concatenation). This keeps the
+own and the immutable results are combined (with `join` or interpolation). This keeps the
 common path lock-free and contention-free. A concurrently-appended sink, if ever needed, is
 a different type with its own contract, not a lock bolted onto the builder.
 
@@ -255,7 +256,7 @@ materializes once:
 
 So interpolation and manual builder use share one mechanism, and interpolation carries no
 hidden O(n^2) cost: an interpolated literal is one builder pass, not a chain of
-reallocating `.` concatenations. The temporary builder is dropped immediately after
+reallocating pairwise joins. The temporary builder is dropped immediately after
 `build()`, so the produced string keeps sole ownership of the bytes and the COW copy
 never happens (§5) — the zero-copy path, with no `take` needed.
 

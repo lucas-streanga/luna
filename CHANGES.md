@@ -4009,6 +4009,52 @@ R108 named-argument rejection, §5's lexer claims verified against lexer §6
 in commands and literals), and §6's "Amendment A" cite (live in tables.md).
 Swept: `spread.md` intro, §7; the CHANGES tail line.
 
+**R169 — string internals brought current; the allocator review recorded (three
+optimizations rejected, one theorem kept); the R27 concat leaks swept.** The
+user proposed four immutability-driven optimizations; the review's outcomes are
+now §11.1 of the string-representation spec. **Inline-in-`lval`** (8 bytes + a
+flags bit) was already the ruled spec verbatim — tier 1, the string-inline field
+of value-representation §2.2 — a proposal and its prior acceptance meeting. **A
+separate string heap** is rejected: the expensive-to-GC premise mostly dissolves
+on the Go backend (pointer-free `[]byte` buffers live in noscan spans — the
+collector never scans string bytes, it marks the 16-byte descriptor and
+sweeps), and a real private heap means stalled arena experiments or `unsafe`
+manual memory — reintroducing exactly the two problems §3 records deleting, as
+the first unsafe memory in the system. The Java analogy corrected in place: no
+modern JVM has a separate string heap (the interned pool moved to the ordinary
+heap in Java 7); the live feature, G1 string deduplication, is GC-time
+invisible interning — the spec's existing §4 stance. **Deliberate close
+packing** is rejected as riding on the same allocator ownership while degrading
+§7: an arena-packed slice pins the whole arena, promoting `copy` from
+optimization to memory-correctness obligation. **Naive-refcount completeness is
+a true theorem, kept and rejected**: the string reference graph is acyclic by
+construction (inline and owned reference nothing; a borrowed slice references
+exactly one pre-existing buffer; immutability adds no edge after birth), so
+naive RC is *complete* — no cycle collector ever — recorded for a hypothetical
+self-hosted backend; rejected today because it buys nothing under Go's GC and
+costs an inc/dec on every `lval` copy/drop, **atomic** ones, since immutable
+strings are precisely the values shared by reference across tasks —
+cross-core contention purchased for a collector we do not need. The fossil
+pass on the same file: `bytes`-doesn't-exist-yet claims ×3 (§1, §8, §9 — bytes
+exists; the bridge is `toBytes()`), §9's `stream | table` return shape (R102:
+producers produce streams; restartable free off an immutable source, R105),
+§10's "repeated `+` in a loop" (no concat operator exists — R27; joining is
+interpolation/`join`/builder), §11's builder open (resolved — stringBuilder.md
+exists in full). One vocabulary reversal from the pre-bless analysis, checked
+and kept deliberately: "views" stays — strings §9 is *titled* "UTF-8 views",
+live usage; R95 retired the table-view model, a different thing. And the
+en-route discovery swept: **R27 (F10) removed `.` concatenation, but three
+files still spoke it as live** — conversion §3.1 ("`.` concatenation, strings
+§11" — citing as definition the very section that denies it) and
+stringBuilder.md ×4 (the intro's "concatenation operator", §3.1's "`.`
+concatenation operator uses", §6's "`join` or concatenation", §7's
+"reallocating `.` concatenations") — all now name interpolation/`join`/pairwise
+joining, with the operator's absence cited where load-bearing. Grep confirms
+the only surviving "concatenation operator" mentions are denials and strings
+§11's own tombstone. Swept: `internal-representation-of-strings.md` §1 ×2, §8,
+§9 ×2, §10, §11 (+ new §11.1), `conversion.md` §3.1, `stringBuilder.md` §0,
+§3.1, §6, §7.
+
 ---
 
 ## Still open (out of scope of these rulings)
