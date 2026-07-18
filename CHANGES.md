@@ -2607,6 +2607,43 @@ row), §6 (the numeric known-uses bullet), §8 (resolved); `numeric-tower.md` §
 verbs-widen note), §5 (the deferred `toFloat` / verb-widening entry); `variables.md`
 (two sites); this file's tail (the stale F-list cleaned).
 
+**R125 — protocol serialization: the `"@@"` section, off by default.** The JSON-nesting
+open (R95–R98) closes. **Shape**: with `includeProtocols: true`, both writers emit the
+protocol surface under one reserved key, `"@@"` — the axis's own operator name — mapping
+each applied protocol's name to an object of its `get`-granted per-table members,
+recursively serialized, sections in **application order** — not aesthetics but the
+requirement-safe replay order (a requirer never precedes its requirement, protocols §7),
+so the document doubles as an apply script. Empty sections emit: a marker protocol's
+presence is equality-bearing data. **Default: excluded** (`includeProtocols: bool =
+false` on both writers, baked into the generated writer like `skipFunctions`).
+Serialization is an interop boundary first — the common call feeds consumers that know
+nothing of protocols — and the default keeps `fromJson |> modify |> toJson` total over
+foreign documents, a literal `"@@"` key included. The honest cost, recorded in protocols
+§5: the one-boundary claim weakens to "the fourth consumer on request" — by default two
+non-`==` tables can serialize identically; equality and the initializer surface are
+untouched. A quiet win the default buys: the fn-member `typeError` narrows to protocol
+mode, so a table wearing an interface-pattern protocol (conversion §3) serializes its
+data cleanly by default. **Opt-in refusals, both `typeError`**: an element key literally
+`"@@"` (in default mode it emits verbatim and no question arises — default-exclude is
+what made refusal affordable, since the foreign-JSON objection lives entirely on the
+default path), and two applied protocols sharing a name (legal composition, §6.1, but
+duplicate section keys are illegal JSON; module-qualifying would make data depend on
+file layout — refusal is cheaper, the case degenerate). **The read side stays
+caller-driven**: no registry (R19), a name string cannot summon a proto, so `fromJson`
+parses `"@@"` as ordinary nested data; rebuilding is the caller's — proto values in
+hand, apply in section order, each section the initializer table; a reordered document
+may fail with `applyError` (stated, not defended against). Round-trip is thereby
+**`==`-faithful, not state-faithful** (ungranted members re-default, `==` reads the
+granted surface — the one-boundary theorem), with two recorded exceptions:
+`identityEquality` protocols (never `==` anything but themselves) and interface-pattern
+protocols (the required fn member raises `typeError`, and `skipFunctions` omits exactly
+what `apply` then demands — they do not round-trip; fn has no data form). Deferred,
+named: whether `jsonTag` attributes reach member declarations inside a `proto` block,
+riding with the generated read side (json §4). Swept: `json.md` §2 (signatures), §2.1
+(rewritten around flag and shape), §3 (the read-side bullet), §4 (nesting resolved, the
+`jsonTag` open added); `protocols.md` §5 (boundary reworded, serialization bullet), §10
+(open closed); this file's tail.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2644,9 +2681,10 @@ And from R91–R93, the two big flagged remainders:
   settled the string/bytes-iterability question it raised (R104: `foreach` yes for
   `bytes`, `iterable` stays `table | stream` exact). Future edits: iterable-functions
   §3's retired-spellings table is the guard against reintroduction.
-- **Opens from R95–R98, still standing:** the JSON nesting shape for serialized protocol
-  members; and `@@`'s type surface on non-table values. (Removal/`unapply` is **closed by
-  R123** — the free function, refusal where an applied requirer still requires,
+- **Opens from R95–R98, still standing:** `@@`'s type surface on non-table values —
+  the last one. (The JSON nesting shape is **closed by R125** — the `"@@"` section, off
+  by default; removal/`unapply` is **closed by R123** — the free function, refusal where
+  an applied requirer still requires,
   wrong-write checks for the rest, the §6.3 condition repaid as stated; the `?->` token landed in R101;
   the initializer-grammar spelling closed with R108; and **mutable protocol-level state
   closed with R119** — the task-ownership story exists now, the owner-task pattern of

@@ -39,8 +39,10 @@ type is the escaping decision.** Every format module follows this pattern.
 
 ```
 export const toJson = comptime fn (ct: comptype, skipFunctions: bool = false,
+                                   includeProtocols: bool = false,
                                    revealSecrets: fn? = null): fn (any): json;   // generated, tags honored
 export fn toJsonDynamic(v: any, skipFunctions: bool = false,
+                        includeProtocols: bool = false,
                         revealSecrets: fn? = null): json;                        // structural, tags erased
 ```
 
@@ -68,18 +70,54 @@ declaration; `toJsonDynamic` serializes the value.**
 
 ### 2.1 What serializes; functions do not
 
-Both writers emit the value's **serialization surface** (protocols §5): its element space
-plus, for each applied protocol, that protocol's `get`-granted **per-table** members.
-Definition-fixed members are protocol facts, not value facts, and never serialize;
-ungranted members are private and never serialize — emitting them would disclose state
-that cannot round-trip, since only granted members are apply-initializable (protocols
-§4.2). The JSON *shape* protocol members take in the output is open (§4).
+**By default, both writers emit element space only** (`includeProtocols: bool = false`,
+R125). Serialization is an interop boundary first: the common call feeds consumers that
+know nothing of protocols, a plain table's output is byte-stable whether or not the value
+wears protocols, and `fromJson |> modify |> toJson` stays total over foreign documents.
+With **`includeProtocols: true`** the output adds the protocol surface under one reserved
+key, **`"@@"`** — the axis's own operator name — mapping each applied protocol's name to
+an object of its `get`-granted **per-table** members, recursively serialized, sections in
+**application order** (not aesthetics: it is the requirement-safe replay order, a
+requirer never preceding its requirement, protocols §7):
+
+```
+{"host": "x", "@@": {"person": {"name": "Lucas", "visits": 3}, "employee": {"badge": 7}}}
+```
+
+In every mode: definition-fixed members are protocol facts, not value facts, and never
+serialize; ungranted members are private and never serialize — emitting them would
+disclose state that cannot round-trip, since only granted members are apply-initializable
+(protocols §4.2). In protocol mode:
+
+- **The flag governs the whole walk.** A nested protocoled table — an element value or a
+  member value — gets its own `"@@"` section under the same flag.
+- **Empty sections emit.** A marker protocol with no granted per-table members serializes
+  as `"tag": {}`: the applied set is equality-bearing data (equality spec §4.5), so
+  presence must survive serialization.
+- **Two refusals, both `typeError`.** An element key that is literally `"@@"` (the output
+  would be ambiguous; in default mode the key emits verbatim and no question arises —
+  the default is what makes refusal affordable, since foreign-JSON pipelines live
+  entirely on the default path). And two applied protocols sharing a name (legal
+  composition, protocols §6.1, but duplicate section keys are illegal JSON;
+  module-qualifying the names would make data depend on file layout, so refusal is
+  cheaper and the case is degenerate).
+- **Round-trip is `==`-faithful, not state-faithful.** Ungranted members re-default at
+  rebuild (they always have defaults, protocols §2.2) and `==` reads only the granted
+  surface, so a rebuilt value `==` the original — the one-boundary theorem (protocols
+  §5). Two exceptions, recorded: `identityEquality` protocols (a rebuilt value is never
+  `==` the original; identity is the point), and interface-pattern protocols (conversion
+  §3), whose required fn-typed member raises `typeError` below — and `skipFunctions:
+  true` omits exactly what `apply` will then demand, so the rebuild fails with
+  `applyError`. **Interface-pattern protocols do not round-trip**: the accepted
+  consequence of fn-has-no-data-form.
 
 **Function values do not serialize** (R96): a `fn` has no data representation, cannot be
 deserialized, and emitting one would be a disclosure hazard. A `fn` anywhere in the
-surface — a fn-valued element, or a fn-typed `get` member such as `stringify`'s renderer
-(conversion §3) — raises `typeError`. `skipFunctions: true` omits fn-valued slots
-instead: per call on `toJsonDynamic`, baked into the generated writer on `toJson`.
+emitted surface — a fn-valued element (any mode), or a fn-typed `get` member such as
+`stringify`'s renderer (conversion §3; protocol mode only, since the default never reads
+protocol members) — raises `typeError`. `skipFunctions: true` omits fn-valued slots
+instead: per call on `toJsonDynamic`, baked into the generated writer on `toJson`
+(as is `includeProtocols`).
 
 **Secrets render as `'<secret>'`** — every payload kind alike (secret §4, R113).
 Serialization is a display path, and concealment-on-display is the secret's *designed*
@@ -118,6 +156,13 @@ export const fromJson = fn (j: json): table!;
 - **Any source.** File-to-table is a composition with `std.io`, not an export here:
   `fromJson(readAll(fd) as json)` (propagating; `try` to recover), the `as json` narrowing `readAll`'s
   `string | bytes` union and running the format entry in one visible step at the seam.
+- **`"@@"` is data on the read side.** `fromJson` never interprets the protocol section
+  (§2.1): there is no registry (R19) and a name string cannot summon a `proto` value, so
+  the section parses as an ordinary nested table. Rebuilding is the caller's — proto
+  values in hand, map section names and `apply` **in section order**, each section the
+  initializer table (protocols §4.2, §5). A reordered document may fail with `applyError`
+  where a requirer precedes a requirement with required members: stated, not defended
+  against. The generated read side (§4) lands against this shape.
 
 ## 4. Open questions
 
@@ -128,6 +173,9 @@ export const fromJson = fn (j: json): table!;
 - **`fromJson` into declared shapes**: parsing into a protocol-typed table (the inverse of
   the `toJson` generator), pending the reflection pipeline's read side — reconstruction is
   `apply` plus initializers over the granted surface (protocols §4.2, §5).
-- **Protocol-member nesting**: the JSON shape serialized protocol members take (nested
-  under the protocol name, flattened into the top object, or tagged), and the reverse on
-  the read side.
+- *(**Protocol-member nesting: resolved by R125** — the reserved `"@@"` section,
+  protocol name → granted members, application order, off by default
+  (`includeProtocols: bool = false`); §2.1. The read side stays caller-driven, §3.)*
+- **`jsonTag` on protocol members**: whether the attribute grammar reaches member
+  declarations inside a `proto` block (attributes §2), so the generated writer can honor
+  tags there too. Deferred, riding with the generated read side above.

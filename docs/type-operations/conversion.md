@@ -129,9 +129,11 @@ So **custom rendering is a protocol member, not overloading and not lookup**: a 
 has `stringify` applied with its own renderer bound, and `toString` reaches it by name.
 A required fn-typed member is how any interface-shaped contract is expressed under the
 member model (protocols §2); `toString` extensibility needs no new machinery. (One
-consequence to know: the renderer is a `get` fn-typed per-table member, so it sits in the
-serialization surface and meets the fn-serialization rule — `toJson` on a `@stringify`
-value raises `typeError` unless `skipFunctions` is set; json §2.1.)
+consequence to know: the renderer is a `get` fn-typed per-table member, so in protocol
+mode it sits in the emitted surface and meets the fn-serialization rule — `toJson(v,
+includeProtocols: true)` on a `@stringify` value raises `typeError` unless
+`skipFunctions` is set. The default serializes element space only and never trips on
+the renderer; json §2.1, R125.)
 
 ### 3.1 `toString` is total, including for user types
 

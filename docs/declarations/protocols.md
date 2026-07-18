@@ -431,7 +431,8 @@ checking is *sufficient* — why nobody else's `@P` promise can break — is §6
 
 ## 5. The granted surface is the contract
 
-One boundary, stated once, consumed four times. For a protocol's **per-table** members:
+One boundary, stated once, consumed four times — the fourth on request (R125). For a
+protocol's **per-table** members:
 
 - **Access:** `get` / `set` decide external reads and writes (§2.2).
 - **Equality:** `==` on tables compares element space, the applied-protocol sets, and the
@@ -440,10 +441,12 @@ One boundary, stated once, consumed four times. For a protocol's **per-table** m
   two logically equal values unequal; if hidden state *should* distinguish values, the
   protocol declares `identityEquality`, §2.4). Definition-fixed members are uniform and
   therefore vacuous.
-- **Serialization:** `toJson` emits the `get`-granted per-table members (alongside element
-  space; the exact nesting shape is the json spec's concern). Ungranted members do not
-  serialize — emitting them would disclose private state and produce output that cannot
-  round-trip.
+- **Serialization:** when asked for protocols — `includeProtocols: true`, R125; the
+  default emits element space only, serialization being an interop boundary first —
+  `toJson` emits the `get`-granted per-table members under the reserved `"@@"` key,
+  sections in application order (shape and refusals: json spec §2.1). Ungranted members
+  never serialize — emitting them would disclose private state and produce output that
+  cannot round-trip.
 - **Initializers:** the granted per-table members are exactly what an apply initializer
   may bind (§4.2), which is what makes deserialization possible at all: rebuilding a
   value is `apply` plus initializers, so the serializable surface and the initializable
@@ -451,9 +454,10 @@ One boundary, stated once, consumed four times. For a protocol's **per-table** m
 
 **Function values do not serialize.** A `fn` has no data representation, deserializing
 one is impossible, and emitting one is a security hazard. `toJson` on a value whose
-serialization surface contains a `fn` (a fn-typed `get` member, or a fn stored in element
-space) raises `typeError`; `toJson(v, skipFunctions: true)` omits fn-valued slots
-instead. Fn values compare by identity in `==` as functions always do.
+*emitted* surface contains a `fn` — a fn stored in element space (any mode), or a
+fn-typed `get` member (protocol mode only, R125) — raises `typeError`;
+`toJson(v, skipFunctions: true)` omits fn-valued slots instead. Fn values compare by
+identity in `==` as functions always do.
 
 ---
 
@@ -611,9 +615,9 @@ Open questions:
 - *(The initializer-grammar question is **closed by R108**: named arguments landed with
   the same `name: value` surface; the initializer list stays its own grammar, binding
   members rather than parameters — §4.2.)*
-- **Serialization nesting:** *what* serializes is fixed (§5); the JSON shape protocol
-  members take (nested under the protocol name, flattened, tagged) is the json spec's
-  decision.
+- *(**Serialization nesting: closed by R125** — the reserved `"@@"` section, protocol
+  name → granted members, application order, off by default (`includeProtocols`); json
+  spec §2.1, §3. The follow-on `jsonTag`-reach question is logged there, json §4.)*
 - **`?->` token:** semantics are fixed (§3.2); lexer/associativity placement is the
   build-spec sweep's concern.
 - **Bound functions:** rejected (§3.4); revisit only if a concrete need survives the

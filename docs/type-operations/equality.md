@@ -254,7 +254,8 @@ element spaces to make two equal tables, the protocol axis must also agree:
   and are skipped. A fn-typed `get` member compares by identity, as `fn` always does (§2).
 
 One boundary, stated once (protocols §5): the `get` surface is the access surface, the equality
-surface, and the serialization surface.
+surface, and — when serialization is asked for protocols at all (`includeProtocols`,
+json §2.1, R125) — the serialization surface.
 
 ---
 
