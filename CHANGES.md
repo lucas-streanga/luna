@@ -3648,6 +3648,17 @@ pre-specified), and **the stdlib patterns layer** deferred as library work, full
 unblocked since R142, pending write-up only. Section retitled "Resolved and
 deferred — nothing open." Swept: `channels.md` §7.
 
+**R154 — attributes §6.3: duplicates are a compile error; the two deferrals
+reaffirmed.** **Duplicate application of one attribute on one declaration is
+rejected outright** — the alternatives each fail a house rule: last-wins silently
+discards data (the no-silent-drop instinct), and a list forces every consumer to
+handle multiplicity nobody asked for; the declaration is malformed, so say so.
+Trivial, and ruled as such. **Attributes on other declaration forms** stay deferred
+by decision pending a concrete need, with the likeliest first customer named (the
+`jsonTag`-on-proto-members rider, json §4); **the documentation attribute** stays
+deferred with its R152 observability-class constraint standing. Section retitled
+"Ruled and deferred." Swept: `attributes.md` §6.3.
+
 ---
 
 ## Still open (out of scope of these rulings)

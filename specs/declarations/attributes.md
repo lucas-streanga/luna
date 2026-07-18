@@ -272,16 +272,21 @@ the value, nor its type, nor its assignability, nor anything at runtime.
   a payload is an ordinary comptime-known value, and nothing about the machinery (§1, §4)
   cared about flatness in the first place.
 
-### 6.3 Open
+### 6.3 Ruled and deferred
 
-- **Duplicate application** of the same attribute on one declaration (error, last-wins, or
-  a list), pending use.
+- *(**Duplicate application: a compile error** (R154). Applying the same attribute
+  twice to one declaration is rejected outright — last-wins silently discards data
+  (the no-silent-drop instinct), and a list forces every consumer to handle
+  multiplicity nobody asked for. The declaration is malformed; say so. Trivial, and
+  ruled as such.)*
 - **Attributes on other declaration forms** (enum variants, protocol members, constraint
-  declarations), deferred by decision pending a concrete need.
-- **A documentation attribute** (tooling hover — the residue of tooling §7's dissolved
-  trivia question, R152). Luna has no doc comments (lexical-structure §3), so
-  documentation, when formalized, is an attribute — and its one design constraint is
-  fixed now: it must pick an **observability class**. Comptime-observable (like every
-  attribute today) means interface-hash-bearing (R149), so a doc edit recompiles every
-  dependent; a tooling-only class would be excluded from both comptime and the hash but
-  is a new attribute category. Choose knowingly, when designed.
+  declarations) — **deferred by decision** (reaffirmed R154), pending a concrete need
+  (the `jsonTag`-on-proto-members rider, json §4, is the likeliest first customer).
+- **A documentation attribute** — **deferred by decision** (reaffirmed R154; the
+  residue of tooling §7's dissolved trivia question, R152). Luna has no doc comments
+  (lexical-structure §3), so documentation, when formalized, is an attribute — and its
+  one design constraint is fixed now: it must pick an **observability class**.
+  Comptime-observable (like every attribute today) means interface-hash-bearing
+  (R149), so a doc edit recompiles every dependent; a tooling-only class would be
+  excluded from both comptime and the hash but is a new attribute category. Choose
+  knowingly, when designed.
