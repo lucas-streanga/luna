@@ -191,18 +191,24 @@ element types wait for their own treatment.
 - **Value position → a `stream`** of ints (lazy, low-memory, foreach-able with enumeration keys,
   pipeable, restartable). **Match position → a membership test** (endpoints, no stream).
 - **Slicing is separate** (`:`, half-open, tables and bytes specs), so `..` is always inclusive.
-- `by step` gives a constant positive step; **descending** when `lo > hi`; **`lo..`** is an
-  infinite stream bounded by `take`.
+- `by step` takes any `int` expression, evaluated once; the **sign is the direction** (`0`
+  panics); `lo > hi` without a negative step is **empty** — descending is explicit
+  (`10..0 by -2`), never bounds-implied (§4). **`lo..`** is an infinite stream bounded by
+  `take`.
 - **Integers only**; character and other ranges deferred.
 
 ---
 
-## 8. Open questions
+## 8. Deferred by decision
 
-- **Range in more positions:** whether `..` ranges are useful anywhere beyond value position and
-  match (they are not used in slicing, §2.1), pending experience.
-- **Character and other ranges:** ranges over codepoints or a future `char`/`float` type, and
-  what "contiguous" means for each.
-- **Reified range for a bound API:** whether any operation ever needs a range's bounds as data
-  (not a stream), which would want a lightweight bounds pair rather than consuming the stream;
-  currently no such need (match reads endpoints syntactically).
+Nothing here is open — the design above is complete; these three are **deferred**, each
+waiting on a trigger, not a decision:
+
+- **Range in more positions** — deferred pending experience: no position beyond value and
+  match has asked for `..` (slicing deliberately does not use it, §2.1).
+- **Character and other ranges** — deferred with the character/codepoint treatment (§6):
+  Luna has no `char`, and what "contiguous" means over UTF-8 is that future design's
+  question, not this spec's.
+- **A reified bounds pair** — deferred for want of a need: no operation reads a range's
+  bounds as data (match reads endpoints syntactically), so no bounds API exists until
+  something needs one.

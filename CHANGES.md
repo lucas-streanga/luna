@@ -3949,6 +3949,47 @@ compiler §7), not drift. Swept: `operators.md` §0 (the catalogue and intro),
 §2 (the tail) — single-file by nature; the catalogue is a mirror, and the
 corpus it mirrors was already consistent.
 
+**R166 — range.md validated; its "opens" reclassified as defers; one summary
+fossil and one cross-spec slicing contradiction fixed.** The §8 items were never
+open questions — nothing in them awaits a decision; each waits on a trigger — so
+the section is now "Deferred by decision" (more positions: pending experience;
+character ranges: deferred with the char/codepoint treatment, §6; a reified
+bounds pair: for want of a need — match reads endpoints syntactically). The
+validation's finds: **§7's summary bullet said "descending when `lo > hi`"** —
+the bounds-implied descending that §4 itself headline-rejects (R28, R48; empty,
+never descending) had survived in the file's own summary; the bullet now states
+the actual rules (sign is direction, `0` panics, `lo > hi` empty, descending
+explicit). And **bytes §4 spelled slicing `b[start..end]`** — inclusive `..`
+inside brackets — contradicting the ruled corpus-wide convention that `:` slices
+half-open and `..` ranges inclusive, the two never mixing (tables §2.5, range
+§2.1, which itself cites `bytes[2:]` as the example). bytes.md never engaged
+the question — casual notation predating the convention — and now reads
+`b[start:end]`, half-open, with the convention cited. The rest of range.md
+checked clean: the §4a desugar, the R93 implicit-keys bullet, R105
+restartability, the match §5 membership split, int-only elements. Flagged for a
+future bytes.md pass, not fixed here (an API-naming call, not mechanical
+drift): `asList(b)` **copies** — under R106's prefix contract a copying total
+conversion is `to*`-shaped, so the `as*` name is suspect. Swept: `range.md` §7,
+§8; `bytes.md` §4 ×2.
+
+**R167 — `asList` renamed `toList`: the last live `as*`-prefixed function falls
+to the R106 prefix contract.** R166's flag, ruled: `asList(b: bytes): list`
+**copies** the packed buffer into boxed `lval`s — a total, value-to-value
+conversion, which is `to*` by R106's own table, and the `as*` spelling was
+worse than merely old: `as` means lossless re-typing without a new value (as
+spec, R124), so the name falsely suggested a free view over what is an O(n)
+expanding copy — precisely the cost-visibility the prefix contract exists to
+carry. The name was pre-R106 convention (its own parenthetical defended
+`asList`-vs-`values`, a question from before the prefixes were unified), the
+same fossil class as `asStream` → `toStream` (R102). `toList` was unclaimed, so
+it lands as *the* `toList`, one name, one signature (functions §3.4); no
+collision with `collect`, since `bytes` is deliberately not `iterable` (R104).
+The grep confirms this was the **last** live `as*` function — the only surviving
+mention is iterable-functions §3's retired-spellings guard table, where it
+belongs. Swept: `bytes.md` §2, §4 ×2 (the signature, the bullet — its naming
+note now states the R106 rationale), `conversion.md` §5 (the canonical summary
+gains the `toList` row beside `toTable`).
+
 ---
 
 ## Still open (out of scope of these rulings)

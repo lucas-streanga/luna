@@ -28,7 +28,7 @@ So `bytes` is **table-like in interface** (integer-indexed, appendable, directly
 `foreach`-iterable — R104) but **not a table in storage**, and deliberately **not an
 `iterable`** (that alias stays exactly `table | stream`; the catalogue is reached through
 `toStream`, §6). You get `b[i]` and `b[]` syntax over a tight byte buffer. To obtain an
-actual table/list of the bytes (paying the boxing cost), use `asList()` (§4).
+actual table/list of the bytes (paying the boxing cost), use `toList()` (§4).
 
 ---
 
@@ -89,18 +89,23 @@ default). This is the **explicit** way to extend a buffer, replacing the rejecte
 ## 4. Slicing and conversion
 
 ```
-fn slice(b: bytes, start: int, end: int): bytes          // a sub-buffer b[start..end]
-fn asList(b: bytes): list                                 // a list of int (0..255); COPIES and expands
+fn slice(b: bytes, start: int, end: int): bytes          // a sub-buffer b[start:end], end excluded
+fn toList(b: bytes): list                                 // a list of int (0..255); COPIES and expands
 fn cString(b: bytes): bytes                               // ensure a trailing NUL (0x00); for FFI
 ```
 
-- **Slicing** `b[start..end]` (or `slice`) returns a **`bytes`** sub-buffer. Reading a single
-  index `b[i]` returns a `byte` (an int); reading a range returns a `bytes`. The single-vs-range
-  distinction is clear from the syntax, so it avoids the inconsistency some languages have.
-- **`asList()`** produces a `list` of `int` (each `0..255`). This **copies** the packed buffer
+- **Slicing** `b[start:end]` (or `slice`) returns a **`bytes`** sub-buffer — **half-open**,
+  end excluded, the corpus-wide slice convention (`:` slices half-open, `..` ranges
+  inclusive, and they never mix; tables §2.5, range §2.1). Reading a single index `b[i]`
+  returns a `byte` (an int); slicing returns a `bytes`. The single-vs-slice distinction is
+  clear from the syntax, so it avoids the inconsistency some languages have.
+- **`toList()`** produces a `list` of `int` (each `0..255`). This **copies** the packed buffer
   into boxed `lval`s (the table representation), so it is O(n) and expands the memory footprint;
   it is the explicit "I want the table/list machinery over these bytes" operation, not a free
-  view. (Named `asList` because `values()` means something else on tables.)
+  view. (The name is the R106 `to*` contract — a total, copying, value-to-value conversion is
+  `to*`, never `as*`, which would falsely suggest a free re-typing. Not `values()` — that
+  means something else on tables — and not `collect` — `bytes` is deliberately not
+  `iterable`, R104. This is *the* `toList`, one name, one signature, functions §3.4.)
 - **`cString()`** returns bytes with a trailing NUL appended if not already present, for passing
   to C FFI that expects NUL-terminated data. Total (always succeeds).
 

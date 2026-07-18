@@ -195,6 +195,10 @@ specs and summarized here:
   for structural `match` (errors §2.2, equality §5, R110). This is *the* `toTable`
   (one name, one signature, functions §3.4); nothing else wants the name — iterables
   have `collect`.
+- **To list (total):** `toList(b: bytes): list` — the packed buffer expanded to a list of
+  boxed ints, a copy with the cost visible in the name's contract (bytes §4; was `asList`,
+  renamed R167 — a copying conversion is `to*`, never `as*`). This is *the* `toList`;
+  iterables, again, have `collect`.
 - **From text (fallible):** `parseInt(s: string): int!`, `parseDouble(s: string): double!`,
   `parseBool(s: string): bool!` — one per parseable built-in (string spec and each type's
   spec).
