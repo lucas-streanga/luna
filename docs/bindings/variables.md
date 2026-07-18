@@ -97,12 +97,12 @@ The single write must be non-null; once it is spent, *every* further assignment 
 including `numbers = null`, is rejected. Where the double write is statically
 evident (straight-line code, as above) it is a compile-time `reassignmentError`;
 where it is branch-dependent it cannot be seen statically, so it is tracked with a
-runtime flag and raises `WriteOnceViolationError`:
+runtime flag and raises `writeOnceViolationError`:
 
 ```
 let handle?: stream = null;
 if (a) handle = openA();
-if (b) handle = openB();           // runtime WriteOnceViolationError if a and b both hold
+if (b) handle = openB();           // runtime writeOnceViolationError if a and b both hold
 ```
 
 ### 1.3 Every declaration must be initialized
@@ -383,7 +383,7 @@ See the types spec for the full `type` surface.
 | Error | When | Detected |
 |-|-|-|
 | `reassignmentError` | Rebinding a `let` / `const`; assigning a spent write-once optional | compile (runtime when branch-dependent) |
-| `WriteOnceViolationError` | Second write to a write-once optional on a runtime path | runtime |
+| `writeOnceViolationError` | Second write to a write-once optional on a runtime path | runtime |
 | `incompatibleTypeError` | Assigning a value outside the binding's declared type | compile |
 | (const immutability) | Adding a key to, or overwriting a value in, a `const` (deeply immutable) table | compile where the target is static; on a dynamic path, a table-protocol violation at runtime (tables §5) |
 

@@ -180,7 +180,7 @@ away: the argument is statically within the claimed parameter, which the real pa
 contravariance; the returned value lies within the real result, which lies within the claim by
 covariance; the real function has no required parameter beyond the claimed arity; errorability agrees;
 `&` positions are identical. So a signature-bound function is called with **no argument check, no
-return check, no `ArityError`, and no laundering check**, where an `as`-narrowed one carries all four.
+return check, no `arityError`, and no laundering check**, where an `as`-narrowed one carries all four.
 `match` is the fast door as well as the total one, and this is the same `is`/`as` relationship that
 holds everywhere else in the language.
 

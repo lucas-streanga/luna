@@ -62,7 +62,7 @@ The **behavior on violation** is uniform across the integer types and follows th
 panic-on-violation stance:
 
 - **Integer overflow panics** (int spec §2): arithmetic exceeding the type's range raises a `panic`
-  (an `OverflowError`), never silently wraps. Wrapping and saturating variants are explicit, named
+  (an `overflowError`), never silently wraps. Wrapping and saturating variants are explicit, named
   functions (`wrappingAdd`, `saturatingAdd`, int spec §4), never the operator default.
 - **Integer division and remainder by zero panic** (int spec §5): integers have no infinity or nan to
   yield, so `5 / 0` and `5 % 0` panic.

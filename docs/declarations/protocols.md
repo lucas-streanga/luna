@@ -121,7 +121,7 @@ Rules:
 
 - **Canonical order is `get set`** (writing `set get` is a compile error; one spelling).
 - **Grants are orthogonal.** `set` does not imply `get`; a write-only member
-  (`var set sink: …`) is legal and rare.
+  (`var set output: …`) is legal and rare.
 - **A grant that can never be exercised is a definition error.** `const … set` grants
   writing to a deep-frozen member; `let set m: int = 5` grants writing to a fixed slot
   with no interior. Both are dead grants and the protocol is ill-formed. Statically
@@ -349,12 +349,12 @@ sound alongside `@P` promises (§6.3).
 
 Re-application **with initializers** is an **error** — silently ignoring the supplied
 data would be data loss, and re-binding would break idempotency. A compile error where
-the operator form can see it (the target is already `@P`-typed); an `ApplyError` from
+the operator form can see it (the target is already `@P`-typed); an `applyError` from
 the dynamic form otherwise.
 
 ### 4.4 Failure modes
 
-The operator form has none (§4.1). The dynamic form has exactly one error, `ApplyError`,
+The operator form has none (§4.1). The dynamic form has exactly one error, `applyError`,
 covering: a required member missing from the initializer table, an initializer key naming
 no granted per-table member (unknown, definition-fixed, or ungranted), an initializer
 value failing the member's type or constraint, and re-application with initializers
@@ -475,7 +475,7 @@ employee = proto {
   members (`person`'s `name`), the requiring protocol's application cannot invent them,
   so the target must have the requirement applied **already** — `[] apply person(name:
   "Lucas") apply employee(badge: 7)` — and applying `employee` to a table without
-  `person` is a compile error in the operator form (an `ApplyError` dynamically) naming
+  `person` is a compile error in the operator form (an `applyError` dynamically) naming
   the missing requirement. Initializer lists thereby always belong to exactly one
   protocol; there is no cross-protocol initializer grammar.
 - Member-name overlap between requirer and required is permitted like any overlap

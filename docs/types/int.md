@@ -38,7 +38,7 @@ yields the current value, writing through it updates the variable.
 Arithmetic that exceeds the 64-bit range **panics**; it never silently wraps. Silent
 wraparound is a severe and common bug class (a wrapped length becomes a tiny allocation, a
 wrapped index goes out of bounds, wrapped money goes negative), and the failure is invisible.
-So the default is safe: overflow raises a `panic` (an `OverflowError`, errors §2), stopping the
+So the default is safe: overflow raises a `panic` (an `overflowError`, errors §2), stopping the
 program at the point the wrong value would have been produced.
 
 Because overflow is a **`panic`** (ambient, undeclarable, errors §2), arithmetic does **not**
@@ -65,15 +65,15 @@ Because overflow is a `panic`, the `try` **expression** does **not** catch it: `
 declarable errors only (everything outside the `panic` subtree), and a panic unwinds
 through it (errors §8.1). `let sum! = try
 bigA + bigB` is therefore **not** an overflow check, the `try` there can only ever catch a
-declarable error from a callee, never the `OverflowError`, and code anticipating overflow that way
+declarable error from a callee, never the `overflowError`, and code anticipating overflow that way
 is wrong. Anticipated overflow is handled where every panic is handled, at a **`try`/`catch`
 block** (errors §8.2), which catches everything:
 
 ```
 try {
-  let sum = bigA + bigB;         // may panic with OverflowError
+  let sum = bigA + bigB;         // may panic with overflowError
   process(sum);                   // success path stays inside the block
-} catch (e: OverflowError) {
+} catch (e: overflowError) {
   // handle the anticipated overflow: fall back, clamp, or fail the unit of work
 }
 ```

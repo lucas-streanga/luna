@@ -173,7 +173,7 @@ arise: an argument list has no key slot.
 Arity and defaults follow the ordinary call rules (functions §3.3): the spread elements fill
 parameters in written order, defaults cover the tail, **surplus elements are dropped** (a
 spread of ten into a two-parameter function is legal, exactly as a written ten-argument call
-is), and a **deficit is an `ArityError`** (a `panic`, errors spec), a compile error where the
+is), and a **deficit is an `arityError`** (a `panic`, errors spec), a compile error where the
 callee's signature and the spread's length are both statically visible, checked at the call
 otherwise. A list-like stream (R93) spreads the same way, materialized (§2) before the arity check.
 

@@ -106,9 +106,10 @@ All seven original flags are ruled (R33):
 - **`panic` is lowercase, the type itself.** The distinguished sealed subtree root is
   **`panic`**, matching the lowercase root `error`; `catch (p: panic)` is now an ordinary typed
   binder (match §2.2, R87), and the "contextual keyword" entry this file briefly had is gone,
-  there is nothing contextual about it. (Follow-up flag, small: the builtin children remain
-  PascalCase, `typeError`, `outOfMemory`, while the std families are camelCase, `ioError`,
-  `fileNotFound`; the casing convention for builtin error types deserves one ruling.)
+  there is nothing contextual about it. (The follow-up casing flag is **resolved, R122**:
+  every error and panic type name is **camelCase** — `arityError`, `overflowError`,
+  `closedChannelError` — matching the roots `error` / `panic` and the std families
+  `ioError` / `fileNotFound`. The former PascalCase builtins were renamed in place.)
 - **`implicit` is scratched** (capabilities §6): every capability is explicit, a
   required-but-undeclared `use` is a compile error, no inference tier, no modifier, no
   keyword.

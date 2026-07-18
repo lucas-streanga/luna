@@ -54,7 +54,7 @@ the block is left.
   returns (§5).
 - **`break` / `continue`**, leaving the block early still runs its defers before control
   transfers.
-- **A panic unwinding** (errors §9), a `typeError`, `OverflowError`, or any other panic
+- **A panic unwinding** (errors §9), a `typeError`, `overflowError`, or any other panic
   propagating out of the block runs the block's defers as it unwinds. This is what makes `defer`
   a reliable cleanup even on the failure path: a file opened and `defer`-closed is closed even
   if the code between panics.

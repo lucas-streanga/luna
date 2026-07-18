@@ -44,14 +44,14 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 ├── panic                 (sealed: no user inheritance; ambient; undeclarable)
 │   ├── outOfMemory
 │   ├── typeError
-│   ├── ArityError
-│   ├── NamedArgumentError (unknown or double-bound named argument; functions §3.3.2)
+│   ├── arityError
+│   ├── namedArgumentError (unknown or double-bound named argument; functions §3.3.2)
 │   ├── cancelled         (cooperative cancellation delivery; concurrency §6.1, R115)
-│   ├── ClosedChannelError (send after finish, or to a departed receiver; channels §4)
-│   ├── OverflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
-│   ├── DivisionByZero    (int division or remainder by zero; int spec)
+│   ├── closedChannelError (send after finish, or to a departed receiver; channels §4)
+│   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
+│   ├── divisionByZero    (int division or remainder by zero; int spec)
 │   └── ... (runtime-defined)
-├── ApplyError
+├── applyError
 └── ... (user-defined: a definition with no explicit parent extends the root directly, §4)
 ```
 
@@ -236,7 +236,7 @@ throw myError();        // all fields optional (own and inherited), so no argume
 
 A **declarable** error is constructed by naming its type and supplying its fields.
 **`panic` types are not constructable in user code** (§9): the runtime mints every
-`panic` value at the failing operation, so `OverflowError(...)` or `typeError(...)` in
+`panic` value at the failing operation, so `overflowError(...)` or `typeError(...)` in
 source is a compile error. Construction below therefore always means a declarable
 error:
 
@@ -424,7 +424,7 @@ lexical, not control-flow analysis), not a call-graph propagation: "can `g` thro
 `g`'s **signature**, so errorability is never computed transitively.
 
 **Panics are ambient and undeclarable.** Any function may raise a `panic` (an `outOfMemory`,
-a `typeError`, an `ArityError`) without being `fn!`. So `fn` guarantees "no declarable
+a `typeError`, an `arityError`) without being `fn!`. So `fn` guarantees "no declarable
 error escapes," not "cannot fail": a non-`!` function may still panic. This is what keeps `!`
 meaningful (it tracks the failures you can locally anticipate and handle) without forcing
 every allocating or calling function to be `!` for failures nobody can locally prevent
@@ -578,7 +578,7 @@ try {
   ...
 } catch (e: diskError) {    // catches diskError and its subtypes; e is a diskError
   ...
-} catch (p: panic) {        // catches any panic (OOM, typeError, ArityError, ...)
+} catch (p: panic) {        // catches any panic (OOM, typeError, arityError, ...)
   ...
 } catch (e) {               // everything else: the remaining declarable errors
   ...
@@ -632,7 +632,7 @@ arm is spelled root `error`, though only declarable errors land there, §8.1).
 `panic` is the sealed subtree for runtime failures that are ubiquitous and not locally
 preventable:
 
-- Membership includes `outOfMemory`, `typeError` (a runtime type violation), `ArityError`
+- Membership includes `outOfMemory`, `typeError` (a runtime type violation), `arityError`
   (calling a function with fewer arguments than it declares, when not statically caught,
   functions spec), division by zero, failed runtime invariants, and similar.
 - Panics are **catchable**: they are `error` values under the root, so the `try`/`catch` **block**
@@ -664,8 +664,8 @@ absorbed by inline expected-error handling), while the `try`/`catch` **block** c
 a boundary can stop even the exceptional).
 
 The practical consequence for higher-order code: a function like a callback runner that
-can raise an `ArityError` on a bad callback does **not** thereby become `fn!`, because
-`ArityError` is a `panic`. It stays `fn`, and a caller who wants to guard the panic wraps
+can raise an `arityError` on a bad callback does **not** thereby become `fn!`, because
+`arityError` is a `panic`. It stays `fn`, and a caller who wants to guard the panic wraps
 the call in a `try`/`catch` **block** and catches `panic` (not a `try` expression, which would let
 the panic through), rather than being forced to handle a declared error that was never really the
 contract.
@@ -680,7 +680,7 @@ contract.
   user code, re-throw of a caught panic being the sole user-side `panic` act (§5, §6,
   §9).
 - **The built-in `panic` set:** the exact enumeration of runtime panic subtypes
-  (`outOfMemory`, `typeError`, `ArityError`, and the rest) and where it is defined (here,
+  (`outOfMemory`, `typeError`, `arityError`, and the rest) and where it is defined (here,
   or the runtime spec).
 - **Stack frame shape:** what a single `stacktrace` frame contains (function, file,
   line, and how a re-throw breadcrumb is distinguished from an origin frame), pending the

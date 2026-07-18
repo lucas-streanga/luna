@@ -98,7 +98,7 @@ fn send(tx: sink, v: any): undefined
   rendezvous) parks the task, and cancellation delivers there, refused-on-entry, like any
   suspension point. Likewise a parked receive.
 - **Send after the handle is finished, or to a departed receiver, panics** —
-  `ClosedChannelError` (errors §2): a coordination bug, loud. The departed-receiver case
+  `closedChannelError` (errors §2): a coordination bug, loud. The departed-receiver case
   is rare under structured lifetime: a consumer that exits its scope triggers
   cancellation of sibling producers, which are parked on their sends (a suspension point)
   and receive `cancelled` there rather than panicking; the panic remains for a send that
@@ -115,7 +115,7 @@ fn finish(tx: sink): undefined
 ```
 
 `finish(tx)` relinquishes **this handle**: further sends through it panic
-(`ClosedChannelError`), other handles are untouched. The receive stream **ends when every
+(`closedChannelError`), other handles are untouched. The receive stream **ends when every
 sink is finished or dropped** — scope exit finishes a sink automatically (structured
 lifetime, concurrency §6), so the common case needs no explicit call, and the runtime
 counts handles internally (atomics inside runtime machinery, outside the value model). A

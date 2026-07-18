@@ -2508,6 +2508,24 @@ printing surface, the per-format composition seam, and exec's secret boundary. S
 `channels.md` §5, `await.md` §3, `index.md` + five example/spec call sites;
 `platform.md` / `system.md` / `net.md` created and indexed.
 
+**R122 — error casing: camelCase everywhere; the R87-era flag closes.** The oldest small
+flag in the file resolves the way the evidence always leaned: **every error and panic
+type name is camelCase**, matching the roots (`error`, `panic`), the always-camel
+builtins (`typeError`, `outOfMemory`, `cancelled`), and the std family (`ioError`,
+`fileNotFound`, `commandError`). The
+eight live PascalCase holdouts renamed in place across twelve files: `arityError`,
+`namedArgumentError`, `overflowError`, `divisionByZero`, `closedChannelError`,
+`applyError`, `writeOnceViolationError`, `stringBoundaryError`. **Historical mentions
+keep their dead spellings deliberately**: the retirement records (tables §5.1's
+`OpenViolationError` / `InvalidOpenError`, the R98-retired violation errors) name things
+that no longer exist, and their names are frozen in the record — renaming a tombstone
+would falsify the history it preserves; the same holds for this log itself. One
+collision caught in passing: protocols §2.2's write-only example member was named
+`sink`, a type name since R119 — renamed `output`. Swept: `errors.md` (the tree),
+`functions.md`, `match.md`, `spread.md`, `concurrency.md`, `channels.md`,
+`numeric-operators.md`, `defer.md`, `int.md`, `protocols.md`, `variables.md`,
+`strings.md`, `keywords.md` §6 (the flag itself, now a resolution record).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2515,8 +2533,8 @@ printing surface, the per-format composition seam, and exec's secret boundary. S
 A handful of contradictions surfaced by the review remain deliberately unresolved,
 each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
 exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
-(view interior mutability, F25, is **mooted by R95** — views no longer exist); the
-builtin error types' casing (keywords §6); and,
+(view interior mutability, F25, is **mooted by R95** — views no longer exist); (the
+builtin error types' casing is **resolved by R122** — camelCase everywhere); and,
 newly, **a reflection query for a function value's capability requirement set** (R88's
 tail, functions §3, reflection §3).
 

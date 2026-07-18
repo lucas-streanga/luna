@@ -252,7 +252,7 @@ covers the need.)
 
 ### 4.1 A task panic resolves its promise; `await` never hangs on a dead task
 
-A task may also **panic** (a `panic`, not a declarable error: an `OverflowError`, a failed `as`, and so
+A task may also **panic** (a `panic`, not a declarable error: an `overflowError`, a failed `as`, and so
 on, errors spec §9). A panicking task does **not** die silently. Its panic **resolves its promise
 as a failure**, and `await` **propagates** that panic to the awaiter, rather than leaving the
 awaiter blocked forever on a promise that will never resolve. So:

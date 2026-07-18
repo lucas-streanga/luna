@@ -190,7 +190,7 @@ fn slice(str: string, offset: int, length: int = 0): string
 A substring beginning at byte `offset` for `length` bytes (`length <= 0` means "to the
 end"). O(1): the result borrows the parent's buffer (string-representation §7), so a
 small slice pins its parent until `copy`d. Both `offset` and `offset + length` must
-land on codepoint boundaries, or it raises `StringBoundaryError` (§10).
+land on codepoint boundaries, or it raises `stringBoundaryError` (§10).
 
 #### before() · after() · between()
 ```

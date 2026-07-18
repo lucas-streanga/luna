@@ -363,7 +363,7 @@ callable-ness is neither belief nor obligation but a precondition.
 panicking (a `panic`, errors spec) on a mismatch:
 
 - **Arguments are checked against the callee's *real* parameters** (contravariance). A missing
-  required parameter is a deficit `ArityError` (§3.3); a surplus argument is dropped against the
+  required parameter is a deficit `arityError` (§3.3); a surplus argument is dropped against the
   **real** arity, not the claimed one (§3.3); an argument whose type the real parameter does not
   accept is a `typeError`. This protects the function body, which runs assuming its declared
   parameter types.
@@ -445,7 +445,7 @@ is no variance system to reason about.
 **`match` decides what `as` defers.** A pattern's typed binder tests with `is`, which is total and
 never claims (match §2.2), so `match (f) { g: fn (int): string => ... }` matches only when the real
 signature genuinely **is** assignable to the claim. Every per-call check above then folds away, and a
-signature-bound function is called with no argument check, no return check, no `ArityError`, and no
+signature-bound function is called with no argument check, no return check, no `arityError`, and no
 laundering check (match §2.3). The optimism, and the per-call price that buys it, belongs to `as`
 alone. What survives both is the **capability** check: the requirement set rides the value, not the
 type (§3), so no narrowing of any kind can discharge it.
@@ -462,8 +462,8 @@ Argument count and parameter count need not match, and the mismatch is direction
   error, not `undefined`: a missing required parameter is a broken contract, not an absent
   value, and `undefined` is too weak (it would be silently coalesced away). The check is a
   **compile error** where the callee's concrete signature is statically visible, and a
-  runtime **`ArityError`** (a `panic`, errors spec) where it is reached through an erased
-  `fn` boundary. As a `panic`, a deficit `ArityError` does not make the enclosing
+  runtime **`arityError`** (a `panic`, errors spec) where it is reached through an erased
+  `fn` boundary. As a `panic`, a deficit `arityError` does not make the enclosing
   higher-order function `fn!`.
 
 So a callback may declare *fewer* parameters than the caller supplies (ignore the rest),
@@ -508,7 +508,7 @@ calls readable (`a.merge(b, preserveKeys: true)`). The rules (R108):
   (destructuring §4) has no name and is not nameable; the receiver *is* nameable in call
   form (`join(it: parts, glue: ", ")`) — no special case.
 - **Double-binding is an error.** A parameter bound both positionally and by name: a
-  compile error where the signature is statically visible, a **`NamedArgumentError`** (a
+  compile error where the signature is statically visible, a **`namedArgumentError`** (a
   `panic`, errors §2) through an erased `fn`.
 - **An unknown name is an error**, on the same static/dynamic split — never silently
   dropped. This is a deliberate asymmetry with §3.3's surplus-positional rule: an extra
@@ -642,7 +642,7 @@ Three properties keep this local and predictable:
   compiler §1.4.1); it asks only "is *this* call lexically inside a handler." That is stricter
   and predictable, in the same family as the `use`-clause and `undefined`-on-use checks.
 - **Panics are exempt.** `!` governs only the declarable channel. Any function may raise a
-  `panic` (overflow, a failed `as`, an `ArityError`) without being `fn!` (errors spec §7, §9),
+  `panic` (overflow, a failed `as`, an `arityError`) without being `fn!` (errors spec §7, §9),
   so the containment check applies to declarable-error-throwing calls, never to panics.
 
 A caller must handle a throwing function's result with `try` or an errorable binding; a
@@ -789,7 +789,7 @@ const c = comptime parseThing("bad input");   // if parseThing throws, compilati
 This is a nice property: a failure that would have surfaced at runtime is surfaced at
 compile time instead, and the error's `stacktrace` (errors spec) is a compile-time trace.
 It applies to both error subtrees uniformly, a comptime `panic` (division by zero, an
-`ArityError`) is equally a compile error, so comptime evaluation catches those failures
+`arityError`) is equally a compile error, so comptime evaluation catches those failures
 before the program runs.
 
 A comptime throw is **unconditional**: it is not catchable at compile time. There is no
