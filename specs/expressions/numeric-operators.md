@@ -22,6 +22,12 @@ The binary arithmetic operators are `+` (add), `-` (subtract), `*` (multiply), `
 (remainder), and unary `-` (negate). They apply to the built-in numeric types (numeric-tower spec).
 Their **result type is the operand type**: `int + int` is `int`, `double * double` is `double`.
 
+**Not every numeric type defines every operator**, and each type's spec is authoritative for its
+own table: `decimal` omits `/` and `%` (division is the policy-carrying `div`; decimal §2, R161),
+`rational` and `complex` omit `%` (no remainder exists after exact division; none has meaning on
+the plane; rational §2, complex §2), and `complex` additionally has **no ordering** (complex §2,
+R164). An omitted operator is a **compile error**, not a runtime failure.
+
 There is **no implicit cross-type arithmetic**: `int + double` does not silently promote. Operands
 must be the same numeric type, obtained by explicit conversion where needed
 (`someInt.toDouble() + someDouble`). Widening *within* a family is implicit (a `byte` is usable
@@ -33,9 +39,9 @@ that arithmetic operands share one type and that the result carries that type.
 
 Unary `-` (`-x`) is **negation**: it produces the **additive inverse** of its operand. This is a
 single, uniform operation defined identically across the **entire numeric tower**, present and
-future: `int`, `double` (including the IEEE signed zeros and infinities), and the built-in exact
-types `decimal`, `rational`, and `complex` (numeric-tower spec) each have a well-defined additive
-inverse (`-(a/b)` is `(-a)/b`; `-(a+bi)` is `-a-bi`). So unary minus is **monomorphic**, the same
+future: `int`, `double` (including the IEEE signed zeros and infinities), the exact types
+`decimal` and `rational`, and the inexact `complex` (numeric-tower spec) each have a well-defined
+additive inverse (`-(a/b)` is `(-a)/b`; `-(a+bi)` is `-a-bi`). So unary minus is **monomorphic**, the same
 operation everywhere, not an overload that means different things on different types, and it does
 **not** conflict with the future numeric types: those types *need* it (a negative complex value
 is written `-complex(3.0, 4.0)`, negation over the comptime-folding constructor, since there is
@@ -71,10 +77,21 @@ panic-on-violation stance:
   (`0.0 / 0.0`) yield `nan`, and these propagate as values rather than panicking. Float arithmetic
   does not panic; it produces IEEE sentinels.
 
+The extended tower adds two more shapes, each following one of the above (R161, R162, R164):
+
+- **The exact types grow**: `decimal` and `rational` have no overflow at all — digits grow,
+  nothing wraps, nothing panics on magnitude. Their one violation is `rational`'s `r / 0`, which
+  panics (`divisionByZero`, the integer shape: an exact type has no infinity to yield; rational
+  §2). `decimal` cannot even reach it — it has no `/` (§1).
+- **`complex` is IEEE per component**: its components are doubles, so every violation becomes a
+  componentwise inf/nan sentinel and nothing panics, division by complex zero included (the float
+  shape; complex §2).
+
 So the integer types are **safe by panic** (no silent wrong value; a violation stops at its point),
-and the float types are **safe by IEEE** (no silent wrong value; a violation becomes an infinity or
-nan sentinel that is itself well-defined). Each type's spec is authoritative for its own edges; this
-document only names the shared shape.
+the float types and `complex` are **safe by IEEE** (no silent wrong value; a violation becomes an
+infinity or nan sentinel that is itself well-defined), and the exact types are **safe by growth**
+(no violation exists to signal, save exact division by zero, which panics). Each type's spec is
+authoritative for its own edges; this document only names the shared shapes.
 
 Because operator arithmetic can panic (integer overflow, divide-by-zero) but the panic is a `panic`
 (ambient, undeclarable, errors spec §2), arithmetic does **not** make a function errorable: `a + b`
@@ -85,7 +102,9 @@ operator-bearing code keeps clean signatures.
 
 ## 3. Open questions
 
-The type-set questions (whether signed smalls ship, `decimal`'s representation, mixed-width
-ergonomics, the library-vs-built-in line) are the **numeric-tower** spec's, not this document's. The
-arithmetic-operator semantics above are settled; what remains open lives with the tower (numeric-tower
-§7) and with the individual type specs (int, double).
+*(none — this document's semantics were settled at writing, and the type-set questions it once
+pointed at are now resolved where they lived: `decimal`'s representation and operator table by
+R161, `rational`'s by R162, `complex`'s by R164, and the family structure, widening rules, and
+library-vs-built-in line by the numeric-tower spec, whose tower opens are closed. What the tower
+still carries — literal forms for the wider types, the bitwise-operator design (numeric-tower §7)
+— are literal-grammar and future-operator questions, not arithmetic-operator ones.)*

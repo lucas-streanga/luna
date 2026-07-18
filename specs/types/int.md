@@ -128,8 +128,9 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
   hardware-native, staple convention. A floor-dividing pair (`floorDiv`, `floorMod`) is
   available for the alternative (floor semantics, remainder following the divisor).
 - **Remainder sign follows the dividend**, pairing with truncated division: `-7 % 2` is `-1`.
-- **Division by zero panics** (a `panic`, errors §2): `5 / 0` and `5 % 0` stop the program;
-  ints have no nan or infinity to yield.
+- **Division by zero panics** (**`divisionByZero`**, the tower-wide panic — the same name
+  `rational`'s `r / 0` and `decimal`'s `div(a, 0, …)` raise; errors §2): `5 / 0` and `5 % 0`
+  stop the program; ints have no nan or infinity to yield.
 - **`INT_MIN / -1` panics**, and so does unary negation of `int.min` (`-x` where `x == int.min`), the same missing +2^63: the mathematical result does not fit in a signed 64-bit int,
   so this edge case is an **overflow** and panics like any other (§2).
 

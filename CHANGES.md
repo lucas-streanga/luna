@@ -3906,9 +3906,18 @@ still recommended `big.Float` (contradicting R163's never-used ruling — now
 points at compiler §7.5), and decimal §7 still called rational interop "deferred
 with `rational` itself" (delivered by R162's trio). Swept: `complex.md` (new),
 `numeric-tower.md` §1.4 ×2, §3.1, §6, §7 (the open resolved), `operators.md` §2
-(the ordering row's exception), `numeric-operators.md` §1.1, `rational.md` §6,
+(the ordering row's exception), `numeric-operators.md` §1–§3 (the per-type
+operator-table exclusions stated in §1 — an omitted operator is a compile error;
+the §1.1 rewrite, including the fix of `complex` mislabeled an *exact* type; §2's
+violation taxonomy completed from two shapes to four — the exact types are "safe
+by growth", `rational`'s `/0` alone panics, `complex` is IEEE per component; §3's
+opens resolved, the pointed-at type-set questions having landed with
+R161/R162/R164), `rational.md` §6,
 `decimal.md` §7, `conversion.md` §5 (verbs do not widen to complex; `parseComplex`
-joins the family), `compiler.md` §7.5, `index.md`, `keywords.md` §5.
+joins the family), `compiler.md` §7.5, `index.md`, `keywords.md` §5, and the
+`divisionByZero` naming made uniform — `int.md` §5 now names the panic (it said
+only "a panic") and the errors §2 panic-tree annotation widened from int-only to
+tower-wide (int `/` `%`, rational `/`, decimal `div`).
 
 ---
 

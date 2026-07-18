@@ -49,7 +49,7 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── cancelled         (cooperative cancellation delivery; concurrency §6.1, R115)
 │   ├── closedChannelError (send after finish, or to a departed receiver; channels §4)
 │   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
-│   ├── divisionByZero    (int division or remainder by zero; int spec)
+│   ├── divisionByZero    (division/remainder by zero, tower-wide: int `/` `%`, rational `/`, decimal `div`; int spec §5)
 │   ├── doubleAwait       (second await of a consumed promise; concurrency §3.1, R142)
 │   └── ... (runtime-defined)
 ├── applyError            (dynamic protocol application/removal: `apply()` / `unapply()`; protocols §4.4, §4.6)
