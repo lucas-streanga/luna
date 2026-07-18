@@ -3681,6 +3681,17 @@ corpus filled with its answers (`json`, `path`, `probability`, `finiteDouble`); 
 already splits machinery by base mutability. Swept: `constraints.md` §6.1 (new), §11
 (retitled, four records).
 
+**R156 — protocols §10: nothing open, confirmed.** The user's read verified: four of
+the six bullets were already closure records (R123 removal, R108 initializer grammar,
+R125 serialization nesting, R126 `@@` totality); the two stragglers convert — the
+**`?->` token bullet was stale** (R101 landed `OPT_PROTO_ACCESS` with the
+`??` › `?->` › `?.` munch order two eras before the bullet stopped saying "the
+build-spec sweep's concern") and **bound functions** is marked the standing rejection
+it always was (§3.4; no concrete need has survived the explicit-closure idiom). The
+list retitled "Resolved and rejected — nothing open." The protocol spec — the
+conversation's first major redesign — now carries no open question at all. Swept:
+`protocols.md` §10.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -624,7 +624,7 @@ let greeting = b->build();                        // : string — a plain value
 `b` is element-empty throughout; `buf` is protocol state, invisible to `count` / `keys` /
 iteration and to `==` (ungranted — and the protocol is `identityEquality` besides).
 
-Open questions:
+Resolved and rejected — nothing open (R156):
 
 - *(Removal is **closed by R123**: the `unapply` free function, §4.6 — no-op on absent,
   `applyError` where an applied requirer still requires, wrong-write checks for
@@ -636,10 +636,11 @@ Open questions:
 - *(**Serialization nesting: closed by R125** — the reserved `"@@"` section, protocol
   name → granted members, application order, off by default (`includeProtocols`); json
   spec §2.1, §3. The follow-on `jsonTag`-reach question is logged there, json §4.)*
-- **`?->` token:** semantics are fixed (§3.2); lexer/associativity placement is the
-  build-spec sweep's concern.
-- **Bound functions:** rejected (§3.4); revisit only if a concrete need survives the
-  explicit-closure idiom.
+- *(**`?->` token: landed, R101** — `OPT_PROTO_ACCESS`, munch order `??` › `?->` › `?.`
+  (lexer §5, §8), tier 1 beside `->` (associativity §1). This bullet had gone stale;
+  the semantics were always §3.2's.)*
+- *(**Bound functions: rejected** (§3.4), a standing record — revisit only if a
+  concrete need survives the explicit-closure idiom; none has.)*
 - *(**`@@` on non-table values: closed by R126** — `[]`, total over `any`, coherent
   with `is @P` answering `false` off tables; §8. With it: protos are const-declared
   named brands (§1) comparing by identity (equality §2).)*
