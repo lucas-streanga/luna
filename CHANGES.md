@@ -3637,6 +3637,17 @@ The constraint is fixed now so the eventual design chooses knowingly. Swept:
 `tooling.md` §7 (retitled, four deferrals, the dissolution record);
 `attributes.md` §6.3 (the doc-attribute constraint).
 
+**R153 — channels §7: nothing open, confirmed and marked.** The combing verifies the
+user's read exactly: select was resolved by R142 (the dissolution record already in
+place), and the remaining three are deferrals with directions fixed — **MPMC /
+work-stealing** deferred by decision (one consumer per stream is the model's grain,
+ownership-follows-readability; fan-out has `spawn`/`await`; revisited only if a real
+workload outgrows the owner-task pattern), **channel-of-channels** deferred to
+practice (nothing forbids them; idioms documented as they prove out, never
+pre-specified), and **the stdlib patterns layer** deferred as library work, fully
+unblocked since R142, pending write-up only. Section retitled "Resolved and
+deferred — nothing open." Swept: `channels.md` §7.
+
 ---
 
 ## Still open (out of scope of these rulings)

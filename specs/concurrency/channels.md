@@ -180,20 +180,24 @@ same shape exists in every channel system.
 
 ---
 
-## 7. Open questions
+## 7. Resolved and deferred — nothing open (R153)
+
+The channel design itself is complete; every remaining item is a resolution record or
+a deferral with a fixed direction:
 
 - *(**Select / racing over channels: mostly dissolved, remainder deferred — R142**
   (concurrency §5.1): fan-in is one MPSC channel with N senders, so "whichever is ready"
   is the merged channel's next element; residual heterogeneous races get a merge task or
   `awaitAny` over wrappers; a dedicated `select` waits for a case that survives the
   merge idiom.)*
-- **MPMC / work-stealing**: multiple consumers on one channel (each element to exactly
-  one). Deferred; one consumer per stream is the model's grain, and fan-out has
-  `spawn` / `await`.
-- **Channel-of-channels patterns** beyond request-reply (§5's reply sinks already work):
-  nothing forbids them; idioms to document as they prove out.
-- **A stdlib patterns layer** (R120): `call(tx, req)` — mint a reply channel, send,
-  receive with a deadline — the `GenServer.call` shape, **now buildable** (R142:
-  `receiveTimeout` is the deadline, concurrency §5.1) — plus the supervisor loop
-  (`while (true) { try { runService(); } catch (e: error) { … } }`) and the registry
-  task (name → sink). Library, not language; unblocked, pending write-up.
+- **MPMC / work-stealing: deferred by decision.** Multiple consumers on one channel
+  (each element to exactly one) — one consumer per stream is the model's grain
+  (ownership follows readability, §2.1), and fan-out already has `spawn`/`await`.
+  Revisited only if a real workload outgrows the owner-task pattern.
+- **Channel-of-channels patterns: deferred to practice.** Nothing forbids them
+  (§5's reply sinks already work); idioms are documented as they prove out, never
+  pre-specified.
+- **The stdlib patterns layer (R120): deferred as library work, fully unblocked.**
+  `call(tx, req)` — mint a reply channel, send, receive with a deadline — the
+  `GenServer.call` shape (R142: `receiveTimeout` is the deadline); the supervisor loop;
+  the registry task (name → sink). Library, not language; pending write-up only.
