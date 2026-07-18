@@ -3411,6 +3411,20 @@ dynamic check, protocols §3.2/§6.2), with the correction recorded in place. Fr
 history untouched, as always: retired names inside `retired/` stubs and CHANGES
 entries keep their spellings.
 
+**R145 — housekeeping: the spec directory is `specs/`.** `docs/` renamed to `specs/`
+(a plain `git mv`, its own commit, history preserved — git detects renames at diff
+time, so `--follow` and blame walk through unbroken). More accurate: the directory
+holds the specification, not documentation; `user-docs/` remains the planned name for
+the latter. References swept: `CLAUDE.md` (the repo map, plus its stale
+README-mismatch note — README had since been fixed and needed only the rename — and
+the orientation-layer paths corrected to `specs/overview/`), `README.md` (three path
+lines), `tooling/shiki-luna.ts` (the source-of-truth comment; `make-archive.sh`
+needed nothing — it is path-agnostic via `git ls-files`). Two pieces of drift caught
+in README's Taste example en route: `defer close(&fd)` predated R121's de-`&`'d io
+surface (now `close(fd)`), and the imports predated R134 (`import std.process;`
+added for `args()`/`argv`). Rulings before R145 cite `docs/` paths and are frozen
+history, per the tombstone rule.
+
 ---
 
 ## Still open (out of scope of these rulings)

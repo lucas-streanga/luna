@@ -8,10 +8,10 @@ This is the **specification** of the Luna programming language, not an implement
 exists yet; the deliverable is the design itself. In practice that means the work here is almost
 always **prose editing under a consistency discipline**, not coding. The three artifacts:
 
-- `docs/` — the spec, one Markdown file per topic, grouped into subdirectories (`types/`,
+- `specs/` — the spec, one Markdown file per topic, grouped into subdirectories (`types/`,
   `expressions/`, `declarations/`, `concurrency/`, `build/`, `std/`, `internals/`, `type-operations/`,
-  `bindings/`, `overview/`, `examples/`). `docs/index.md` is the authoritative map of every spec file
-  and what it owns. `docs/overview/high-level-overview.md` and `docs/types.md` are the orientation
+  `bindings/`, `overview/`, `examples/`, `retired/`). `specs/index.md` is the authoritative map of every spec file
+  and what it owns. `specs/overview/high-level-overview.md` and `specs/overview/types.md` are the orientation
   layer. Each spec is authoritative for its own topic and cross-references others by section number.
 - `CHANGES.md` — the design-decision log: a numbered sequence of rulings (`R1`, `R2`, … currently past
   `R83`) that each resolve a contradiction or open question and record every file swept to apply it.
@@ -19,8 +19,8 @@ always **prose editing under a consistency discipline**, not coding. The three a
 - `tooling/` — syntax highlighting only (tree-sitter grammar, VSCode extension, Zed extension, a Shiki
   grammar). Independent of the spec's correctness.
 
-Note: `README.md` describes a `spec/` and `user-docs/` layout that does not match the repo; the actual
-spec lives in `docs/`. `user-docs/` is planned and does not exist yet.
+Note: the spec directory was renamed `docs/` → `specs/` (R145); rulings before R145 cite `docs/`
+paths and are frozen history. `user-docs/` (README) is planned and does not exist yet.
 
 ## Working on the spec (the main task)
 
