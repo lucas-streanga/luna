@@ -56,7 +56,7 @@ the entire stream toolkit (stream spec) with no range-specific machinery:
 ```
 let r = 1..1000000;                 // a stream: no million-int allocation, just a lazy sequence
 foreach (v in r) { ... }            // consume it
-let evens = 1..100 |> filter(isEven) |> take(5);   // pipe and transform like any stream
+let evens = (1..100).filter(isEven).take(5);       // chain and transform like any stream
 ```
 
 - **Low memory.** `1..1000000` does not allocate a million integers; it is a lazy stream that
@@ -162,7 +162,7 @@ valid only in value position (a stream needs a starting point), and is bounded l
 downstream `take` or `filter`:
 
 ```
-let firstTenPrimes = 1.. |> filter(isPrime) |> take(10);    // no known upper bound; take bounds it
+let firstTenPrimes = (1..).filter(isPrime).take(10);        // no known upper bound; take bounds it
 ```
 
 The use is "I need a sequence but do not know (or want to compute) the upper bound," relying on

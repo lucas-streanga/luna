@@ -181,7 +181,6 @@ Ordered longest-first within each family; §8 gives the global order.
 | `..<` | `RANGE_EXCL` | `\.\.<` |
 | `..` | `RANGE` | `\.\.` |
 | `.` | `DOT` | `\.` |
-| `\|>` | `PIPELINE` | `\x7c>` |
 | `\|\|` | `OR` | `\x7c\x7c` |
 | `\|` | `BAR` | `\x7c` |
 | `&&` | `AND` | `&&` |
@@ -220,7 +219,7 @@ Ordered longest-first within each family; §8 gives the global order.
 | `:` | `COLON` | `:` |
 
 Notes. The pipe tokens are written with the hex escape `\x7c` (Go regex for `|`) so the
-patterns survive markdown table rendering byte-for-byte; `\x7c>` ≡ `\|>` to Go. There is
+patterns survive markdown table rendering byte-for-byte. There is
 no unary `+`, no `===`/`!==`, no ternary, no bitwise tokens, and no `&&=`
 /`||=` (numeric-operators §1.1; associativity §4; int §8). `:` serves annotations
 (`x: int`), slice bounds (`xs[1:3]`, `xs[:]`, tables §3), and default-bearing signatures.
@@ -272,7 +271,7 @@ Attempt order within `DEFAULT` / `INTERP_EXPR`:
    `1.5` is one token; hex/bin before decimal so `0x10` doesn't lex as `INT(0)` +
    `IDENT(x10)`.
 5. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?->` › `?.` › `?`; `...` ›
-   `..<` › `..` › `.`; `|>` and `||` › `|`; `&&` › `&`; `=>` and `==` › `=`; `->` and
+   `..<` › `..` › `.`; `||` › `|`; `&&` › `&`; `=>` and `==` › `=`; `->` and
    `-=` › `-`; `@@` › `@`; `!=` › `!`; `<=` › `<`; `>=` › `>`; `#[` before any bare `#`.
 6. Keywords (with `KW_MATCH_BANG` before `KW_MATCH`), then `WILDCARD`, then `IDENT` — or,
    equivalently, `IDENT` first with a keyword lookup, plus a one-token peek for `match!`.
@@ -335,7 +334,7 @@ the lexer ever leaves Go's `regexp`. Net: nothing in this file can exhibit exten
 backtracking, under RE2 by engine guarantee and elsewhere by construction.
 
 **F6 — Ordering is load-bearing.** The maximal-munch chains in §8 are correctness
-requirements, not style: `???=`/`??`/`?.`, `...`/`..<`/`..`, `|>`/`||`/`|`, `@@`/`@`,
+requirements, not style: `???=`/`??`/`?.`, `...`/`..<`/`..`, `||`/`|`, `@@`/`@`,
 `b"` before `IDENT`, and `DOUBLE`-requires-digits-after-the-point (which is what keeps
 `1..5` and `1.toDouble()` unambiguous without lookahead — RE2 has none to offer).
 

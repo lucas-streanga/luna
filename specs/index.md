@@ -200,7 +200,6 @@ table is a map.
 | Operators | `operators.md` | The master catalogue of every operator and the rules governing all of them. |
 | Numeric operators | `numeric-operators.md` | The arithmetic operators in detail (`+ - * / %`, unary `-`) and their edges. |
 | Control flow | `control-flow.md` | The `foreach`, `while`, and `if` constructs. |
-| Pipeline | `pipeline.md` | The `|>` dataflow operator over streams and commands. |
 | Defer | `defer.md` | Deterministic block-exit cleanup on any exit path, including panic. |
 
 ### Concurrency & effects
@@ -238,5 +237,6 @@ concept's pieces went. No content in `retired/` is authoritative.
 |-|-|-|
 | The built-in table protocol | `retired/table-api.md` | R91–R93 (the iterable/indexable catalogue) |
 | The `view` type | `retired/views.md` | R95 (the protocol member model) |
+| The `\|>` pipeline operator | `retired/pipeline.md` | R146 (stream half redundant post-R91; commands get `pipe()`, command §4) |
 | The reflection spec | `retired/reflection.md` | R127 (moved: `std/introspection.md`) |
 | `std.system` | `retired/system.md` | R134 (split: `std.filesystem` + `std.process`) |

@@ -73,7 +73,7 @@ declaration; `toJsonDynamic` serializes the value.**
 **By default, both writers emit element space only** (`includeProtocols: bool = false`,
 R125). Serialization is an interop boundary first: the common call feeds consumers that
 know nothing of protocols, a plain table's output is byte-stable whether or not the value
-wears protocols, and `fromJson |> modify |> toJson` stays total over foreign documents.
+wears protocols, and read-modify-write (`fromJson`, edit, `toJson`) stays total over foreign documents.
 With **`includeProtocols: true`** the output adds the protocol surface under one reserved
 key, **`"@@"`** — the axis's own operator name — mapping each applied protocol's name to
 an object of its `get`-granted **per-table** members, recursively serialized, sections in

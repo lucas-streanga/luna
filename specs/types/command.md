@@ -63,7 +63,7 @@ list**, not a shell string:
 - Because no shell runs, **shell-language features are not available inside the literal**:
   no glob expansion (`*.txt` is the literal string `*.txt`, passed as one argument), no
   `$VAR` or `~` expansion, no shell pipes or redirection as text. These are provided
-  structurally instead: pipelines by the `|>` operator (§4), and other features by
+  structurally instead: pipelines by the `pipe` function (§4), and other features by
   functions and methods rather than by shell string syntax. This is the deliberate trade
   that buys injection-safety.
 
@@ -127,42 +127,49 @@ semantics are what matter here.)
 
 ---
 
-## 4. Pipelines: the `|>` operator
+## 4. Pipelines: the `pipe()` function
 
 **A `command` is an immutable value.** This was implicit (inert descriptions, pure
 composition, no mutator anywhere in this spec) and is now the rule: a command is
 argv-and-structure, a *description*, with no live cursor, no OS handle, and no consumption
 state, the process does not exist until `exec`. All "modification" is construction, a new
-literal, a `|>` composition, or future `withEnv`-style functions returning new commands.
-Two consequences, both features: **piping does not move a command** (pipeline spec §5.1),
-`let grep404 = \`grep 404\`;` composes into any number of pipelines and stays valid, an
-immutable value shares like any other; and **`exec` does not consume a command**, running a
+literal, a `pipe` composition, or future `withEnv`-style functions returning new commands.
+Two consequences, both features: **piping does not move a command** (an immutable value
+shares like any other), `let grep404 = \`grep 404\`;` composes into any number of
+pipelines and stays valid; and **`exec` does not consume a command**, running a
 description twice is two process trees, like calling a function twice.
 
-Commands compose into pipelines with `|>`, which connects the stdout of the left command to
-the stdin of the right and yields a **new `command` value** (a pipeline is itself a
-command):
+Commands compose into pipelines with **`pipe`**, a built-in variadic function (R146; the
+`|>` operator is retired — retired/pipeline.md) that connects each stage's stdout to the
+next stage's stdin and yields a **new `command` value** (a pipeline is itself a command):
 
 ```
-`cat access.log` |> `grep 404` |> `sort` |> `uniq -c`
+fn pipe(first: command, second: command, ...rest: command): command
 ```
 
-- `|>` is the pipeline operator. It is **not** `=>`, which is already used for lambda
-  bodies, match arms, and table-literal pairs; `|>` avoids that collision and evokes the
-  shell pipe `|` it replaces.
-- Because `|>` operates on command *values*, it composes literals and variables alike. Two
-  command variables pipe into a new one with no special handling:
+```
+pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`)
+```
+
+- **At least two stages, structurally**: the two leading required parameters make a
+  one-stage "pipeline" unrepresentable rather than checked (functions §3.3.3's variadic
+  is the tail).
+- The name evokes the shell pipe it replaces without spending an *operator* on one
+  domain (R146: the stream half of `|>` had become a redundant second spelling of
+  catalogue chains after R91; the command half was real semantics, but one function's
+  worth).
+- Because `pipe` takes command *values*, it composes literals and variables alike:
 
 ```
 let stage1 = `producer`;
 let stage2 = `consumer`;
-let pipeline = stage1 |> stage2;     // a new command value, still inert
+let pipeline = pipe(stage1, stage2);     // a new command value, still inert
 ```
 
 - A pipeline is a `command`, so it is inert and reusable like any command, and it runs
-  through the same `exec` surface (exec spec). The pipeline structure is visible in the
-  Luna source, one `|>` per stage, so which stage fails is identifiable when it runs (exec
-  spec, `commandError.stage`).
+  through the same `exec` surface (exec spec). The pipeline structure is explicit in the
+  Luna source, one argument per stage, so which stage fails is identifiable when it runs
+  (exec spec, `commandError.stage`).
 
 The pipeline connects stages by their standard streams structurally; there is no shell
 pipe, so, as with a single command, no shell parsing occurs at any stage.
@@ -245,7 +252,7 @@ diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
 
 - **Not a string.** A command is structured; it never round-trips through a shell string. A
   string is not a command and is not accepted where a `command` is required.
-- **Not run when built.** Construction and composition (`` `...` ``, `|>`) are pure with
+- **Not run when built.** Construction and composition (`` `...` ``, `pipe`) are pure with
   respect to effects; nothing executes until an `exec` function runs the command (exec
   spec). A command may be built at comptime.
 - **Not a shell.** No `/bin/sh` is involved on the `command`/`exec` path. Shell-string

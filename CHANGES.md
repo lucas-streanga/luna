@@ -3425,6 +3425,46 @@ surface (now `close(fd)`), and the imports predated R134 (`import std.process;`
 added for `args()`/`argv`). Rulings before R145 cite `docs/` paths and are frozen
 history, per the tombstone rule.
 
+**R146 — the pipeline operator `|>` is retired; commands get `pipe()`.** The
+scrutiny's finding: the operator's own §1 condemned a general pipe as "a second
+spelling of what `.`-chaining already does" and reserved `|>` for dataflow, "a notion
+UFCS cannot express" — **a claim that went false at R91–R93**, when the catalogue made
+every transformer a lazy, kind-following, stream-taking free function. Since then
+`s |> map(f)` and `s.map(f)` have been the *same operation* (lazy-start, pull-driven,
+short-circuiting, source-taking, effects at the pull — none of which were ever the
+operator's, as its own §5.1/§5.2 admitted), and mechanically `s |> filter(p)` had to
+inject the left operand as the call's first argument — UFCS with different
+punctuation. The stream half had become exactly the redundant second spelling its spec
+was written to forbid. The command half (`a |> b`, stdout→stdin — genuine semantics,
+neither side a function) was one function's worth: it is now **`pipe(first: command,
+second: command, ...rest: command): command`** (command §4) — variadic, the two
+leading required parameters making a one-stage pipeline *unrepresentable* rather than
+checked, every property kept (structured, shell-free, injection-safe, inert, immutable
+operands, `commandError.stage` per argument), the name evoking the shell pipe without
+spending an operator on one domain. The spec moved to **retired/pipeline.md** with the
+why and the was→is map; the `PIPELINE` token is gone (lexer §4, munch lists);
+**associativity tier 11 is a tombstone** (the number kept so tier-12 citations
+stand); operators.md's two rows deleted; any.md's `|>`-needs-narrowing rule is moot
+(`pipe` is an ordinary typed function under the existing UFCS rule). **Stream §7 is
+rewritten as "Chains are pipelines"** — same section numbers (widely cited), same
+semantics, now stated as what chains always had; §7.1 keeps the explicit
+stream↔command bridge rule. **A precision the sweep forced** (concurrency §5): the
+old `xs |> map(fn (x) => spawn …)` examples respell as `xs.toStream().map(…)`, and
+the `toStream` is load-bearing, not style — kind follows the primary
+(iterable-functions §1.3), so a spawning map over a *table* would yield a table of
+promises, the retained storage §3.1 bans; the operator's spelling had been hiding the
+kind question, and the honest spelling surfaces it. Swept (18 files):
+`retired/pipeline.md` (the stub), `command.md` §2/§4/§8, `stream.md` §7/§8,
+`iterable-functions.md` (four sites), `stream-api.md`, `any.md` (rule deleted),
+`bytes.md`, `range.md` (both examples), `spread.md`, `channels.md`, `json.md` (the
+figurative pipe), `concurrency.md` (three sites plus the toStream note),
+`exec.md` (three sites, `pipe(a, b, c)` spelling), `associativity.md` (the
+tombstone tier), `lexer.md` (token, escape note, two munch lists),
+`examples/log-scan.md` (rewritten to the chain), `index.md` (live row → the Retired
+table). One process note, honestly: a careless sed corrupted three lines of
+concurrency.md mid-sweep; restored from git and redone with exact-match edits — the
+committed-before-sweeping discipline paid for itself.
+
 ---
 
 ## Still open (out of scope of these rulings)

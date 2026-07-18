@@ -68,7 +68,7 @@ foreach (k => v in s) { ... }     // key => value (implicit or explicit keys)
 `foreach` is the primary consumer. Every other consumer is a catalogue function marked
 **consumes** in iterable-functions (`count`, `first`, `last`, `reduce`, the aggregates,
 `join`, `random`, `collect`, …). Full consumption never terminates on an infinite stream —
-bound it first (`s |> take(n)`); the guard question stays open (§6).
+bound it first (`s.take(n)`); the guard question stays open (§6).
 
 ---
 

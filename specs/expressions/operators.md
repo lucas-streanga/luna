@@ -53,7 +53,6 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
 | `A & B` | type | intersection | the type meet, canonical and total (**infix, type position**; distinct from prefix `&` reference) | type §3.1 |
-| `a \|> b` | pipeline | pipe | connect a producer's output to a consumer's input: `stream \|> transformer` and `command \|> command`, closed over kind, never general application; **moves** the left stream | pipeline |
 | `await p` | concurrency | await | park until the task completes; move its result out; consume the promise (word prefix) | await |
 | `a += b` (and `-=` `*=` `/=` `%=` `??=`) | assignment | compound assign | `a = a op b`, target evaluated once; `??=` assigns only when `a` is null | associativity §1 |
 | `comptype x` | reflection | comptime type | the declaration descriptor of `x`, a `comptype` value (**comptime-only**; like `error`, the word is also the type's name, position-disambiguated) | introspection §4.2 |
@@ -65,7 +64,6 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `pattern where guard` | control flow | guard | boolean guard on a match arm / comprehension | match |
 | `match` / `match!` | control flow | match | pattern selection (total `match`, panicking `match!`) | match |
 | `defer stmt` | control flow | defer | run `stmt` on scope exit | defer |
-| `a \|> b` | control flow | pipeline | pipe left into right (command pipelines and stream stages) | pipeline, command §4 |
 | `t apply P(name: v)` | structure | apply | static protocol application: `@P`-typed result, initializers checked at compile time, never errorable; dynamic application is the free function `apply()`, removal its inverse `unapply()` (protocols §4.6) | protocols §4 |
 | `spawn f()` | concurrency | spawn | start a green thread, yielding a `promise` | concurrency |
 | `await p` | concurrency | await | resolve a `promise` to `T!` | concurrency |

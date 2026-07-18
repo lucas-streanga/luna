@@ -20,7 +20,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 8 conjunction | `&&` | left | short-circuits |
 | 9 disjunction | `\|\|` | left | short-circuits |
 | 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
-| 11 pipeline | `\|>` | left | dataflow connection over streams and commands (pipeline spec); loose enough that `a \|> f(x) \|> g` chains whole call expressions, tight enough that word prefixes wrap the whole pipe |
+| 11 | *(retired, R146 — was the pipeline `\|>`, retired/pipeline.md; the tier number is kept so tier-12 citations stand)* | — | — |
 | 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` | right | see §3: word prefixes bind the **whole expression** below assignment |
 | 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (strings §11) |
 

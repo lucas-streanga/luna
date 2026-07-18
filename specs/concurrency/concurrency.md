@@ -303,20 +303,26 @@ is where tasks compose and iterate. Streams are the reused mechanism for "many r
 so spawning over a collection yields a stream of promises (or results), and all stream operations
 apply.
 
-- **Streams are not automatically parallel.** A stream pipeline runs **lazily and sequentially** by
-  default (pull-based, one element at a time, deterministic); `|>` stays deterministic data flow
-  (pipeline spec). Concurrency is **opt-in per stage** by spawning inside it:
+- **Streams are not automatically parallel.** A stream chain runs **lazily and sequentially** by
+  default (pull-based, one element at a time, deterministic); chains stay deterministic data flow
+  (stream §7, R146 — the `|>` operator is retired). Concurrency is **opt-in per stage** by
+  spawning inside it:
 
   ```
-  let results = await (xs |> map(fn (x) => spawn expensive(x)));
+  let results = await (xs.toStream().map(fn (x) => spawn expensive(x)));
   // fan out: each element on its own task; await over the promise stream collects in order
   ```
 
-  The map hook returns a **promise** per element, so the pipeline yields a stream of
-  promises; `await` over that stream (a word-prefix operator, not a pipeline stage —
-  await §1.1) pulls and collects them. Where `expensive` is effectful, the hook's
+  The map hook returns a **promise** per element, so the chain yields a stream of
+  promises; `await` over that stream (a word-prefix operator, not a chain stage —
+  await §1.1) pulls and collects them. The `toStream` is load-bearing, not style
+  (R146's sweep made it explicit): kind follows the primary operand
+  (iterable-functions §1.3), so mapping a *table* with a spawning hook would yield a
+  table of promises — the retained storage §3.1 bans. The spawn-composition is legal
+  on a **stream** primary only, where each promise is created and consumed in flight.
+  Where `expensive` is effectful, the hook's
   requirement set rides it and the caller authorizes at the call site
-  (`xs.map(fn (x) => spawn expensive(x)) use (io)`, capabilities §5.2, R112).
+  (`xs.toStream().map(fn (x) => spawn expensive(x)) use (io)`, capabilities §5.2, R112).
 
 - **`await` over a stream is ordered by default.** The results come back in **input order** (the
   order of `xs`), which is deterministic and matches stream ordering, at the cost of waiting for
@@ -332,7 +338,7 @@ apply.
   sequentially, race-free:
 
   ```
-  let total = (await (xs |> map(fn (x) => spawn work(x)))).reduce(add);
+  let total = (await (xs.toStream().map(fn (x) => spawn work(x)))).reduce(add);
   ```
 
   There is deliberately no shared-mutable-with-locking mechanism (no automatic locking): it would

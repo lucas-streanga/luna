@@ -22,7 +22,9 @@
       "Bash(awk 'NR>=1 && NR<=2185' CHANGES.md)",
       "Bash(awk 'NR>=2186 && NR<=2253' CHANGES.md)",
       "Bash(awk 'NR>=2254 && NR<=2289' CHANGES.md)",
-      "Bash(awk 'NR>=2290' CHANGES.md)"
+      "Bash(awk 'NR>=2290' CHANGES.md)",
+      "Bash(git mv *)",
+      "Bash(git checkout *)"
     ]
   }
 }

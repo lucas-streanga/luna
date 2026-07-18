@@ -43,7 +43,7 @@ Both ends are ordinary values with extraordinary crossing rules (§2, §3).
 
 The receive end is **literally a `stream`** — not stream-like, the type itself — so the
 entire catalogue applies with no new surface: `foreach (msg in rx)` consumes, parking on
-empty (the scheduler runs other tasks meanwhile); `rx |> filter(p) |> take(n)` composes;
+empty (the scheduler runs other tasks meanwhile); `rx.filter(p).take(n)` composes;
 single-pass, single-owner, transfer-with-taken across spawn boundaries — every existing
 stream rule, unchanged. Two properties follow from rulings already made:
 

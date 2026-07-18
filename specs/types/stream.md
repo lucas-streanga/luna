@@ -253,64 +253,58 @@ per table (§4).
 
 ---
 
-## 7. The pipeline operator `|>`
+## 7. Chains are pipelines: pull-driven composition
 
-`|>` connects a dataflow pipeline. It is **not** general function application, Luna already
-has that through UFCS (`x.f().g()`), so a general pipe operator would be redundant. `|>` exists
-only where "pipeline" is a genuine domain concept: **streams and commands**. Seeing `|>`
-therefore always means "a dataflow pipeline," never merely "call a function." This section
-covers stream pipelines; the operator's unified semantics across both kinds are in the
-**pipeline** spec.
+A chain of catalogue calls over a stream **is** a dataflow pipeline, and needs no
+operator to say so (R146: the `|>` operator is **retired**, retired/pipeline.md — after
+R91 made every transformer a lazy, kind-following, stream-taking free function, `s |>
+map(f)` and `s.map(f)` were the same operation, and the operator had become the
+redundant second spelling its own spec forbade). This section states the pipeline
+semantics chains have always had.
 
-### 7.1 Closed over kind
+### 7.1 One kind per chain; commands and bridges
 
-`|>` connects two values of the same pipeline-able kind and returns a new value of that kind:
+A stream chain produces a `stream` at every stage. **Command** pipelines are the other
+dataflow domain, composed by the `pipe` function (command §4) — a `command` at every
+stage. Neither converts into the other: bridging a stream to a command (feeding
+elements to a process's stdin, reading its stdout as a stream) requires serialization
+across the boundary, a real operation deserving an explicit `exec`-level API (exec
+spec), never an implicit coercion.
 
-- **`stream |> transformer` produces a `stream`**: a new stream describing the composed
-  dataflow.
-- **`command |> command` produces a `command`** (command spec §4): a new command describing the
-  composed process pipeline.
+### 7.2 Stream chains are pull-driven
 
-So `|>` does not convert commands into streams or vice versa; each pipes within its own kind.
-Bridging a stream to a command (feeding stream elements to a process's stdin, or reading a
-process's stdout as a stream) is an explicit `exec`-level operation, not bare `|>`, because it
-requires serialization across the boundary, which is a real operation deserving an explicit
-API rather than an operator.
-
-### 7.2 Stream pipelines are pull-driven
-
-A stream pipeline is a **processing** pipeline: the left of `|>` is a stream (the source), and
-each right-hand stage is a **stream transformer** (a stream-to-stream operation like `map`,
-`filter`, `take`):
+A stream chain is a **processing** pipeline: the source, then transformers
+(stream-to-stream operations like `map`, `filter`, `take`):
 
 ```
-f.lines() |> filter(isError) |> map(parse) |> take(10)
+f.lines().filter(isError).map(parse).take(10)
 ```
 
 Consumption is **pull-driven** (demand-based), which is what laziness requires: the consumer at
 the end pulls an element, which pulls from the previous stage, back to the source, which
 produces one element that flows forward through the stages. One element traverses the whole
-pipeline per step, on demand. So `take(10)` pulls only ten times, and the file source produces
-only about ten lines, the pipeline short-circuits, and memory stays bounded. The pipeline
-result is itself a lazy stream (a description of the pull-chain), inert until consumed (§1.2).
+chain per step, on demand. So `take(10)` pulls only ten times, and the file source produces
+only about ten lines, the chain short-circuits, and memory stays bounded. Each stage's
+result is itself a lazy stream (a description of the pull-chain), inert until consumed
+(§1.2).
 
-### 7.3 Piping transfers and consumes (single-pass through the pipeline)
+### 7.3 Chaining transfers and consumes (single-pass through the chain)
 
-`a |> t` **transfers** the stream `a` into the resulting pipeline. Because of lazy-start,
-building the pipeline consumes nothing; but when the pipeline is consumed, it pulls from `a`,
-so **consuming the pipeline consumes `a`**. After piping, `a` is a **stage of the pipeline,
-not an independent stream**: consume the pipeline result, not the original.
+`a.map(f)` **transfers** the stream `a` into the resulting chain. Because of lazy-start,
+building the chain consumes nothing; but when the chain is consumed, it pulls from `a`,
+so **consuming the chain consumes `a`**. After the call, `a` is a **stage of the chain,
+not an independent stream**: consume the result, not the original.
 
-Unlike general single-pass exhaustion (§2), piping is an **enforced move** (pipeline spec
-§5.1): after `a |> t`, `a` is **taken** and any later use **panics**, a compile error
+Unlike general single-pass exhaustion (§2), this is an **enforced move**: after
+`a.map(f)`, `a` is **taken** and any later use **panics**, a compile error
 where statically evident, the same enforcement as a stream crossing `spawn` (concurrency
 §2.3), a promise after `await`, a file after `close`. The upgrade from the earlier
-"discipline" wording is deliberate: a piped-from handle and its pipeline shared a live
+"discipline" wording is deliberate: an aliased source handle and its chain shared a live
 cursor, so interleaved pulls made elements silently vanish from one consumer into the other,
 which is worse than an exhausted second pass and exactly what single ownership exists to
-prevent. **Once you pipe a stream, the pipeline is the stream.**
+prevent. **Once you chain a stream, the chain is the stream.**
 
-The same transfer discipline extends beyond `|>`: passing a stream to **any** function of
+This is one rule, not a chain-specific one: passing a stream to **any** function of
 the iterable catalogue — as the primary or as an operand (`merge(a, s)`,
 `combine(ks, vs)`) — **takes** it (iterable-functions §1.5), and a lazy result consumes its
 sources as it is itself consumed.
@@ -324,7 +318,7 @@ sources as it is itself consumed.
 - **Bidirectional generators:** whether `yield` can receive a value back from the consumer (a
   two-way generator, as in Python), or is one-way (produce only); current model is one-way.
 - **Single-pass enforcement generally:** §2's exhausted-second-pass behavior (`foreach`
-  twice) remains a discipline while `spawn`, `await`, `close`, and now `|>` all enforce
+  twice) remains a discipline while `spawn`, `await`, `close`, and every catalogue call (§7.3) all enforce
   moves; whether plain re-iteration should also upgrade to taken-value enforcement is a
   consistency review to run once real code exists (the pipe case was upgraded because it
   aliased a *live* cursor; a fully exhausted stream is deterministic, so the case is

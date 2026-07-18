@@ -5,7 +5,7 @@ reaches outside the program (it spawns a process and does I/O), so execution is 
 **capability**, and its result is governed by the error model. This document specifies the
 `exec` capability, the two run functions (`run` and `capture`), the `commandError` raised on
 failure, and the pipefail semantics. The command value itself, its construction, backtick
-literal, interpolation, and `|>` pipelines, is in the command spec.
+literal, interpolation, and `pipe()` pipelines (R146), is in the command spec.
 
 ---
 
@@ -139,7 +139,7 @@ commandError = error {
 // plus inherited message, stacktrace, cause, data (errors §2.1)
 ```
 
-**Pipefail is the default and the only behavior.** In a pipeline (`a |> b |> c`, command
+**Pipefail is the default and the only behavior.** In a pipeline (`pipe(a, b, c)`, command
 spec §4), if **any** stage exits non-zero, the pipeline fails, and `commandError.stage`
 identifies which stage. There is no mode to set (unlike bash, where `pipefail` is opt-in);
 a pipeline that partially fails is a failure, full stop. Because the pipeline structure is
@@ -184,7 +184,7 @@ Ruled (R42):
 
 - **Streaming output: yes.** A streaming variant yields stdout as a `stream` for large or
   long-running output (exact signature pending, alongside the buffered `capture`); it is
-  the natural producer for `|>`-composition on the consumer side.
+  the natural producer for stream-chain composition on the consumer side.
 - **Environment variables: a new capability, secret-valued** — ruled here (R42), and
   the surface now **lives in `std.process`** (R134, resolving the module-home flag
   this bullet carried): the `env` capability, `envVars() use (env): table` with

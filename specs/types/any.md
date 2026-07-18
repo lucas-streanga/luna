@@ -35,7 +35,6 @@ statically**, narrow first:
   `string`; `any` does not fit `string`, same per-position assignability as any call
   (functions §3.2, §3.4). Only functions genuinely typed `fn (any)` accept it, which is
   exactly right: those are the functions that promised to handle anything.
-- **`|>`**: pipelines demand a `stream` or `command` operand (pipeline §3).
 - **`&v`**: references are invariant (variables §5.1); a `&any` is a different thing from a
   `&table` and neither converts.
 

@@ -64,7 +64,7 @@ whole-input family cannot even be handed one. Guard with `take` (stream-api §6)
 ### 1.5 Streams are taken
 
 Passing a stream to any function here — as the primary or as an operand — **takes** it, the
-same transfer discipline as `|>` (stream spec §7): the variable is consumed and later use
+same transfer discipline as every stream-taking call (stream spec §7.3): the variable is consumed and later use
 panics (a compile error where detectable). Lazy results consume their sources as they are
 themselves consumed.
 
@@ -196,7 +196,7 @@ With `predicateFn` omitted, tests truthiness.
 ### 2.4 Transform
 
 Transformers are lazy on streams: they return a new stream that runs only as it is consumed
-(stream spec §7), and are equivalently written as chained UFCS calls or a `|>` pipeline.
+(stream spec §7), written as chained UFCS calls (the dataflow pipeline, stream §7 — the `|>` operator is retired, R146).
 
 #### map()
 ```
@@ -252,7 +252,7 @@ fn keys(it: iterable): iterable
 ```
 **O(n), lazy on streams.** Values-only / keys-as-values, reindexed sequentially from 0.
 `values` is the reindexer that composes after any key-disturbing stage
-(`s |> filter(p) |> values`); `keys` reads no values. Note `values` is a kind-preserving
+(`s.filter(p).values()`); `keys` reads no values. Note `values` is a kind-preserving
 **transform** everywhere — the retired stream collector of the same name is `collect` (§2.11).
 
 #### column()
@@ -306,7 +306,7 @@ fn skip(it: iterable, n: int): iterable
 ```
 **O(n), lazy on streams.** At most the first `n` elements / everything after the first `n`.
 `take` short-circuits: it stops pulling upstream once satisfied, so
-`s |> map(expensive) |> take(3)` runs `expensive` three times.
+`s.map(expensive).take(3)` runs `expensive` three times.
 
 #### takeWhile() · dropWhile()
 ```

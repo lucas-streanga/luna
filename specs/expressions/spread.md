@@ -124,7 +124,7 @@ keys the two coincide.
 
 This is foreach-class consumption (stream §2): the stream is exhausted afterward, not taken,
 iterating it again yields nothing. Two consequences, both the programmer's deliberate choice:
-an **unbounded stream spreads into unbounded memory** (bound it first, `[...s |> take(n)]`),
+an **unbounded stream spreads into unbounded memory** (bound it first, `[...s.take(n)]`),
 and spreading is the opposite of the pipeline's laziness, use it exactly when you *want* the
 whole sequence in hand now.
 
