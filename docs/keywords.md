@@ -90,7 +90,7 @@ such restriction, they are ordinary producible doubles (`let x = nan;` is fine),
 ## 5. Predeclared names, deliberately not keywords
 
 Builtin type names (`int`, `double`, `bool`, `string`, `bytes`, `table`, `list`, `iterable`,
-`stream`, `promise`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`) and builtin
+`stream`, `sink`, `promise`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`) and builtin
 values/functions are **predeclared identifiers**, resolved by ordinary scope, not reserved
 words, which keeps the lexer small and the keyword set closed. Whether they are
 **shadowable** is flagged (§6). Std exports (`io`, `json`, `path`, `file`, ...) are ordinary

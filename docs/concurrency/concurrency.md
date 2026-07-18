@@ -87,6 +87,11 @@ sharing mutable state:
   ownership-transfer escape for large data (move a stream into a task rather than copy a table).
   Because such values can never be `const`, they can never ride the const-share path into
   *multiple* tasks, so the "stateful value shared through a frozen container" race cannot arise.
+- **Sinks** (channels §3), **shared** (R119). A sink is a **write-only** handle whose channel
+  interior is runtime synchronization machinery, not a Luna value: sharing it shares no
+  readable state — *ownership follows readability*, and the readable half, the receive
+  stream, is single-owner above. Copies and crossings all reference the one channel; that
+  is fan-in, the feature. The taxonomy row is capabilities', for capabilities' reason.
 - **Promises**, **confined** (§3): a promise cannot cross a spawn boundary in either direction.
 - **References to mutable bindings**, **forbidden**. A reference that shares a `var`, i.e. a
   `&` argument (`spawn f(&t)`), would give the task a mutable reference to the spawner's
@@ -207,6 +212,14 @@ confined to the scope that created it. This single rule secures two properties a
 So a promise is a within-scope handle, not a value that circulates. Attempting to pass, capture,
 or return a promise across a spawn boundary is a compile error.
 
+The precise circulation rule (R117): a promise flows only through **bindings** and
+**streams** — single-pass and scope-local, the §5 composition (`map(fn (x) => spawn f(x))`
+yields a stream of promises, each created and consumed in flight). It may **not** enter
+**retained storage**: a table element would let a copyable, boundary-crossing container
+carry it, so storing a promise in a table is an error, and `collect` on a stream of
+promises is likewise an error (it would retain them) — await the stream, then collect the
+*results*. A compile error where statically evident, a panic otherwise, the house split.
+
 ---
 
 ## 4. Errors: fail-fast by default, collection by opt-in
@@ -224,15 +237,18 @@ command semantics (command spec) and the language's error model:
   Consuming code after the `await` therefore need not handle per-element errors; it only runs on
   the all-succeeded path.
 
-**Error collection is opt-in through the type system.** When you want *every* result including
-failures (rather than fail-fast), await into a **stream of `T!`**: each element is a value-or-error,
-and nothing is cancelled on the first failure. Because the elements are `T!`, the **type system
-forces** the consumer to handle them: feeding a `T!` into a stage that expects a plain value is a
-compile error (you are passing a maybe-error where a value is required), so collected errors cannot
-silently flow downstream as if they were values. You either handle each `T!` (with `try`, or by
-being an errorable stage) or the program does not compile. So the choice between fail-fast and
-collection is made by *which await you use*, and the collection form is kept honest by the ordinary
-errorable-value rules.
+**Error collection is per-promise, not per-stream** (R116, reconciling with await §1.1): a
+stream has no error channel, so the stream-collecting `await` surfaces a failed task as a
+**panic at the pull** — the fail-fast posture in stream form. When *every* result matters,
+failures included, await the promises **individually**, where the declarable channel
+exists: `try await p` yields the task's `T!` as a handleable value, and a loop of
+individual awaits collects successes and failures without cancelling anything. The choice
+between fail-fast and collection is made by *how you await* — the stream form is
+fail-fast, the individual form collects — and the collection form is kept honest by the
+ordinary errorable-value rules (`try`, or an errorable binding, per element). (An earlier
+paragraph here promised an "await into a stream of `T!`" collection form; retired — it
+contradicted the no-error-channel rule await §1.1 states, and the individual form already
+covers the need.)
 
 ### 4.1 A task panic resolves its promise; `await` never hangs on a dead task
 
@@ -267,12 +283,15 @@ apply.
   (pipeline spec). Concurrency is **opt-in per stage** by spawning inside it:
 
   ```
-  xs |> map(spawn expensiveThing) |> await        // fan out: each element on its own task,
-                                                   // then await all results
+  let results = await (xs |> map(fn (x) => spawn expensive(x)));
+  // fan out: each element on its own task; await over the promise stream collects in order
   ```
 
-  `map(spawn f)` produces a stream of **promises**; `await` over that stream waits for them and
-  yields their results.
+  The map hook returns a **promise** per element, so the pipeline yields a stream of
+  promises; `await` over that stream (a word-prefix operator, not a pipeline stage —
+  await §1.1) pulls and collects them. Where `expensive` is effectful, the hook's
+  requirement set rides it and the caller authorizes at the call site
+  (`xs.map(fn (x) => spawn expensive(x)) use (io)`, capabilities §5.2, R112).
 
 - **`await` over a stream is ordered by default.** The results come back in **input order** (the
   order of `xs`), which is deterministic and matches stream ordering, at the cost of waiting for
@@ -288,7 +307,7 @@ apply.
   sequentially, race-free:
 
   ```
-  let total = xs |> map(spawn work) |> await |> reduce(add);
+  let total = (await (xs |> map(fn (x) => spawn work(x)))).reduce(add);
   ```
 
   There is deliberately no shared-mutable-with-locking mechanism (no automatic locking): it would
@@ -339,6 +358,50 @@ Structured lifetime is what makes the model safe to reason about: every task has
 end, cleanup always runs (promptly, and non-blocking), and the program never exits with silent
 unfinished work.
 
+### 6.1 Cancellation semantics (R115)
+
+Cancellation is **specified alpha semantics**, and it is **runtime-initiated only**: the two
+cancellers are fail-fast (§4, the first error cancels the siblings) and scope exit (§6).
+There is **no user-facing cancel primitive** — timeouts, `awaitAny`, and await-with-deadline
+are future *surface* over these semantics and stay deferred (await §3, §4). The rules:
+
+- **Cooperative, suspension-point-delivered, refused-on-entry.** A cancelled task keeps
+  running until its next **suspension point** — an `await`, a blocking io call, a channel
+  send or receive (channels §4, R119), a
+  scheduling point — where the runtime delivers **`cancelled`**, a runtime-minted type in
+  the `panic` subtree (errors §2, §9: user code can neither originate nor be forced to
+  declare it). Delivery is **before the operation**: a pending cancellation *refuses* the
+  suspension point's operation rather than performing it and cancelling afterward — the
+  same before-the-effect principle as the dynamic capability check panicking before the
+  callee's body begins (capabilities §5.1). A task already **parked** (on an `await`, on a
+  blocked read) is interrupted and receives `cancelled` at the park — which is what makes a
+  task blocked on a dead socket cancellable at all.
+- **Observable, never stoppable.** `cancelled` is **catchable** like any panic (errors
+  §8.2 — uniformity, no special case), but the task remains **cancel-pending**:
+  `cancelled` is **re-delivered at the next suspension point**, and the pending flag is
+  runtime state user code cannot clear. Catching is for observation and state adjustment
+  on the way out; a task cannot un-cancel itself. This adds **no new attack surface**:
+  catch-resistance (catch and spin, or a catch-loop around io — each attempt refused on
+  entry) is exactly as strong as never reaching a suspension point at all, which is the
+  already-conceded compute-hang carve-out (§7).
+- **Defers run uncancelled, unconditionally.** Nothing is delivered inside a `defer` (§6):
+  cleanup runs to completion, on cancellation exactly as on success or panic.
+  Consequently **defers are the compensation context**: io-bearing remediation of a
+  half-done external effect must live in a defer, because a *catch block's* io is a
+  suspension point and gets re-delivered. The idiom: bracket a critical external sequence
+  with a defer that completes-or-compensates, the body maintaining progress state
+  (`var sent = false; …; sent = true;`) the defer consults — which is also how a defer
+  learns *why* it is unwinding, with no new mechanism. A defer that blocks forever hangs
+  its scope — accepted (§7's residual), because cancelling cleanup is worse semantics
+  than trusting it.
+- **A cancelled task's death is clean by construction.** Its partial work lived in its own
+  copies, invisible to every other task (§2); its transferred handles are already dead
+  behind it (taken, §2.3); its promise resolves to `cancelled`, so awaiters never hang
+  (§4.1). The classic async-exceptions blast radius is a *shared-state* blast radius, and
+  Luna deleted the shared state — what remains is the external world: an
+  **uncompensatable external effect** (a message a third party has already received) is
+  the irreducible residue, §7's existing carve-out, unchanged.
+
 ---
 
 ## 7. What is guaranteed
@@ -358,12 +421,16 @@ impossible**, not merely discouraged:
   the **spawn and await boundaries act as synchronization points** (where the eager copy and the
   taken mark, §2.3, are established); the runtime interiors need no atomic refcounting or
   locks.
-- **No deadlocks.** There are no locks (aggregation is return-and-fold, §5, not shared-memory
+- **No lock or await deadlocks.** There are no locks (aggregation is return-and-fold, §5, not
+  shared-memory
   locking), so no lock-ordering deadlock exists. Awaiting cannot deadlock either: promises are
   confined so the await graph is a **DAG** (§3.1, no await cycles); every task's death resolves its
   promise so `await` never hangs on a dead task (§4.1); `await` in a `defer` is forbidden so
   teardown cannot hang (§6); and `await` yields the scheduler thread so the scheduler cannot
-  starve (§3).
+  starve (§3). **Channel-wait cycles are the one deadlock shape that exists** (R119,
+  channels §6): two tasks each parked sending to the other's full channel wait forever —
+  classed with logic-bug hangs (below), contained by scope-bounding, and cancellable at the
+  parks when the scope fails elsewhere, but not structurally prevented.
 - **No orphaned tasks.** Structured, scope-bounded lifetime (§6) guarantees every task ends and its
   cleanup runs; the program never exits with silent unfinished work.
 
@@ -377,10 +444,17 @@ structurally prevent:
 - **Logic-bug hangs** are not prevented: a task with a non-terminating loop, or unbounded recursive
   spawning, hangs or exhausts resources. These are ordinary bugs (an infinite loop is a bug whether
   or not it is in a task), and the language provides no per-task time or memory limit to forcibly
-  bound them (§8).
-- **Cancellation is yield-point-bounded.** A cancelled task observes cancellation only where it
-  yields (an `await`, a `yield`, a scheduling point). A task in a long uninterruptible computation
-  cancels only when it next reaches such a point, so cancellation is prompt but not instantaneous.
+  bound them (§8). The same family includes a `defer` that blocks forever during teardown
+  (§6.1): cleanup is never cancelled, so a misbehaving defer hangs its scope.
+- **Cancellation is yield-point-bounded** (§6.1, R115). A cancelled task observes cancellation only
+  where it suspends (an `await`, a blocking io call, a channel operation, a scheduling point),
+  refused-on-entry. A task
+  in a long uninterruptible computation cancels only when it next reaches such a point, so
+  cancellation is prompt but not instantaneous — and a task that never suspends never cancels,
+  which is the same carve-out as the logic-bug hang. **Unconditional kill** (BEAM's
+  `Process.exit(:kill)`) does not exist and is **extremely unlikely** ever to (R120): the Go
+  backend cannot kill a goroutine, and the model disfavors it regardless; only a backend
+  change could reopen the question.
 
 ---
 
@@ -399,23 +473,29 @@ an accepted cost, mitigated by writing yield points and correct termination, not
 
 Open:
 
-- **Channels.** A dedicated channel type is deferred. The **receive** end of a channel is
-  stream-shaped (a sequence of values arriving over time, exactly a stream), so streams already
-  cover consumption; a **send** end would be a new *sink* type. Moreover, a green thread that
-  `yield`s is already a stream producer (stream spec §1), so a concurrently-generated stream may
-  subsume most producer/consumer channel needs, leaving true channels for many-to-many or fan-in.
-  The full design is pending.
-- **The result-collecting await surface.** The exact spelling and laziness of `await` over a stream
-  (eager "wait for all, yield a list" versus lazy "yield each as it is awaited"), and how it and
-  `awaitAsCompleted` interact with fail-fast cancellation (§4), pending the stream-concurrency
-  design.
-- **Cancellation semantics in detail.** How cancellation interrupts a task (at what points a task
-  observes cancellation, and whether long-running pure computation is interruptible or only
-  cancels at await/yield points), and how cancellation unwinding runs `defer` in emitted Go
-  (compiler spec §11), pending the runtime model.
-- **Task-local resources and capability scoping.** Whether a task may hold capabilities beyond
-  those shared from its spawner, and how capability lifetime interacts with scope-bounded task
-  lifetime, pending alignment with the capability model.
+- **Timeouts and `awaitAny` / select: deferred, and named the top post-alpha priority**
+  (R120). The scrutiny against BEAM made the stakes precise: Elixir's ubiquitous call
+  timeouts are its *universal hang-recovery mechanism*, and until this surface lands Luna
+  cannot express "wait, but not forever" — so the one admitted deadlock shape,
+  channel-wait cycles (§7, channels §6), has no in-language recovery. This is **safety,
+  not convenience**. The surface rides R115's semantics (a deadline is a cancellation; a
+  select is a race), and its timer half is `std.time`'s `sleep` (std/time.md, deferred
+  with it) — the two should be designed together.
+- *(**Channels: designed, R119** — `channels.md`. `let [tx, rx] = channel(capacity)`; the
+  receive end is literally a `stream`; the `sink` is a shared write-only handle
+  (*ownership follows readability*, §2.1); per-handle `finish`, no whole-channel close;
+  MPSC, with select and MPMC deferred there. The owner-task pattern this unblocks is
+  channels §5.)*
+- **The result-collecting await surface: mostly settled.** Laziness is ruled (await §1.1:
+  lazy, each pull awaits one promise) and the error interaction is ruled (R116: the stream
+  form is fail-fast, panicking at the pull; collection is individual `try await`). What
+  remains open is only `awaitAsCompleted`'s interaction with fail-fast cancellation.
+- *(**Cancellation semantics: resolved by R115** — §6.1: cooperative,
+  suspension-point-delivered, refused-on-entry, observable-never-stoppable, defers
+  uncancelled. What remains is implementation only: how the unwinding runs `defer` in
+  emitted Go, compiler spec §11.)*
+- *(**Task-local capability scoping: resolved by R112/R118** — the task-root entry below;
+  `spawn f() use (X)` is the scoping mechanism.)*
 - **Backpressure and scheduling controls.** Whether spawning over a large collection bounds
   concurrency (a limit on simultaneously-running tasks) or spawns unboundedly, and how backpressure
   from a slow consumer propagates through an opt-in-parallel stream, pending the scheduler design.
@@ -424,10 +504,13 @@ Open:
 
 ## Deferred by decision, and one ruling (R42)
 
-- **Capability scoping at spawn: none.** A spawned function's requirement set must be held
-  by the **spawner** (the check at `spawn`, capabilities §3.1); there is no
-  narrowing-or-widening mechanism at the boundary, a task runs under exactly the grants its
-  spawner could give, which is the grants the spawner declared. One rule, the call rule.
+- **Capability scoping at spawn: the task root (R118, superseding this entry's R42-era
+  "none").** A task's **root grant** is the spawned function's declared requirement set
+  **plus any spawn-site delegation** — `spawn f() use (io)` extends `io` into the task
+  (capabilities §5.2, R112) — checked against the spawner's own grant at the spawn
+  (capabilities §3.1). Inside the task, frames follow the ordinary rules from that root:
+  declared `use` statically, call-site delegation on the dynamic frontier. Still one rule,
+  the call rule — now including the call rule's delegation clause.
 - **Channels: deferred**, not necessary; tasks communicate by arguments in (deep-copied)
   and results out (moved at `await`), and the collecting surface is `await` over a stream
   (await §1.1).

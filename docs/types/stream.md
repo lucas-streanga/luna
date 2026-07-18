@@ -327,8 +327,10 @@ sources as it is itself consumed.
   consistency review to run once real code exists (the pipe case was upgraded because it
   aliased a *live* cursor; a fully exhausted stream is deterministic, so the case is
   weaker there).
-- **Parallel consumption:** how a stream interacts with green threads if one is ever shared
-  despite the single-owner intent, pending the concurrency model.
+- *(**Parallel consumption: resolved** — a stream is never shared across tasks: it crosses
+  a spawn boundary by **ownership transfer**, leaving every spawner-side alias
+  enforced-dead (the taken state, concurrency §2.1, §2.3). Two tasks can never hold live
+  handles to one stream, so the question does not arise.)*
 - **Element typing through `toStream`:** whether a `stream` carries its element type as
   precisely as a typed table does, pending how far element typing is carried through
   transformers.

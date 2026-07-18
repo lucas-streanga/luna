@@ -177,6 +177,7 @@ table is a map.
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
 | std.csv / std.yaml / std.xml | `csv.md`, `yaml.md`, `xml.md` | Per-format constraint + reader modules. |
+| std.time | `time.md` | Deferred in full (R120): the missing time surface — clock, `sleep`, durations — recorded as a decision. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |
 | Spread | `spread.md` | `...x`: the table-literal fold, streams, call arguments, interpolation; one level, always. |
@@ -199,6 +200,7 @@ table is a map.
 | Spec | File | What it is |
 |-|-|-|
 | Concurrency | `concurrency.md` | Green threads: `spawn`, `promise`, `await`, and shared-nothing isolation. |
+| Channels | `channels.md` | Task communication: `channel()`, the stream receive end, the shared `sink`, the owner-task pattern. |
 | Exec | `exec.md` | Running a `command` as a capability-gated, error-governed effect. |
 
 ### Modules, tooling & implementation

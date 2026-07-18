@@ -99,7 +99,8 @@ dispatch**: `tab->greet()` runs the one `greet` the protocol defined, for every 
 
 There is **no mutable protocol-level state**. A `var` member is per-table; a `const` with
 a default is uniform and immutable; nothing in between exists. Shared mutable state is a
-concurrency question and lives where the concurrency model puts it (a task that owns it),
+concurrency question and lives where the concurrency model puts it — **a task that owns
+it**, the owner-task pattern (channels §5, R119), with every access a visible message —
 never implicitly in a protocol.
 
 ### 2.2 Grants: `get` and `set`, external reach only

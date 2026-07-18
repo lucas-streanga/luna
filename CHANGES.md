@@ -2316,6 +2316,156 @@ bolt still agree. Swept: `capabilities.md` (§5.2's two carve-outs, §8's bounda
 premise and the vacuous-check phrasing), `functions.md` §5.5 (eligibility reads declared
 `use` only).
 
+**R115 — cancellation is specified alpha semantics, runtime-initiated only.** The
+concurrency review found the family's largest contradiction: `concurrency.md` built
+fail-fast (§4), structured lifetime (§6), and the guarantees (§7) *on* cancellation as
+current semantics, while `await.md` §3 said "there is no cancellation in the alpha."
+Resolved in concurrency.md's favor — the alternative was examined and found untenable:
+without cancellation, fail-fast degrades to fail-slow (scope exit waits on the slowest
+unrelated sibling), a task blocked on a dead socket hangs program shutdown *permanently
+with no in-language remedy*, timeouts become impossible forever (§8's own no-time-limits
+resolution cites cancellation existing), and structured concurrency loses the co-feature
+that makes scoped tasks worth having. The semantics (new §6.1): **cooperative,
+suspension-point-delivered, refused-on-entry** — `cancelled` (a runtime-minted panic,
+now in errors §2's tree) is delivered *instead of* performing the suspension point's
+operation, the same before-the-effect principle as the R39 check, and a parked task is
+interrupted at the park (the blocked-io fix); **observable, never stoppable** —
+catchable like any panic (uniformity kept), but re-delivered at the next suspension
+point, the pending flag uncloseable by user code, with the safety proof recorded:
+catch-resistance is exactly as strong as never suspending, which is the
+already-conceded compute-hang carve-out, so zero new attack surface; **defers run
+uncancelled, unconditionally** — and are therefore *the compensation context* (a catch
+block's io gets re-delivered; a defer's completes), with body-maintained progress state
+as the exit-reason channel and the misbehaving-defer hang accepted as a residual beside
+logic-bug hangs; **runtime-initiated only** — fail-fast and scope exit cancel, no user
+`cancel(p)` exists, and timeouts / `awaitAny` / deadlines stay deferred *as surface*
+over these semantics. The Luna-specific asymmetry is stated in §6.1: the classic
+async-exceptions blast radius is a shared-state blast radius, and Luna deleted the
+shared state — a cancelled task's partials are invisible copies, its handles already
+taken, its promise resolves; only the external world remains, the existing carve-out.
+Swept: `concurrency.md` (§6.1 added, §7's two carve-out bullets, §8's cancellation open
+resolved), `await.md` (§3 rewritten from full deferral to surface-only deferral),
+`errors.md` (the `cancelled` row).
+
+**R116 — error collection is per-promise; the stream-of-`T!` form is retired.** The
+second contradiction: concurrency §4 promised "await into a stream of `T!`" for
+collecting failures, while await §1.1 ruled streams have no error channel (a failed task
+panics at the pull). await.md's side wins — it is the newer text and the one consistent
+with the stream model: the stream-collecting `await` is fail-fast in stream form, and
+collection is **individual** (`try await p` per promise, where the declarable channel
+exists), kept honest by ordinary errorable-value rules. Swept: `concurrency.md` §4 (the
+paragraph rewritten, the retirement recorded inline).
+
+**R117 — promise confinement wins; the circulation rule made precise.** The third
+contradiction: concurrency §3.1 ruled promises confined (compile error crossing spawn
+boundaries — the premise of the await-DAG deadlock proof), while await §4's open floated
+"it moves" (transfer + taken, like streams). Confinement wins, because the deadlock
+guarantee cites it; and the review forced the precise circulation rule: a promise flows
+through **bindings and streams only** (single-pass, scope-local — the §5
+`map(fn (x) => spawn f(x))` composition, load-bearing for await §1.1) and may **not**
+enter retained storage — a table element would let a copyable, boundary-crossing
+container carry it — nor be captured, passed into, or returned from a task; `collect` on
+a promise stream is likewise an error (await the stream, then collect the *results*).
+Compile error where statically evident, panic otherwise. Swept: `concurrency.md` §3.1,
+`await.md` §4 (the open resolved).
+
+**R118 — the task root; concurrency aligned with R112; three opens closed.** The
+R42-era closing entry — "capability scoping at spawn: none… no narrowing-or-widening
+mechanism" — was falsified by R112 (`spawn f() use (io)` *is* the widening mechanism).
+Superseded in place: a task's **root grant** is the spawned function's declared
+requirement set **plus spawn-site delegation**, checked against the spawner's grant at
+the spawn; frames inside follow the ordinary R112 rules from that root. The §5 examples,
+which predated the catalogue and the pipeline spec, are respelled legal:
+`map(spawn expensiveThing)` (spawn is a word-prefix operator, not a passable value) →
+`map(fn (x) => spawn expensive(x))` with the R112 delegation annotation where the work
+is effectful, and `|> await` (await is not a pipeline stage) →
+`await (xs |> map(…))` per await §1.1; await.md's tier number corrected (12, not 11).
+Closed by pointing at the now-correct text: stream-api §6's parallel-transformers open
+(concurrency is opt-in per stage; no transformer is implicitly parallel), stream §8's
+parallel-consumption open (streams transfer with the taken state; two live cross-task
+handles cannot exist), and concurrency §8's capability-scoping open (the task root is
+the mechanism). The await-surface open is trimmed to its one genuinely-open remainder,
+`awaitAsCompleted` versus fail-fast. Swept: `concurrency.md` (§5, §8, the closing
+entry), `await.md` (§1), `stream-api.md` §6, `stream.md` §8.
+
+**R119 — channels: the stream receive end, the shared `sink`, the owner-task pattern.**
+The last major missing piece lands as `channels.md`, on the shape §8's old open predicted
+and this design confirmed. **Creation**: `let [tx, rx] = channel(capacity: int = 0)` — a
+destructured two-list; `0` is rendezvous, `n` buffers with backpressure. **The receive
+end is literally a `stream`** — the whole catalogue applies unmodified, parking on empty
+is ordinary stream consumption, `canRestart` is `false` by R105's own rule, and
+exhaustion *is* the closed signal (receive-from-closed is a stream ending, not an
+error). **The `sink`** (a new predeclared type) is the one deliberate exception to
+single-ownership in the stateful class, governed by the principle that makes the
+exception precise — **ownership follows readability**: a stream is taken because reading
+is stateful consumption; a sink has no readable surface (no peek, no count — "once sent,
+it's gone"), so sharing it shares no readable state. Sinks are **shared** on every copy
+and crossing (the taxonomy row is capabilities', for capabilities' reason; the channel
+interior is runtime machinery beside the scheduler), which is fan-in — the feature; the
+residual mutual observables (interleaving, backpressure timing, finished-ness) are all
+synchronization-class, never data-class, so §7's no-data-races survives verbatim. MPSC
+now; select and MPMC deferred. **Sent values cross by the spawn taxonomy unchanged**
+(eager deep copy for mutables — §2's non-atomic-refcount argument forces it at this
+boundary too — `const` shares, streams/builders transfer, promises forbidden per R117);
+"gone, poof" is ruled as no-shared-view, in-flight values owned by the runtime alone.
+**Parked sends and receives are suspension points** (the R115 list grows), so
+cancellation delivers there, refused-on-entry. **Completion is per-handle**: `finish(tx)`
+relinquishes one handle, the stream ends when the last is finished or scope-dropped, and
+there is **no whole-channel close** — which dissolves multi-producer close coordination
+entirely (nobody can close a channel out from under a sibling). The name is `finish`
+because `close` is unavailable under one-name-one-signature: io's
+`fn close(&fd: file) use (io)` differs in reference mode *and* requirement set, which a
+union cannot carry per-arm (and defer.md's `f.close()` vs. io's `close(&fd)` drift is
+flagged for the io sweep). Send after finish, or to a departed receiver, panics —
+**`ClosedChannelError`**, new in the panic tree — rare under structured lifetime, since
+producers parked on sends receive `cancelled` at the park when the consumer's scope
+fails. **The owner-task pattern is now real**: the counter example in channels §5 is
+R96's "mutable static" as an owning task with reply sinks riding request tables —
+protocols §2.1's pointer finally has a referent, and the R95–R98 open closes as *an
+answer, not a deferral* (statics stay inexpressible by design; the owner task is the
+expression). **`sync` variables considered again and rejected again**, citing
+concurrency §5's own words: reintroduced shared state, false safety on compound
+operations, hidden cost — the owner task is `sync` with the synchronization made
+explicit and visible. **The honest cost, stated in bold in both specs**: §7's "no
+deadlocks" weakens to "no lock or await deadlocks" — **channel-wait cycles exist** (two
+tasks parked sending to each other's full channels), classed with logic-bug hangs,
+contained by scope-bounding, cancellable at the parks, not structurally prevented; and
+one leak shape is flagged (a sink sent through its own channel keeps it alive forever).
+Swept: `channels.md` (created), `concurrency.md` (§2.1's sink row, §6.1's suspension
+list, §7's deadlock guarantee, §8's channels open resolved), `protocols.md` §2.1,
+`errors.md` (the tree), `keywords.md` §5 (`sink`), `index.md`.
+
+**R120 — the BEAM scrutiny: five deferrals named, one softened.** The concurrency model
+was audited against Elixir/BEAM, the SOTA. Where it stands: even on isolation (both
+share-nothing-by-copy), **ahead** on structured lifetime (BEAM processes free-float and
+leak; Luna orphans are structurally impossible), effect containment (BEAM has no
+capability analogue), bounded-by-default channels (BEAM's unbounded mailboxes are its
+classic overload death; Luna's rendezvous default makes backpressure the default), and
+failure defaults (unawaited-error elevation, fail-fast); **behind** on hang *recovery* —
+BEAM survives its own deadlocks because call timeouts are ubiquitous, and Luna currently
+cannot express "wait, but not forever." Hence the notes, each now on the ledger:
+**(1)** timeouts + `awaitAny` / select are deferred and **named the top post-alpha
+priority** (concurrency §8) — *safety, not convenience*: the admitted channel-wait-cycle
+deadlock has no in-language recovery until they land; a deadline is a cancellation and a
+select is a race, riding R115. **(2)** **`std/time.md` created as a full deferral
+record**: nothing in the corpus can read a clock, sleep, or build a timer (a
+retry-with-backoff is unwritable today); two constraints are ruled now (`sleep` is a
+suspension point; the timeout family is race-against-`sleep`, so the module and the
+surface land together), everything else deferred. **(3)** capacity-as-decoupling
+guidance in channels §1 (rendezvous maximizes both backpressure and wait-cycle risk).
+**(4)** the stdlib patterns layer recorded in channels §7 — `call(tx, req)` (the
+`GenServer.call` shape), the supervisor loop, the registry task; library, not language,
+wanted especially once timeouts land. **(5)** unconditional kill (BEAM's
+`Process.exit(:kill)`) recorded as nonexistent and **extremely unlikely** ever to exist —
+softened from "never" at Lucas's direction, since the Go backend (which cannot kill a
+goroutine) is the forecloser and a backend change could reopen it; concurrency §7 and
+await §3 both carry the phrasing. Also acknowledged in the audit, not actioned: the
+crossing taxonomy's six rows are the model's honest complexity concentration (BEAM has
+one row — everything copies), the taken state is a runtime lesson where Rust teaches at
+compile time, and task observability (BEAM's observer) has no story yet. Swept:
+`concurrency.md` (§7, §8), `await.md` (§3), `channels.md` (§1, §7), `std/time.md`
+(created), `index.md`.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -2354,10 +2504,11 @@ And from R91–R93, the two big flagged remainders:
   §3's retired-spellings table is the guard against reintroduction.
 - **Opens from R95–R98, still standing:** removal/`unapply` (unchanged, with §6.3's
   monotonicity condition standing); the JSON nesting shape for serialized protocol
-  members; `@@`'s type surface on non-table values; and mutable protocol-level state,
-  deliberately inexpressible pending the concurrency model's task-ownership story. (The
-  `?->` token landed in R101; the initializer-grammar spelling closed with R108 — named
-  arguments share its `name: value` surface, binding members vs. parameters.)
+  members; and `@@`'s type surface on non-table values. (The `?->` token landed in R101;
+  the initializer-grammar spelling closed with R108; and **mutable protocol-level state
+  closed with R119** — the task-ownership story exists now, the owner-task pattern of
+  channels §5, so "statics stay inexpressible" is an answer with a referent, not a
+  deferral.)
 - **Opens from R102–R105: all resolved.** The conversion-family unification by R106
   (three prefixes, three contracts; the policy verbs; `parseInt` / `parseDouble`); the
   `toBytes`-over-iterable repack by R107 (the union arm, constraint-panic-checked per

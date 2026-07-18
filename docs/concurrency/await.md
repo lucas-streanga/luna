@@ -31,7 +31,7 @@ let result = await p;            // park until done; result MOVED out
   type `T!` and sits behind `try` like any errorable call (errors §8). If the task
   **panicked**, the panic propagates from the `await` (the fail-fast stance, concurrency
   §4): the collector inherits the failure it was waiting on.
-- **Grammar**: `await` is a word-prefix operator, tier 11 (associativity §1), binding loose
+- **Grammar**: `await` is a word-prefix operator, tier 12 (associativity §1), binding loose
   like its siblings: `await p ?? fallback` is `await (p ?? fallback)`; write
   `(await p) ?? fallback` for the other reading, or lean on `try` when the arm is an error.
 
@@ -64,30 +64,40 @@ nobody can ever handle must not vanish silently (the same no-silent-drop instinc
 type is not errorable, or `_ = spawn f()` acknowledges the promise while the elevation rule
 still guards the error.
 
-## 3. Cancellation: deferred, with the shape on record
+## 3. Cancellation: specified and runtime-initiated; the user surface deferred
 
-There is **no cancellation in the alpha**, and the omission is a decision, explicitly:
-the Go runtime underneath helps with the *mechanics* (contexts, goroutine parking), but
-the *semantics*, what a half-cancelled task's effects and cleanup obligations are, stay
-complex regardless of backend, and that is the part that must be designed, not inherited.
-Preemptive
-cancellation, killing a task at an arbitrary instruction, is the async-exceptions trap: a
-task stopped mid-external-effect (a half-written file, a half-sent message) with no unwind
-point, the mechanism Java deprecated (`Thread.stop`) and every runtime since has spent its
-complexity budget taming. When cancellation arrives it will be **cooperative and
-suspension-point-delivered**: a cancelled task keeps running until its next suspension point
-(`await`, a blocking io call), where the runtime delivers **`cancelled`**, a runtime-minted
-type in the `panic` subtree (errors §9: user code can neither originate nor be forced to
-declare it), unwinding through `defer`s so cleanup runs (std.io §4's `defer close(&fd)`
-works unchanged). That design slots into machinery that already exists, panic origination
-rules, defer unwinding, the io-errors §4 note on `EINTR`, and is recorded here so the alpha
-does not accidentally foreclose it.
+Cancellation is **specified alpha semantics** (concurrency §6.1, R115): cooperative and
+**suspension-point-delivered, refused-on-entry** — a cancelled task keeps running until its
+next suspension point (`await`, a blocking io call, a scheduling point), where the runtime
+delivers **`cancelled`**, a runtime-minted type in the `panic` subtree (errors §2, §9:
+user code can neither originate nor be forced to declare it), *instead of* performing the
+operation; catchable but re-delivered (observe, never stop); unwinding through `defer`s,
+which run **uncancelled** so cleanup and compensation complete (std.io §4's
+`defer close(&fd)` works unchanged). Preemptive cancellation — killing a task at an
+arbitrary instruction, the async-exceptions trap Java deprecated with `Thread.stop` — does
+not exist and is **extremely unlikely** ever to (R120: foreclosed by the Go backend, which
+cannot kill a goroutine, and disfavored by the model regardless; only a backend change
+could reopen it); the suspension-point design slots into machinery that already
+exists (panic origination rules, defer unwinding, the io-errors §4 note on `EINTR`).
+
+What remains **deferred is the user-facing surface**: there is no `cancel(p)` primitive,
+and timeouts, racing, and deadlines (§4) arrive later *as* that surface. The alpha's only
+cancellers are the runtime's own: fail-fast sibling-cancel and scope exit (concurrency §4,
+§6). (The earlier form of this section deferred cancellation entirely, which contradicted
+concurrency §4/§6/§7's reliance on it; R115 resolved the contradiction by specifying the
+semantics and narrowing the deferral to the surface.)
 
 ## 4. Open questions
 
 - **Timeouts and racing** (`awaitAny`, `awaitAll`, await-with-deadline): combinators over
   promises, wanted eventually, deferred with cancellation since a deadline is a
   cancellation.
-- **Promise as a value**: whether a promise may be stored in a table or cross a further
-  spawn boundary before collection (currently: it is a transferred, single-owner value like
-  the rest of its class, concurrency §2.1, which answers both questions as "it moves").
+- *(**Promise as a value: resolved by R117** — confinement wins, concurrency §3.1: a
+  promise is a scope-local handle that flows only through bindings and **streams**
+  (single-pass, scope-local — the §5 composition, load-bearing for §1.1); it may not
+  enter **retained storage** (a table element), be captured into a spawned closure,
+  passed into or returned from a task — a compile error where statically evident, a
+  panic otherwise. `collect` on a stream of promises would retain them and is likewise
+  an error; await the stream, then collect the *results*. The "it moves" reading this
+  bullet once floated is retired: confinement is what the await-DAG deadlock proof
+  cites.)*

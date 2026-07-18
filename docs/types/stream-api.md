@@ -116,5 +116,7 @@ tabulated in iterable-functions §3; do not reintroduce.
 - **Resource cleanup on abandonment:** how `restart`, short-circuit (`take`), and
   abandonment release an underlying resource (close the file), pending the resource/`io`
   model (stream §8 records the `defer` baseline).
-- **Parallel / concurrent transformers:** whether any transformer runs stages concurrently
-  (across green threads), pending the concurrency model.
+- *(**Parallel transformers: resolved** — concurrency §5, R118: stream pipelines are lazy
+  and sequential by default, and concurrency is **opt-in per stage** by spawning inside a
+  hook — `xs.map(fn (x) => spawn work(x)) use (io)` — then awaiting the promise stream,
+  await §1.1. No transformer is implicitly parallel.)*
