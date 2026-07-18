@@ -177,7 +177,7 @@ the root. Nothing is invented — the machinery is R110's.
 
 ---
 
-## 8. Open questions
+## 8. Resolved — nothing open (R160)
 
 - *(**Early stream cleanup: confirmed closed by the R121 file model.** The owner-scope
   pattern — `let f = open(...); defer close(f);` — is *the* pattern (io §4, §6): the
@@ -185,9 +185,17 @@ the root. Nothing is invented — the machinery is R110's.
   (`take(10)`) leaves nothing unclosed — the descriptor closes at the owning block's
   exit regardless of consumption. No separate stream-scoped cleanup convenience exists
   or is needed.)*
-- **Deferring in the outermost program scope.** Whether a `defer` at top level (the program's
-  entry block) runs at program exit, and how that interacts with abnormal termination, pending the
-  program-entry and process-exit model.
+- *(**Deferring in the outermost program scope: resolved by composition, R160.** The
+  model this bullet waited on landed: module top level admits only *declarations*
+  (modules §1 — execution enters through `main`), so "the program's entry block" *is*
+  `main`'s body, and a `defer` there is §1's own natural function-scoped case, running
+  at `main`'s return — before the process exits with `main`'s `int!` code (std.process
+  §3). Abnormal termination is the other ruled path: **no `exit()` exists** and nothing
+  unwinds the process past pending defers (R134), so every process end is either
+  `main` returning (§1, §5 — defers run) or a panic/`die` unwinding through `main`
+  (§2 — defers run). The honest residue is external and out of any language's scope:
+  `SIGKILL` runs nothing; signal handling generally is its own future question, not
+  defer's.)*
 - *(**Cleanup during cancellation: resolved by R115** (concurrency §6.1): cancellation
   delivers `cancelled` as a panic-class unwind at suspension points, so defers run
   through the ordinary §2 unwinding path — and they run **uncancelled** (the

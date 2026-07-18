@@ -3750,6 +3750,20 @@ and module-level unexported-unused stays legal for alpha (dead-code elimination'
 territory). Swept: `control-flow.md` §4.1 (new), `variables.md` §4.1 (new),
 `modules.md` §5.
 
+**R160 — defer §8 fully closes: the last bullet resolves by composition.** The
+validation pass confirms R148's three closures and finds the fourth — top-level
+defer, "pending the program-entry and process-exit model" — **now answerable, because
+the model it waited on landed since**: module top level admits only declarations
+(modules §1; execution enters through `main`), so the program's entry block *is*
+`main`'s body and a defer there is §1's own function-scoped case, running at `main`'s
+return before the process exits with its `int!` code; and R134 sealed the other
+path — no `exit()` exists, nothing unwinds the process past pending defers — so
+every process end is either `main` returning (defers run, §1/§5) or a panic/`die`
+unwinding through `main` (defers run, §2). The honest residue is external and out of
+any language's scope (`SIGKILL` runs nothing; signals generally are their own future
+question, not defer's). Section retitled "Resolved — nothing open." Swept:
+`defer.md` §8.
+
 ---
 
 ## Still open (out of scope of these rulings)
