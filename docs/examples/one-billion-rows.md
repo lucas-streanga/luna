@@ -7,6 +7,7 @@ aggregates.
 
 ```
 import std.io;
+import std.process;
 
 const main = fn () use (io, argv): int! => {
   let arguments = args();

@@ -249,8 +249,9 @@ One table, because the categories were decided elsewhere and io just inherits th
   mid-stream panic rule).
 - **Buffering policy**: sizes, when the runtime flushes implicitly, whether `stdout` is
   line-buffered on a tty.
-- **Boundary with `std.system`**: `exists`, `stat`, deletion, directories are metadata and
-  belong to the `system` capability (capabilities §9), not here.
+- **Boundary with `std.filesystem`** (renamed from `std.system`, R134): `exists`,
+  `stat`, deletion, directories are metadata and belong to the `filesystem` capability
+  (capabilities §9), not here.
 
 ## 10. `platform` (stub)
 

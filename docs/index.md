@@ -15,6 +15,7 @@ multiplied. It is heavily inspired by Raku, Lua, PHP, and Go.
 ```luna
 import std.io;
 import std.json;
+import std.process;
 
 const exitCode = ['success' => 0, 'usage' => 64];
 
@@ -181,7 +182,8 @@ table is a map.
 | std.time | `time.md` | The time module (R132): built-in `duration`/`instant` with dimensional operators, the one monotonic clock, `sleep`, the `time` capability. Date-less by design. |
 | std.datetime | `datetime.md` | The calendar module (R133): the immutable `datetime` protocol (timestamp + mandatory timezone), `timezone` (IANA zones vs fixed offsets, bundled tzdb), the two arithmetic families with ruled DST policies, ISO 8601 text. |
 | std.platform | `platform.md` | Deferred (R121): the `const` target-facts table — the most load-bearing stub (println's default reads it). |
-| std.system | `system.md` | Deferred (R121): filesystem metadata (`exists`, `stat`, delete, directories) under the `system` capability. |
+| std.system (retired name) | `system.md` | Split record (R134): the metadata surface became `std.filesystem` (capability renamed `filesystem`; surface pending), the process half `std.process`. |
+| std.process | `process.md` | The process-self module (R134): `args()` under `argv`, `envVars()` under `env` (secret-valued, relocated from exec); no `chdir`, no `exit()`. |
 | std.net | `net.md` | Deferred in full (R121): the network family — gated on the timeout surface, by design. |
 | Variables | `variables.md` | The `var`/`let`/`const` binding ladder, passing semantics, and scoping. |
 | Destructuring | `destructuring.md` | Binding several variables from a table by position or key. |

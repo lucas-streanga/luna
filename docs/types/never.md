@@ -25,13 +25,16 @@ it is meaningful only as "what the caller receives," which is a claim about cont
 
 ## 1. `fn (): never`, control does not return
 
-A function returning `never` (non-errorable) **does not return to its caller**. It exits the program,
+A function returning `never` (non-errorable) **does not return to its caller**. It dies,
 halts the thread, or loops forever. The statement after such a call is unreachable, and the
-`never`-returning branch contributes nothing to any value (§3). Typical uses: a process exit, an
-unconditional failure helper, an event loop that never terminates.
+`never`-returning branch contributes nothing to any value (§3). Typical uses: an
+unconditional failure helper (`die` is itself the primitive case), an event loop that
+never terminates. (A process-exit *function* is not among them and never will be: the
+exit code is `main`'s return value and teardown is structured — no call unwinds the
+process past pending `defer`s from mid-frame; std.process §3, R134.)
 
 ```
-const exit = fn (code: int) use (system): never => { exitProcess(code); };   // std.system, deferred
+const fatal = fn (msg: string): never => { die("fatal: $msg"); };
 const loop = fn (): never => { while (true) { tick(); } };
 ```
 

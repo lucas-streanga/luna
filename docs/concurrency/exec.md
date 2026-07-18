@@ -185,19 +185,13 @@ Ruled (R42):
 - **Streaming output: yes.** A streaming variant yields stdout as a `stream` for large or
   long-running output (exact signature pending, alongside the buffered `capture`); it is
   the natural producer for `|>`-composition on the consumer side.
-- **Environment variables: a new capability, secret-valued.** Reading the environment is
-  gated by its own capability, **`env`**, and the surface is one function returning
-  `key => secret` entries:
-
-  ```
-  export const env = capability;
-  export const envVars = fn () use (env): table;   // 'PATH' => secret, 'HOME' => secret, ...
-  ```
-
-  The **values are `secret`** (secret spec), so enumeration and *reading* are separately
-  gated: `use (env)` lists what exists, and extracting a value's content requires `reveal`,
-  the double gate falling out of machinery that already exists. (Module home, here or a
-  `std.env`, flagged with `std.system`'s boundary.)
+- **Environment variables: a new capability, secret-valued** — ruled here (R42), and
+  the surface now **lives in `std.process`** (R134, resolving the module-home flag
+  this bullet carried): the `env` capability, `envVars() use (env): table` with
+  `key => secret` entries, enumeration and reading separately gated (`use (env)` lists,
+  `reveal` extracts). It sat in this spec because exec passes environments to
+  children; reading one's *own* environment is process-self, not command-running —
+  exec composes with `std.process` when it needs an environment to pass.
 - **`commandResult` / `commandError` split: confirmed.** A process that **ran** yields a
   `commandResult` for any exit code (an exit code is data, not an error); a process that
   **could not start** yields a `commandError` (declarable, the expected environmental

@@ -1,18 +1,21 @@
-# `std.system`
+# `std.system` — retired name, split (R134)
 
-**Status: deferred, boundary fixed (R121).** `std.io` deliberately excludes filesystem
-*metadata* — `exists`, `stat`, deletion, directory listing and creation (io §9) — and this
-record names their future home so the boundary is a decision, not an omission: metadata
-operations belong to the **`system` capability** (capabilities §9), separately gated from
-`io`, because "may read and write file contents" and "may enumerate, inspect, and delete
-the filesystem" are different authorities a program should be able to hold separately.
+The module this record deferred (R121) ships as **two**, and the name ships as
+neither:
 
-What is fixed now: the boundary itself (io stays contents-only), the gating capability's
-identity (`system`), and the composition constraints other rulings already impose —
-operations that reach the OS are non-comptime by construction (functions §5.5), blocking
-calls are suspension points (concurrency §6.1), and results are ordinary values (a
-directory listing is a table or a stream per R102's producer rule).
+- **`std.filesystem`** — the metadata surface (`exists`, `stat`, delete, directory
+  creation and listing) under the **`filesystem`** capability. The capability is
+  *renamed* from `system`, superseding R121's naming half by R121's own argument: the
+  record justified the split from `io` because contents and structure are "different
+  authorities" — and the authority is the *filesystem*, which is what a `use
+  (filesystem)` clause should say to an audit. Every effect module is 1:1 with its
+  authority (`io`/`io`, `time`/`time`); this one now is too. The surface itself is the
+  next ruling; R121's constraints carry to it unchanged: the boundary stands (io stays
+  contents-only, io §9), operations are non-comptime by construction, blocking calls
+  are suspension points, listings are stream producers (R102).
+- **`std.process`** (landed, R134) — everything process-shaped the old grab-bag
+  implied: `args()` under `argv`, `envVars()` under `env` (relocated from exec §6),
+  the no-`chdir` and no-`exit()` refusals.
 
-Deferred: the entire surface — names, signatures, the error family (which errnos map where,
-extending io-errors' four-fates partition), recursive operations, watching. Pending real
-use.
+The `system` capability name is dead with the module name; the "safe syscalls" framing
+died earlier still (the clock went to `time`, R132). Nothing else lived here.

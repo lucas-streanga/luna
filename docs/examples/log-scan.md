@@ -7,6 +7,7 @@ file source produces only about ten matching lines' worth of input (pipeline §5
 
 ```
 import std.io;
+import std.process;
 
 const isError = fn (line: any): bool => contains(line as string, 'ERROR');
 

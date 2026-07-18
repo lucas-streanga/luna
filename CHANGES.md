@@ -3002,6 +3002,41 @@ landed-pointers), `index.md` (the row). Deferred with reasons: PHP format spec,
 sequences/recurrence (a separate stream-shaped library), floating civil values,
 locale, non-Gregorian calendars.
 
+**R134 — `std.system` retired: `std.process` lands, `std.filesystem` named.** The
+alpha-modules audit found the old grab-bag hiding two modules, and the split follows
+**R121's own argument**: the record justified separating metadata from `io` because
+contents and structure are "different authorities" — and the authority *is the
+filesystem*, which is what a `use` clause should say to an audit. So the metadata
+surface becomes **`std.filesystem`** under a **`filesystem` capability** (superseding
+R121's capability-name half; the io-stays-contents-only boundary stands; the surface
+itself is the next ruling, R121's composition constraints carrying unchanged), keeping
+every effect module **1:1 with its authority** (`io`/`io`, `time`/`time`) — the
+C++/Rust fine-grained precedent over Go's `os` grab-bag. Everything process-shaped
+lands now as **`std.process`** (new file): **`args()` under `argv`** (the capability
+R43 ruled; the "module home flagged with std.system" row in capabilities §9 resolves
+here) and **`envVars()` under `env`, relocated from exec §6** — it sat there because
+exec passes environments to children, but reading one's *own* environment is
+process-self; the R42 ruling carries unchanged (secret-valued entries, enumeration
+and reading separately gated through `reveal`). Two refusals recorded: **no `chdir`,
+ever** — the working directory is process-global mutable state, one task's change
+re-resolving every relative path in every other task, a data race by OS design, the
+shared-mutable-state class the language forbids; relative paths resolve against the
+start-of-process directory, always — and **no `exit()`** — the exit code is `main`'s
+return, teardown is structured, and no call unwinds the process past pending `defer`s
+from mid-frame. En-route finds, both fixed: capabilities §9's table **was missing the
+`time` row entirely** (R132 never added it) and its `system` row still claimed the
+clock (moved to `time` in R132) — row replaced by `filesystem`, `time` added; and
+never.md's worked example was a user-written `exit(code) use (system)` wrapping a
+deferred `exitProcess` — contradicting both halves of this ruling — re-exampled onto
+a `die`-based `fatal` helper with the no-exit rationale stated in place. Swept:
+`std/process.md` (new), `std/system.md` (rewritten as the split record),
+`exec.md` §6 (the env bullet now points home), `capabilities.md` §9 (four rows),
+`io.md` §9 (the boundary names `filesystem`), `tests.md` (temp-resources deferral
+repointed), `never.md` §1, `index.md` (two rows, plus `import std.process;` in the
+front-page example), `examples/one-billion-rows.md` and `examples/log-scan.md`
+(imports). `pid`/hostname/username deferred inside the module. `std.filesystem`'s
+surface is next.
+
 ---
 
 ## Still open (out of scope of these rulings)

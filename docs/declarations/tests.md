@@ -111,5 +111,6 @@ Four of the five original questions are ruled (R40):
   second way to fail.
 - **Compile-time testing is `luna -t -c`** (§5), pipeline composition, no language
   feature.
-- **Per-test temp resources: deferred** by decision, pending `std.system`; until then,
+- **Per-test temp resources: deferred** by decision, pending `std.filesystem` (the
+  R134 rename); until then,
   tests manage their own paths.
