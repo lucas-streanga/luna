@@ -5137,6 +5137,96 @@ foreach-boundary emission detail. Swept: `stream.md` §1.3 (new),
 `defer.md` §2 (the cross-note),
 `internal-representation-of-streams.md` (new), `index.md`.
 
+**R208 — the state-machine lowering pinned pre-IR: the Go-goto constraint
+forces the shape, the algorithm is five steps, and two interactions with
+existing rulings were uncovered (stream-representation §2.1).** The
+hypothetical question paid concretely. **The shape is forced, not chosen**:
+Go's `goto` may not jump into a block, so the textbook Duff-style
+switch-into-loops emission is illegal Go — the general form is the
+**flattened dispatch loop** (every basic block a case, every jump a state
+assignment; regenerator's same forced move for JS), with the honest cost
+(Go's loop optimizations die in the dispatch loop) recovered by
+**structured islands**: only the yield spine flattens; maximal yield-free
+subtrees emit as real structured Go. The algorithm pinned in five steps
+(CFG; cut suspension edges; **liveness → hoist only locals live across a
+suspension**, hoist-all as the correct v1 knob; regions + pc-loop; append
+the R207 exhaustion tail), its inputs small *because* §1.5's lowering
+already desugared everything. **The two discoveries**: (1) **R148's defer
+machinery relocates for generator frames** — the per-task defer list
+assumed frames that do not outlive their activation, and a generator frame
+suspends, so its pending defers live in the **stream block**, surviving
+pulls and handoffs, drained by the exhaustion states (compiler §7.3 carries
+the carve-out); (2) **`try` spanning a `yield` is the transform's hardest
+corner** — a Luna `try` around a yield spans multiple resume invocations
+while Go's `recover` is per-frame, so protection re-establishes from state
+via a *handler-range table* (C#'s iterator exception design,
+known-implementable) — with the cheap alternative (**forbid `yield` inside
+`try`**, a parse restriction) recorded, and the choice **parked in the
+still-open tail awaiting ruling** (handler table the default
+recommendation). Also recorded: the **push-can't-suspend theorem**
+sharpening §3's range-over-func rejection (early stop is not
+suspend-resume; delivery-after-stop is resume-by-replay, O(n²), restartable
+sources only); and the R192 parity closure — **the evaluator needs none of
+this** (a suspended generator is a saved interpreter frame), so the
+transform is emitter-only, sitting exactly on the divergence surface the
+oracle patrols, with comptime generator folding running transform-free.
+Swept: `internal-representation-of-streams.md` §2.1 (new), §3 (the
+theorem); `compiler.md` §7.3 (the carve-out).
+
+**R209 — generator `return` must be bare; `getReturn` refused; and
+generator-ness confirmed unreadable-off-the-type by design (stream §1).**
+The returning-a-stream analysis validated against R33's standing rule —
+classification is a parse-time lexical scan per literal, never the return
+type, and *couldn't* be the type: a generator `fn (): stream` and an
+ordinary function returning streams built elsewhere (a stored stream; an
+invoked nested generator, where the invocation is what constructs — the PHP
+shape) are **observably identical to callers**, both handing back an
+unstarted lazy stream — generator-ness is a private descriptor bit (R206),
+and the `stream|table` mixed-return example proves the typeid could never
+carry it. The safety note recorded: forgetting the IIFE invocation is a
+compile error (`fn` does not fit `stream`), the trap static types close.
+**The ruling the example was one brace away from**: in a generator body,
+**`return` must be bare** — `return;` ends the stream (the early end,
+without `break` shenanigans through enclosing loops, taking the R207
+exhaustion path: mark done, run defers), while `return expr;` is a
+**compile error** — the caller already received the stream at construction,
+so a returned value has **no recipient**. PHP's `getReturn()` (the
+out-of-band second result channel you must know to poll) deliberately
+refused; the lexical rule kept airtight (a body mixing `yield` with valued
+`return` is rejected, never ambiguously classified); the diagnostic
+teaches the structural fix (decision in an outer ordinary function,
+construction in the nested generator). Swept: `stream.md` §1 (the two new
+passages), §1.3 (the bare-return cross-precision).
+
+**R210 — `yield` inside a `try` block ruled out at parse: option B in full,
+on the abandonment argument; the transform's hardest corner deleted rather
+than built.** The R208 parked item, ruled. The decisive argument, found by
+costing the rewrite: **a spanning catch never had power, only grouping** —
+after any catch runs, the rest of its try body is abandoned (that is what
+catch means, in every language), so "recover and *continue* yielding" was
+never expressible with a spanning try under either option; per-element
+recovery always required per-element trys. What the restriction forbids is
+one spelling of "shared recovery for a prefix-run that then ends," and both
+replacement spellings are already-ruled idioms: the **per-element
+try-expression** with the R209 bare return (`let v = try parse(x);` — the
+try-expression cannot contain a yield *structurally*, expressions not
+containing statements, so the workhorse is untouched) and the
+**consumer-side supervisor** (a resume panic propagates out of the pull;
+`try` around consumption is the boundary errors §8.2 and io §6 already
+designate). The rule's edges pinned: **catch blocks are unrestricted**
+(post-recovery code is pc-shaped — `catch (e) => { yield fallback; }` is
+legal, and a yielding catch inside an outer try is rejected transitively by
+the same rule, self-consistent); **defer bodies are the parallel ban**
+(R207) — the two places a yield can never run are the two rejected at
+parse, in the same lexical walk that classifies the generator, one
+try-depth counter, near-zero cost. Stream-representation §2.1's
+handler-range passage rewritten as **the road not taken** (the C#-style
+table, multiplied by nested trys, per-state defer-drain depths, and
+rethrow — deleted rather than built); every resume frame's protection stays
+ordinary R148 machinery. Swept: `stream.md` §1 (the ruling),
+`internal-representation-of-streams.md` §2.1 (the passage rewritten); the
+still-open tail item discharged.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -5211,3 +5301,7 @@ cite renumbered.)*
 parser-level fold, LL(1)-clean because patterns admit no operators — and **R184** —
 match is inline, no capture, no `use` clause, the enclosing frame's grant; §11
 rewritten.)*
+
+*(R208's try-spanning-yield item is **ruled: R210** — the parse restriction, on the
+abandonment argument: a spanning catch never had power, only grouping; the handler-range
+table recorded as the road not taken.)*

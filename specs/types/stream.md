@@ -51,6 +51,51 @@ the enclosing function's classification. One parse-tree walk decides it, no flow
 A function containing `yield` is a
 generator and its result type is `stream`.
 
+Generator-ness is deliberately **not readable off the type** (R209): a generator
+`fn (): stream` and an ordinary function that *returns* streams built elsewhere (a stored
+stream, or an invoked nested generator — `return (fn () => { yield 0; })();`, where the
+invocation is what constructs the stream) are **observably identical to callers** — both
+hand back an unstarted, lazy stream. Generator-ness is a private property of the literal
+(a descriptor bit, function-representation §2), which is exactly why classification is the
+lexical scan above and never the return type. Forgetting the invocation is a **compile
+error**, not a silent bug: a `fn` value does not fit a `stream`-typed position.
+
+**In a generator body, `return` must be bare** (R209). `return;` ends the stream — the
+early end, without `break` shenanigans through enclosing loops — taking the ordinary
+exhaustion path (§1.3: mark done, run defers). `return expr;` is a **compile error**: the
+generator's caller already received the stream at construction, so a returned value has
+**no recipient**. This deliberately refuses PHP's `getReturn()` (a second, out-of-band
+result channel you must know to poll), and it keeps the lexical rule airtight — a body
+mixing `yield` with a valued `return` is *rejected*, never ambiguously classified. The fix
+the diagnostic teaches is structural: put the choose-what-to-return decision in an outer,
+ordinary function, and the stream construction in the nested generator.
+
+**`yield` may not appear inside a `try` block** (R210). A try's protection covers its
+dynamic extent, and a yield inside it would make that extent **span suspensions** — the one
+enclosing construct whose hosted realization is frame-shaped rather than pc-shaped
+(stream-representation §2.1 records the machinery this would have demanded). The rule's
+edges, precisely:
+
+- **Catch blocks are unrestricted** — a catch body is post-recovery ordinary code, and
+  `catch (e) => { yield fallback; }` is legal. (A yielding catch inside an *outer* try makes
+  that try transitively contain a yield, and the same rule rejects it — self-consistent.)
+- **Try-expressions cannot contain a yield structurally** (expressions do not contain
+  statements), so `let v = try parse(x); yield v;` — the workhorse per-element recovery —
+  is untouched and idiomatic.
+- **Defer bodies are the parallel ban** (§1.3, R207): the two places a yield can never run
+  are the two places it is rejected at parse, in the same lexical walk that classifies the
+  generator (one try-depth counter; near-zero cost).
+
+**Nothing is lost, because a spanning catch never had power — only grouping.** After any
+catch runs, the rest of its try body is abandoned (that is what catch means), so
+"recover and *continue* yielding" was never expressible with a spanning try in any design —
+per-element recovery always required per-element trys. What the restriction forbids is one
+spelling of "shared recovery for a prefix-run that then ends," and both replacement
+spellings are ruled idioms: the per-element try with the R209 bare return
+(`e: error => { yield fallback; return; }`), and the **consumer-side supervisor** — a panic
+in a resume propagates out of the pull, and `try` around consumption is already the
+designated boundary for mid-stream failure (errors §8.2; io §6's own rule).
+
 ### 1.1 Implicit and explicit keys
 
 Every stream yields `key => value` pairs (iterable-functions §1.2, R93). A generator that
@@ -76,7 +121,8 @@ consumes nothing until the pipeline itself is consumed.
 ### 1.3 `defer` in a generator body runs on exhaustion (R207)
 
 A generator body's **top-level defers run when the stream exhausts**, and "exhaustion" means
-**every body-exit path**: falling off the end, an early `return`, and a body panic alike.
+**every body-exit path**: falling off the end, an early bare `return` (§1's R209 rule), and
+a body panic alike.
 The defers run **during the final pull**, synchronously with consumption — after the
 consumer's `foreach` exits, a `defer close()` in the body has already run, deterministically
 — with one precisely ruled ordering: **the stream is marked exhausted first, then the defers

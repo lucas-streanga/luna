@@ -763,6 +763,12 @@ table folded at link time, their relation being a DAG the interval numbering can
   bounded-waiting contract) runs its defers when it eventually reaches a suspension point and
   unwinds — consistent, not special.
 
+  One carve-out, discovered by the generator lowering (R208): the per-*task* defer list
+  assumes frames that do not outlive their activation, and a **generator frame suspends** —
+  its pending defers must survive across pulls (and a stream handoff to another task). So a
+  generator frame's defer state lives in its **stream block**, not the task, and the R207
+  exhaustion states drain the block's list (stream-representation §2.1).
+
 ### 7.4 Module initialization
 
 Module init order is **deterministic** (modules spec §2) and is **not** left to Go's package-init

@@ -57,6 +57,68 @@ nanoseconds, no synchronization, no stack.
   finalizer exists to run an abandoned stream's defers, which is exactly why the contract
   says they never run.
 
+### 2.1 The lowering, generically (R208)
+
+What can be pinned before the IR exists — starting with the constraint that dictates the
+shape. The textbook emission (a switch whose `goto`s jump to resume labels inside loop
+bodies, Duff-style) is **illegal in Go source**: `goto` may not jump into a block. The
+general shape is therefore the **flattened dispatch loop** —
+
+```go
+for {
+    switch b.state {
+    case 3: /* basic block; ends with b.state = 5; continue */
+    ...
+    }
+}
+```
+
+— every basic block a case, every jump a state assignment: fully general over any CFG and
+legal Go (the same forced move regenerator makes for JavaScript). The honest cost — Go's
+loop optimizations die inside the dispatch loop — is recovered by **structured islands**:
+only the *yield spine* (constructs a `yield` is nested within) is flattened; every maximal
+yield-free subtree emits as ordinary structured Go inside its case, so yield-free inner
+loops stay real Go loops.
+
+The algorithm, whose inputs are small *because* lowering already desugared everything
+(compiler §1.5 — branches, loops, calls, `yield`, `return`, defer-reach, try-regions):
+
+1. build the CFG;
+2. cut suspension edges at yields (store the value, set the resume state, return);
+3. **liveness → the hoist set**: only locals *live across a suspension* move into the
+   block; the rest stay Go locals inside their islands, register-allocated by Go
+   (hoist-everything is the correct, fatter v1 — a knob);
+4. partition into resume regions; emit the pc-loop with islands;
+5. append the R207 exhaustion tail (mark done → drain defers → report done) — mechanical.
+
+Two interactions with existing rulings, both discovered by this analysis:
+
+- **R148's defer machinery relocates for generator frames** (compiler §7.3 carries the
+  carve-out): registration-on-reach makes the pending-defer list runtime state, and R148
+  parks it per-*task* — which assumes frames that do not outlive their activation. A
+  generator frame suspends, so **its defer list lives in the stream block**, surviving
+  across pulls and stream handoffs; the exhaustion states drain the block's list.
+- **`try` spanning a `yield`: ruled out at parse** (stream §1, R210) — the transform's
+  hardest corner, deleted rather than built. The machinery a spanning try would have
+  demanded is recorded as the road not taken: a Luna `try` enclosing a yield spans multiple
+  `resumeFn` invocations while Go's `recover` is per-call-frame, so protection would have
+  re-established from state via a *handler-range table* (state → active handlers, a recover
+  per resume routing panics to the correct catch state — C#'s iterator exception design),
+  multiplied by its worst neighbors (nested trys, per-state defer-drain depths, rethrow).
+  The restriction costs no expressiveness — **a spanning catch abandons the rest of its try
+  body anyway**, so it only ever offered grouping sugar over the per-element try and the
+  consumer-side supervisor, both ruled idioms — and it keeps every resume frame's
+  protection ordinary R148 machinery. Catch bodies may still yield (post-recovery code is
+  pc-shaped); try-expressions are structurally immune; defer bodies were already banned
+  (R207).
+
+And the parity note that closes the loop with R192: **the evaluator needs none of this** —
+the oracle interprets IR with an explicit stack, so a suspended generator is a saved
+interpreter frame. The state-machine transform is *emitter-only*, sitting exactly on the
+divergence surface the oracle patrols: generator semantics are differentially testable by
+construction, and comptime generator folding (`const xs = collect(gen())`, legal at
+requirement-mask zero) runs in the evaluator with zero transform machinery.
+
 ## 3. The rejected implementations, with full grounds
 
 **Goroutine-per-generator** (yield over an unbuffered channel) — rejected four ways:
@@ -83,7 +145,11 @@ representation: it compiles generator bodies with no transform at all (`yield` b
 callback call), but it is **push**, and Luna's stream surface is **pull** — `peek`,
 `isEmpty`, and every two-source operation (`zip`, `merge`) require pulling from multiple
 streams alternately, which push cannot express without reintroducing goroutines. Fine at a
-`foreach` boundary as an emission detail; insufficient as the stream's identity.
+`foreach` boundary as an emission detail; insufficient as the stream's identity. The
+rejection sharpened to a theorem (R208): push offers early *stop*, never *suspend-resume*
+— delivering element k+1 after stopping at k means replaying from scratch and skipping,
+**resume-by-replay, O(n²)** over the stream's length, and legal only for restartable
+sources in the first place.
 
 ## 4. Costs, honestly
 
