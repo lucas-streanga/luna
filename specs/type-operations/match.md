@@ -38,9 +38,20 @@ recurses; **a type test and a binding compose in one position** (`n: int`), whic
 two jobs are done at once, and everything else, value conditions and relations between bindings,
 lives in the guard (§3):
 
-- **Literal** (`10`, `"move"`, `true`, `false`, `null`, `undefined`, `nan`): matches iff the value
+- **Literal** (`10`, `-5`, `"move"`, `true`, `false`, `null`, `undefined`, `nan`, `inf`, `-inf`):
+  matches iff the value
   **equals** it, by the **total order** (§7), not IEEE `==`, so it is well-behaved for every type
-  (a `nan` literal matches a nan, `0.0` matches both zeros; double spec §2.2). Every one of these is
+  (a `nan` literal matches a nan, `0.0` matches both zeros; double spec §2.2). A **numeric**
+  literal admits a leading **`-`** (R183): number literals are non-negative and the sign is an
+  operator everywhere else (numeric-operators §1.1), but a pattern admits **no operators**, so
+  pattern position **folds** `MINUS` + numeric literal into one signed-literal pattern with no
+  ambiguity and one token of lookahead — the same fold keywords §4 already blesses for `-inf`.
+  The sign composes where a number does: literals (`-5`, `-1.5`), range endpoints (`-10..-1`,
+  §5), alternation (`-1 | 1`). Three edges, each inherited rather than new: the most-negative
+  `int` literal form is recognized exactly as at the expression boundary (numeric-operators
+  §1.1); `-0.0` as a pattern matches both zeros, because the total order merges them (§7) — the
+  sign adds no new distinction; and there is **no `-nan`** (a nan carries no meaningful sign at
+  the language level). Every one of these is
   a keyword or a literal token (lexer §3, §4), never an identifier, which is exactly what keeps them
   out of the binding rule below. An `undefined` arm **compares against** the absence sentinel; it
   does not conjure one, so it is the same permitted use as `tab['k'] == undefined` (undefined §2.1) and
@@ -70,6 +81,9 @@ lives in the guard (§3):
   type, exactly as `fn (_: int, x)` is. `_: any` is `_`.
 - **Table / list pattern** (`['k' => sub]`, `[sub, sub]`): matches the value's **shape**
   structurally, recursing into sub-patterns (§4).
+- **Enum variant** `{tag}` / `{tag pattern}`: matches iff the scrutinee is that variant, the
+  payload sub-pattern (if any) recursing into the carried value (`{circle ['radius' => r]}`,
+  enum §4). Grammar row in §2.1; the discrimination idiom of the enum spec.
 - **Range** `lo..hi` and **alternation** `a | b` (§5): membership in a range, and "any of these."
 
 Pattern-type position **is type position**, so `@` there means what it means in every type
@@ -91,7 +105,7 @@ pattern := "_"                        // wildcard: match, bind nothing
          | "_" ":" type               // type test, bind nothing
          | IDENT                      // binding; inherits the value's type
          | IDENT ":" type             // type test; binds at `type`
-         | literal                    // INT DOUBLE STRING true false null undefined nan inf
+         | literal                    // ("-")? (INT | DOUBLE | "inf") | STRING | true false null undefined nan  (signed fold, R183)
          | range                      // §5
          | "[" ... "]"                // table / list shape, sub-patterns recurse (§4)
          | "{" tag pattern? "}"       // enum variant (enum §4)
@@ -357,7 +371,8 @@ than adding a new construct:
 
 - **Range pattern** `lo..hi`: matches iff the scrutinee is within the **inclusive** range
   (range spec), a membership test (endpoints), not a stream. `200..299` matches 200 through 299
-  inclusive; `lo..<hi` excludes the top. Natural for classifying numbers:
+  inclusive; `lo..<hi` excludes the top; endpoints admit the signed-literal fold
+  (`-10..-1`, §2, R183). Natural for classifying numbers:
 
   ```
   match (status) {
@@ -542,23 +557,24 @@ default, precise on request.
 
 ---
 
-## 11. Capture is like a lambda
+## 11. A match is inline: no capture, no `use`, the enclosing frame (R184)
 
-A match expression captures the free variables it references the same way a function does
-(functions spec §2): as **implicit deep-`const` snapshots**, read-only, taken when the match
-is evaluated. `use` on a match means what `use` means everywhere, **capabilities only**
-(capabilities §3.1), for the case where a guard or arm calls a capability-requiring function
-by name:
+A match expression is evaluated **immediately, inline, in the enclosing frame**. It is not a
+deferred body, so it **captures nothing**: guards and arm bodies read the bindings around
+them **live**, exactly as an `if` branch or a `foreach` body does — a mutation between guard
+evaluations (through a call that writes back, variables §5.1) is visible to later guards,
+because nothing was snapshotted. And it takes no `use` clause: **authority is the enclosing
+frame's grant** — an arm that calls a capability-requiring function is covered by the
+enclosing function's `use`, precisely as the same call in an `if` branch would be
+(capabilities §5). `match use (...)` is **retired** (R184): no non-callable construct owns a
+grant frame, and keywords §3's `use` inventory — a `fn`/`test` header, and call-site
+delegation (R112) — is complete without it.
 
-```
-let v = match use (io) {
-  _ where confirm(io) => ...,     // a guard that reaches io must hold it, like any body
-};
-```
-
-So match introduces no new capture rule; it captures exactly as a lambda body would: `const`
-snapshots for data, `use` for authority, and nothing else. A stream is never captured by a
-match either, scrutinize it as the subject or pass it through a binding pattern, per
-functions §2.3.
+(The earlier draft gave match a lambda's capture, deep-`const` snapshots plus a `use` clause
+— a fossil of treating the arms as a deferred closure. The distinction that matters survives
+unchanged: a **`fn` literal written inside an arm body** is an ordinary closure and captures
+by snapshot as every closure does, functions §2 — it is the *function* that captures, never
+the match. Streams need no special rule either: scrutinizing a stream consumes it by the
+ordinary single-pass rules, stream §2, no capture involved.)
 
 ---

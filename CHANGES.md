@@ -4413,6 +4413,73 @@ holding only resolved markers, retitled "Resolved" (the R166/R168
 reclassification class). Swept: `equality.md` §2, §5 ×2, §6 (five rows + the
 tower note + the census), §7; `bytes.md` §6; `channels.md` §3.
 
+**R182 — match.md validated: two mechanical gaps fixed; two semantic finds
+raised for ruling, not decided.** The load-bearing core checked clean against
+every ruling it leans on: §2's typed-binding dispatch already speaks R177's
+corrected mechanism list verbatim (interval, union decomposition, applied-set,
+constraint predicate, signature table); §2.2/§2.3's `is`-not-`as` machinery
+and the signature-discharge argument match as §5.1 and functions §3.2; §2.1's
+type-terminator set carries R137's `where` property; §4's destructuring
+consistency holds at both ends (destructuring §2.1 has its half of the
+absent-key note, §3.1 the R147 back-flow); §9.1's no-coverage-analysis rule is
+exactly what numeric-tower §6 requires of exhaustiveness under a growing
+universe; §7's total-order literals, §10, and the `@int`-in-patterns rule
+(unchanged by R175 — `int` is not a proto) all stand. The mechanical fixes:
+§2's prose literal list lacked **`inf`** (its own §2.1 grammar row has it, and
+keywords §4's reserve-them-to-match-them argument covers it identically), and
+§2's pattern-kind bullets lacked the **enum-variant pattern** outright — the
+grammar row existed, the prose enumeration skipped it; added with the enum §4
+cite. The two finds, parked in the still-open tail: **negative numeric
+literals are unwritable as patterns** (literals are non-negative and the sign
+is an operator, numeric-operators §1.1 — so `match (x) { -5 => ... }` has no
+grammar; yet `-inf` is a blessed lexical pair, keywords §4, suggesting
+sign-folding in pattern position is nearly forced); and **§11's match-capture
+model is anomalous** — `match use (io)` appears nowhere else in the corpus,
+keywords §3's `use` inventory has no match position, no other non-callable
+construct owns a grant frame, and deep-const snapshot capture for an
+immediately-evaluated expression diverges observably from inline evaluation
+(live reads during guard sequences). Both need rulings. Swept: `match.md`
+§2 ×2. *(Both ruled the same day: R183, R184.)*
+
+**R183 — signed numeric literal patterns: the leading `-` folds in pattern
+position.** R182's first flag, ruled *admit*: a match pattern's numeric
+literal takes an optional leading `-` — `-5`, `-1.5`, `-inf`, range endpoints
+(`-10..-1`), alternation members (`-1 | 1`) — folded by the **parser** from
+`MINUS` + literal into one signed-literal pattern node; no lexer change, no
+negative-literal token, numeric-operators §1.1's sign-is-an-operator rule
+untouched everywhere expressions live. The parsability question was raised
+and answered: the fold is unambiguous **because patterns admit no
+operators** — pattern position is its own closed grammar, so a leading `-`
+has no competing reading, and one token of lookahead (must be `INT`,
+`DOUBLE`, or `inf`) decides; LL(1)-clean, and the mechanism is exactly the
+`MINUS KW_INF` pair keywords §4 already blessed for `-inf`, generalized.
+Three edges inherited rather than invented: the most-negative-`int` literal
+form is recognized as at the expression boundary (numeric-operators §1.1's
+special case); `-0.0` as a pattern matches both zeros (the total order
+merges them, match §7 — the sign adds no distinction); **no `-nan`** (a nan
+carries no meaningful sign at the language level). Swept: `match.md` §2 (the
+literal bullet), §2.1 (the grammar's literal row), §5 (range endpoints);
+`numeric-operators.md` §1.1 (the fold noted beside the operator rule);
+`keywords.md` §4 (the `inf` row generalizes its own precedent).
+
+**R184 — match is inline: no capture, no `use` clause, the enclosing frame's
+grant; §11's lambda-capture model retired as a fossil.** R182's second flag,
+ruled as recommended: a match expression evaluates **immediately, inline, in
+the enclosing frame** — it captures nothing (guards and arm bodies read
+surrounding bindings **live**, so a write-back between guard evaluations is
+visible to later guards, exactly as in an `if` branch), and it takes no
+`use` clause: authority is the enclosing frame's grant, covering arm bodies
+precisely as it covers any inline branch (capabilities §5). `match use (...)`
+is **retired** — no non-callable construct owns a grant frame, and keywords
+§3's two-position `use` inventory (header; call-site delegation, R112) is
+complete without it. The old §11 (deep-`const` snapshots plus a match-level
+`use`) was a fossil of treating the arms as a deferred closure; the
+distinction that mattered survives untouched — a `fn` literal *inside* an
+arm body is an ordinary closure and captures by snapshot (functions §2): the
+function captures, never the match. Grep confirms no other spec referenced
+match-capture or `match use`, so the rewrite is single-file. Swept:
+`match.md` §11 (rewritten).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -4482,3 +4549,8 @@ induced refinement everywhere, the alias idiom legal by construction.)*
 *(The two-headed json spec R179 flagged here is **resolved: R180** — merged into
 `std/json.md`, the orphan retired as `retired/json-duplicate.md`, one index row, no
 cite renumbered.)*
+
+*(R182's two match.md flags are **ruled: R183** — signed numeric literal patterns, the
+parser-level fold, LL(1)-clean because patterns admit no operators — and **R184** —
+match is inline, no capture, no `use` clause, the enclosing frame's grant; §11
+rewritten.)*

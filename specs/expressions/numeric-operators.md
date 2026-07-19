@@ -53,7 +53,10 @@ carrying no meaning.
 
 Lexically, **`-5` is unary minus applied to the literal `5`**, not a negative literal: number
 literals are non-negative and the sign is the operator, so `-5`, `-x`, `-(a+b)`, and `-someExpr`
-all parse as one construct (unary minus on an operand). The one corner is `int`'s asymmetric range
+all parse as one construct (unary minus on an operand). (One position **folds** the pair
+instead: a match **pattern** admits a leading `-` on a numeric literal — `-5`, `-inf`, a range
+endpoint — as part of the pattern grammar, not as an operator; patterns admit no operators,
+which is what makes the fold unambiguous — match §2.1, R183.) The one corner is `int`'s asymmetric range
 (the most-negative value `-2^63` is representable while `+2^63` is not): the literal
 `9223372036854775808` overflows `int` on its own, so `-9223372036854775808` cannot be lexed as
 negate-applied-to-a-literal in the naive way. The compiler special-cases this at the boundary,
