@@ -4551,6 +4551,63 @@ Swept: `binary.md` (new), `bytes.md` §9 (the bullet resolved),
 `numeric-tower.md` §6 (the carve-out), `overview/types.md` (the deferred
 paragraph), `index.md` (the std.binary row), `keywords.md` §5.
 
+**R188 — command.md validated: a nonexistent "command module," a real name
+collision, an untyped JSON return, and a mangled open — all fixed.** The
+younger layers checked clean (§4's `pipe` is R146-current with the R158/R146
+rationale intact; §2's escapes are the R150 table; the `unsafeShellExec`
+references are R172-consistent; §3's interpolation and spread semantics match
+spread §5). The finds: §5 claimed introspection "lives with the `command`
+module," reached "module-qualified (`command.args(c)`)" — **no command module
+exists**; `command` is a built-in type, and the spelling would be key access
+on a type value. The functions are **builtin free functions** via UFCS, the
+type-catalogue convention, with std.exec owning only the effect (R172). **The
+`args` collision, forced and fixed**: std.process has exported
+`args() use (argv)` since R134, and one name has one signature (functions
+§3.4), so the command reader is **`argsOf(c)`** — the `*Of` suffix being the
+established introspection vocabulary (`kindOf`, `baseOf`, `capabilitiesOf`),
+which command introspection is; `program`/`stages`/`stageCount`/`isPipeline`
+collide with nothing and keep bare names (the asymmetry accepted as minimal
+change). **`debugJson` now returns `json`, not `string`**: a JSON-producing
+function returning an untyped string is the exact footgun json §1.1 closes,
+the output is valid by construction so the entry check elides, and the
+connection to conversion §6's deferred general debug-rendering is noted.
+`stages`/`argsOf` return types tightened `table` → `list` (their keys are
+exactly `0..n-1`). §7's first bullet was **textually mangled** (an orphaned
+fragment missing its head) and had *become* resolved — `${...expr}` is fully
+specified (spread §5, lexer §6) — restored as the resolution; the
+environment/cwd and stdin bullets re-pointed at std.exec §6, named as the
+same opens recorded there from the effect side. secret §158's `debugJson`
+mention verified unaffected by the return-type fix. Swept: `command.md`
+§5 ×2, §5.1, §5.2, §7.
+
+**R189 — double.md: the four opens sorted into their real states, and §6's
+float-conversion claim corrected against the tower.** The opens, as
+suspected, were largely-but-not-fully resolved — now each is placed: **a
+total-equality operator resolves as *no*** (`===`/`!==` are dead, R27's F11,
+associativity §4 — no second equality operator ever; the total order's
+explicit form is the §2.2 comparator function, used implicitly by
+`match`/`sort`, and the nan-scrutinee subtleties were settled by match §7);
+**`float`: the spec deferred, the rules ruled** (the family and both
+conversion directions are the tower's, §1.3/R124; only the type's own spec
+and delivery wait); **the rounding functions resolved** (`trunc`/`round`/
+`floor`/`ceil` are the core policy verbs, §7/R106 — never a library
+question) with **fma and explicit rounding modes staying deferred** (math §5
+omits them today, a std.math extension when the audience arrives); and **the
+decimal bullet resolved by R161, its lean wrong twice** — `decimal` exists
+and is *built-in*, not the "likely a library type" the bullet guessed
+(operators need the built-in line, numeric-tower §1.4). The body fix: **§6
+claimed double/float conversion is "explicit and lossy" in both directions**
+— contradicting tower §1.3, where `float` → `double` widens *implicitly and
+losslessly* (every binary32 value embeds exactly) and only the downward
+direction is the `toFloat` function; §6 now states the split. Also
+sharpened: §3's "library round-trip stringification" named — it is
+`toString`, ruled the shortest round-trip rendering (the property the
+exact-type crossings lean on, decimal §5). The rest checked clean: §1/§1.1
+IEEE-vs-int-panic (numeric-operators §2's shapes), §2/§2.2 (the
+equality/match passes verified these from the other side, R181/R182), §5
+`finiteDouble`, §7's verbs, §8's literal-grammar deferral (tower §7's open).
+§9 retitled Resolved and deferred. Swept: `double.md` §3, §6, §9.
+
 ---
 
 ## Still open (out of scope of these rulings)

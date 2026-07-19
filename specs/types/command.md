@@ -189,9 +189,10 @@ the injectable form the type exists to avoid (§2.1). Structure-in, structure-ou
 the argument boundaries that make a command safe; a rendered shell string would collapse
 them.
 
-Introspection is **pure**, no effect, no capability, so it lives with the command type (the
-`command` module), not in `exec` (which is execution, an effect requiring a capability). It
-is reached module-qualified (`command.args(c)`) or by UFCS (`c.args()`).
+Introspection is **pure**, no effect, no capability, so it lives with the command type as
+**builtin free functions** (the type-catalogue convention, functions §3.4 — there is no
+"command module"; std.exec owns only the effect, R172/R188), reached by UFCS
+(`c.argsOf()` is `argsOf(c)`).
 
 ### 5.1 Structural introspection
 
@@ -200,15 +201,20 @@ Reading structure preserves argument boundaries, so it is always safe:
 ```
 fn isPipeline(c: command): bool      // whether c has more than one stage
 fn stageCount(c: command): int       // number of stages (1 for a single command)
-fn stages(c: command): table         // the stages, as a list of commands ([c] for a single command)
+fn stages(c: command): list          // the stages, a list of commands ([c] for a single command)
 fn program(c: command): string       // the program name of a single-stage command
-fn args(c: command): table           // the argument list of a single-stage command
+fn argsOf(c: command): list          // the argument list of a single-stage command
 ```
 
-- `args` returns the arguments as **separate elements**, so a dangerous-looking argument
+- **`argsOf`, not `args`** (R188): bare `args` is taken — std.process exports
+  `args() use (argv)` (R134) — and one name has one signature (functions §3.4). The `*Of`
+  suffix is the established introspection vocabulary (`kindOf`, `baseOf`,
+  `capabilitiesOf`), and command introspection is introspection. `program` and the rest
+  collide with nothing and keep their bare names.
+- `argsOf` returns the arguments as **separate elements**, so a dangerous-looking argument
   stays isolated as one element (`["my file; rm -rf /"]`), never merged into a string where
   its boundary could be lost. This is the safety property (§3) preserved in the read path.
-- `program` and `args` describe a single command. For a pipeline, decompose with `stages`
+- `program` and `argsOf` describe a single command. For a pipeline, decompose with `stages`
   first and read each stage; each stage is itself a `command`.
 
 ### 5.2 Diagnostic rendering: `debugJson`
@@ -216,8 +222,15 @@ fn args(c: command): table           // the argument list of a single-stage comm
 For logging and debugging, a command renders to **structured JSON**, not a shell string:
 
 ```
-fn debugJson(c: command): string
+fn debugJson(c: command): json
 ```
+
+The return is **`json`, not bare `string`** (R188): a JSON-producing function returning an
+untyped string is the exact footgun the `json` constraint exists to close (json §1.1), and
+the output is valid by construction, so the entry check elides (json §1, the
+generator-output rule). (`debugJson` is also a per-type instance of the deferred general
+debug-rendering design, conversion §6 — if a corpus-wide `inspect` ever lands, this is the
+command's arm of it.)
 
 `debugJson` emits the command as structured data, the program and arguments as a JSON array,
 and a pipeline as an array of such stages, so **every argument is a distinct JSON string with
@@ -266,12 +279,16 @@ diagnostically (§5.2); only explicitly-unsafe code obtains a shell string.
 
 ## 7. Open questions
 
-  specified. The semantics (each element becomes one argument) are fixed.
+- *(**Spread interpolation: resolved** — `${...expr}` in a command literal is fully
+  specified: one element, one argv entry, `toString`-rendered, never re-tokenized
+  (spread §5), lexing as `INTERP_OPEN` + `SPREAD` (lexer §6). This bullet's text was
+  also mangled by an earlier edit; restored as the resolution it had become, R188.)*
 - **Environment and working directory:** how a command carries environment variables and a
   working directory (as builder-style methods on the command value, `.env(...)`, `.cwd(...)`,
-  versus arguments to the run functions), pending the exec spec's execution model.
+  versus arguments to the run functions) — the same open std.exec §6 records from the
+  effect side; one question, two files, resolved together when ruled.
 - **Stdin as data:** how a fixed input string or byte buffer is attached to a command
-  (feeding stdin without a pipeline predecessor), pending the exec spec.
+  (feeding stdin without a pipeline predecessor), pending std.exec (§6 there).
 - **Redirection:** whether output redirection to a file is a structural method on the
   command, or purely an exec-time concern.
 - **`debugJson` and secret arguments:** a `secret` argument (secret spec) redacts to

@@ -123,9 +123,10 @@ and IEEE equality is not one. A nan key could never be looked up (`nan != nan`),
 doubles that print alike could collide, and `-0.0`/`+0.0` would key inconsistently with `==`.
 Rather than paper over these, `double` is simply excluded as a key.
 
-If you genuinely need to key by a floating-point value, convert it to a `string` first with a
-**library round-trip stringification** (the shortest string that parses back to the exact same
-double), and use that string as the key. That moves keying onto string identity (well-behaved)
+If you genuinely need to key by a floating-point value, convert it to a `string` first with
+**`toString`** — ruled as the shortest round-trip rendering, the string that parses back to
+the exact same double (the property the exact-type crossings lean on, decimal §5) — and use
+that string as the key. That moves keying onto string identity (well-behaved)
 and makes the lossiness explicit and opt-in, rather than hiding it in the table machinery. This
 is a library operation, not a language feature, keeping the core key rule simple.
 
@@ -174,10 +175,14 @@ whether non-finite values are tolerated or rejected, with no special float-excep
 
 The 32-bit float is a distinct primitive named **`float`**, not a narrowing of `double`,
 because its semantics differ: fewer mantissa bits, different rounding, a different
-representation. It is deferred to its own spec. Conversion between `double` and `float` is
-explicit and lossy (double to float loses precision), a function, not an implicit widening or an
-`as` narrowing (§7). `double` is the default floating-point type; `float` is used where its
-compactness or its match to an external format (graphics, some binary protocols) is needed.
+representation. It is deferred to its own spec; the **family rules are ruled at the tower**
+(numeric-tower §1.3, R124) and the two directions split: **`float` → `double` widens
+implicitly** — every binary32 value, subnormals, zeros, infinities, and nan included, embeds
+losslessly in binary64 — while **`double` → `float` is the conversion function `toFloat`**,
+total (IEEE round-to-nearest-even, overflow to `float` inf, nan to nan): a rounded result is
+a computed new value, never `as` and never implicit. `double` is the default floating-point
+type; `float` is used where its compactness or its match to an external format (graphics,
+some binary protocols) is needed.
 
 ---
 
@@ -221,15 +226,22 @@ leading point is allowed) is specified with the literal grammar.
 
 ---
 
-## 9. Open questions
+## 9. Resolved and deferred (R189)
 
-- **`==` and `match` on doubles:** `==` is raw IEEE equality (§2) and `match` value-patterns use
-  the total order (§2.2, so nan matches nan); what remains open is whether a stricter total
-  equality is *also* offered as an explicit operator alongside IEEE `==`, and any further `match`
-  nan-scrutinee subtleties (match spec).
-- **`float` semantics:** the full 32-bit `float` spec (§6), and the exact double/float
-  conversion functions.
-- **Fused and rounding operations:** whether fused multiply-add, explicit rounding modes, and
-  rounding functions (floor, ceil, round, trunc) belong in the core or a math library.
-- **Decimal type:** whether a base-10 decimal type (for money and exact decimal fractions, where
-  binary floating point is inappropriate) is ever provided, likely a library type.
+- *(**A total-equality operator: resolved as no** — `===` / `!==` do not exist (R27's F11,
+  associativity §4), and no second equality operator ever will: the total order's explicit
+  form is the **comparator function** (§2.2), and `match`/`sort` use it implicitly. The
+  `match` nan-scrutinee subtleties are settled — nan matches nan, the zeros merge (§2.2,
+  match §7).)*
+- **`float` semantics: the spec deferred, the rules ruled.** The family structure and both
+  conversion directions are the tower's (numeric-tower §1.3, R124: implicit lossless
+  widening up, `toFloat` down — §6); what waits is `float`'s own spec, with the type's
+  delivery (numeric-tower §6).
+- *(**Rounding functions: resolved** — `trunc`/`round`/`floor`/`ceil` are the core policy
+  verbs (§7, conversion §2, R106), not a library question.)* **Fused multiply-add and
+  explicit rounding modes stay deferred**, a std.math extension when the numeric audience
+  arrives (math §5 deliberately omits them today).
+- *(**Decimal type: resolved by R161** — and the bullet's lean was wrong twice: `decimal`
+  exists, and it is **built-in**, not a library type (operators need the built-in line,
+  numeric-tower §1.4), specced in full (decimal.md) with delivery post-alpha. The money
+  motivation this bullet named is its §0 sentence.)*
