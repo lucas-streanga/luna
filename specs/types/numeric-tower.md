@@ -258,6 +258,13 @@ the remaining types slot into mechanisms fixed now (the built-in-only operator r
 the constraint-subtype widening, explicit cross-family conversion), so adding them later is **new
 typeids under existing rules**, not new machinery.
 
+One carve-out (R187): **`u64` and the small-width constraints `i16`/`u16`/`i32`/`u32` are
+pulled into the alpha surface**, because std.binary's read family returns them and shipping
+widened-then-tightened signatures was rejected. This is scheduling, not design — the smalls
+are exactly this section's "new typeids under existing rules," and `u64` is the one new
+primitive (binary §2.1). `i8`/`u8`, `float`/`f16`, and the exact types keep the post-alpha
+schedule.
+
 Adding a built-in numeric type is a **breaking change** (it expands the closed type universe and
 claims operator behavior), so these all land **before the 1.0 stability commitment**, even though they
 are not in alpha. The requirement this places on alpha is that `match` exhaustiveness and reflection

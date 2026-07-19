@@ -91,7 +91,8 @@ such restriction, they are ordinary producible doubles (`let x = nan;` is fine),
 
 Builtin type names (`int`, `double`, `bool`, `string`, `bytes`, `table`, `list`, `iterable`,
 `stream`, `sink`, `promise`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`,
-`duration`, `instant` — committed with `std.time`, R132 — and `decimal`/`rational`/`complex`,
+`duration`, `instant` — committed with `std.time`, R132; `u64` and the `i16`/`u16`/`i32`/`u32`
+constraints, pulled into alpha by std.binary, R187 — and `decimal`/`rational`/`complex`,
 specced R161/R162/R164, delivery post-alpha with the extended tower) and builtin
 values/functions are **predeclared identifiers**, resolved by ordinary scope, not reserved
 words, which keeps the lexer small and the keyword set closed. Whether they are

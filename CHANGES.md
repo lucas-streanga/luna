@@ -4519,6 +4519,38 @@ spelling, which is the errorable-type suffix position; logical not is prefix
 word" (the R170 three-word layout's vocabulary). §5 retitled Resolved and
 deferred. Swept: `bool.md` intro, §2, §3, §5.
 
+**R187 — typed multi-byte reads land as `std.binary`: the exported `endian`
+enum, six named reads, the size enum rejected, and five tower typeids pulled
+into alpha.** The reviewed sketch (`readIntFromBytes(b, endianness,
+size: enum { b16, b32, b64 }): i16|i32|int`) was sound in type but rejected
+in shape, on three grounds now recorded in the module: it lacked an
+**`offset`** (a positionless read parses nothing); its **union return
+couples the result type to an argument value** the type system cannot see,
+forcing a narrowing at every call site — resolved by the policy-verb/R157
+two-names discipline, the width living in the *name*
+(`readI16`/`readU16`/`readI32`/`readU32`/`readI64`/`readU64`, each
+`(b, offset: int, endianness: endian)`); and it was **signed-only**, when
+lengths and magic numbers read unsigned at least as often. Placement ruled
+std, not bytes surface: endianness is an *encoding* concern, not a property
+of the buffer — the std.math pure-domain precedent (R141), the module name
+the backend's own (`encoding/binary`, the R172 mirror move), and `std.bytes`
+rejected for the type-name shadow. **`endian` is a named export** (the
+bless's caveat): `export const endian = enum { little, big };` — its own
+small type so libraries and user functions can share the vocabulary; call
+sites unchanged (fenced literals target-type). **No endianness default,
+anywhere**: a default bakes a silent portability bias. Bounds panic (the
+bytes indexing-misuse class); reads are pure and comptime-eligible.
+**Option (a) ruled on the tower coupling**: `u64` and the
+`i16`/`u16`/`i32`/`u32` constraints are **pulled into the alpha surface** —
+scheduling, not design (numeric-tower §6's own "new typeids under existing
+rules"); widened-then-tightened signatures rejected as a compatibility wart,
+and `readU64` must not ship broken. Deferred deliberately: the write family
+(its own pass — it touches the mutation surface), `readI8` (`b[i]` covers
+unsigned; signed-8 reinterpretation cannot be `as` and is rare), varints.
+Swept: `binary.md` (new), `bytes.md` §9 (the bullet resolved), 
+`numeric-tower.md` §6 (the carve-out), `overview/types.md` (the deferred
+paragraph), `index.md` (the std.binary row), `keywords.md` §5.
+
 ---
 
 ## Still open (out of scope of these rulings)

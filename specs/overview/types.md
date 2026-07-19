@@ -167,6 +167,7 @@ Not types, but how types are reached and tested:
 The core type inventory is specified, and the committed remainder is **delivery, not
 design**: the extended numeric tower (`u64`, the sized smalls, `float`, `f16`, and
 `decimal`/`rational`/`complex` — all specced, R161/R162/R164) lands post-alpha as new
-typeids under existing rules (numeric-tower §6). What stays genuinely later is API
-surface, not types: typed multi-byte reads on `bytes` and a stream decoder wait on need
-(bytes spec).
+typeids under existing rules (numeric-tower §6), except `u64` and the 16/32-bit
+constraints, pulled into alpha by std.binary's read family (R187). What stays genuinely
+later is API surface, not types: a stream decoder waits on need (typed multi-byte reads
+landed — std.binary, R187).

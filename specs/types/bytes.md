@@ -202,10 +202,13 @@ own.
 
 ## 9. Open questions
 
-- **Typed multi-byte reads (endianness):** reading an `int16`/`int32`/`int64` from an offset
-  with a specified byte order (`readInt32(offset, littleEndian)`), the core need for binary
-  protocol parsing. Deferred to a later bytes API, but the packed representation exists to
-  support it.
+- *(**Typed multi-byte reads: resolved by R187** — the family exists in **std.binary**
+  (`readI16`/`readU16`/`readI32`/`readU32`/`readI64`/`readU64`, each
+  `(b: bytes, offset: int, endianness: endian)`, precise return types, bounds-panic per
+  this spec's own indexing class). It is a std module, not bytes surface, because
+  endianness is an *encoding* concern, not a property of the buffer — the std.math
+  pure-domain precedent. The packed representation supports it exactly as this bullet
+  predicted.)*
 - **Views over `bytes`:** whether a non-copying view (a sub-range that shares storage, like a
   Rust slice) exists alongside the copying `slice`, pending the ownership model.
 - **Growth strategy:** the amortized-growth policy for append (capacity doubling), an
