@@ -4608,6 +4608,107 @@ equality/match passes verified these from the other side, R181/R182), §5
 `finiteDouble`, §7's verbs, §8's literal-grammar deferral (tower §7's open).
 §9 retitled Resolved and deferred. Swept: `double.md` §3, §6, §9.
 
+**R190 — the pipeline's bootstrap resolved: a discovery stage 0
+(imports-only lexing), import validation split from it, and the prelude rule
+(imports precede all other top-level declarations).** The tension named and
+fixed: compiler §1 ordered `lex → module resolution` without saying which
+files the lexer had — but the file set is written in imports, which only
+lexing can read. Ruled (the user's option 3, refined): **stage 0 discovery**
+— from the source roots, an **imports-only mode of the real lexer** reads
+each file's imports, BFS with a visited set, yielding the file set *and*,
+as a free byproduct, the raw edge list (following an edge and retaining it
+cost the same, which dissolves the option's one stated con). The rejected
+alternatives recorded in place: "import analysis before lexing" is this
+stage under another name (reading a path *is* lexing), and lex-and-follow
+interleaving serializes on graph depth and entangles the R149 cache with
+traversal order. Three soundness rules pinned: **discovery shares the
+lexer's implementation** (a second scanner is a miscompilation seed — naive
+scans false-positive in comments and interpolation-nested strings; Go's
+`parser.ImportsOnly` shares for the same reason); **the stage is sound by
+module-system construction** — imports static, top-level, literal-pathed
+(modules §4, R136, R151), so the file set is decidable by lexing alone,
+recorded as a fence any dynamic-import proposal must answer to; and **the
+prelude rule** — imports precede all other top-level declarations, so
+discovery scans O(file-head), with a violating late import a **parse
+error**, which is what licenses the early stop (an under-scanned file
+cannot survive to analysis). The motivation recorded at modules §4: no use
+for a late import besides hurting readability. The old "module resolution"
+phase becomes **§1.2 import validation** — discovery *finds*, validation
+*judges* (path resolution, cycle diagnosis with the full path from the
+retained edges, topological order) — and the parallelism model now names
+its two gating artifacts: the **file set** unlocks lex+parse (unordered
+parallel — the context-free-parser investments paying off), the **DAG**
+orders only semantic layering. Swept: `compiler.md` §1 (diagram), §1.0
+(new), §1.1, §1.2 (rewritten), §1.3, §2; `modules.md` §4. Grep confirms no
+outside spec cited the old phase name.
+
+**R191 — the back half of the pipeline ordered phase by phase, and the
+emitted program is one Go package per Luna module, built by one `go build`.**
+The validation questions answered and pinned. **The three middle phases are
+not uniform** (each now states its ordering): semantic analysis is
+DAG-layered on *signatures* (unchanged, §1.4); **lowering is unordered and
+pipelined** — every §1.5 transformation is local to the module's own typed
+AST, so a module lowers the moment its own analysis finishes, no layer
+barrier (the pleasant surprise: the rich-AST phase parallelizes freely,
+because the unit is the module and per-module ASTs are disjoint); and
+**optimization is DAG-ordered on *bodies*** — the constraint the spec had
+never stated: comptime evaluation *executes* imported pure functions
+(`sqrt(2.0)` folds by running `sqrt`), needing the dependency's IR, one
+notch stronger than signatures — exactly why R149's cache interface includes
+const values — with the local passes (elision, DCE) free within each module.
+Emission softens from its all-modules barrier to per-module pipelining
+(cross-module facts were resolved *into* the IR by §1.6). **The mapping
+ruled**: one Go package per Luna module, the module DAG mirrored as Go's
+package graph (legal by theorem — Luna acyclic, Go requires acyclic), one
+`go build` invocation, never per-package driving — Go's scheduler
+parallelizes along the graph and its **per-package build cache** makes an
+unchanged Luna module a skipped native compile: **maximal incremental
+builds, the deciding argument**, two cache layers composing (R149 above,
+Go's below), neither ours to build. The flat-package alternative rejected
+with the Go fact recorded for the non-Go-fluent reader: Go has no file-level
+imports — the package is the unit, same-package files share one namespace —
+so "flat" means one compilation unit, dead caching, whole-program compiler
+memory. Clarified in place: Go *modules* (go.mod) are versioning machinery,
+not packages — the emitted program is exactly one, static, networkless.
+Mechanical consequences named: capitalization mangling for cross-package
+identifiers; §7.4's explicit init sequence unchanged. Swept: `compiler.md`
+§1.5, §1.6, §1.7, §1.8, §2.
+
+**R192 — the comptime engine confirmed as the IR evaluator, the evaluator
+doubled as the conformance oracle, generate-and-run rejected in full, and
+the FMA landmine recorded.** The implementation question re-derived what §6
+already ruled (interpret the IR, never generate-and-run Go mid-compile) —
+and the discussion surfaced three things the spec lacked, now §6.1/§6.2.
+**The oracle** (previously living only in out-of-corpus planning notes): the
+IR evaluator has two duties, one artifact — comptime engine and **reference
+implementation for differential testing** of the compiled path — which turns
+§6's phase-invariance requirement into a *test harness by construction*; its
+unoptimizedness is a feature twice (rich unreordered comptime errors; an
+oracle you optimize is an oracle you doubt), and the two-implementations
+cost is bounded by the shared lowered IR — the divergence surface is two
+backends' data operations, never two readings of Luna. **Generate-and-run's
+four rejection grounds recorded** so the option is never half-reopened: the
+marshaling wall (a comptime-produced `fn` — the generator pattern's product
+— is a code pointer plus const environment, unserializable across a process
+boundary, so that path contains an evaluator anyway); cross-compilation (a
+second toolchain configuration mid-build, where the evaluator runs
+in-process with target facts injected — R138's story assumes it); pipeline
+serialization (a toolchain invocation inside §1.6's DAG loop, R191); and
+sandbox by construction (the evaluator does not implement effect operations
+— structural unreachability, not a property to prove of an artifact).
+**§6.2, the genuinely evil one**: Go permits FMA contraction within single
+expressions on some architectures (arm64, ppc64) — fused rounds once,
+unfused twice — so single-expression evaluator float paths would fold the
+same Luna expression to different bits on different *host* machines,
+silently poisoning §8 determinism and R149 cache keys. The Go spec
+guarantees rounding at explicit assignments, so: the evaluator's float
+arithmetic is written fusion-proof (explicit intermediates), and the
+emitter's per-node emission — which already prevents contraction — is
+promoted from accident to **load-bearing invariant**: phase invariance
+requires runtime floats to equal comptime folds, so no future emitter
+optimization may merge float operations into single Go expressions without
+answering to §6.2. Swept: `compiler.md` §6.1 (new), §6.2 (new).
+
 ---
 
 ## Still open (out of scope of these rulings)

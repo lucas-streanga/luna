@@ -83,10 +83,11 @@ the stable surface they will slot into.
 ## 1. The phase pipeline
 
 ```
-source
-  -> lex                 (tokens)
-  -> module resolution   (DAG)
-  -> parse               (lossless CST -> AST)     [parallel per module]
+source roots
+  -> discover            (imports-only lexing: the file set + raw edge list)  [BFS, §1.0]
+  -> import validation   (DAG + topological order; cycles diagnosed)          (§1.2)
+  -> lex                 (tokens)                   [parallel per file]
+  -> parse               (lossless CST -> AST)     [parallel per file]
   -> semantic analysis   (typed AST)               [parallel by DAG layer]
   -> lower to Luna IR    (typed IR)
   -> optimize IR         (comptime, elision, specialization, member resolution)
@@ -103,25 +104,68 @@ that calls the passes it needs (tooling spec §1). This, the **lossless, error-t
 (§1.3, §3), and the **unoptimized debug build** mode (§7.1.1, tooling spec §5) are foundational
 choices made from the start because they shape the whole frontend and cannot be retrofitted cheaply.
 
+### 1.0 Discovery (R190)
+
+The pipeline's bootstrap problem, resolved: full lexing cannot start without knowing *which
+files* to lex, and the file set is written in imports — which only lexing can read. The answer
+is a **stage 0**: from the source roots, an **imports-only** pass reads each file's imports,
+follows them breadth-first with a visited set, and yields the **file set** plus, as a free
+byproduct, the **raw edge list** (each `from → to` pair it followed). Rejected alternatives,
+recorded: building the full DAG "before lexing" is this stage under another name (reading an
+import path *is* lexing); and lex-and-follow interleaving serializes on graph depth, entangles
+the R149 per-file cache with traversal order, and smears two phases together.
+
+Three rules make the stage sound:
+
+- **Discovery is the real lexer in an imports-only mode — never a second scanner.** A naive
+  scan false-positives on `// import x` and `"import x"` in strings, and strings nest through
+  interpolation (`${'…'}`, lexer §6), so correct skipping *is* the lexer's own mode machine.
+  The mode is the same implementation stopping early; a divergent second scanner would be a
+  miscompilation seed (a file whose imports the two passes read differently). This is Go's own
+  design (`parser.ImportsOnly` shares the parser).
+- **The stage is sound by module-system construction, not luck**: imports are static, top-level
+  statements whose paths are literals (modules §4; the path never becomes a name, R136; no
+  dynamic loading, modules §11/R151), so **the file set is decidable by lexing alone**. This is
+  a recorded dependency and a fence: any future dynamic-import proposal breaks stage 0 and must
+  answer to it.
+- **Imports precede all other top-level declarations** (the prelude rule, R190; modules §4).
+  Motivation: discovery then stops at each file's first non-import declaration — O(file head),
+  not O(file) — and there is no use for a late import besides hurting readability. A violating
+  late import is a **parse error** (§1.3), which is what licenses discovery's early stop: a
+  file discovery under-scanned cannot survive to analysis, because the parser independently
+  rejects it first.
+
+Cycles do not trouble discovery (the visited set terminates them); their *diagnosis*, with the
+cycle path in the error, belongs to §1.2, which holds the retained edges. Per-file discovery
+results (a file's import list) cache on the file's content hash (build-cache §1), so the stage
+is incremental for free: the graph recomputes from cached lists.
+
 ### 1.1 Lex
 
-Tokenizes each source file. Invalid tokens are **collected**, not aborted on individually (§3):
-the lexer scans the whole file, accumulates every lexical error, and the compile aborts at the
-phase boundary if any occurred. Output is a token stream per file.
+Tokenizes each file in the discovered set, **all files in parallel** — no symbol knowledge
+exists at this phase, so nothing orders it (§2). Invalid tokens are **collected**, not aborted
+on individually (§3): the lexer scans the whole file, accumulates every lexical error, and the
+compile aborts at the phase boundary if any occurred. Output is a token stream per file.
 
-### 1.2 Module resolution
+### 1.2 Import validation
 
-Builds the module dependency graph from imports (modules spec). The graph must be a **DAG**;
-a cycle, or an unresolved import, aborts the compile (modules spec §2). Resolution fixes each
-module's identity by its path relative to the root (empty path for the root, modules spec §3) and
-produces a topological order. **This phase is the gate for all downstream parallelism**: once the
-DAG exists, per-module work can proceed concurrently within the ordering the DAG imposes (§2).
+Validates discovery's retained edge list into the **module dependency DAG** (modules spec):
+resolves each path to a module identity (relative to the root, empty path for the root, modules
+spec §3), diagnoses **cycles** — with the full cycle path in the error, from the edges §1.0
+kept — and unresolved imports, either aborting the compile (modules spec §2), and produces the
+**topological order**. It needs nothing beyond discovery's output, so it runs while lex and
+parse proceed. The distinction from the old "module resolution" phase is deliberate: discovery
+*finds*, this phase *judges*. The DAG gates only **semantic layering** (§1.4, §2); the file
+*set* — discovery's half — is what gates lex/parse parallelism.
 
 ### 1.3 Parse
 
 A pure **context-free** pass: tokens to a syntax tree, per module, with no type knowledge and no
-name resolution. Parsing is **fully parallel** across modules (§2), each module's tokens are
-independent once resolution has run. Parse errors are accumulated per module; the batch driver
+name resolution. Parsing is **fully parallel** across modules (§2): each module's tokens are
+independent given only the discovered file set (§1.0) — the DAG is not needed here. The parser
+is also where the **prelude rule** is enforced (R190): an `import` after any non-import
+top-level declaration is a parse error, which is what licenses discovery's early stop (§1.0).
+Parse errors are accumulated per module; the batch driver
 aborts at the phase boundary (§3), but the parser itself is **error-tolerant** and produces a
 best-effort partial tree, which the tooling drivers consume (tooling spec §3).
 
@@ -227,6 +271,11 @@ builder calls (string-builder spec), UFCS calls are resolved to their targets, `
 become concrete access operations. After lowering, the IR contains no syntactic sugar and no
 unresolved dispatch: every operation is a concrete, typed node.
 
+Lowering is **local** (R191): every transformation above reads only the module's own typed
+AST, so a module lowers the moment its own analysis finishes — **unordered parallel across
+modules, pipelined behind §1.4** with no layer barrier. Nothing in this phase consults
+another module.
+
 ### 1.6 Optimize IR
 
 The Luna-semantic optimization passes (§5) run on the IR: **comptime evaluation** (§6),
@@ -236,10 +285,20 @@ make them safe. These are the optimizations Go cannot perform because they depen
 invariants (a constraint predicate, a frozen table's shape, a statically-known protocol set) that
 are erased by the time Go source exists.
 
+This phase is **DAG-ordered, on bodies** (R191): comptime evaluation *executes* imported pure
+functions — `sqrt(2.0)` folds by running `sqrt` — which needs the **dependency's IR**: bodies,
+not signatures, a requirement one notch stronger than §1.4's (and exactly why the R149 cache
+interface includes const values and everything comptime-observable). Const-table
+specialization and protocol-member resolution chase imported consts the same way. So modules
+optimize **in DAG layers**, like analysis; the purely local passes (elision, dead code, local
+folding) run freely within each module.
+
 ### 1.7 Emit Go
 
-The optimized IR is lowered to **Go source**, per module, **fully parallel** (§2): once every
-module is analyzed and optimized, each module's emission is independent. Emission maps the IR onto
+The optimized IR is lowered to **Go source**, per module, **fully parallel** (§2): a module's
+emission reads only its **own** optimized IR — every cross-module fact was resolved *into* the
+IR by §1.6 — so a module emits the moment it finishes optimizing, pipelined, with no phase
+barrier (R191). Emission maps the IR onto
 Go constructs (§7): the `lval` onto a Go struct, the `typetable` onto emitted Go data, green
 threads onto goroutines, Luna's error model onto Go panic/recover and returned lvals, `defer` onto
 scoped cleanup (defer spec).
@@ -270,21 +329,50 @@ compiles and links the program to a binary. Linking of the native code is the Go
 the compiler's job is to emit a correct, self-contained Go program with the right init order and
 the right std subset.
 
+**One Go package per Luna module** (R191). The emitted program mirrors the module DAG as Go's
+package graph — legal by theorem, since Luna's import graph is acyclic (modules §2) and Go
+requires acyclic packages — and the toolchain is invoked **once** (`go build`), never driven
+per-package by hand: Go's own scheduler compiles packages in parallel along that graph, and its
+**build cache is per-package**, so an unchanged Luna module emits a byte-identical package and
+the native compile skips it. **Maximal incremental builds are the deciding argument**: two
+cache layers compose, neither ours to build — R149's Luna-side cache above, Go's package cache
+below — which is what keeps direct `.luna` execution fast as programs grow (§0). The flat
+alternative was rejected with its reason recorded: Go has **no file-level imports** (the
+package is the unit of import; same-package files share one namespace with no imports among
+them), so "flat" means the whole program is one compilation unit — per-package caching dies
+(any one-line change recompiles everything) and the Go compiler holds the entire program at
+once. Mechanical consequences, all emitter-level: cross-package identifiers are Capitalized
+(Go exports by casing); §7.4's explicit init sequence stands unchanged (Go's package-init
+order was bypassed either way); and the emitted program is exactly **one Go *module*** — a
+single static `go.mod`, no network, nothing external — Go "modules" being the versioning
+machinery, a different thing from packages entirely, and inert here since the program imports
+only its own packages, the runtime, and the Go standard library.
+
 ---
 
 ## 2. Parallelism model
 
-The module DAG (modules spec §2) is what makes the compiler parallel, and the parallel structure
-is **not** uniform across phases. It is:
+Two artifacts make the compiler parallel, and they gate different phases (R190): the **file
+set** (discovery, §1.0) unlocks everything symbol-free, and the **module DAG** (modules spec
+§2) orders only what needs signatures. The parallel structure is **not** uniform across phases:
 
-- **Parse: unordered parallel.** Every module parses independently and simultaneously right after
-  resolution. No cross-module dependency exists at the syntax level.
+- **Lex and parse: unordered parallel.** Every discovered file lexes and parses independently
+  and simultaneously — no cross-module dependency exists at the lexical or syntactic level
+  (the context-free-parser investments, type §1.1, match §2.1, pay here).
 - **Semantic analysis: DAG-layered parallel.** A module analyzes only after its imports'
   signatures are available, so modules at the same topological depth analyze in parallel, and the
   layers proceed in dependency order. Signature extraction (§1.4) widens this by unblocking
   dependents on signatures before bodies complete.
-- **Emit Go: unordered parallel.** Once all modules are analyzed and the IR optimized, emission is
-  independent per module again.
+- **Lower: unordered parallel, pipelined.** A module lowers when its own analysis finishes
+  (§1.5); nothing at this phase reads another module.
+- **Optimize: DAG-layered parallel, on bodies.** Comptime evaluation executes imported
+  functions, so a module optimizes after its dependencies' IR exists (§1.6) — analysis's layer
+  structure, one requirement stronger (bodies, not signatures).
+- **Emit Go: unordered parallel, pipelined.** A module emits when its own optimization
+  finishes (§1.7); every cross-module fact was already resolved into the IR.
+- **The native build: the Go toolchain's own parallelism.** One `go build` over the
+  per-module packages (§1.8); Go schedules parallel package compilation along the mirrored
+  DAG and caches per package. Its scheduler is not reimplemented (R191).
 
 So the shape is **free / layered / free**: parse and codegen are embarrassingly parallel, and the
 one ordering constraint lives in analysis, where cross-module types must flow along the DAG. This
@@ -429,9 +517,59 @@ constants.
   comptime and const-table specialization compose: comptime builds the table, specialization lays
   it out.
 
----
+### 6.1 The evaluator is also the oracle; generate-and-run is rejected in full (R192)
 
-## 7. The Go backend
+The IR evaluator has **two duties, one artifact**. Beside comptime evaluation, it is the
+**conformance oracle**: the reference implementation of Luna semantics, used for
+**differential testing** of the compiled path — any capability-free, deterministic program can
+be run through the evaluator and through its emitted Go, and the results diffed. This turns
+§6's phase-invariance requirement from a hoped-for property into a **test harness by
+construction**: the oracle duty patrols exactly the surface where the two executions could
+drift. It is **unoptimized on purpose**, and that is a feature twice over: simple evaluation
+gives comptime errors rich, unreordered positions, and an oracle you optimize is an oracle you
+doubt. The two-implementations cost is bounded by structure: evaluator and emitter consume the
+**same lowered IR** (§1.5) — every semantics-bearing desugaring happens once, upstream — so
+the divergence surface is two backends' data operations, never two readings of Luna.
+
+The alternative — generate Go for comptime subtrees and run it mid-compile — is rejected on
+four grounds, recorded so it is never half-reopened:
+
+- **The marshaling wall.** Comptime results must land back *inside the compiler's data
+  structures* (the IR, the typetable). The generator pattern makes an external process fatal:
+  a comptime-produced `fn` value (attributes §4) is a code pointer plus const-captured
+  environment — unserializable across a process boundary — so the rejected path would need
+  the evaluator's data model anyway, at its edge.
+- **Cross-compilation.** With host ≠ target, comptime code would need a second toolchain
+  configuration mid-build; the evaluator instead runs in-process with **target facts
+  injected**, which is what R138's conditional-compilation story (std.platform §1) already
+  assumes.
+- **Pipeline serialization.** §1.6 is DAG-ordered (R191); a Go toolchain invocation inside
+  that loop would gate every layer on the slowest external compile.
+- **Sandbox by construction, not verification.** The evaluator simply does not implement
+  effect operations, so comptime's unreachability of the outside world is structural — the
+  language's own safe-by-construction stance applied to its compiler. Compiled comptime code
+  would make the sandbox a property to *prove* of an artifact instead.
+
+### 6.2 Float folds must be fusion-proof (R192)
+
+A genuinely evil portability landmine, recorded so it is never met in a debugger: **Go permits
+FMA contraction** — on some architectures (arm64, ppc64) the compiler may fuse `x*y + z`
+*within a single expression* into one fused multiply-add, which rounds **once** where the
+unfused pair rounds **twice**. An evaluator whose float paths were written as single Go
+expressions could therefore fold the same Luna expression to *different bits on different
+host machines* — silently poisoning §8's determinism and the R149 cache keying (§6's own
+reproducible-across-machines bullet). The Go spec's escape is exact: rounding is **guaranteed
+at explicit assignments and conversions**. So:
+
+- **The evaluator's float arithmetic is written fusion-proof** — an explicit intermediate
+  assignment between every multiply and add — so every comptime float fold is bit-identical
+  on every host.
+- **The emitter is fusion-proof by shape, and the shape is now load-bearing.** Per-node
+  emission (one IR operation, one Go operation, explicit intermediates) already prevents
+  contraction, since Go fuses only within one expression — but that is now a *recorded
+  invariant*, not an accident: phase invariance (§6) requires the runtime float result to
+  equal the comptime fold, so no future emitter optimization may combine float operations
+  into single Go expressions without answering to this section.
 
 Emission maps the optimized IR onto Go source. The mapping is direct because the language was
 designed against a Go runtime.

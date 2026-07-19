@@ -112,7 +112,14 @@ concern (§10), not something the single-compilation model needs to resolve.
 
 ## 4. Imports are static and top-level only
 
-An `import` is a **compile-time, top-level** statement. It **must** appear at module top level,
+An `import` is a **compile-time, top-level** statement — and imports form the module's
+**prelude**: every `import` must precede **all other top-level declarations** (R190). An
+import after any non-import declaration is a compile error, caught at parse. The motivations,
+recorded: there is no use for a late import besides hurting readability (the rule every
+formatter would impose anyway), and the prelude is what lets the compiler's **discovery**
+stage read a file's imports by scanning only its head (compiler §1.0 — imports-only lexing
+stops at the first non-import declaration, O(file-head), with the parser's error backstopping
+the early stop). It **must** appear at module top level,
 never inside a function, a block, or a conditional. There are no exceptions.
 
 This is not a restriction users miss, there is no real use for conditional loading, and it is
