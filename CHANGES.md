@@ -4925,7 +4925,51 @@ high" always legal; the sticky-flag degenerate is the all-safety extreme;
 count-free citizens (const, the R199 singleton). The fingerprint word
 joined the §6 knobs. Swept: `internal-representation-of-tables.md` §1.1
 (the header enumeration de-staled), §1.4 (the flag word), §1.5 (new), §3
-(rewritten), §6 (the knob).
+(rewritten), §6 (the knob). *(The fingerprint knob was short-lived: ruled
+against the same day, R201.)*
+
+**R201 — the fingerprint word ruled against: a knob demoted to a rejection
+with a narrow revival condition.** R200 had shelved it as a measurement
+knob; ruled instead as **rejected now** (table-representation §1.5), on the
+economics: the swiss control word filters comparisons that are *expensive*
+(dereference + memcmp on distant lines), while the small-state scan compares
+single words on prefetched lines — a three-op SWAR filter in front of
+~1-cycle compares saves approximately nothing, and it adds a parallel
+structure maintained on every insert and delete: real complexity and a real
+bug surface for a hypothetical win. Recorded as a textbook
+**mis-optimization shape** — an optimization imported from a context whose
+economics do not transfer. The narrow revival condition pinned: only if
+measurement ever shows small tables dominated by heap (>8-byte) string keys,
+where the filtered compare is genuinely a dereference plus memcmp — and the
+one preserved sweetener: the header's 64-byte size class holds a spare word
+of allocation slack (§1.4 is 56 bytes), so revival would cost cycles only,
+zero marginal memory. Honestly noted in the spec's own words: not expected
+to be implemented. §6's knob shelf now carries an explicit non-entry (a knob
+implies an expected experiment; this one has a rejection instead). Swept:
+`internal-representation-of-tables.md` §1.5, §6.
+
+**R202 — interleaved entries considered and rejected: the parallel columns
+stand (table-representation §1.3).** The proposal — two entry layouts,
+values-only for lists and key-beside-value for mapped tables, motivated by
+keyed iteration — reviewed and rejected on a corrected premise plus an
+accounting table now in the spec. The premise: the keys column is **not an
+indirection** (`keys[i]` is direct parallel indexing), and the only real
+pointer-follow — a heap string key reaching its descriptor — is
+**layout-invariant**, so interleaving changes nothing but stream count for
+one operation. The accounting: one marginal win (keyed mapped iteration,
+two prefetch streams → one, and prefetchers eat two streams) against two 2×
+losses — mapped value-only iteration (keys dragged through cache) and the
+§1.5 small-state scan (packed keys ≈ 3 lines vs 48-byte-stride ≈ 6). Since
+iteration was the stated first priority, the columns win on the proposer's
+own criterion. The structural cost seals it: two entry layouts fork every
+value-touching operation by mode (equality walk, COW split, serialization,
+spread's fold — all mode-blind today over the uniform values column) and
+spoil noscan classification by mixing key representations into the value
+block — the two-representations smell §1.5's derive-don't-cache ruling
+already guards against. The layout question is now closed the way §1.2
+closed double-boxing and R201 closed the fingerprint: with the rejected
+alternative's full grounds on the record. Swept:
+`internal-representation-of-tables.md` §1.3.
 
 ---
 

@@ -167,6 +167,31 @@ pattern (the two maps, and now the keys). Consequences:
 (Where §1 and §1.2 say "entries," read the pair of parallel columns — one column, in the
 keyless modes.)
 
+**Interleaved entries: considered and rejected** (R202). The alternative — two entry
+layouts, a compact values-only array for lists and a key-beside-value array for mapped
+tables — was reviewed against the columns and loses. First, the premise correction that
+decides most of it: the keys column is **not an indirection** — `keys[i]` is direct
+parallel indexing, and the only pointer-follow anywhere (a heap >8-byte string key reaching
+its descriptor) is **layout-invariant**, since an interleaved entry stores the same key
+representation and follows the same pointer. Interleaving changes exactly one thing: stream
+count for keyed iteration. The accounting:
+
+| Access | Parallel columns | Interleaved |
+|-|-|-|
+| list iteration (any form) | perfect — values only | same |
+| mapped `v`-only iteration | **pure values stream** | keys dragged through cache: **2× bandwidth** |
+| mapped `k => v` iteration | two streams (prefetchers eat this) | one stream — the sole win, marginal |
+| small-state key scan (§1.5) | **keys packed: 8 keys ≈ 3 lines** | 48-byte stride: ≈ 6 lines, **2× worse** |
+| random lookup | map → `values[i]`, key untouched | same, key adjacent but unneeded |
+
+One marginal win against two 2× losses — and iteration, the stated first priority, is where
+the columns are strongest. The structural cost seals it: two entry layouts **fork every
+value-touching operation by mode** (the equality walk, the COW split copy, the
+serialization walk, spread's fold — all mode-blind today over the uniform `[]lval` values
+column), and mixing key representations into the value block spoils the noscan
+classification for value-homogeneous mapped tables. The same
+two-representations-of-one-thing smell §1.5's derive-don't-cache ruling guards against.
+
 ### 1.4 The header: one cache line; and the empty singleton (R199)
 
 The full header, with the overhead accounted honestly:
@@ -221,8 +246,21 @@ exists only to pick the group, and with one group there is nothing to pick, so s
 the degenerate swiss table with the pointless half removed. And the scan is word-shaped:
 record keys are short, an inline (≤8-byte) string key **is one 64-bit word** (§1.3), so
 lookup in an 8-entry record is eight masked word-compares against contiguous memory — SIMD
-shape, zero dereferences. (An optional one-`u64` fingerprint word — the swiss control word
-without the table — sits on the §6 shelf.)
+shape, zero dereferences.
+
+**The fingerprint word: considered and ruled against** (R201). One `u64` of per-slot key
+fingerprints — the swiss *control word* without the table — would SWAR-filter the scan to
+candidate slots. Rejected because its economics do not transfer from the context it comes
+from: swiss groups filter comparisons that are *expensive* (dereference + memcmp on
+distant lines), while our small-state scan compares single words on lines the prefetcher
+already pulled — a three-op filter in front of ~1-cycle compares saves approximately
+nothing, and it adds a parallel structure maintained on every insert and delete: real
+complexity and a real bug surface purchased for a hypothetical win. A textbook
+mis-optimization shape. Revisit **only** if measurement ever shows small tables dominated
+by heap (>8-byte) string keys, where each scan compare is a dereference plus memcmp and
+the filter's skip is genuine — and if revived, the header's 64-byte size class holds one
+spare word of allocation slack (§1.4 is 56 bytes), so the cost would be cycles only, zero
+marginal memory. Realistically: not expected to be implemented.
 
 The dispatch, with every discriminant on the one header cache line:
 
@@ -380,5 +418,6 @@ No data is duplicated anywhere. The two access paths read the same representatio
   linear scan.
 - **The 16-byte key scheme** (§1.3): whether the side-array-index key representation earns
   its extra hop and lifecycle, once real workloads exist.
-- **The fingerprint word** (§1.5): whether one `u64` of per-slot key fingerprints ahead of
-  the small-state scan pays for itself, given the word-compare scan is already near-free.
+
+(The fingerprint word is **not** on this shelf: ruled against, §1.5, R201 — a knob implies
+an expected experiment; that one has a rejection with a narrow revival condition instead.)
