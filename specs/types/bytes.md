@@ -140,7 +140,9 @@ separate byte type would need its own arithmetic, literals, and conversions for 
 Luna follows this: a `byte` is an `int` constrained to `0..255` (§2), so it reuses all integer
 operations and widens to `int` freely. `foreach (x in b)` iterates ordinary ints (R104),
 and comparing an element against the `int` literal `0` works because `==`/`!=` erase
-constraints (`byte` and `0` share the base `int`, equality spec §1). Bulk transforms are
+constraints (`byte` and `0` share the base `int`, equality spec §1). Whole-buffer equality
+is **content equality** — length then bytes, a `memcmp`, with the shared-storage fast path
+(equality §5, R181) — the element rule bulked. Bulk transforms are
 **not** direct — `bytes` is not an `iterable` (R104): a transform's output cannot promise
 to stay `0..255`, so a packed result kind would be unsound in general. The spelling is the
 explicit bridge, `b.toStream().filter(fn (x) => x != 0)`, yielding ints; repack with

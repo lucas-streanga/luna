@@ -78,9 +78,11 @@ Given equal types, how the values compare depends on the type's category. There 
 every type belongs to exactly one:
 
 - **Value-equality types**, compared by their **contents**: the scalars (`int`, `double`, `bool`,
-  `byte`, `null`), `string`, `table` (structural, §4), and `error` (nominal type plus the
-  identity surface, §5). Two distinct values with the same contents are equal.
-- **Identity-equality types**, compared by **identity** (same underlying object): `stream`, `fn`,
+  `byte`, `null`), `string`, `bytes` (content, §5, R181), `table` (structural, §4), and `error`
+  (nominal type plus the identity surface, §5). Two distinct values with the same contents are
+  equal.
+- **Identity-equality types**, compared by **identity** (same underlying object): `stream`,
+  `sink` (R181), `fn`,
   `promise`, `capability`, `command`, `proto` (R126), and a **table that has an applied
   `identityEquality` protocol**
   (§4.4, which is how builders compare). Two of these are equal only if they are the **same** value,
@@ -273,6 +275,11 @@ json §2.1, R125) — the serialization surface.
   distinct allocation from an equivalent native string, so they are pointer-unequal and compared by
   bytes (equal if the bytes match); callers crossing the FFI boundary must not assume pointer
   identity.
+- **`bytes`**, value equality by **contents** (length then bytes, a `memcmp` — R181): a buffer
+  is a value type whose contents are finite, comparable, and meaningful, which is §2's dividing
+  principle answering mechanically. Element-vs-`int` comparison already erased (`byte` shares
+  base `int`, §1, bytes §6), so whole-buffer content equality is the same rule bulked. The
+  shared-storage fast path (§4.3) applies as everywhere.
 - **`null`**, `null == null` is **true** (one value, equal to itself). `null` is a value-equality
   value with a single inhabitant.
 - **`undefined`**, `undefined == undefined` is **true** (absence equals absence, reflexively, so
@@ -290,9 +297,12 @@ json §2.1, R125) — the serialization surface.
   equality compares what the author declared, never what the runtime attaches. `toTable(e)`
   reifies the surface for structural `match` (errors §2.2). Errors are reflexive except by
   contagion (a nan or secret field, below).
-- **`capability`**, identity equality (§2): same capability is equal, a pointer compare. Capabilities
-  are immutable, zero-data singletons reached only through `use` (capabilities spec), so identity is
-  the only meaningful relation, "is this the same capability."
+- **`capability`**, identity equality (§2) — with one honest note (R181): the comparison is
+  **unwritable in user code**, since capability tokens never enter a value slot (capabilities
+  §3.1, R135) and `==`'s operands are value positions, so there is nowhere to put one. The
+  relation is recorded because it is real *internally*: the dynamic grant check is a subset
+  test over capability identities (capabilities §3.1), and identity is what "same capability"
+  means there.
 - **`secret`**, **never equal, not even to itself**: `s == s` is **`false`** for any secret `s`, and
   `s == anything` is `false`. A secret is deliberately opaque (secret spec), so whether two secrets
   are equal is *unknowable by design*, and any comparison would be a probing oracle (including a
@@ -330,27 +340,42 @@ erasure, §1, intro). Otherwise, comparison is by the shared base type below. "R
 | `null` | value | `null == null` true; single inhabitant |
 | `undefined` | value | `undefined == undefined` **true** (needed for absence checks); `null == undefined` false |
 | `string` | contents (length then bytes) | pointer fast-path to `true`; not interned; FFI strings compared by bytes (§5) |
+| `bytes` | contents (length then bytes) | value type, `memcmp` (§5, R181); element-vs-int already erased (§1); shared-storage fast path |
+| `duration` | value (the nanosecond payload) | strict, same-type as everywhere (std.time §2) |
+| `instant` | value (the monotonic payload) | `instant` × `instant` only (std.time §2, §3) |
 | `type` | canonical `typeid` | one integer compare; `int\|double == double\|int` (§3) |
 | `table` (default) | **structural**: same length, key/value pairs, bases, values, **order**; plus applied-protocol sets and their `get`-granted per-table members (§4.5) | recursive; COW pointer fast-path to `true`; terminates (acyclic value type, §4); `list` erases to `table` (§1) |
 | `enum` value | same **variant** (nominal, no erasure, §1), then payload structurally | `circle != square` regardless of payloads; same variant compares its payload table by `==` |
 | `error` | same **type** (nominal), then the **identity surface**: `message`, declared fields, `data`, `cause` recursively — never `stacktrace` (§5, errors §2.2) | reflexive except by contagion (a nan or secret field); `toTable(e)` reifies the surface for `match` |
 | `table` applying `identityEquality` | **identity** | how builders compare; any such protocol makes the whole table identity-equal (§4.4) |
 | `stream` | identity | contents uncomparable (single-pass, maybe infinite) |
+| `sink` | identity | a shared write-only handle (channels §3) — contents are not a coherent question for a write end (R181) |
 | `stringBuilder` / builders | identity | via the `identityEquality` protocol declaration (§4.4); compare `->build()` results for content |
 | `fn` | identity | signatures compare via `@f == @g` (a separate, type-level question) |
 | `promise` | identity | a single future handle |
-| `capability` | identity | zero-data singleton |
+| `proto` | identity | a brand: one `const` declaration, one identity (§2, R126); `@P == @P` compares interned refinement typeids instead (type §5, R175) |
+| `capability` | identity | zero-data singleton; **unwritable in user code** (no value slot admits a token, capabilities §3.1, R135) — the relation lives in the runtime's grant-subset check (§5) |
 | `command` | identity | reflexive; avoids comparing embedded secrets (§5) |
 | `regex` | **source** (pattern + flags) | source equality, not behavioral equivalence (undecidable) (§5) |
 | `secret` | **never equal** | `s == s` is **false** (**not reflexive**); opaque by design; `reveal` to compare (§5) |
 
-The two non-reflexive rows are deliberate: **`double`** (IEEE nan) and **`secret`** (opacity). Every
-other type is reflexive. Strictness throughout: no coercion, exact structure, with conversion
+**The extended tower's rows are specced with their types, delivery post-alpha**
+(numeric-tower §6): `decimal` — **normalized value equality** (`1.10 == 1.1`: scale is
+representation, not identity; ordering and hashing agree — decimal §4, R161); `rational` —
+structural, **because canonical form makes structural and value equality coincide** (rational
+§1, R162); `complex` — **componentwise IEEE**, which puts it on `double`'s non-reflexive side
+(a nan component poisons `==`; complex §2, R164).
+
+The non-reflexive set is deliberate and small: **`double`** (IEEE nan), **`secret`** (opacity)
+— and **`complex`**, when it lands, joins `double`'s side (componentwise nan). Every other
+type is reflexive. Strictness throughout: no coercion, exact structure, with conversion
 functions and `match` as the deliberate escapes for cross-type and partial comparison.
 
 ---
 
-## 7. Open questions
+## 7. Resolved
+
+*(nothing is open here; the two questions this section carried are settled:)*
 
 - *(**`error` value equality is resolved by R110** — structural-minus-trace won, principled as
   the identity surface: §5's `error` row, errors §2.2. The `stacktrace` complication resolved

@@ -4379,6 +4379,40 @@ row remains, the one row); greps confirm zero external cites to the folded
 path references. Swept: `std/json.md` §1 ×2, §1.1, §1.2 (new), §1.3 (new),
 §4; `retired/json-duplicate.md` (new tombstone); `index.md`.
 
+**R181 — equality.md validated: two types had no ruled equality at all
+(`bytes`, `sink` — both now ruled by §2's own dividing principle), the alpha
+types `duration`/`instant` and `proto` were missing from the summary table,
+the capability rows described an unwritable comparison, and the
+non-reflexive census predated `complex`.** The two rulings, made loudly and
+flagged for review: **`bytes == bytes` is content equality** (length then
+bytes, a `memcmp`; the shared-storage fast path applies) — nothing had
+specified whole-buffer equality anywhere; §2's principle answers mechanically
+(contents finite, comparable, meaningful), and it is the already-ruled
+element rule (`byte`-vs-`int` erasure, bytes §6) bulked. **`sink == sink` is
+identity** — also specified nowhere; channels §3's own "no readable surface"
+principle decides it (contents are not a coherent question for a write end),
+and the rule is now recorded at both homes. The mechanical repairs:
+**`duration`/`instant` rows added** (value equality on the payload; ruled in
+time §2's operator table since R132, never mirrored); a **`proto` row added**
+(§2 already ruled identity, R126 — the table just lacked the row, with the
+`@P == @P`-compares-refinement-typeids distinction noted, R175); the
+**`capability` rows** (§5 bullet, §6 row) gained the R176-class honesty note
+— the comparison is *unwritable in user code* (tokens never enter a value
+slot, capabilities §3.1/R135, and `==`'s operands are value positions), kept
+because the relation is real internally (the dynamic grant check is a subset
+test over capability identities); and the **extended tower's equality is now
+forward-noted** after the table (decimal normalized, R161; rational
+structural-because-canonical, R162; complex componentwise IEEE, R164), with
+the closing census corrected: the non-reflexive set is `double`, `secret`,
+**and `complex` when it lands** — "the two non-reflexive rows" was true when
+written and wrong since R164. Checked clean: §1's erasure story
+(value-representation §4 verified), §4's structural rules and the §4.1
+acyclicity argument, §4.4/§4.5's protocol surfaces (json §2.1 cite still
+valid post-R180), §5's string/error/secret/command/regex bullets. §7,
+holding only resolved markers, retitled "Resolved" (the R166/R168
+reclassification class). Swept: `equality.md` §2, §5 ×2, §6 (five rows + the
+tower note + the census), §7; `bytes.md` §6; `channels.md` §3.
+
 ---
 
 ## Still open (out of scope of these rulings)

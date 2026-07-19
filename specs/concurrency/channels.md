@@ -66,6 +66,10 @@ exception makes precise:
 > no peek, no count, no query — sending is fire-and-forget ("once sent, it's gone") — so
 > there is nothing to take, and sharing it shares no readable state.
 
+The no-readable-surface fact also fixes equality: a sink compares by **identity** ("the
+same channel's send end"), never by contents — contents are not a coherent question for a
+write end (equality §2, §6, R181).
+
 - **Sinks are shared, everywhere**: a copy, a table element in a copied table, a spawn
   crossing — all yield handles to the **same** channel (the crossing-taxonomy row is
   capabilities', for capabilities' reason: what is shared is not observable mutable data,
