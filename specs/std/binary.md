@@ -30,7 +30,11 @@ the parameter's expected type (enum §3.3), so callers write `{little}` / `{big}
 
 **No function in this module defaults its endianness.** A default would bake a silent
 portability bias — network formats are big-endian, most file formats little-endian — so the
-byte order is named at every call, the cost-visible stance (and Go's choice too).
+byte order is named at every call, the cost-visible stance (and Go's choice too). The rule
+turned out to carry a second leg (R193): because every read names its order, **the host's
+byte order is unobservable**, which is one of the channels that make comptime folding
+host-independent (compiler §6.3) — `readI32(b, off, {little})` folds to the same value on
+any machine.
 
 ## 2. The read family
 
@@ -80,3 +84,7 @@ Recorded in numeric-tower §6.
   (255 → −1) cannot be `as` (it changes the value, as spec §3) and is rare — waits for need.
 - **Varints, floats-from-bytes, checksums**: the domain module is the natural home when a
   need arrives; none is committed.
+- **A native-endian read or write: never** (R193, a permanent fence, not a deferral). An
+  "int to host-order bytes" function would make the host's byte order observable and reopen
+  the comptime-portability channel this module's explicit-`endian` rule closes (compiler
+  §6.3). Code that wants "the target's natural order" states which one that is.

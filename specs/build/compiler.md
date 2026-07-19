@@ -348,6 +348,19 @@ single static `go.mod`, no network, nothing external — Go "modules" being the 
 machinery, a different thing from packages entirely, and inert here since the program imports
 only its own packages, the runtime, and the Go standard library.
 
+**Cross-compilation is two environment variables** (R193): Go cross-compiles first-class —
+`GOOS`/`GOARCH` select the target, no separate toolchains, no sysroots — and it stays trivial
+**exactly as long as the emitted program is pure Go**, which it is by construction (the
+paragraph above). The fence: **cgo breaks it** — a C cross-compiler per target — and the
+future FFI surface rides cgo, so a program using FFI forfeits trivial cross-compilation; a
+recorded cost of that surface, not a surprise. **Targets are 64-bit only: `amd64` and `arm64`
+at alpha** (R193), and the honest rationale is representation and audit scope, *not* comptime
+arithmetic: `int` is spec-fixed i64 (Go emulates it correctly on 32-bit, so comptime
+portability never forces this), but the value representation assumes 8-byte words throughout
+(the three-word `lval`, 48-bit typeids, the string-inline field, §7.1), and every supported
+target widens the §6.3 determinism-audit surface. Nobody should later "fix" comptime to
+enable 32-bit targets; it would not help.
+
 ---
 
 ## 2. Parallelism model
@@ -570,6 +583,37 @@ at explicit assignments and conversions**. So:
   invariant*, not an accident: phase invariance (§6) requires the runtime float result to
   equal the comptime fold, so no future emitter optimization may combine float operations
   into single Go expressions without answering to this section.
+
+### 6.3 Comptime portability: the host-independence audit (R193)
+
+Comptime runs on the **host** while its results are baked into a build for the **target**, so
+every channel through which the host could leak into a result is enumerated, with what closes
+it — and the striking fact is that most were closed by rulings made for other reasons:
+
+| Channel | Closed by |
+|-|-|
+| integer width | the **spec**: no platform-sized integer exists anywhere in the surface — `int` is i64, `u64` is 64, the smalls are constraints; Go computes int64 identically on every architecture. The classic 32-vs-64 poison has no channel to flow through |
+| float arithmetic | **IEEE + §6.2**: correctly-rounded operations (`+ − * /`, `sqrt`) are bit-identical on every target Go supports (amd64 is SSE2 — Go removed x87, the historical double-rounding villain); §6.2 closed contraction |
+| endianness | **R187**: no endian-implicit byte read exists — `readI32(b, off, {little})` folds identically on any host *because* endianness has no default. The host's byte order is simply unobservable |
+| word-size / platform observables | **R138**: no `sizeof` exists in the surface; `platform.*` are *target* facts injected into the evaluator |
+| iteration order | **the table spec + one discipline rule**: Luna tables are insertion-ordered, so Go's randomized map order cannot leak into results — provided the evaluator never iterates a bare Go map anywhere a result depends on it. That is an implementation rule of this section |
+
+**The one genuinely remaining channel: non-correctly-rounded math functions.**
+Transcendentals (`sin`, `exp`, `ln`, `pow`) are implementation-defined in the last bit. Both
+the evaluator and emitted programs call Go's `math` package, and *pure-Go* math produces
+identical float64 results on any architecture (same algorithm, same IEEE ops, §6.2) — but Go
+carries **per-architecture assembly overrides on some exotic ports** (s390x notably), which
+could split a comptime fold from the same call at runtime there. The determinism contract is
+therefore **scoped to the ruled target set** (§1.8: `amd64`, `arm64` — where the math paths
+are the shared pure-Go implementations), and any future port must re-audit exactly this
+point.
+
+Two fences, permanent:
+
+- **No endian-implicit byte function may ever be added** (an "int to native-order bytes"
+  would reopen the endianness channel; std.binary §3 records the same fence from its side).
+- **The evaluator's own data structures may not leak order**: no bare Go-map iteration where
+  a comptime result could observe it.
 
 Emission maps the optimized IR onto Go source. The mapping is direct because the language was
 designed against a Go runtime.

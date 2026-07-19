@@ -4709,6 +4709,38 @@ requires runtime floats to equal comptime folds, so no future emitter
 optimization may merge float operations into single Go expressions without
 answering to §6.2. Swept: `compiler.md` §6.1 (new), §6.2 (new).
 
+**R193 — comptime host-independence audited channel by channel; targets ruled
+64-bit only; cross-compilation recorded with its cgo/FFI fence.** The
+question — can comptime folded on an x86 host be trusted by an arm64 build —
+answered with the audit now standing as compiler §6.3, and the striking fact
+recorded: **most channels were closed by rulings made for other reasons**.
+Integer width — closed by the spec (no platform-sized integer exists in the
+surface; `int` is i64, Go computes it identically everywhere: the 32-vs-64
+poison has no channel). Float arithmetic — IEEE + §6.2 (correctly-rounded ops
+bit-identical; amd64 is SSE2, Go removed x87). Endianness — **R187's
+no-default rule turns out to carry a second leg**: no endian-implicit read
+exists, so the host's byte order is simply unobservable (recorded at both
+homes, with a **permanent fence** in std.binary §3: a native-endian
+read/write may never be added). Word-size observables — R138 (no `sizeof`;
+`platform.*` are injected target facts). Iteration order — insertion-ordered
+tables, plus the evaluator discipline rule (no bare Go-map iteration where a
+result could observe it). **The one genuinely remaining channel**:
+non-correctly-rounded math functions (transcendentals) — pure-Go math is
+identical everywhere, but Go carries per-arch assembly overrides on exotic
+ports (s390x), so the determinism contract is **scoped to the ruled target
+set**, with re-audit required per future port. **Targets: 64-bit only,
+`amd64` and `arm64` at alpha** (§1.8), with the honest rationale relocated:
+comptime arithmetic does *not* force this (i64 is spec-fixed; Go emulates it
+on 32-bit correctly — recorded so nobody later "fixes" comptime to enable
+32-bit, which would not help); the value representation does (8-byte words
+throughout — the three-word `lval`, 48-bit typeids, string-inline), plus
+audit scope. **Cross-compilation recorded** (§1.8): two environment
+variables (`GOOS`/`GOARCH`), no toolchains, trivial exactly as long as the
+program is pure Go — which it is by construction — with the fence named:
+cgo breaks it, the future FFI surface rides cgo, so FFI forfeits trivial
+cross-compilation, a recorded cost, not a surprise. Swept: `compiler.md`
+§1.8, §6.3 (new); `binary.md` §1 (the second leg), §3 (the fence).
+
 ---
 
 ## Still open (out of scope of these rulings)
