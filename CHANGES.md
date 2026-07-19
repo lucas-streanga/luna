@@ -4741,6 +4741,56 @@ cgo breaks it, the future FFI surface rides cgo, so FFI forfeits trivial
 cross-compilation, a recorded cost, not a surprise. Swept: `compiler.md`
 §1.8, §6.3 (new); `binary.md` §1 (the second leg), §3 (the fence).
 
+**R194 — the table representation recorded: the third internals sibling
+(`internal-representation-of-tables.md`), from the hashmap brainstorm.** The
+shape: **one ordered entries array plus key→index Go maps** — values never
+enter a map; the maps hold `int32` indexes only, split `map[int64]`/
+`map[string]` because Luna's two key types hit Go's specialized fast paths
+exactly; deletion tombstones with lazy compaction — **the zend_array design**,
+the layout validated for decades by the same workloads Luna's table semantics
+descend from. The Go-map assessment recorded so it is not re-litigated: C++'s
+`unordered_map` is slow *by API contract* (pointer stability forces node
+chaining); Go's opposite bet (no interior pointers) bought open addressing
+and, in Go 1.24, Swiss Tables over extendible hashing — the restrictive-API
+lesson being the language's own. Structural wins recorded: **the map is never
+iterated** (iteration is the entries array), so §6.3's no-bare-map-iteration
+discipline is satisfied by construction; the never-shrinks gotcha is defused
+(index-sized residue); tiny tables may skip the maps for linear scan (a
+measurement knob). **Protocol state: structs, never hashmaps** — `->` is
+compile-time resolved, no dynamic protocol index exists, so each applied
+proto's state is a fixed field block with **unboxed** fields per declared
+member types (the ~24-byte `datetime` sizing, R133, falls out); the three
+dynamic surfaces (dynamic apply/unapply R123, `@@` serialization R125,
+introspection read R129) are all served by **one shared static descriptor
+per proto**, never per-value structures; the honest refinement — the applied
+*set* is dynamic, a small `(protoId, ptr)` vector, O(#applied) ≈ O(1).
+**Const tables: the struct-vs-perfect-hash dichotomy dissolved** — a PH map
+storing *offsets* is the struct viewed from the dynamic path: one
+insertion-ordered data block (unboxed slots where the shape pins types), one
+key array (required regardless — a minimal PH accepts any input, so
+membership needs stored keys), one small index; static path devirtualizes to
+a field read, dynamic path runs PH → verify → offset → box-on-read, the
+boxing cost accepted on the by-definition-rare path. Two open knobs, both
+measurement-driven: compaction ratio, tiny-table threshold. Swept:
+`internal-representation-of-tables.md` (new), `index.md` (the internals row).
+
+**R195 — the table capacity cap stated as contract: at most 2³¹ − 1 entries
+(tables §1.1).** R194's `int32` indexes had written a hard limit implicitly;
+ruled explicit and *guaranteed*, in both directions — programs may rely on
+the limit being this and no smaller, the runtime on it being this and no
+larger, which contractualizes the 4-byte index width (half the memory of an
+8-byte scheme, table-representation §1). Sharpened en route: the cap is
+**one `INT32_MAX` total, not 2× across key spaces** — both maps index the
+one shared entries array, so key mix never changes the limit. Precisions
+pinned: the cap is on **entry count, never key magnitude** (keys remain full
+`int64`; `[5_000_000_000 => x]` is one legal entry; a list's largest index is
+bounded by consequence); **insertion past the cap panics `outOfMemory`** —
+resource-exhaustion-shaped, the structure cannot allocate another slot —
+flagged for reversal if a dedicated arm is preferred; and the sanity anchor:
+≥85 GB for one table at the cap — a database's or a stream's job — with the
+cap industry-normal (JVM, .NET, V8 all near 2³¹). Swept: `tables.md` §1.1
+(new), `internal-representation-of-tables.md` §1 (the contractual note).
+
 ---
 
 ## Still open (out of scope of these rulings)

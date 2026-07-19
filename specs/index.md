@@ -230,6 +230,7 @@ table is a map.
 |-|-|-|
 | Value representation | `internal-representation-of-variables.md` | Runtime storage: the `lval`, the `typetable`, and where per-value/type/binding state lives. |
 | String representation | `internal-representation-of-strings.md` | Runtime storage of the `string` payload an `lval` points at. |
+| Table representation | `internal-representation-of-tables.md` | Runtime storage of tables (R194): ordered entries + key→index Go maps (zend_array shape); protocol state as unboxed structs with per-proto descriptors; const tables as one block, two paths. |
 
 ### Retired (tombstone pointers, `retired/`)
 

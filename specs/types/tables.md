@@ -29,6 +29,28 @@ myTable = [0, 1, 2, 3, 4];        // array / list style
 Empty tables are always written `[]`. Elements are given as `value` (implicit
 incrementing integer keys) or `key => value`.
 
+### 1.1 Capacity: at most 2³¹ − 1 entries (R195)
+
+A table holds at most **`INT32_MAX` (2,147,483,647) entries** — a stated **guarantee**, not
+an implementation accident. Three precisions:
+
+- **The cap is on entry count, never key magnitude.** Keys remain full `int64` values:
+  `[5_000_000_000 => x]` is one entry and entirely legal. (For a *list*, whose keys are
+  exactly `0..n-1`, the largest index is consequently also bounded by the cap.)
+- **It is one cap, not per key space**: the runtime's string- and int-key indexes point into
+  a single shared entries array (table-representation §1), so the mix of key types never
+  changes the limit.
+- **Insertion past the cap panics with `outOfMemory`**: the structure cannot allocate
+  another slot, which is resource-exhaustion-shaped (errors §9's arm); at ~40+ bytes per
+  entry the cap sits at ≥85 GB for one table anyway, and anything at that scale is a
+  database's or a stream's job.
+
+The guarantee is deliberately contractual in both directions: programs may rely on the limit
+being this and no smaller, and the runtime may rely on it being this and no larger — which is
+what keeps 4-byte entry indexes legal forever (table-representation §1, R194), halving the
+index memory an 8-byte scheme would cost. The cap is industry-normal (JVM and .NET arrays and
+V8 all cap near 2³¹).
+
 ---
 
 ## 2. Lists & contiguous memory
