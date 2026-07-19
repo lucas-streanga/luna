@@ -5097,6 +5097,46 @@ stored rather than derived. Thirty bits honestly reserved. Swept:
 `functions.md` §3.3.1 (the ruling), `internal-representation-of-functions.md`
 §2 (the descriptor), §4 (the variadic branch).
 
+**R207 — streams: generator defers ruled (exhaustion, mark-first, two
+riders), and the representation recorded as the fifth internals sibling —
+state machines, with goroutines and range-over-func rejected in full.** The
+semantic ruling (stream §1.3): **a generator body's top-level defers run on
+exhaustion**, where exhaustion is every body-exit path (completion, early
+`return`, body panic), during the final pull, synchronously with
+consumption — and the before-vs-on question answered precisely: the
+orderings are observable in **exactly one corner** (a panicking defer whose
+pull site catches with `try`), and that corner forces **mark-exhausted
+first, then defers, then unwind** — the only order leaving the stream
+coherent (done, defers run exactly once, re-pull reporting exhausted rather
+than resuming a finished frame; a panicked body likewise marks done before
+unwinding — a broken generator is never resumable). The riders:
+**`yield` in a defer body is a compile error** (runs at exhaustion when
+yielding is definitionally over; lexically claims the generator while never
+legally executing); **an abandoned stream never runs its defers — a stated
+contract** (no finalizers, the backstop-is-not-a-contract discipline), with
+the idiom recorded: resources belong to the consumer's defer, which the
+R121 creation-authorization model already enforces structurally (the fd is
+the owner's). defer §2 cross-notes the host-special-cased exit path. **The
+representation** (`internal-representation-of-streams.md`): the stream
+block (state; flags; the **one-`lval` peek slot** — nothing in the API
+demands more lookahead; `taken` referent-side per value-rep §2.1's own
+ruling; the R206 generator bit's native entry constructing the block);
+**generator bodies compile to state machines** on lowered IR — lazy start
+*is* `state == 0`, abandonment is just garbage, **restart is two stores**
+(R105's replay, gated by canRestart — impossible under goroutines, which
+cannot be killed), chains are uniform pull-through stages, and
+defer-on-exhaustion costs one hoisted store. **Goroutine-per-generator
+rejected on four grounds** (the unfixable-politely leak — abandonment is
+normal usage and Go cannot kill a blocked sender; 10–20× per-element cost;
+confinement fragility — one-task-one-thread soundness resting on a
+lockstep accident any buffering breaks; and the pinning escape does not
+exist — Go has no co-scheduling primitive). **Range-over-func rejected as
+the representation** (push cannot serve a pull surface — `peek`, `zip`,
+`merge` pull from multiple sources alternately), allowed as a possible
+foreach-boundary emission detail. Swept: `stream.md` §1.3 (new),
+`defer.md` §2 (the cross-note),
+`internal-representation-of-streams.md` (new), `index.md`.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -46,6 +46,11 @@ is the function-scoped case as a natural consequence, not a separate rule.
 
 ## 2. Deferred code runs on every exit path
 
+*(One exit path is special-cased by its host: a **generator body's** top-level defers run on
+stream **exhaustion** — any body-exit path, marked-done-first — and an **abandoned** stream
+never runs them, a stated contract; stream §1.3, R207. `yield` inside a defer body is a
+compile error, same section.)*
+
 The point of `defer` is that cleanup is **unconditional** once registered: it runs no matter how
 the block is left.
 

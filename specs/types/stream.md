@@ -73,6 +73,38 @@ the file is opened and the first line read only when something starts consuming 
 what makes returning a stream free of side effects, and it is why building a pipeline (§7)
 consumes nothing until the pipeline itself is consumed.
 
+### 1.3 `defer` in a generator body runs on exhaustion (R207)
+
+A generator body's **top-level defers run when the stream exhausts**, and "exhaustion" means
+**every body-exit path**: falling off the end, an early `return`, and a body panic alike.
+The defers run **during the final pull**, synchronously with consumption — after the
+consumer's `foreach` exits, a `defer close()` in the body has already run, deterministically
+— with one precisely ruled ordering: **the stream is marked exhausted first, then the defers
+run** (LIFO, defer §3), then any unwind continues. The ordering is forced, not chosen: it is
+observable in exactly one corner — a *panicking* defer whose pull site catches with `try` —
+and mark-first is the only order that leaves that stream coherent (exhausted, defers run
+exactly once, a re-pull reporting done rather than resuming a finished frame). A panicked
+body likewise marks done before unwinding: a broken generator is never resumable.
+
+Two riders complete the rule:
+
+- **`yield` inside a `defer` body is a compile error.** A defer runs at exhaustion, when
+  yielding is definitionally over; lexically a defer block is not a function literal, so its
+  `yield` would claim the enclosing generator (§1) while being unable to ever legally run.
+  Rejected at parse.
+- **An abandoned stream never runs its defers — a stated contract, not an oversight.** A
+  stream dropped before exhaustion (`take(3)` on an infinite generator, an early `break`
+  and never returning) is reclaimed by the collector, and **no finalizer runs deferred
+  code** (the backstop-is-not-a-contract rule, io §4's own discipline). The idiom follows:
+  **resources belong to the consumer's `defer`, not the generator's** — which the
+  creation-authorization model already enforces structurally (the `fd` is the caller's,
+  `lines(fd)` borrows it, `defer close(fd)` sits with the owner, io §6, R121). A
+  generator's own defer is for generator-local cleanup, correct where exhaustion is
+  guaranteed or forfeiture is acceptable.
+
+Non-top-level defers (inside a block within the body) are unaffected: they run at their
+block's exit during ordinary body execution between yields, per defer §1.
+
 ---
 
 ## 2. Single-pass consumption

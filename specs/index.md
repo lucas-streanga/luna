@@ -232,6 +232,7 @@ table is a map.
 | String representation | `internal-representation-of-strings.md` | Runtime storage of the `string` payload an `lval` points at. |
 | Table representation | `internal-representation-of-tables.md` | Runtime storage of tables (R194): ordered entries + key→index Go maps (zend_array shape); protocol state as unboxed structs with per-proto descriptors; const tables as one block, two paths. |
 | Function representation | `internal-representation-of-functions.md` | Runtime storage of fn values (R204): one pointer to a closure block (Go's funcval shape); the per-literal descriptor (typeid, capability bitmask, names→positions); the two ABIs — native entry + dynamic trampoline. |
+| Stream representation | `internal-representation-of-streams.md` | Runtime storage of streams (R207): the stream block (state, one-lval peek slot, flags) with generator bodies compiled to state machines; goroutines and range-over-func rejected with full grounds; restart = two stores. |
 
 ### Retired (tombstone pointers, `retired/`)
 
