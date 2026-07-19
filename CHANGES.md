@@ -4791,6 +4791,142 @@ flagged for reversal if a dedicated arm is preferred; and the sanity anchor:
 cap industry-normal (JVM, .NET, V8 all near 2³¹). Swept: `tables.md` §1.1
 (new), `internal-representation-of-tables.md` §1 (the contractual note).
 
+**R196 — the three storage modes, the two header flags, and the free
+tombstone: table-representation §1.1.** The mode ladder: **list** (`isList`
+⇒ `isContiguous`; maps *unallocated*; `t[i]` is `entries[i]` — zero hashing,
+which is what "lists are stored contiguously" means operationally; the flag
+is tables §2.2's ruled O(1) property implemented), **contiguous-with-holes**
+(the invariant pinned: live key ≡ entries index, holes are tombstones,
+iteration order ≡ index order — deleting from a list lands here with
+identity addressing intact, the filter-by-delete workload staying fast), and
+**mapped** (the general shape). The flip triggers found by challenge, not
+threshold alone: **re-inserting a previously deleted key breaks the mode
+immediately** — insertion order demands the re-add iterate *last*, so
+refilling its old slot would iterate it mid-order — as do string-key and
+out-of-order int inserts; the hole-ratio threshold flips lazily; the flip is
+one O(n) compact-and-populate. PHP's packed arrays are the precedent a
+second time (`IS_UNDEF` holes, hash on violation). **Flag placement ruled by
+the corpus's own principle in disguise**: value-representation §2.1's
+"one shared fact must not have per-slot copies that can disagree" (written
+for `taken`) applies verbatim — the flags are referent facts on the table
+header, beside sharing count, live count, hole count, next-append index.
+**The tombstone design**: in-line, zero-cost, no list — the marker is the
+entry value's own `isUndefined` flag, unambiguous *because* `undefined` is
+unstorable in a table (a semantic rule doing representation work); the
+closure recorded: in contiguous mode **the tombstone is its own correct
+return value** (`t[k]` on a holed key reads the undefined-flagged slot, and
+absent keys are supposed to read `undefined` — no special case exists on the
+read path); and a free-list is purposeless **by semantics** — insertion
+order makes slot reuse illegal (a new entry can only append), so which slots
+are dead is never needed, only how many (the header counter feeding the
+threshold). Honest cost kept: one predicted branch per slot and dead
+cache-line pollution until compaction, bounded by the knob. Swept:
+`internal-representation-of-tables.md` §1.1 (new).
+
+**R197 — the layout's cost story closed: contiguous iteration, and sorting's
+honest price (table-representation §1.2).** The crown jewel recorded:
+in-order iteration is a **linear memory walk** (~48-byte in-line entries,
+one to two per cache line), dereferencing **nothing at all** for the hot
+element types — inline scalars, and ≤8-byte strings being
+string-representation's tier-1 inline, so a table of ints or short strings
+iterates as one sequential stream (contrast: node-per-element maps miss
+cache per element). The flip side accepted with its accounting sharpened
+three ways beyond the original framing: sort was **never cheap here**
+(order is the load-bearing axis — every index changes, so the key→index
+maps rebuild wholesale; entry movement is a constant factor on an O(n)
+rebuild); the **common case dodges even that** (list sort renumbers
+`0..n-1`, maps are nil — pure permutation; and a COW-produced sort result
+is ordinary construction in sorted order); and the **standard escape is
+free until needed** (sort an index permutation, apply in one pass — each
+entry moves exactly once; sort-internals, no representation change). The
+rejected `[]*entry` double-boxing gets its indictment: the `unordered_map`
+disease imported voluntarily — per-entry allocation, GC scan pressure,
+a miss per access, paid on every iteration forever to subsidize the rare
+sort — and it kills the homogeneous noscan path besides. Swept:
+`internal-representation-of-tables.md` §1.2 (new).
+
+**R198 — key representation closed: the general key cannot shrink (two doors
+closed by our own rulings), and the common key costs zero bytes
+(table-representation §1.3).** The can-keys-be-smaller question answered
+with reasons stronger than the obvious one: **16 bytes is the forbidden
+union** — a `{meta, word}` key needs word to be sometimes-scalar,
+sometimes-pointer, R170's precise-GC theorem striking a second time (the
+inline-string argument was never what closed the door) — and **8 bytes died
+by R195's own precision**: "never key magnitude" means full-range `int64`
+keys, so a tagged word has not one bit to steal. One genuine shrink recorded
+and deferred to the §6 knobs: the 16-byte side-array-index scheme (payload
+word holds the int value, inline bytes, or a scalar *index* into a
+heap-string-descriptor side array — an index, not a pointer, so the GC
+objection vanishes; costs an extra hop and a lifecycle, saves 8B per stored
+key). **The real optimization**: in the keyless modes (list, contiguous —
+R196), key ≡ index is the invariant, so the key column is *derivable* —
+entries split into values + keys columns with the keys column **nil** in
+those modes, the third instance of the allocate-on-flip pattern (maps ×2,
+now keys). A list entry is **24 bytes, not 48** — iteration density doubles
+for the most common table shape — `foreach` yields the index as `k` (R93's
+own shape), the flip's compact-and-populate pass materializes the column,
+and the **homogeneous-noscan composition completes**: a scalar list is one
+pointer-free block, no key column to spoil the classification. Swept:
+`internal-representation-of-tables.md` §1.3 (new), §1.2 (the sizing), §6
+(the key-scheme knob).
+
+**R199 — the header in one cache line, and the empty-table singleton
+(table-representation §1.4).** The overhead accounting corrected twice and
+then closed: slice headers are 24 bytes (not 8), and the sketch had omitted
+R198's keys column and §3's sharing count — but both dissolve: the keys
+column becomes an 8-byte pointer allocated at the flip (the pattern's fourth
+instance), and the flag word genuinely holds everything *because two header
+fields are derivable* (live count = len − holes; next-append = len, since
+contiguous mode only ever appends), the packed counts fitting because R195
+caps entries at 2³¹. Result: **56 bytes → size class 64 → the whole header
+is one cache line**; a list entry is 24 bytes against PHP 7.4's 32-byte
+packed buckets, the pre-7.4 disaster excluded by construction. **The empty
+singleton formalized**: `[]` points at one global immortal empty block —
+zero allocations until first write, `[] == []` instant via the shared-storage
+fast path, PHP's own precedent — with the load-bearing subtlety recorded:
+the singleton is shared by every task and therefore **may not carry a
+maintained sharing count** (§3's counts are non-atomic because mutable
+tables are task-confined), so it joins value-representation §6.1's
+count-free class (const tables): flagged always-shared, splitting
+unconditionally on write, no count write ever. Considered-not-taken:
+small-table inline storage (smallvec) — complicates the COW split for one
+saved allocation. Swept: `internal-representation-of-tables.md` §1.4 (new).
+
+**R200 — the small-table state needs no representation: nil-ness is the
+mode, the mode bits are dropped, and the sharing count is specified
+precisely (table-representation §1.5, §3).** The ≤8 design landed as the
+maps' allocation gate **decoupling** from the mode flip: an order violation
+materializes the keys column, the maps materialize only at len > 8, and the
+dominant shape (a small string-keyed record) lives its whole life between —
+where the scan wins by the **swiss-group argument** (a ≤8 table is one
+swiss group; the hash exists to pick a group, and with one group scan-only
+is the degenerate swiss table minus the pointless half), word-shaped besides
+(inline keys are single 64-bit words, §1.3 — eight masked compares against
+contiguous memory). The dispatch pseudocode recorded verbatim; the `len`
+gate noted as resolving the nil-map ambiguity ("no such keys" vs "not yet
+indexed") and as hysteresis-proof (the scan is always correct). **Zero mode
+bits, ruled derive-don't-cache**: all four rungs are functions of nil-ness
+and two counts (list = keys nil ∧ holes 0; contiguous = keys nil ∧ holes >
+0; small = keys ≠ nil ∧ len ≤ 8; mapped = otherwise) — cached bits that can
+disagree with the pointer are value-representation §2.1's smell in
+miniature, a bug class that cannot exist when the pointer *is* the mode;
+§1.4's flag word empties to immortal bit + 31-bit share + 32-bit holes.
+Transitions and hysteresis pinned (violation: allocate + identity-fill +
+apply; insert #9: populate only existing key spaces' maps; compaction:
+rebuild non-nil maps; maps never freed). **§3 rewritten as the sharing
+count's precise contract**: the COW discriminator, not GC — alias++/drop−−,
+count-1 writes in place, shared writes split — with the **asymmetric
+failure directions** recorded as its most important property (overcount =
+spurious split, safe; undercount = aliased in-place write, unsound — the
+emitter's discipline is a one-directional soundness obligation, "count
+high" always legal; the sticky-flag degenerate is the all-safety extreme;
+31-bit saturation degrades to exactly it, safe), the non-atomic rationale
+(task confinement via the transitively-deep spawn copy), and the two
+count-free citizens (const, the R199 singleton). The fingerprint word
+joined the §6 knobs. Swept: `internal-representation-of-tables.md` §1.1
+(the header enumeration de-staled), §1.4 (the flag word), §1.5 (new), §3
+(rewritten), §6 (the knob).
+
 ---
 
 ## Still open (out of scope of these rulings)
