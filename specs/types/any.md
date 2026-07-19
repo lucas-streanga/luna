@@ -20,6 +20,12 @@ asked for:
 - **`@@v`**: the value's applied protocols, always answerable — `[]` for any non-table,
   the same "no" that `v is @P` gives (protocols §8, R126).
 - **`toString(v)` and interpolation** (`"$v"`): rendering is total (conversion §3).
+- **`??` / `???` coalescing** (R185): the absence and null tests read the per-value flags
+  (value-representation §2), which every `lval` carries — a flag test is defined for every
+  value, so `v ?? fallback` needs no narrowing. (`?.` and `?->` are *access*, §2's side.)
+- **The introspection runtime tier** (`typeName(@v)`, `kindOf(@v)`, introspection §4.3):
+  functions genuinely typed over `type`/`any` — "the runtime tier makes `any` inspectable"
+  is that spec's own phrasing, and it is why `any` is a queryable value, not a dead end.
 - **`copy v`**, crossing `spawn` (deep copy applies per the actual value's class).
 
 ## 2. Type-specific operations are compile errors on `any`
@@ -31,6 +37,9 @@ statically**, narrow first:
   runtime dispatch. `(v as int) + 1`, or match.
 - **Indexing and member access** (`v[k]`, `v.name`): requires a table (or other indexable);
   `(v as table)['k']`.
+- **Protocol access** (`v->name`, `v?->name`): protocol space belongs to tables
+  (protocols §3), so an `any` receiver is a compile error by the same rule — narrow first
+  (`(v as @person)->name`, or a `match` arm typed `@person`) (R185).
 - **UFCS calls to typed functions**: `v.trim()` resolves `trim(v)`, whose parameter is
   `string`; `any` does not fit `string`, same per-position assignability as any call
   (functions §3.2, §3.4). Only functions genuinely typed `fn (any)` accept it, which is

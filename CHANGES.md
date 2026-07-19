@@ -4480,6 +4480,45 @@ function captures, never the match. Grep confirms no other spec referenced
 match-capture or `match use`, so the rewrite is single-file. Swept:
 `match.md` §11 (rewritten).
 
+**R185 — any.md validated: the F22 answer stands; the universal and excluded
+lists each gained the entries the corpus had since ruled around them.** The
+core checked clean — the surgical rule (universal operations work,
+type-specific narrow first), §3's rejection rationale, §4's honest-signature
+note, the R126 `@@` line, and `@v` unchanged by R175 (an `any` binding is a
+value binding, so introspection applies). The completions, each derived from
+the file's own criterion rather than new policy: §1 gains **`??` / `???`
+coalescing** (the absence/null tests read the per-value flags every `lval`
+carries, value-representation §2 — a flag test is defined for every value)
+and **the introspection runtime tier** (`typeName`/`kindOf`, introspection
+§4.3 — whose own text says "the runtime tier makes `any` inspectable,"
+aligning this spec with the overview's inspectable-not-a-dead-end claim);
+§2 gains **protocol access** (`v->name`, `v?->name`) beside element access —
+protocol space belongs to tables (protocols §3), so an `any` receiver is a
+compile error by §2's own meaning-depends-on-type rule, previously stated
+only for `.`/`[]`. Swept: `any.md` §1, §2.
+
+**R186 — bool.md: `parseBool`'s spellings ruled, the bitwise open deferred,
+and a prefix/postfix fossil caught.** The spellings: **exactly the two words
+`true` and `false`, case-insensitively** — `"tRue"`, `"FALSE"` parse; one
+word, any case, because booleans arrive from a casing zoo (JSON `true`,
+Python `True`, SQL/INI `TRUE`) and the value set is two unambiguous words.
+Two rejections, each deliberate: **`"1"`/`"0"` error** — ints inside strings;
+accepting them would be the truthiness policy this spec refuses arriving at
+the text boundary, and the spelling is the visible composition
+(`parseInt(s)`, then the comparison you mean) — the no-int-to-bool rule (§3)
+holding at parse time; and **surrounding whitespace errors** — parsing is
+exact, trimming is the caller's explicit `s.trim()`, stated as the `parse*`
+family's general stance (the function parses the text it is given, never a
+cleaned-up version). **Non-short-circuit boolean operators: deferred**,
+alongside the integer bitwise design (int §8, operators §0.4) — most code
+wants short-circuit, explicit sequencing spells the rest. The validation
+find, fixed: §2 illustrated logical not as **`true!`** — the *postfix*
+spelling, which is the errorable-type suffix position; logical not is prefix
+(`!true`), ruled corpus-wide, and the bullet now names the position split
+(operators §0, type §1.1). Also aligned: the intro's "value word" → "scalar
+word" (the R170 three-word layout's vocabulary). §5 retitled Resolved and
+deferred. Swept: `bool.md` intro, §2, §3, §5.
+
 ---
 
 ## Still open (out of scope of these rulings)

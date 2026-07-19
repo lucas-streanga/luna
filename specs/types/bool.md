@@ -12,8 +12,8 @@ let done = false;
 - **Two values only:** `true` and `false`. There is no third state; a `bool` is never null unless
   its binding is explicitly optional (`bool?`), and even then the null is the binding's, not a
   third boolean value.
-- **Inline:** a `bool` carries one bit of information in the `lval`'s value word
-  (value-representation), copied by value, never allocated.
+- **Inline:** a `bool` carries one bit of information in the `lval`'s scalar word
+  (value-representation §1, §1.1), copied by value, never allocated.
 - **Literals:** `true` and `false`.
 
 ---
@@ -47,7 +47,8 @@ The boolean operators take and produce `bool`:
   evaluated only if needed (`a && b` skips `b` when `a` is false; `a || b` skips `b` when `a` is
   true). Short-circuiting matters when the right operand has effects or could fail, it is not
   evaluated unless reached.
-- **`!`** (logical not), `true!` is `false`.
+- **`!`** (logical not), **prefix**: `!true` is `false`. (Postfix `!` is the errorable type
+  suffix, a different, position-resolved role — operators §0, type §1.1.)
 
 All three require `bool` operands (no truthiness, §1) and yield a `bool`. Comparisons (`==`,
 `!=`, `<`, `>`, and so on) yield a `bool`, and are how non-boolean values enter boolean logic (a
@@ -73,9 +74,20 @@ parseBool(s)          // "true" -> true, "false" -> false, else an error: bool! 
   `toInt(b)` or `b.toInt()` (UFCS), the same function either way.
 - **`toString(b): string`** , `true` to `"true"`, `false` to `"false"`. Total; this is the same
   `toString` that applies across types, not a bool-specific operator.
-- **`parseBool(s): bool!`** , parses a string to a `bool`, fallible (a declarable error on anything but
-  the accepted spellings), like `parseInt`. The accepted spellings are defined with the parsing
-  functions.
+- **`parseBool(s): bool!`** , parses a string to a `bool`, fallible (a declarable error on
+  anything but the accepted spellings), like `parseInt`. **The accepted spellings are ruled
+  (R186): exactly the two words `true` and `false`, case-insensitively** — `"tRue"`,
+  `"FALSE"`, `"False"` all parse; one word, any case, because booleans arrive from a casing
+  zoo (JSON `true`, Python `True`, SQL and INI `TRUE`) and the value set is two unambiguous
+  words. Everything else errors, with two deliberate rejections:
+  - **`"1"` / `"0"` are rejected** — those are *ints inside strings*, and accepting them
+    would be the truthiness policy this spec refuses (§1, §3) arriving at the text
+    boundary. The spelling is the composition: `parseInt(s)` and then the comparison you
+    mean (`n != 0`, `n == 1`), each step visible.
+  - **Surrounding whitespace is rejected** — `" true"` errors. Parsing is exact; trimming
+    is the caller's explicit, visible step (`s.trim()`, strings §6). This is the `parse*`
+    family's general stance: the function parses the text it is given, never a cleaned-up
+    version of it.
 
 There is deliberately **no `int` to `bool` conversion**: rather than pick a truthiness policy (is
 `0` false and everything else true? only `0` and `1`?), you write the comparison you mean (`n !=
@@ -100,12 +112,11 @@ named fields or a `match`.
 
 ---
 
-## 5. Open questions
+## 5. Resolved and deferred
 
-- **Bitwise-style boolean operators.** Whether non-short-circuiting boolean operators (evaluating
-  both operands always) are provided alongside `&&` / `||`, or whether short-circuit forms plus
-  explicit sequencing suffice. Most code wants short-circuit; a non-short-circuit form is rarely
-  needed and can be deferred.
-- **`parseBool` accepted spellings.** The exact set of strings `parseBool` accepts (just
-  `"true"`/`"false"`, or also `"1"`/`"0"`, case-insensitivity, surrounding whitespace), to be
-  fixed with the parsing-function family.
+- **Bitwise-style boolean operators: deferred** (R186). Non-short-circuiting forms
+  (evaluating both operands always) are rarely needed — most code wants short-circuit, and
+  explicit sequencing spells the rest — so they wait for a demonstrated need, alongside the
+  integer bitwise design (int §8, operators §0.4).
+- *(**`parseBool` accepted spellings: resolved by R186** — exactly the two words,
+  case-insensitive; `"1"`/`"0"` and whitespace rejected, each deliberately; §3.)*
