@@ -4971,6 +4971,132 @@ closed double-boxing and R201 closed the fingerprint: with the rejected
 alternative's full grounds on the record. Swept:
 `internal-representation-of-tables.md` §1.3.
 
+**R203 — the boxing policy named and bounded: type-directed boxing, with
+escape analysis rejected as the alternative (compiler §7.1.1).** The
+brainstorm's two options resolved into the third the corpus had implied:
+**representation follows the static type, nothing else** — the box boundary
+is **entry into a dynamically-typed slot**, never a function call as such
+(an `int` through `fn (n: int)` travels raw forever; the same `int` into an
+`any` slot boxes there, greedily). Four clarifications recorded with it:
+**boxing is not allocation** (the Java instinct does not transfer — an
+`lval` is a value; boxing is two-three stores with the tag half a
+compile-time constant, no heap object, no indirection added — which is why
+the greedy boundary needs no cleverness); **escape analysis as boxing
+policy rejected**, chaining §1.4.1's standing "no Luna-level escape
+analysis" — Luna does type-directed representation, Go does escape, and a
+Luna escape pass would duplicate downstream machinery to shave stores off a
+boundary that costs stores, with results neither local nor obviously
+deterministic (R149 keying and §6.1 evaluator-emitter agreement both prefer
+the type rule's locality); **the reflection worry dissolved as a theorem** —
+introspection never forces a box the type system didn't already force
+(`@x` on a static binding folds to a constant typeid; runtime-typeid reads
+happen only on `any` values, boxed by the type rule before introspection
+arrived — reflection consumes boxes, never creates them); and **the honest
+residue** named (`any`-heavy code mass-materializes lvals inherently, with
+the table representation carrying the mitigation). Swept: `compiler.md`
+§7.1.1.
+
+**R204 — the function representation recorded: the fourth internals sibling
+(`internal-representation-of-functions.md`).** The brainstorm's value-rep
+sketch landed with its two corpus-forced corrections and the structural
+split that reshaped it. **A fn value is one pointer** to a closure block
+`{desc, captures…}` — Go's own `funcval` shape adopted deliberately: boxes
+into `lval.ptr` trivially, `==`-identity is a pointer compare (equality §2),
+R203 applies with nothing fn-specific. **The per-literal/per-value split**
+(the shared-static-descriptor pattern's third use, after protocol
+descriptors and const-table metadata): names→positions, arity and defaults,
+the capability set, and flags are facts of the *literal*, living once in an
+emitted-const `fnDescriptor` — which is simultaneously **introspection's
+backing store** (`params`/`paramTypes`/`capabilitiesOf`, R130, read exactly
+these fields: one source of truth by construction). The corrections:
+**capabilities are a bitmask, not a list** (the closed capability universe;
+match §2.3's own "one bitmask compare" — and grants store nothing, tokens
+erasing per compiler §7.5: the value carries requirements, the frame carries
+grants); and **comptime eligibility needs no runtime flag** (comptime never
+runs at runtime — the flag is evaluator-facing). Captures: the functions §2.1
+const-snapshot model with R203 inside the block (captured ints are `int64`
+fields), placement deferred to Go's escape analysis (§1.4.1's standing
+division), capability captures costing zero bytes. **The two ABIs** — R203's
+two-tier economics applied to calls: a typed **native entry** (statically
+resolved calls are plain Go calls, the devirtualization target) and a
+generated **dynamic trampoline** (capability bitmask check → positional bind
+of `paramCount` → defaults fill the deficit or `arityError` → named binding
+via the descriptor table or `namedArgumentError`, R108 → unbox, call native,
+box). **Surplus arguments drop by never being consulted** — callee-driven
+binding needs no drop mechanism, compile-time truncation being the same rule
+statically — with the semantic line pinned: surplus argument *expressions*
+still evaluate (dropping is a binding fact, never an evaluation fact, so
+effects cannot vanish based on callee arity). Signature tests read the
+descriptor typeid into the R131 machinery (ladder interval; pairwise
+leaves). Swept: `internal-representation-of-functions.md` (new), `index.md`
+(the internals row).
+
+**R205 — capture-free literals are static singletons, and the capability
+check is one masked compare against a lexical constant (function-rep §1.1,
+§4).** The two deeper questions, answered and recorded. **Capture-free
+literals** (`const somefn = fn () => {};`): nothing is per-value, so the
+closure block is emitted as **const data** — one static block, every use the
+same pointer, **zero allocations ever** (Go's own static-`funcval` trick),
+joining the immortal class. The observable consequence ruled, not left as
+accident: **identity canonicalizes per literal** — N evaluations of a
+capture-free literal are pointer-equal, hence `==`-equal, where a capturing
+literal mints per evaluation — with the clinching argument being **phase
+invariance** (a comptime-folded capture-free literal and its runtime
+evaluation are trivially the same value under canonicalization, awkwardly
+different otherwise; Go behaves identically; the equality spec promises no
+per-evaluation minting). One line: *a capture-free literal denotes one
+value; its evaluations are identical.* §5's identity note amended to match.
+**The capability check**: the questioner's premise corrected first — the
+runtime check exists **only for fn-slot calls** (a direct by-name call from
+an ungranted frame is a compile error, capabilities §5) — and then the
+pretty theorem: **the executing frame's granted set is a lexical constant**
+(its function's `use` clause plus R112 site delegation, both static; no
+runtime grant state exists, tokens erasing per §7.5), so the emitter
+materializes each dynamic site's grant as an immediate and the entire
+runtime capability system compiles to `reqMask &^ SITE_GRANT != 0 → panic`
+— one load, one and-not, one branch, at dynamic sites only. The check moved
+**out of the trampoline to the call site** (the site owns the constant; the
+trampoline takes no grant argument — R204's §4 amended). Recorded with its
+philosophical due: the audit backbone costs one masked compare on the rare
+path, free precisely because grants were designed lexical (no `implicit`,
+R33; no dynamic capability creation) — which is what lets the constant
+fold. Swept: `internal-representation-of-functions.md` §1.1 (new), §4
+(the check relocated, the theorem), §5 (identity note).
+
+**R206 — defaults ruled comptime-known constants (with fn values expressly
+legal); the descriptor's fields ruled, with five derivations and two live
+flag bits.** The semantic ruling, at its home (functions §3.3.1): **a
+default is a comptime-known constant, never a per-call expression** — the
+grounds recorded: dynamic defaults are trivially expressible where they
+belong (`p?: T` + coalesce-and-call in the body, under the function's own
+capabilities, visibly); the classic traps cannot exist (Python's
+mutable-default dead by value semantics — a table default is COW-copied per
+call; capability-in-default-position never arises; phase-invariant by
+construction); and the representation falls out (const values in the
+descriptor, not prologue code). **Fn-valued defaults deliberately legal**
+(PHP forbids this and it is legitimately annoying): the default is the fn
+*value*, nothing is called — and the ruling composes with R205: a named
+top-level function is a const binding to a static closure block, literally
+a RODATA constant; capability-requiring fn defaults fine (the value carries
+requirements; the eventual call checks). The representation rulings
+(function-rep §2): **`names` is a positional slice, never a Go map** — the
+R200 small-scan lesson applied to our own runtime (a map for three
+parameters), and disqualifying alone: Go maps cannot be emitted as static
+data, breaking descriptor-as-RODATA; the position mapping is the index
+itself. **Five derived fields are not stored** (derive-don't-cache, five
+times): `paramCount` = len(names); `minArity` = len(names) − len(defaults);
+**comptime eligibility ⇔ requirementMask == 0 — the R43 theorem doing
+representation work** (ineligibility sources are exactly capabilities; `use`
+propagates transitively, so the mask carries transitive effect-freedom);
+errorability in the typeid; post-variadic named-only-ness by rule. **Flags:
+two live bits** — `generator`, and `hasVariadic`, the latter load-bearing:
+§4's surplus-drop rule amended — a variadic callee's surplus positional
+args are not surplus, the binder branches on the flag and collects the
+trailing rest list (functions §3.3.3), which is exactly why that bit is
+stored rather than derived. Thirty bits honestly reserved. Swept:
+`functions.md` §3.3.1 (the ruling), `internal-representation-of-functions.md`
+§2 (the descriptor), §4 (the variadic branch).
+
 ---
 
 ## Still open (out of scope of these rulings)

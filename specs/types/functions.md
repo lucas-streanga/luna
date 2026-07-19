@@ -496,6 +496,28 @@ R96); it is never an optionality marker. One piece of sugar (R108): in a paramet
 default is its null, and requiring the `= null` to be spelled would be noise. A non-`?`
 parameter without a default remains required.
 
+**A default is a comptime-known constant** (R206) — never a per-call expression. The ruling
+and its grounds:
+
+- **Dynamic defaults are trivially expressible where they belong**: `p?: T` (defaulting to
+  `null`) plus a coalesce-and-call in the body — the computation runs *in* the function,
+  visibly, under the function's own capabilities, with no new mechanism.
+- **The classic traps cannot exist.** Python's mutable-default trap is dead by value
+  semantics: a `table` default is a const value COW-copied per call, never a shared
+  mutable. Capability-in-default-position questions (`= now()` — under whose grant?) never
+  arise, because a constant needs none. Defaults are phase-invariant by construction, so
+  the comptime evaluator and the runtime agree for free (compiler §6).
+- **The representation falls out**: defaults live as emitted-const values in the function's
+  descriptor (function-representation §2), not as prologue code.
+
+**A function value is a legal default** — `fn (cb: fn (int): int = defaultHandler)` — and
+deliberately so (R206; PHP forbids this and it is legitimately annoying): the default is
+the fn *value*, nothing is called, and a named top-level function is a `const` binding to a
+static closure block (function-representation §1.1), which is to say a literal compile-time
+constant. Any comptime-known fn value qualifies, including one that requires capabilities —
+the value merely *carries* its requirement set; the check happens at whatever call
+eventually invokes it, as always (capabilities §3.1).
+
 ### 3.3.2 Named arguments
 
 Any argument may be passed **by name** — `f(x, mode: {both})`. Named binding is always

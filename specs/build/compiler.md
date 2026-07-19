@@ -661,6 +661,38 @@ system is precise (most hot code is monomorphic, not `any`), the three-word `lva
 path, and its byte count is not the lever that matters. This is why the physical size is accepted
 rather than optimized: the win is avoiding the `lval` on typed paths, not shrinking it.
 
+The policy has a name and a boundary, ruled (R203): **type-directed boxing** — representation
+follows the **static type**, nothing else. The box boundary is **entry into a
+dynamically-typed slot**, never a function call as such: an `int` passed to `fn (n: int)`
+travels as a raw `int64` through any number of calls, forever unboxed, while the same `int`
+stored into an `any` slot or passed to `fn (v: any)` boxes at that entry, greedily. Four
+clarifications carry the ruling:
+
+- **Boxing is not allocation.** The Java instinct does not transfer: an `lval` is a *value* —
+  boxing writes two or three words in place (the `tagAndType` half a **compile-time constant**
+  at every box site), allocates nothing, and adds no indirection (scalars stay inline within
+  the box). The cost being stores, not heap objects, is why the greedy boundary box needs no
+  cleverness around it.
+- **Escape analysis as the boxing policy: rejected**, chaining §1.4.1's existing ruling ("no
+  Luna-level escape analysis is required"). The division of labor stands: **Luna does
+  type-directed representation; Go does escape** — everything emitted (unboxed locals,
+  lval-shaped union locals, capture environments) flows into the Go backend's own escape
+  analysis, which decides stack-versus-heap for free. A Luna-level escape pass would duplicate
+  downstream machinery to shave stores off a boundary that costs stores — and unlike the
+  type-directed rule, its results would be neither local nor obviously deterministic, which
+  the cache keying (build-cache §1, R149) and the evaluator/emitter agreement (§6.1) both
+  prefer not to depend on.
+- **Introspection never forces a box the type system didn't already force** — the worry that
+  reflection breaks unboxing is dissolved as a theorem: `@x` on a statically-typed binding
+  folds to a *constant* typeid (type knowledge is compile-time), and the only introspection
+  that reads a runtime typeid is introspection on an `any`-typed value, which the type rule
+  boxed before introspection arrived. Reflection is a consumer of boxes, never a creator.
+- **The honest residue** is `any`-heavy code (heterogeneous tables, the dynamic serialization
+  walks), where lvals mass-materialize because dynamism requires them — inherent, not a
+  policy failure, and the table representation already carries the mitigation
+  (the values column as the boxes' home; homogeneous-storage specialization recovering
+  scalar lists, table-representation §1).
+
 **Debug builds disable static unboxing** (and the other representation-destroying optimizations,
 constraint elision, comptime folding), so that **every Luna value is a real, findable `lval`** in
 the frame and matches the exported `typeinfo` the debugger reads (tooling spec §5). The emitted Go
