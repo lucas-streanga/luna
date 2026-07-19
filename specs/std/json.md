@@ -24,6 +24,16 @@ which includes the generator's by-construction-valid output (§2). `isValidJson`
 capability-free; its exact definition is deferred (§4) but its meaning is fixed:
 well-formedness per the JSON grammar, nothing more.
 
+The general constraint rules do the rest, none of it json-specific (R180, folded from the
+former type-side file):
+
+- **Value-carried** (constraints §9.2): the `json` typeid travels with the value through
+  widening, so a `json` handed to `string`-typed code is still known-`json` when it comes
+  back — `@s` reports `json`, and `s is json` is a typeid check, never a re-parse.
+- **Equality erases** (equality §1): `someJson == "{}"` compares string contents — `json`
+  and a string literal share the base `string`, so the constraint never makes equal texts
+  unequal.
+
 ### 1.1 Why not a bare `string`
 
 Returning `string` from a serializer is a footgun in both directions. Downstream, any string
@@ -33,7 +43,35 @@ rendered-JSON parts from raw strings, so it must either re-escape everything (co
 embedded JSON) or escape nothing (injection). With `json` as a type, both directions are
 typed: a `json` slot rejects a raw string, and an **embedder splices a `json` value
 verbatim, no re-escaping**, while a `string` in the same position is escaped as data. **The
-type is the escaping decision.** Every format module follows this pattern.
+type is the escaping decision.** Every format module follows this pattern. The boundary
+idiom falls out of constraint semantics with no new machinery:
+
+```
+const body = networkInput as json;    // validate external text once, at the boundary
+sendDownstream(body);                 // everything downstream demands and trusts `json`
+```
+
+### 1.2 The cost, precisely
+
+"Very cheap" means **once per value, then free**, not zero:
+
+- The entry check runs `isValidJson`, a full O(n) parse of the text. That is the honest
+  price of the fact.
+- It runs **at most once per value**: strings are immutable, so a value that entered `json`
+  never re-checks, on read, on widening, on copy (copies carry the typeid, constraints
+  §9.2).
+- For serializer output (§2) the check is an O(n) pass appended to an O(n) operation, a
+  constant factor, and the compiler may **elide** it where validity is provable (constraints
+  §9.5); where it cannot prove it, the check runs, correctness over cleverness.
+- `s is json` and `@s == json` after entry are O(1) typeid operations, never re-parses.
+
+### 1.3 Predicate dependency
+
+`isValidJson(str)` is a **function call inside a `where` clause**. This spec therefore
+depends on constraints §11 ("predicate expressiveness") resolving to admit calls to **pure,
+comptime-eligible functions** in predicates. `isValidJson` is exactly such a function, total
+over `string`, no capabilities, deterministic, so it is the motivating instance for that
+resolution rather than an exception to it.
 
 ## 2. Writing
 
@@ -166,8 +204,13 @@ export const fromJson = fn (j: json): table!;
 
 ## 4. Open questions
 
-- **`isValidJson` edges**: exact grammar profile (trailing bytes, duplicate keys, number
-  precision).
+- **`isValidJson` edges**: exact grammar profile — which standard (expected: strict
+  RFC 8259, extensions like trailing commas and comments rejected, pending confirmation),
+  trailing bytes, duplicate keys, number precision.
+- **Number fidelity**: how `int` and `double` round-trip through JSON numbers (precision
+  limits; `nan` and the infinities, which JSON cannot represent — what the writers do
+  with them). The exact types are already ruled — canonical strings, never JSON numbers
+  (R161/R162/R164) — which sharpens rather than settles the `double` question.
 - **Document shape**: what a scalar-rooted document (`"5"` is valid JSON) yields when
   `fromJson` promises `table!`, a one-element wrapper or a declarable error.
 - **`fromJson` into declared shapes**: parsing into a protocol-typed table (the inverse of

@@ -4323,6 +4323,62 @@ conversion-§2-pattern precision: no `is`-**specific** failure, not "nothing
 can panic while the test runs." Swept: `is.md` §1, §2.1 (new);
 `constraints.md` §2.1 (new).
 
+**R179 — conversion.md aligned to the R157 writer split and completed; and
+the validation uncovered a two-headed json spec, flagged for merge.** The
+alignment: §2's `to*` exemplar row listed **`toJson`** as a value→value total
+conversion — post-R157 `toJson` is the *comptime generator*
+(`comptype → fn (any): json`); the value→value writer is `toJsonDynamic` —
+the row now names `toJsonDynamic` (and `toList`, R167's own row, was missing
+from its own file's exemplars), with the generator noted as honoring the
+contract through its *product*; the §2 precision paragraph and §3's
+flagged-call parenthetical (`toJson(v, includeProtocols: true)` — a call
+shape `toJson` cannot take, its first parameter being a `comptype`) fixed the
+same way. §5 gains the two missing family rows — **`toBytes(src: string |
+iterable)`** (strings §9, the R107 per-element panic cross-noted) and
+**`toStream(src: iterable | bytes)`** (the lazy O(1) bridge, R102) — and the
+deferred bullet now names the full landing `parse*` family
+(`parseDecimal`/`parseRational`/`parseComplex`), not just complex's. Checked
+clean: §1's dividing line, §2's naming principle and policy-verb paragraph,
+§3's stringify machinery (protocols §3.1 *is* the qualified-form section,
+§3.4 *is* fn-typed-member-on-proto — both verified), §3.1/§3.2, §4's
+open/closed split, §6's three opens (all valid). **The discovery**: the
+corpus carries **two diverged `json.md` files** — `std/json.md` (181 lines,
+the R125 flag signatures, R146-touched; most "json §" cites resolve here:
+§2.1 what-serializes, §3 reading) and `types/json.md` (142 lines, untouched
+since the R145 rename, **but holding unique content other specs cite**: the
+§1.2 entry-cost rules and §1.3 predicate-dependency-on-constraints-§11) —
+with **both** indexed (index.md rows 125 and 180, each claiming
+`toJson`/`toJsonDynamic`). Divergence in the flesh: types' `toJsonDynamic`
+signature lacks the R125 flags std's carries. Not resolved here — a merge is
+structural surgery awaiting direction (tracked in the still-open tail).
+Swept: `conversion.md` §2 ×2, §3, §5 ×2.
+
+**R180 — the two-headed json spec collapsed: `std/json.md` is the one json
+spec; the orphan retired with a was→is map.** R179's flag, executed. The
+merge carried types/json.md's unique, still-true content into std/json.md as
+**new subsections of §1 — so no existing "json §" cite renumbers**: §1 gains
+the value-carried and equality-erases constraint-rule bullets (constraints
+§9.2, equality §1 — `@s` reports `json` through widening, `someJson == "{}"`
+compares contents), §1.1 gains the boundary-idiom block, and **§1.2 "The
+cost, precisely"** (once per value then free; the O(n) entry parse as the
+honest price; §9.5 elision; O(1) `is`/`@` after entry) and **§1.3 "Predicate
+dependency"** (`isValidJson` as constraints §11's motivating instance) are
+carried whole. §4's opens absorb the orphan's two extra details: the strict
+RFC 8259 expectation, and a promoted **number-fidelity** open (`nan`/inf
+have no JSON representation — sharpened, not settled, by the exact types'
+canonical-string rulings). Everything else was subsumed: std's §2 already
+carried the generator and walk with the R125 flags the orphan's signatures
+lacked, its §2.1/§3 the what-serializes and reading stories the orphan
+deferred. The orphan's §5 "parsing deliberately not specified here" bullet
+was simply obsolete (std §3 specifies `fromJson`). Mechanics: `git mv
+types/json.md → retired/json-duplicate.md` (history preserved), content
+replaced with the R146-pipeline-style tombstone (what it was, why retired,
+a was→is table); index.md's types-section JSON row removed (the std.json
+row remains, the one row); greps confirm zero external cites to the folded
+§1.2/§1.3/§5 (they were internally cited only), zero dangling `types/json`
+path references. Swept: `std/json.md` §1 ×2, §1.1, §1.2 (new), §1.3 (new),
+§4; `retired/json-duplicate.md` (new tombstone); `index.md`.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -4388,3 +4444,7 @@ explicit form (spread §7).
 *(The `@P` value-position contradiction R174's validation surfaced here is **ruled:
 R175** — the static-protohood steer extends to value position, `@P` on a proto yields the
 induced refinement everywhere, the alias idiom legal by construction.)*
+
+*(The two-headed json spec R179 flagged here is **resolved: R180** — merged into
+`std/json.md`, the orphan retired as `retired/json-duplicate.md`, one index row, no
+cite renumbered.)*

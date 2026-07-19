@@ -36,14 +36,14 @@ acquiring a value from an encoding must *recover* it from data that may not enco
 
 | Prefix | Shape | Errorable? | Reading it |
 |-|-|-|-|
-| `to*` | value → value, total conversion | **never** | no `try`, ever: `toString`, `toInt`, `toDouble`, `toBytes`, `toTable`, `toJson`, `toStream` |
+| `to*` | value → value, total conversion | **never** | no `try`, ever: `toString`, `toInt`, `toDouble`, `toBytes`, `toTable`, `toList`, `toStream`, `toJsonDynamic` (and the comptime generator `toJson`'s *product*, `fn (any): json`, honors the same contract — json §2, R157) |
 | `parse*` | bare text → value; names the **target** | **always** `!` | recovering a value from text that may not encode one: `parseInt`, `parseDouble`, `parseBool` |
 | `from*` | typed carrier → data; names the **source** | **always** `!` | decoding at a format boundary: `fromJson`, `fromBytes`, `fromYaml` |
 
 One precision on the table's **never**: it means never **`!`** — the declarable channel.
 Panics remain possible in a `to*` function as everywhere (functions §4: any function may
-panic, none declares it): `toJson` raises `typeError` on a fn value in the serialization
-surface (json §2.1), and `toBytes`' iterable arm panics per element on a non-byte int
+panic, none declares it): the serialization writers raise `typeError` on a fn value
+(json §2.1), and `toBytes`' iterable arm panics per element on a non-byte int
 (R107) — each a contract violation surfacing where it happens, not a recoverable
 outcome. The contract is "seeing `to` means no error *handling*," not "cannot fail on
 misuse."
@@ -130,10 +130,10 @@ has `stringify` applied with its own renderer bound, and `toString` reaches it b
 A required fn-typed member is how any interface-shaped contract is expressed under the
 member model (protocols §2); `toString` extensibility needs no new machinery. (One
 consequence to know: the renderer is a `get` fn-typed per-table member, so in protocol
-mode it sits in the emitted surface and meets the fn-serialization rule — `toJson(v,
-includeProtocols: true)` on a `@stringify` value raises `typeError` unless
-`skipFunctions` is set. The default serializes element space only and never trips on
-the renderer; json §2.1, R125.)
+mode it sits in the emitted surface and meets the fn-serialization rule —
+`toJsonDynamic(v, includeProtocols: true)` on a `@stringify` value raises `typeError`
+unless `skipFunctions` is set. The default serializes element space only and never trips
+on the renderer; json §2.1, R125.)
 
 ### 3.1 `toString` is total, including for user types
 
@@ -202,6 +202,11 @@ specs and summarized here:
 - **From text (fallible):** `parseInt(s: string): int!`, `parseDouble(s: string): double!`,
   `parseBool(s: string): bool!` — one per parseable built-in (string spec and each type's
   spec).
+- **To bytes (total):** `toBytes(src: string | iterable): bytes` — the packed conversion
+  (strings §9); the iterable arm panics per element on a non-byte int (R107), the §2
+  misuse precision.
+- **To stream (total):** `toStream(src: iterable | bytes): stream` — the lazy O(1) bridge
+  (iterable-functions; producers produce streams, R102).
 - **Numeric widening (total):** `toDouble(n: int): double` (exact to 2^53, lossy above;
   double spec §7).
 - **Numeric narrowing (policy verbs, fallible):** `trunc` / `round` / `floor` / `ceil`,
@@ -212,7 +217,8 @@ specs and summarized here:
   numeric-tower §4, §6; the exact-type conversion trio — `toRational`, `exactDecimal`,
   `toDecimal(scale)` — is rational §3). The verbs do **not** widen to `complex` — a
   complex has no `int` reading of any policy; its exits are the accessors `real`/`imag`
-  (complex §3, R164), and `parseComplex` joins the `parse*` family with the type. Every
+  (complex §3, R164), and `parseDecimal` / `parseRational` / `parseComplex` join the
+  `parse*` family with their types (decimal §5, rational §4, complex §4). Every
   widened direction is lossy, which is why none is ever `as` (as spec §3).
 - **Bool (total out):** `toInt(b: bool): int` (`true` to 1), `toString(b)` (`true` to `"true"`);
   there is deliberately no `int`-to-`bool` conversion (write the comparison; bool spec §3).

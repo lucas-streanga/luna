@@ -122,7 +122,6 @@ table is a map.
 | Regex | `regex.md` | The compiled regular-expression type and its `/.../` literal. |
 | Command | `command.md` | The structured, inert program/pipeline type built from a backtick literal. |
 | Secret | `secret.md` | The self-redacting sensitive-payload type, read only via `reveal`. |
-| JSON | `json.md` | The `json` constraint on `string`, and the `toJson` / `toJsonDynamic` serialization surface. |
 | Type | `type.md` | The `type` type: a type as a first-class, comparable value. |
 | Undefined | `undefined.md` | The language-produced absence sentinel (missing key / void return). |
 | Numeric tower | `numeric-tower.md` | The complete numeric type set and the widening/conversion rules relating them. |
