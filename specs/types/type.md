@@ -1,7 +1,7 @@
 # The `type` type
 
 `type` is its own **primitive** type, an inline value that *is* a `typeid` (value-representation
-§3). It is not a table. A `type` value names a type: `int`, `Shape`, `int | double`, `secret`. The
+§3). It is not a table. A `type` value names a type: `int`, `shape`, `int | double`, `secret`. The
 `@` operator produces one (`@x` is "the type of `x`"), it may be bound to a name
 (`const number: type = int | double`), compared, and matched.
 
@@ -258,7 +258,7 @@ per-value introspection cost.
 **Runtime (cheap, O(1) `typetable` lookups):**
 
 - **Identity / comparison** (`==`), the core operation, a `typeid` compare.
-- **Name**, the type's display name (`int`, `Shape`, `int | double`), for output and debugging.
+- **Name**, the type's display name (`int`, `shape`, `int | double`), for output and debugging.
 - **Kind**, which declaration form or built-in category the type is, as the closed `kind`
   enum — scalar, table, refinement, union, the `*Type` dodges for reserved words
   (introspection §4.3, R128) — so introspection can branch exhaustively on type category
@@ -345,7 +345,7 @@ Section 7 is one instance of a general rule: the type in a `match` arm's typed b
 (is spec §2), and the compiler knows the type's **kind** statically, so it emits the appropriate
 one:
 
-- a **concrete type** (`int`, `Shape`), a `typeid` compare (a fast switch),
+- a **concrete type** (`int`, `shape`), a `typeid` compare (a fast switch),
 - a **application refinement** (`@stringBuilder`), a protocol-membership test (`@@`); the *binder*
   is what carries the applied-`P` guarantee, and it is a table (§7),
 - a **constraint** (`byte`), the constraint predicate (constraints spec),

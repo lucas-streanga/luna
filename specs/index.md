@@ -234,6 +234,17 @@ table is a map.
 | Function representation | `internal-representation-of-functions.md` | Runtime storage of fn values (R204): one pointer to a closure block (Go's funcval shape); the per-literal descriptor (typeid, capability bitmask, names→positions); the two ABIs — native entry + dynamic trampoline. |
 | Stream representation | `internal-representation-of-streams.md` | Runtime storage of streams (R207): the stream block (state, one-lval peek slot, flags) with generator bodies compiled to state machines; goroutines and range-over-func rejected with full grounds; restart = two stores. |
 
+### Deferred constructs (`deferred-constructs/`)
+
+Deferred **core-language** constructs — as distinct from deferred std libraries (recorded in
+their modules) and deferred decisions (recorded where they arose). Each file is a full design
+analysis: the case both ways, the forced design if revived, and the revival condition.
+Nothing here is part of the language.
+
+| Construct | File | State |
+|-|-|-|
+| Shape types | `shape-type.md` | Deferred (R212): protos are the records trajectory; the forced design (const-only `shape` sugar over a table constraint + retained structure, exact/closed) recorded with the static-only-checking impossibility result. |
+
 ### Retired (tombstone pointers, `retired/`)
 
 Each file below is a **retirement stub** — a was→is map preserving where the retired

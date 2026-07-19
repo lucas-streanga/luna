@@ -5227,6 +5227,71 @@ ordinary R148 machinery. Swept: `stream.md` §1 (the ruling),
 `internal-representation-of-streams.md` §2.1 (the passage rewritten); the
 still-open tail item discharged.
 
+**R211 — enum.md: the variant syntax gains its `:`, the payload shape ruled
+the deliberate exception with constraints composing not competing, the
+PascalCase field re-cased, and §9 sorted.** **The syntax**: a variant is
+`name: payloadType` — the earlier juxtaposition (`circle ['radius' => int]`)
+was the grammar's lone name-then-type-by-adjacency, every other
+type-introducing position using `:` (parameters, bindings, proto members,
+the constraint binder, match's typed binders); parses with no new machinery
+(`,`/`}` already terminate types, R137). The proposed `=` rejected with the
+proposer's own model turned around: **protocols use `:` for member types**
+(`=` there is initializers/values, the corpus-wide split), and
+`= ['radius' => int]` would even parse as a table *value* holding a type —
+a misreading inviting defaults semantics variants do not have. Construction
+and patterns unchanged (inside the brace fence the adjacent thing is a
+value/pattern — a closed own-grammar). **The shape-vs-constraint question
+ruled as composition** (new §2.3): the shaped payload is the one place
+shape-typed tables exist — variant-scoped, justified not tolerated, because
+two consumers *read* the contract rather than run it (the construction
+checker's field-level diagnostics; the match binder inheriting declared
+field types — `r: int` in `{circle ['radius' => r]}` *because* the shape
+says so). A constraint cannot replace it — any shape *check* is expressible
+but as an **opaque boolean**: static field types die (binders at `any`),
+diagnostics collapse to "constraint failed," closedness becomes discipline,
+and R137's const-only rule makes per-variant ceremony — while constraints
+**compose within it** (field types may be constraints,
+`['radius' => positiveInt]`, §2.1's own rule: shape owns structure,
+constraints own value refinement, each doing what the other cannot) and the
+whole-payload predicate contract stays available as explicit opt-in
+(`circle: circleTable`). **The casing field**: ~30 PascalCase sites re-cased
+(`shape`, `event`, `expr`, `direction`, `hand`, `tree`, `loggable`, `foo` —
+the R171 class, now at the source), with the four outside stragglers swept
+(introspection's `baseOf(@shape.circle)`, type.md ×3). **§9 retitled
+Resolved and deferred**: parameterized enums reworded from "out of scope"
+to *deferred with generics* (it *is* parametric typing; no enum-local
+answer exists); the R131 marker already stood. Swept: `enum.md` §0, §1,
+§2 (examples, prose, the ruling note), §2.1, §2.2, §2.3 (new), §8, §9,
+casing throughout; `overview/types.md` (the declaration example's colon);
+`introspection.md`; `type.md` ×3.
+
+**R212 — general shape types deferred, with the full design recorded in a
+new home: `deferred-constructs/`, for deferred core-language constructs.**
+The brainstorm's outcome, recorded so it is never re-derived
+(`deferred-constructs/shape-type.md`): **the sharpened case for** (the real
+payoff is not sealing — expressible today as a table constraint plus §7's
+mutation machinery — but *static field access*, a contract accessors and
+binders read, enum §2.3's two-readers lesson generalized); **the sharpened
+case against, which currently wins** (the corpus's records trajectory is
+protos — `@fileInfo`, `@commandResult`, `datetime`, and json §4's planned
+generated read side all reached for them — so shapes would open a second
+record mechanism beside one in motion, the abuse vector made concrete);
+**the impossibility result** (static-only checking cannot exist: dynamic
+data — `fromJson` output, the flagship case — has nothing static to check,
+so any shape type is forced onto the constraint model, static-when-provable
+plus runtime entry plus mutation class — the distinction from constraints
+being only *what the compiler reads*, never *when it checks*); **the forced
+design if revived** (`const circle = shape ['radius' => int];` — const-only
+per R137's discipline, sugar over a table constraint plus retained readable
+structure, exact and closed with width subtyping refused, inline anonymous
+shapes rejected permanently); and **the revival condition** (only if
+post-alpha experience shows protos too heavy for plain data records — the
+apply ceremony, nominal identity, or serialization split proving a real
+tax). The new folder's charter stated in the index: deferred *language*
+constructs, distinct from deferred std libraries (recorded in modules) and
+deferred decisions (recorded where they arose). Swept:
+`deferred-constructs/shape-type.md` (new), `index.md` (the new section).
+
 ---
 
 ## Still open (out of scope of these rulings)

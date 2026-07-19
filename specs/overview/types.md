@@ -75,7 +75,7 @@ its base (`byte <: int`), widens to the base implicitly, and narrows from it via
 (constraints spec); `byte` and `list` are instances.
 
 Another declaration form is **`enum`**, a discriminated union (tagged sum): `shape = enum {
-circle ['radius' => int], point, ... }`. A value is exactly one variant at a time, each carrying
+circle: ['radius' => int], point, ... }`. A value is exactly one variant at a time, each carrying
 at most one payload value (a table for structured data, or any other type). Named enums are
 **nominal** (distinct by name); an anonymous enum written inline (`enum {a, b}`) is
 **structural** (same variant set, order-independent, is the same type). Constructed with braces

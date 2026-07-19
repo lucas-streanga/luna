@@ -180,8 +180,8 @@ export const baseOf = fn (t: type): type?;
   nothing. The domain is every refining declaration form: a constraint's base
   (`baseOf(byte)` is `int`, `baseOf(list)` is `table`, `baseOf(json)` is `string`), an
   error type's parent (`baseOf(fileNotFound)` is `ioError`; `baseOf(error)` is
-  `null` — the root refines nothing), an enum variant's enum (`baseOf(@Shape.circle)`
-  is `Shape` — resolving enum.md's standing deferral, which asked for exactly this
+  `null` — the root refines nothing), an enum variant's enum (`baseOf(@shape.circle)`
+  is `shape` — resolving enum.md's standing deferral, which asked for exactly this
   general form), and a refinement's or mixed intersection's base (`baseOf(@person)` is
   `table`). Atoms, unions, and `any` answer `null`: they refine nothing. A flat
   `typetable` read; the predicate itself stays comptime-tier (§4.2).

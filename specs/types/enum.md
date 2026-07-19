@@ -8,10 +8,10 @@ but neither expresses "one of several named alternatives, each with its own data
 exactly an enum.
 
 ```
-const Shape = enum {
-  circle ['radius' => int],       // variant `circle`, carrying a table typed ['radius' => int]
-  square ['side' => int],         // variant `square`, carrying a table
-  labeled string,                 // variant `labeled`, carrying a bare string
+const shape = enum {
+  circle: ['radius' => int],      // variant `circle`, carrying a table shaped ['radius' => int]
+  square: ['side' => int],        // variant `square`, carrying a table
+  labeled: string,                // variant `labeled`, carrying a bare string
   point,                          // variant `point`, carrying nothing
 };
 ```
@@ -27,10 +27,10 @@ while an enum holds *one* variant at once (a sum).
 A variant carries **at most one payload value**, of a declared type:
 
 - **No payload**: `point` carries nothing (the C-style "just a name" case).
-- **A table payload**: `circle ['radius' => int]` carries a table. When several pieces of data
+- **A table payload**: `circle: ['radius' => int]` carries a table. When several pieces of data
   belong to a variant, the payload is a **table**, and it is an *ordinary* table, with quoted
   keys, table patterns, and all table machinery (§4). There is no separate "enum field" concept.
-- **Any other value**: `labeled string` carries a bare `string`; a payload may be a primitive,
+- **Any other value**: `labeled: string` carries a bare `string`; a payload may be a primitive,
   another enum, a list, anything. It is one value of one type.
 
 So the structure is **a sum of (optionally table) payloads**: the sum is at the variant level
@@ -47,19 +47,32 @@ A named enum is declared with the `enum` form, bound to a `const`, consistent wi
 type-declaration forms (`constraint`, `capability`, `protocol`):
 
 ```
-const Shape = enum {
-  circle ['radius' => int],
-  square ['side' => int],
+const shape = enum {
+  circle: ['radius' => int],
+  square: ['side' => int],
   point,
 };
 ```
 
 - `enum { ... }` lists the **variants**, comma-separated.
-- Each variant is a **name**, optionally followed by a **payload type**. The payload type is an
-  ordinary type: a table type (`['radius' => int]`, quoted keys, §4), a primitive (`string`),
-  or any other type. A variant with no payload type carries nothing.
+- Each variant is a **name**, optionally followed by **`: payloadType`** (R211). The payload
+  type is an ordinary type: a payload shape (`['radius' => int]`, quoted keys, §2.3), a
+  primitive (`string`), or any other type. A variant with no payload carries nothing.
 - The enum has **no per-variant `enum` keyword** and no nesting ceremony; `enum` appears once,
-  and each variant is just `name` or `name payloadType`.
+  and each variant is just `name` or `name: payloadType`.
+
+**The `:` is ruled, replacing an earlier juxtaposition** (`circle ['radius' => int]`, R211):
+name-then-type by adjacency existed nowhere else in the language — every other
+type-introducing position uses `:` (parameters, bindings, proto members, the constraint
+binder, match's typed binders) — so the variant list now reads as what it is, a name-to-type
+list, and parses with no new machinery (`,`/`}` already terminate types, R137). An `=` form
+was considered and rejected: `=` introduces *values* corpus-wide (and protocols, the proposed
+model, use `:` for member types — `=` there is initializers), while `['radius' => int]` after
+an `=` would even parse as a legal table *value* holding a type — a misreading inviting a
+defaults semantics variants do not have. The **construction and pattern forms are
+unchanged** (`{circle ['radius' => 5]}`, `{circle ['radius' => r]}`): inside the brace fence
+the adjacent thing is a value or pattern, not a type, a closed own-grammar where the
+convention is not in play.
 
 Variant **payload keys are quoted** (`['radius' => int]`), exactly as table literals and
 patterns are (a quoted key is a literal; an unquoted name would be a variable, tables spec), so
@@ -72,15 +85,15 @@ primitives. Because a payload is a value of a type, the type slot accepts the wh
 language with no enum-specific contract mechanism:
 
 ```
-const Event = enum {
-  logged  ['entry' => @Loggable],       // field has a protocol applied (protocols spec)
-  counted ['n' => byte],                 // field is a constrained type (constraints spec)
-  wrapped ['inner' => Shape],            // field is another enum
+const event = enum {
+  logged:  ['entry' => @loggable],      // field has a protocol applied (protocols spec)
+  counted: ['n' => byte],               // field is a constrained type (constraints spec)
+  wrapped: ['inner' => shape],          // field is another enum
 };
 ```
 
 So a payload or payload-field type may be a constrained type (`byte`), a protocol-application type
-(`@SomeProto`), another enum, a table, a list, or any other type. Shape contracts on payload
+(`@SomeProto`), another enum, a table, a list, or any other type. shape contracts on payload
 fields are therefore not a separate feature, they are just the field types being drawn from the
 full type language.
 
@@ -90,10 +103,10 @@ A payload type **may reference the enum being declared**, which allows tree- and
 where each node is one of several kinds:
 
 ```
-const Expr = enum {
-  literal ['value' => int],
-  add     ['left' => Expr, 'right' => Expr],     // sub-expressions are Exprs
-  negate  ['operand' => Expr],
+const expr = enum {
+  literal: ['value' => int],
+  add:     ['left' => expr, 'right' => expr],    // sub-expressions are exprs
+  negate:  ['operand' => expr],
 };
 ```
 
@@ -103,15 +116,38 @@ because a table payload holds **references** to its children (tables are referen
 with `&`, tables spec), not inlined copies, so a recursive value is an ordinary finite heap
 structure. Recursion costs nothing extra to allow, so it is allowed; its primary use is the
 specialized one of typed heterogeneous trees (parse trees, ASTs), where the static "this child
-is an `Expr`" guarantee is wanted. (For nested *homogeneous* data a table suffices, and where the
+is an `expr`" guarantee is wanted. (For nested *homogeneous* data a table suffices, and where the
 static child type is not needed, an untyped `table`/`list` payload suffices; the recursive enum
 is the tool when a typed heterogeneous tree is specifically wanted.) Mutually recursive enums
 across module boundaries are forbidden by the module DAG (modules spec §2), so they must share a
 module.
 
----
+### 2.3 Payload shapes are the deliberate exception; constraints compose, not compete (R211)
 
-## 3. Construction
+The shaped payload (`['radius' => int]`) is **the one place shape-typed tables exist in
+Luna** — variant-scoped, never general (Luna otherwise has no shape types; match §4, tables
+spec). The exception is justified, not tolerated: this is the sole position where the
+contract must be **readable structure**, because two consumers *read* it rather than merely
+run it — the construction checker (§3.1's field-level, construction-site diagnostics:
+"`'colour'` is not a declared field") and the **match binder** (`{circle ['radius' => r]}`
+binds `r: int` *because* the declared shape says so — the pattern's binders inherit declared
+field types).
+
+**A constraint cannot replace the shape**, and was weighed (R211): a table constraint can
+express any shape *check* (`where t.count() == 1 && t['radius'] is int`) but expresses it as
+an **opaque boolean** — static payload-field types die (pattern binders would bind at `any`,
+narrowing at every use), diagnostics collapse from field-level to "constraint failed," and
+closedness becomes author discipline rather than construction. R137's const-initializer-only
+rule adds ceremony with teeth: every structured variant would need a separately-named
+constraint, killing the cheap closed set enums exist to be.
+
+**The composition is the design**: the shape owns *structure* (which keys, what types,
+closed), constraints own *value refinement* within it — a field type may be a constraint
+(`circle: ['radius' => positiveInt]`, §2.1's own rule), each mechanism doing what the other
+cannot (a predicate yields no field types; a shape cannot say `radius > 0`). And the
+whole-payload predicate contract exists as an explicit **opt-in**: a payload type may be a
+named table constraint (`circle: circleTable`, §2.1) — legal today, just not the default
+mechanism.
 
 A variant is constructed with **braces around the variant name** and its payload, `{variant
 payload}`. The braces mark an enum-variant construction, distinguishing `{nfc}` (the variant
@@ -120,7 +156,7 @@ payload}`. The braces mark an enum-variant construction, distinguishing `{nfc}` 
 ```
 let a = {circle ['radius' => 5]};       // variant circle, table payload
 let b = {labeled "hello"};               // variant labeled, string payload
-let c: Shape = {point};                  // variant point, no payload
+let c: shape = {point};                  // variant point, no payload
 ```
 
 The payload is written as an ordinary value: a table value (`['radius' => 5]`), a primitive
@@ -128,7 +164,7 @@ The payload is written as an ordinary value: a table value (`['radius' => 5]`), 
 
 **Which enum a fenced literal belongs to is the expected type at its position.** A variant
 literal names a variant, not an enum, so the enum is supplied by context: the annotation
-(`let c: Shape = {point}`), the parameter's declared type (`openFile('x', {read})`, where the
+(`let c: shape = {point}`), the parameter's declared type (`openFile('x', {read})`, where the
 parameter is typed `enum {read, write, append}`), the assignment target, the match scrutinee's
 type. Anonymous enums intern structurally (value-representation §4.1), so an inline
 `enum {read, write, append}` in a signature is one canonical type wherever it is written, and
@@ -175,9 +211,9 @@ declaration and construction are closed.
 the annotated binding, the parameter type, or the return type:
 
 ```
-let d: Shape = {point};                  // target: Shape
+let d: shape = {point};                  // target: shape
 someFn({circle ['radius' => 5]});        // target: someFn's parameter type
-fn f(): Shape => {point};                // target: the return type
+fn f(): shape => {point};                // target: the return type
 ```
 
 This is how the string API writes an enum default, `= {nfc}` with the parameter typed `enum
@@ -190,15 +226,15 @@ When there is **no target type** and the variant name is **ambiguous across enum
 is named **inside the braces**: `{Enum.variant}`. For example:
 
 ```
-const Direction = enum { north, south, east, west };
-const Hand      = enum { north, south };
+const direction = enum { north, south, east, west };
+const hand      = enum { north, south };
 
-let x = {north};              // ambiguous: Direction.north or Hand.north?
-let y = {Hand.north};         // qualified: unambiguously Hand's north
+let x = {north};              // ambiguous: direction.north or hand.north?
+let y = {hand.north};         // qualified: unambiguously hand's north
 ```
 
 The braces remain the sole construction form, so qualification does not introduce a second way
-to construct; `{north}` and `{Hand.north}` are the same construction with an optionally-qualified
+to construct; `{north}` and `{hand.north}` are the same construction with an optionally-qualified
 variant name. The `.` in `{Enum.variant}` is **variant selection on the enum type**, a different
 operation from field access (`value.field`), but it is fenced **inside the construction braces**,
 so the two uses of `.` never collide: outside braces `.` is field access, and inside a
@@ -233,7 +269,7 @@ match (s) {
 Because a value is one variant at a time, `match` over the variants is the way to both
 discriminate (which variant) and extract (its payload) in one step. `{...}` (enum) is distinct
 from `[...]` (table) in a pattern: `['type' => "move"]` matches a **table**, `{circle [...]}`
-matches an **enum variant**. A pattern may qualify the variant (`{Hand.north} => ...`) the same
+matches an **enum variant**. A pattern may qualify the variant (`{hand.north} => ...`) the same
 way construction does (§3.3), though in `match` the scrutinee's type is known, so qualification
 is almost never needed.
 
@@ -264,7 +300,7 @@ makes the closed, checked option as cheap as the magic string.
 
 Named and anonymous enums differ in **type identity**:
 
-- **Named enums are nominal.** `const Direction = enum {north, south}` and `const Hand = enum
+- **Named enums are nominal.** `const direction = enum {north, south}` and `const hand = enum
   {north, south}` are **different types** despite identical variants, because they are named.
   Naming is a deliberate act of declaring a distinct type. (This matches the language's other
   named declarations, and is why domain types stay distinct.)
@@ -281,7 +317,7 @@ Identity rules:
   set. (This keeps identity simple and avoids enum-subtyping and its exhaustiveness
   complications.)
 - **A named enum is not structurally equal to an anonymous one** with the same variants. Naming
-  opts into nominal identity, so a named `Foo = enum {a, b}` is distinct from an anonymous `enum
+  opts into nominal identity, so a named `foo = enum {a, b}` is distinct from an anonymous `enum
   {a, b}`. In practice this rarely bites, because construction is target-typed (§3.2): you write
   `{a}` and it becomes whatever type the site expects, named or anonymous, so you seldom hold an
   anonymous-typed value that must match a named type.
@@ -296,7 +332,7 @@ named enums).
 
 `@x` gives the value's **current variant type**, the most-specific `typeid` it carries, exactly as
 `@` does everywhere (`@someByte` is `byte`, not `int`; `@someError` is `ioError`, not `error`). It
-is **not** widened to the enum type. For a **named** enum, `@x` is the variant, `Shape.circle`; for
+is **not** widened to the enum type. For a **named** enum, `@x` is the variant, `shape.circle`; for
 an **anonymous** enum, `@x` is the **structural** variant (and two structurally-equal anonymous
 enums still share `@`, so structural identity is preserved). This is the cheapest possible read:
 the `lval` already carries the variant `typeid` (§8), so `@x` just returns it, with **no widening
@@ -305,23 +341,23 @@ step**.
 Two questions, and the `is`/`match` split answers them the same way it does everywhere, identity
 vs. extraction:
 
-- **Which variant is this? (type-level, no payload.)** `@x == Shape.circle`, or the operator form
-  `x is Shape.circle`, tests the specific variant; `x is Shape` tests "*any* variant of `Shape`"
+- **Which variant is this? (type-level, no payload.)** `@x == shape.circle`, or the operator form
+  `x is shape.circle`, tests the specific variant; `x is shape` tests "*any* variant of `shape`"
   (the subtype/interval check, §8). Neither binds the payload; they only identify.
 - **Which variant, *and* its payload? (value-level, binds.)** `match` discriminates the variant and
   **extracts its payload together** (`match (x) { {circle ['radius' => r]} => ... }`), so `match` is how
   you *use* a variant, `@`/`is` is how you *test* one. Same relationship as `is` to `as`/`match`
   throughout the language.
 
-**One idiom shifts** from the old "`@` gives the enum type" model: "is this a `Shape` at all" is now
-`x is Shape` (true for every variant), **not** `@x == Shape` (which is now *false*, `@x` is the
-variant). "Is it a circle" is `x is Shape.circle` / `@x == Shape.circle` / `match`. This is the same
+**One idiom shifts** from the old "`@` gives the enum type" model: "is this a `shape` at all" is now
+`x is shape` (true for every variant), **not** `@x == shape` (which is now *false*, `@x` is the
+variant). "Is it a circle" is `x is shape.circle` / `@x == shape.circle` / `match`. This is the same
 shift constraints already made (`@x == int` is false for a `byte`; you write `x is int`), so enums
 now behave under `@` exactly like every other refinement `typeid`.
 
 `@@` (protocol reflection) is **not** used for enum variants: an enum is not a protocol, and the
 variant is not a protocol member, so overloading `@@` would conflate two different concepts.
-Recovering the **enum** type from a variant `typeid` (e.g. `Shape` from `Shape.circle`) is a
+Recovering the **enum** type from a variant `typeid` (e.g. `shape` from `shape.circle`) is a
 reflection query deferred for now (§9).
 `@@` stays protocol-only; the variant is a runtime tag for `match`.
 
@@ -355,13 +391,13 @@ runtime (Go) has no discriminated-union type; the language does not need one, be
 representation it already defines is the tagged union, and enums are one use of it.
 
 - **The variant is a refinement `typeid`.** Each `(enum, variant)` pair is its own `typeid`, a
-  **subtype of the enum type**: `Shape.circle <: Shape`, `Shape.square <: Shape`, and so on. So
+  **subtype of the enum type**: `shape.circle <: shape`, `shape.square <: shape`, and so on. So
   "which variant is this?" is a **subtype test** on the `typeid`, the same interval check
   (value-representation §4.2) that answers "is this error a `commandError`?" A variant is to its
   enum exactly what an error subtype is to `error`: a refinement `typeid`, assignment-compatible
   with the base, distinguished by the concrete id. `@value` yields the **variant** `typeid`
   directly (§6), a plain type-tag read with no widening; the *enum* is tested by the subtype check
-  `x is Shape`. The type universe stays finite (variants are
+  `x is shape`. The type universe stays finite (variants are
   written in source, bounded, value-representation §4.1), so one `typeid` per variant is cheap
   (ids are indices).
 - **The payload rides in the `lval` payload word.** A no-payload variant carries nothing; a
@@ -373,8 +409,8 @@ representation it already defines is the tagged union, and enums are one use of 
   on the payload. Exhaustiveness is checked by the compiler (§4.1, match spec §9), not by the
   host `switch`; `match!` emits a `default` that panics, and a non-exhaustive `match` yields the
   `| undefined` result.
-- **Recursive enums need nothing extra.** A recursive payload (`node ['left' => Tree, 'right'
-  => Tree]`) is a table holding `lval`s that are themselves enum values, ordinary heap pointers,
+- **Recursive enums need nothing extra.** A recursive payload (`node: ['left' => tree, 'right'
+  => tree]`) is a table holding `lval`s that are themselves enum values, ordinary heap pointers,
   traced by the garbage collector like any other managed payload. So a tree of enums is a tree
   of heap `lval`s, and recursion falls out of "payloads are tables, tables hold `lval`s,
   `lval`s can be enums" (§2.2).
@@ -386,14 +422,15 @@ representation is the sum type, built once, and enums are an instance of it.
 
 ---
 
-## 9. Open questions
+## 9. Resolved and deferred (R211)
 
-- **Parameterized enums.** An enum parameterized by a type (an `Option` over any element type
-  rather than a fixed payload type) reads as generics, which the language does not have, so this
-  is **out of scope** unless parametric types are ever adopted.
+- **Parameterized enums: deferred with generics.** An enum parameterized by a type (an
+  `option` over any element type rather than a fixed payload type) *is* parametric typing,
+  which the language does not have; the question rides with generics wholesale and has no
+  enum-local answer. Not open — nothing awaits a decision here.
 - *(**Enum-recovery introspection: resolved by R131** — the **general** form won:
   `baseOf(t: type): type?` (introspection §4.1) returns the immediate refinement
-  parent, serving enum variants (`@Shape.circle` → `Shape`), constraints (`byte` →
+  parent, serving enum variants (`@shape.circle` → `shape`), constraints (`byte` →
   `int`), and error subtypes (`ioError` → `error`) uniformly, plus refinements
   (`@person` → `table`); it subsumes the narrower `constraintBase`, and the
   enum-specific `enumOf` alternative is retired unminted — one query, one question.)*
