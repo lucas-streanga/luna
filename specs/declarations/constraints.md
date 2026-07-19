@@ -130,6 +130,29 @@ satisfied `byte` when it became a `byte`, it still does, because `x` and the pre
 both fixed. This is also why a constraint is **its own declaration form** rather than an
 arbitrary function in a type position: the form is what makes purity enforceable.
 
+### 2.1 Purity is not totality: predicate panics and divergence (R178)
+
+The form enforces purity; it does not — cannot — enforce **totality**, and the two gaps are
+ruled honestly rather than papered over:
+
+- **A predicate can panic ambiently.** `constraint i: int where i * i > 0` panics with
+  `overflowError` at large `i` — inside the predicate, before any membership answer exists.
+  Such a panic **propagates**, from every site that runs the predicate: entry (assignment,
+  `as`, a `match` arm) and the `is` test alike. It is **never swallowed** into "check
+  failed" / `false`: a suppressed panic would hide the bug and turn the answer into a silent
+  wrong value. Consequence stated plainly: an entry check can therefore surface a panic
+  that is *not* `typeError` (the `overflowError` above arrives first), and `is`'s
+  "never panics" contract carries the matching precision (is §1) — no *check-specific*
+  failure exists, but the predicate's own panics are ambient, as everywhere (errors §7).
+- **A predicate can diverge.** Since predicates admit pure function calls (§11), unbounded
+  recursion is expressible, and Luna has no termination checker. A diverging predicate makes
+  its constraint unusable at every site equally — the bug is the constraint's, and no
+  checking site adds or escapes the exposure.
+
+Both are authoring bugs in the constraint, not holes in the checking model: the model's
+guarantee is *where* checks run and that their verdicts are durable (purity), never that an
+arbitrary pure computation is cheap, terminating, or panic-free.
+
 ---
 
 ## 3. A constraint carries its base type

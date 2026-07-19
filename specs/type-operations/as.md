@@ -24,7 +24,7 @@ let s = u as string;         // narrow to string; typeError (panic) if u is curr
   it is not; `as` checks. On success, the result is typed `string`. On mismatch, it raises a
   `typeError` (panic).
 - **Subtype narrowing.** A supertype narrowed to a subtype it currently is: `error as
-  commandError`, `table as list`, `capability as reveal`. Same check, same `typeError` on
+  commandError`, `table as list`, `ioError as fileNotFound`. Same check, same `typeError` on
   mismatch.
 - **Safe widening.** The reverse direction (member to union, subtype to supertype, `list` to
   `table`, `commandError` to `error`) always succeeds, because the value already satisfies the
@@ -96,6 +96,16 @@ no lossless `int` reading) do not exist — they are `toFloat` and the policy ve
 sides: `int as u64` legally changes representation while preserving the value, and a
 bit-preserving reinterpretation that changed the *value* would be exactly what `as`
 forbids.
+
+R161/R162 sharpened the criterion from the other side: **lossless is necessary, not
+sufficient** — the preserved value must be the value the source type *presents*, not a
+faithful embedding of its representation. `double as decimal` and `double as rational` are
+**rejected although mathematically lossless** (every finite double embeds exactly), because
+the embedding surfaces the binary representation's hidden digits (`0.1` →
+`0.1000000000000000055511…`, the `BigDecimal(0.1)` trap) — lossless in the worst way. The
+accepted contrast is `double as complex` (R164): the component is carried bit-for-bit into
+the same format on a wider plane, nothing reinterpreted, no digits invented
+(numeric-tower §3.1).
 
 This split is why `as` keeps its clean "never `!`" property: everything that can fail with a
 *handleable* error is a function returning `!`, so `as` is left with only the panic-on-mismatch
@@ -196,10 +206,13 @@ and §3.2.1.
 
 ## 6. Known uses across the specs
 
-- **`"text" as secret`** (secret spec §3): widening a `string` into a `secret`. A total,
-  never-failing coercion (any string is a valid secret), so it is `as`, not a function. (Its
-  asymmetry: `secret` back to `string` is *not* `as`, it is `reveal`, a capability-gated
-  extraction.)
+- **`"text" as secret`** (secret spec §3): a **lossless entry** into another type — the
+  `int as decimal` class (§3, numeric-tower §3.1): the payload is preserved exactly, only
+  now sealed, and the move is explicit though it cannot fail, because the crossing should
+  be *seen* — "where are secrets created" is answerable by searching `as secret`, secret
+  §3's own argument. (The gated constructor `secret(...)` is a separate, R79 form — secret
+  §3.2; and the asymmetry: `secret` back to `string` is *not* `as`, it is `reveal`, a
+  capability-gated extraction.)
 - **`tab as list`** (tables §2.1, §2.3): narrowing a `table` to a `list`, checked. It
   **asserts** the table is *already* a list and raises a `typeError` (panic) if it is not
   (has a gap or a string key). It does not reshape the table; if it passes, the same value is
@@ -222,12 +235,16 @@ and §3.2.1.
   reports whether `e` is a `commandError` but does **not** narrow `e`; to obtain a `commandError`
   binding you use `as` (or `match`), which produces a new narrowed value.
 - **The numeric tower's `as` moves** (numeric-tower §2–§4): integer narrowing and crossing
-  (`int as i8`, `u64 as u8`, `int as u64`) and the arbitrary-precision entry
-  (`int as decimal`) are `as` because each is lossless where it accepts — range is the
+  (`int as i8`, `u64 as u8`, `int as u64`), the arbitrary-precision entry
+  (`int as decimal`), and the plane entry (`double as complex`, R164) are `as` because
+  each is lossless where it accepts and preserves the value as read — range is the
   only question, a panic. The lossy directions are functions, not `as`: `double as float`
-  and `decimal as int` do not exist (`toFloat`; `trunc`/`round`/`floor`/`ceil`). And
-  int-to-double was a function before the rule had its name: `toDouble` is lossy above
-  2^53, which is why R106 could never have spelled it `as`. §3's criterion, applied.
+  and `decimal as int` do not exist (`toFloat`; `trunc`/`round`/`floor`/`ceil`), and
+  `double as decimal` / `double as rational` are rejected though lossless (§3's
+  sharpening, R161/R162 — the crossing is `parseDecimal(toString(d))`, lossy moment
+  visible). And int-to-double was a function before the rule had its name: `toDouble` is
+  lossy above 2^53, which is why R106 could never have spelled it `as`. §3's criterion,
+  applied.
 
 ---
 
@@ -267,6 +284,8 @@ form, and `match` is the ergonomic one.
 (non-panicking) test, `as` the asserting (panicking) narrowing that yields the narrowed value.
 
 ## 8. Open questions
+
+*(none — the one this section carried is resolved:)*
 
 - *(**`as` on secret payloads: resolved by R113.** `reveal` returns the union
   `string | bytes | table`, and the result is ordinary union typing, narrowed with

@@ -15,9 +15,18 @@ x is string     // the complement (for a two-member union)
 
 ## 1. Always a `bool`, always total
 
-`x is T` **always** produces a `bool`, for any value and any type. It cannot fail: a value either has
-the type or it does not, and both answers are ordinary booleans. So `is` never raises, never panics,
-and is safe to use anywhere a boolean is wanted (a condition, a `where` guard, a boolean expression).
+`x is T` **always** produces a `bool`, for any value and any type: a value either has the type or
+it does not, and both answers are ordinary booleans. `is` has **no failure of its own** — no
+mismatch panic (that is `as`), no error channel — and is safe anywhere a boolean is wanted (a
+condition, a `where` guard, a boolean expression).
+
+One precision (R178, the conversion §2 pattern): "never panics" means no `is`-**specific**
+failure, not "nothing can panic while the test runs." A **constraint** target runs its predicate
+(§2), and a predicate — pure by form, but purity is not totality (constraints §2.1) — can panic
+*ambiently* (`i * i > 0` overflows at large `i`: an `overflowError` from inside the predicate).
+Such a panic **propagates**, never swallowed into `false` — a suppressed panic would hide the
+bug and make the answer a silent wrong value. Every mechanism `is` dispatches to *except* the
+predicate run is panic-free and bounded (§2.1).
 
 This is the sharp contrast with `as` (as spec):
 
@@ -33,8 +42,14 @@ This is the sharp contrast with `as` (as spec):
 
 The left operand is a **value**; the right operand is a **type** (a `type` expression, types spec):
 a primitive (`int`, `string`, `bool`), a union (`int | string`), a constraint (`byte`), an enum, a
-protocol-application refinement (`@P`), or any other type value. `x is T` reports whether `x`'s current
-type is a subtype of `T` (whether `x` is usable as a `T`).
+protocol-application refinement (`@P`), or any other type value. `x is T` reports whether `x` is a
+**member of `T`'s value set** — whether `x` would seat in a `T`-declared position ("usable as a
+`T`"). For nominal tree types that coincides with `x`'s current type being a *subtype* of `T`
+(`e is commandError`); for a **constraint** it deliberately does not — `200 is byte` is `true`
+while `int` is not a subtype of `byte` (the relation runs the other way, `byte <: int`) — the
+test is the **predicate over the base** (constraints §7); and for **`@P`** it is the applied-set
+test, a value property never encoded in the typeid (type §5). One question — membership —
+answered by whichever mechanism the type's shape requires.
 
 ```
 v is int              // primitive
@@ -44,16 +59,41 @@ v is @drawable        // protocol: true if v is a table with the applied drawabl
 ```
 
 Because Luna's type universe is statically closed and each value carries its type
-(value-representation spec), the test is a cheap runtime check on the value's current `typeid`,
-which is always **concrete**, a current type is never a union, so the check is dispatched by the
-shape of `T` (value-representation §4.2): an **interval check** when `T` is a tree node (a named
-type, a constraint, an error, and also bare `fn` / `fn!`, whose ladder is a tree, functions §3.1),
-**member decomposition** when `T` is a union (one interval check per flat, canonicalized member),
-the applied-set membership test for a `@P` refinement (protocols §9), and a **pairwise-table lookup**
-when `T` is a function **signature**, whose subtyping is a DAG rather than a tree and whose relation
-is therefore folded once at link time. It does not evaluate the value's contents beyond what the type
-requires (a constraint runs its predicate, constraints §7), and it never *runs* a function to decide
-`f is fn (A): R`, it compares the reified signature (functions §3).
+(value-representation spec), the test is cheap, and it is dispatched by the shape of `T`
+(value-representation §4.2) — the value's current `typeid` is always **concrete**, never a union:
+an **interval check** when `T` is a tree node (a named nominal type, an error type, and also bare
+`fn` / `fn!`, whose ladder is a tree, functions §3.1); for a **constraint**, the **predicate over
+the base** (constraints §7): the value's `valueBase` must be the constraint's base and the
+predicate must hold — a current `typeid` already inside the constraint's interval is the fast
+path that skips the re-run, entry-only checking having already paid it; **member decomposition**
+when `T` is a union (one test per flat, canonicalized member); the **applied-set membership
+test** for a `@P` refinement (protocols §6); and a **pairwise-table lookup** when `T` is a
+function **signature**, whose subtyping is a DAG rather than a tree and whose relation is
+therefore folded once at link time. Beyond what the type requires it never evaluates the value's
+contents, and it never *runs* a function to decide `f is fn (A): R`, it compares the reified
+signature (functions §3).
+
+### 2.1 Soundness: the dispatch is static, and every cell but one is bounded (R178)
+
+The mechanism is chosen at **compile time**, never by runtime inspection of `T`. The right
+operand is a type expression (associativity §1, tier 6), type position resolves statically (the
+closed universe; every binding's kind — protocol, type, value — is statically fixed, type
+§1.1), so the compiler *emits* the mechanism for `T`'s shape, and no shape can fall through:
+the kind set is closed, the dispatch total. A corollary worth stating: `x is t` where `t` is a
+**`var` holding a `type` value** is not writable — a `var`'s kind is *value*, which cannot
+appear in type position — so dynamic type-membership questions belong to introspection
+(`isSubtype`, `@@`; the operators-are-language, functions-are-library split, introspection
+§0). The value's side is total too: a runtime typeid is always concrete, never a union, and
+every typeid has a `typeinfo`.
+
+**Termination**: decomposition cannot recurse (canonicalization pre-flattens union-of-union at
+intern time, value-representation §4.2), intervals and pairwise loads are constant-time, and
+the applied-set test runs no user code. The one unbounded cell is the **constraint
+predicate**: purity is enforced by form, totality is not (constraints §2.1), and a predicate
+admitting pure function calls (constraints §11) can diverge. This is not an `is`-specific
+exposure — the identical predicate runs at every constraint *entry* (assignment, `as`,
+`match`), so a diverging predicate makes its constraint unusable everywhere; the bug is the
+constraint's, and `is` adds no new surface.
 
 ## 3. `is` does not narrow
 

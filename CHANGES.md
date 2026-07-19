@@ -4241,6 +4241,88 @@ value-position bullet's new arm). protocols §7, introspection §5, and io §2
 already spoke the ruled side and stand unchanged; the still-open tail item
 is discharged.
 
+**R176 — as.md validated: one unwritable example, one internally-contradictory
+rationale, and the R124 criterion brought up to its own later sharpenings.**
+The finds, fixed: §1's subtype-narrowing examples included **`capability as
+reveal`** — the corpus's only occurrence, and unwritable since R135: the
+slot-inhabitant rule means no `capability`-typed value slot can exist, so the
+wider operand of that narrowing can never be held (replaced with `ioError as
+fileNotFound`, a real mid-tree narrowing). §6's secret bullet called `"text"
+as secret` "**widening** a string into a secret… a coercion" — contradicting
+this file's own §1 (widening is implicit; `as` is reserved for narrowing) and
+R124's vocabulary; the spelling itself was verified current (secret §3 rules
+`as secret`, with `secret(...)` a separate R79 *gated* constructor, now also
+noted), and the bullet is rewritten as what it is: a **lossless entry** of the
+`int as decimal` class, explicit-though-infallible because the crossing should
+be seen (secret §3's own searchability argument). §3's criterion paragraph
+predated the exact types: it now carries the **R161/R162 sharpening** —
+lossless is *necessary, not sufficient*; the preserved value must be the value
+the source type presents, so `double as decimal`/`double as rational` are
+rejected though mathematically lossless (the faithful-embedding trap) while
+`double as complex` (R164) is the accepted contrast (bit-for-bit, nothing
+reinterpreted) — and §6's tower bullet gains the same three moves. §8 marked
+none-open. Checked and clean: the §5.1 function-narrowing model (matches
+functions §3.2/§3.2.1, both cites verified), the §7 no-flow-narrowing story,
+the §4 pattern-position note, the R106 conversion split. Swept: `as.md` §1,
+§3, §6 ×2, §8.
+
+**R177 — is.md validated: the semantics sentence overclaimed subtype, exactly
+as suspected; the dispatch paragraph self-contradicted on constraints; one
+wrong cite.** The user's instinct ("`is` is subtype membership, but only
+sometimes") named the defect precisely. §2's opening sentence said `x is T`
+"reports whether `x`'s current type is a **subtype** of `T`" — **false for
+constraints**: `200 is byte` is `true` while `int` is not a subtype of `byte`
+(the relation runs the other way, `byte <: int`); the test runs the predicate.
+The ruled meaning, now stated: `is` answers **membership in `T`'s value set**
+("would `x` seat in a `T`-declared position") — one question, answered by
+whichever mechanism the type's shape requires: typeid-subtype *coincides* with
+membership for nominal tree types, constraints answer by **predicate over the
+base** (constraints §7's own "admits exactly the base-type values that satisfy
+the predicate"), and `@P` answers by the applied-set test, a value property
+never in the typeid (type §5, the same axis R175 just walked). The dispatch
+paragraph had the matching internal contradiction — it listed "a constraint"
+among the **interval-check** tree nodes while its own tail said "a constraint
+runs its predicate"; the constraint arm is now stated correctly (valueBase +
+predicate, with an in-interval current typeid as the fast path that skips the
+re-run, entry-only checking having already paid it). And the applied-set cite
+pointed at **protocols §9** ("Extensions are functions") — now §6, the section
+that actually holds `x is @P`. Verified real before letting them stand:
+`isSubtype` (introspection §4.1 — exists, with introspection's own §0 stating
+the value-vs-type-question split verbatim), the fn-ladder interval and
+signature pairwise-table claims (value-representation §4.2), the §3
+no-narrowing story (compiler §1.4.1). A corpus grep confirms the
+subtype-overclaim phrasing existed nowhere else. Swept: `is.md` §2 ×2.
+
+**R178 — `is` soundness recorded: static dispatch proven, the never-panics
+contract given its honest asterisk, predicate non-totality ruled at the
+predicate's home.** The soundness probe, answered and pinned (is §2.1): the
+mechanism is chosen at **compile time**, never by runtime inspection of `T` —
+the right operand is a type expression (associativity tier 6), type position
+resolves statically (closed universe; every binding's kind statically fixed,
+type §1.1), so the compiler emits the mechanism and no shape falls through;
+the corollary stated: `x is t` with `t` a **`var` holding a `type` value** is
+not writable (a `var`'s kind is *value*, unusable in type position) — dynamic
+membership belongs to introspection, the R127 operators-are-language split.
+Termination: decomposition cannot recurse (canonical pre-flattening),
+intervals/pairwise loads constant, applied-set runs no user code — **the one
+unbounded cell is the constraint predicate**, and that is not `is`-specific
+(the identical predicate runs at every entry; a diverging predicate breaks
+its constraint everywhere equally). The genuine gap found by the probe, now
+ruled in both homes: **purity is not totality** (new constraints §2.1) — a
+predicate can panic *ambiently* (`i * i > 0` overflows at large `i`:
+`overflowError` from inside the predicate, arriving before any membership
+answer and, at entry sites, before any `typeError`), and such a panic
+**propagates from every checking site, never swallowed into `false`/"check
+failed"** — suppression would hide the bug and make the answer a silent
+wrong value; and a predicate can **diverge** (pure function calls, §11; no
+termination checker exists). Both are authoring bugs in the constraint, not
+holes in the checking model, whose guarantee is *where* checks run and that
+verdicts are durable — never that an arbitrary pure computation is cheap,
+terminating, or panic-free. is §1's "never panics" now carries the
+conversion-§2-pattern precision: no `is`-**specific** failure, not "nothing
+can panic while the test runs." Swept: `is.md` §1, §2.1 (new);
+`constraints.md` §2.1 (new).
+
 ---
 
 ## Still open (out of scope of these rulings)
