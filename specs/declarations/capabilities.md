@@ -208,7 +208,7 @@ the **imported binding**. Modules are unnamed and resolved at compile time, so t
 X" is a search for `use (X)` against the one canonical declaration the import resolves to.
 
 ```
-const authenticate = fn (s: secret) use (reveal): response !=> {
+const authenticate = fn (s: secret) use (reveal): response! => {
   let raw = reveal(s);          // permitted: this function holds the reveal capability
   ...
 };
@@ -398,7 +398,7 @@ is an ergonomic grouping of exported capabilities; it changes nothing about the 
 
 ```
 const webApp = capability { io, net, fs };   // grants io, net, and fs together
-const query  = fn (sql: string) use (webApp): rows !=> { ... };
+const query  = fn (sql: string) use (webApp): rows! => { ... };
 // use (webApp) requires and propagates io, net, and fs, exactly as if all three were listed
 ```
 
@@ -422,7 +422,7 @@ guarantees:
 ```
 const dbAccess = capability;
 
-const query = fn (sql: string) use (dbAccess): rows !=> { ... };   // only holders may query
+const query = fn (sql: string) use (dbAccess): rows! => { ... };   // only holders may query
 ```
 
 Now "which parts of the app can touch the database" is a checkable property: a function

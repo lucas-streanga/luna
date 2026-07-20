@@ -78,7 +78,7 @@ const stringBuilder = proto {
   const get append          = fn (b: @stringBuilder, value: any): self => { ... };
   const get appendAll       = fn (b: @stringBuilder, items: iterable): self => { ... };
   const get appendCodepoint = fn (b: @stringBuilder, cp: int): self => { ... };
-  const get appendUtf8Bytes = fn (b: @stringBuilder, raw: bytes): self !=> { ... };
+  const get appendUtf8Bytes = fn (b: @stringBuilder, raw: bytes): self! => { ... };
   const get reserve         = fn (b: @stringBuilder, bytes: int): self => { ... };
   const get byteLength      = fn (b: @stringBuilder): int => { ... };
   const get isEmpty         = fn (b: @stringBuilder): bool => { ... };

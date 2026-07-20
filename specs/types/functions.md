@@ -21,10 +21,14 @@ There is no separate function-declaration namespace, and no overloading (unions 
 what overloading would, per the language overview).
 
 A `fn` value is, at runtime, a code pointer plus a captured environment (§2). Its `lval`
-is an ordinary 16-byte value: the `typeid` identifies the specific function type (which
-encodes the properties in §4 and §5), and `dataPtr` refers to the closure. No
-function-specific flag bits exist; everything that distinguishes one function type from
-another lives in the type, not in per-value flags (§6).
+is an ordinary value (logically 16 bytes, physically 24 under the Go hosting —
+value-representation §1.1): the `typeid` identifies the specific function type (signature
+plus errorability, §3, §4), and `dataPtr` refers to the closure block
+(function-representation §1). No function-specific `lval` flag bits exist: what
+distinguishes function types lives in the **type** (signature, errorability, §7), and what
+distinguishes same-typed function *values* lives on the **value's shared descriptor**
+(the requirement set, the parameter names — §3, function-representation §2), never in
+per-value flags.
 
 ---
 
@@ -77,6 +81,15 @@ let h = fn () => t.count = 5;   // COMPILE ERROR: cannot mutate through a captur
 Because capture is a `const` bind, one law now covers every boundary a value crosses,
 a call, a closure, a spawn: **crossing is by value (copy-on-write) or by declared
 reference; capture is the by-value case, made immutable.**
+
+One observable consequence for the empty case (R205, folded in from the representation
+side because it is semantics): **a capture-free literal denotes one value — its
+evaluations are identical.** Evaluating `fn () => {}` N times (in a loop, pushed to a
+list) yields N `==`-equal values, where a *capturing* literal mints a distinct identity
+per evaluation (each evaluation snapshots). Phase invariance is the clinching ground: a
+comptime-folded capture-free literal and its runtime evaluation are trivially the same
+value under this rule, awkwardly different values otherwise (compiler §6). The
+representation realizes it as a static closure block (function-representation §1.1).
 
 **Consequences, stated as decisions.** A closure cannot accumulate: there are no
 stateful closures in Luna. A counter, `once`, `memoize`, a debouncer, anything that
@@ -163,7 +176,11 @@ fn (params) : result!            // errorable (§4)
 
 **The literal's header order is fixed** (R45): `fn (params) [use (...)] [: returnType] =>
 body`, the `use` clause **before** the return type, then the mandatory `=>`, then a body
-that is an expression or a block. Parsing is LL(1) by construction: `fn` commits the
+that is an expression or a block. **The errorability `!` belongs to the return type**
+(R213): a throwing literal is `: int! => { ... }` — `int!` then the arrow, two tokens, no
+fused `!=>` arrow exists. (An earlier drafting habit wrote `: int !=> {`, detaching the
+postfix `!` from its type; technically the same parse, stylistically wrong, and normalized
+corpus-wide.) Parsing is LL(1) by construction: `fn` commits the
 production, and each junction is decided by its next token (`use`, `:`, `=>`). One
 disambiguation rule, pinned because the fenced variant literal also uses braces (enum
 §3.3): **after `=>`, a `{` always opens a block**; an expression body that is a variant
@@ -540,11 +557,12 @@ calls readable (`a.merge(b, preserveKeys: true)`). The rules (R108):
   would hide the typo forever.
 - **The deficit check runs after named binding** (§3.3): a required parameter filled by
   name is not a deficit.
-- **Named arguments work through any function value**, including a type-erased `fn`: a
-  `fn` value carries its parameter names as runtime metadata, and named binding resolves
-  against them at the call. Two consequences, both accepted: **parameter names are
-  contract** (renaming a parameter is a breaking change for name-using callers; std
-  parameter names are stable API), and function values pay a small, fixed metadata cost.
+- **Named arguments work through any function value**, including a type-erased `fn`: the
+  parameter names ride the value's **shared per-literal descriptor**
+  (function-representation §2 — one static table per literal, never per-value metadata;
+  a value pays one pointer), and named binding resolves against them at the call. The
+  consequence accepted: **parameter names are contract** (renaming a parameter is a
+  breaking change for name-using callers; std parameter names are stable API).
 - **Names are never manufactured from data.** Spread into an argument list is a sequence
   context requiring a `list` (spread §4); a string-keyed table does **not** spread into
   named arguments. A named argument is visible at the call site, always.
@@ -629,7 +647,7 @@ A function that can throw a declarable error (errors §2) **declares** it with `
 (value-representation error model):
 
 ```
-const parseInt = fn (s: string): int !=> { ... };   // declared throwing
+const parseInt = fn (s: string): int! => { ... };   // declared throwing
 const double   = fn (n: int): int => n * 2;          // not throwing
 ```
 
@@ -654,10 +672,10 @@ Three properties keep this local and predictable:
 - **The check reads callee *signatures*, not callee bodies.** "Can `g` throw?" is answered by
   `g`'s declared signature; `g`'s body was already checked against `g`'s own signature when `g`
   was compiled. So there is **no fixpoint, no propagation, and no order dependence**: each
-  function is checked in isolation against the declarations of what it calls. This is why
-  errorability is **not** a call-graph fixpoint the way comptime-eligibility and capabilities
-  are (§5.1); it is a per-function local check, which sits more cleanly beside the no-whole-
-  program-analysis stance (compiler §1.4.1).
+  function is checked in isolation against the declarations of what it calls. Errorability,
+  capabilities, and comptime-eligibility now all share this local-against-declarations
+  shape (§5.1, R213 — the fixpoint an earlier draft ran for eligibility was a fossil), which
+  sits cleanly beside the no-whole-program-analysis stance (compiler §1.4.1).
 - **The check is per-call-site and lexical, never path-sensitive.** A throwing call handled on
   one branch and unhandled on another is judged **per site**: the unhandled one requires `!` (or
   its own handler), regardless of whether another path happens to handle it. The compiler never
@@ -688,11 +706,21 @@ on a declared error is readable off one line: `main`'s signature.
 ## 5. Comptime-eligibility
 
 A function may be evaluated at compile time, `const c = comptime someFn();`, only if it
-is **comptime-eligible**. Eligibility is a type-level property with a single local rule,
-propagated over the call graph:
+is **comptime-eligible**. Eligibility is a value-level property with a single **local**
+rule (R213):
 
-> A function is comptime-eligible iff **every capability it uses is declared `comptime`**
-> and every function it calls is comptime-eligible.
+> A function is comptime-eligible iff **every capability in its declared requirement set
+> is `comptime`** (the empty set qualifying trivially).
+
+That one conjunct suffices *because of R33*: capabilities are explicit, uniformly — a
+required-but-undeclared `use` is a compile error, and requirements propagate up the call
+graph **by declaration** (capabilities §5) — so a function that calls ineligible code
+must itself declare the offending capabilities, and its own declared set already carries
+everything its direct calls transitively reach. Calls through `fn`-typed slots are the
+one thing the set cannot see, and they need nothing here: a slot call checks the held
+value's requirements against the frame's grant at the call (capabilities §5.1), and at
+comptime the grant is empty, so a shortfall panics — which at comptime is a compile
+error (§5.4). Sound either way.
 
 The reasoning: `use` (the sole referential capture, §2.2) is the only way a function
 reaches the outside world at all, ordinary captures are inert `const` snapshots (§2.1),
@@ -706,24 +734,19 @@ therefore has no outward effect and is safe to run at compile time, where there 
 world to affect. `io` is **not** declared `comptime`, so any function that reaches it is
 ineligible, and the sandbox holds by construction.
 
-### 5.1 It is transitive, but cheap
+### 5.1 It is transitive, and free — no fixpoint exists (R213)
 
-"Every function it calls is comptime-eligible" is transitive, but it is computed **once,
-for the whole program**, as a single fixpoint over the call graph, the same pass and
-cost as **capability propagation** (capabilities spec §5). (Errorability is **not** such a
-fixpoint, §4: it is a per-function local check against callee *signatures*, not a propagated
-computation.)
-
-```
-f.comptimeEligible = (every capability f uses is `comptime`) AND (every g that f calls is comptimeEligible)
-```
-
-This is O(functions + call-edges), linear, and handles recursion by the standard
-monotonic fixpoint (assume eligible, remove eligibility for any function that uses a
-**non-comptime** capability or has an ineligible callee, iterate to a fixed point). A
-`comptime f()` site is then an **O(1)** read of `f`'s eligibility bit; the transitivity was
-paid once, globally, not per call site. This is not a parse-time concern, it is a
-post-resolution analysis pass.
+An earlier draft computed eligibility as a whole-program fixpoint over the call graph
+("every callee is eligible," iterated). That was a fossil of a pre-R33 model, and it
+contradicted R33 itself: with **no inference tier** — every capability explicitly
+declared, propagation by declaration (capabilities §5) — the transitive information is
+already *in each function's own declared set* by the time the function compiles.
+Eligibility is therefore a **local read**, per function, with no propagation pass, no
+recursion handling, and no order dependence: exactly the shape errorability's check
+already has (§4 — each function judged in isolation against declarations). A
+`comptime f()` site is an O(1) masked test of `f`'s requirement set against the
+non-comptime capability mask (function-representation §2, R213's refinement) — the
+transitivity was paid where R33 always charges it, at declaration.
 
 ### 5.2 It lives on the value, and the callee is statically known anyway
 
@@ -738,21 +761,23 @@ launder and no check to defer.
 
 It needs no place in the type, because comptime evaluation requires the callee to be **statically
 known** in any case, so the compiler always holds the function itself and reads its requirement set
-directly. A comptime call must therefore be to a `const` binding (a fixed function), not a `let`
-that could be reassigned:
+directly. A comptime call must therefore be to a comptime-known binding — a `const` (or a `let`,
+which never rebinds and coincides with `const` for functions, §8) — not a **`var`** that could be
+reassigned (R213; an earlier draft said "`let`," misstating the ladder — `let` is the *fixed*
+binding, variables §1):
 
 ```
 const pure = fn (n: int): int => n * 2;
 const c = comptime pure(21);        // OK: const, comptime-eligible, statically known
 
-let maybe = pure;
-comptime maybe(21);                 // error: let binding is not a statically-known callee
+var maybe = pure;
+comptime maybe(21);                 // error: a var is not a statically-known callee
 ```
 
-`const` fixes *which* function is called; comptime-eligibility (in the type) guarantees
-*that* function is safe to run at compile time. Both are required: a `const` binding of an
-ineligible function is still not comptime-callable, and an eligible function reached
-through a reassignable `let` is not either.
+The fixed binding names *which* function is called; eligibility (read off the value's
+requirement set) guarantees *that* function is safe to run at compile time. Both are
+required: a `const` binding of an ineligible function is still not comptime-callable, and
+an eligible function reached through a reassignable `var` is not either.
 
 ### 5.3 Inferred, optionally declared; and `comptime fn` for always-comptime functions
 
@@ -979,27 +1004,28 @@ spec; here it is simply the partial-application sugar.
 
 ---
 
-## 7. Why these live in the type, not the `lval`
+## 7. Why errorability lives in the type, eligibility on the value, and neither in flags
 
-Errorability (§4) and comptime-eligibility (§5) are properties of the function **type**,
-recorded in its `typeinfo` and encoded into its `typeid`, not in the function value's
-`lval` flag byte. Two reasons, both from the value-representation discipline:
+**Errorability (§4) is a property of the function type**, encoded in its `typeid`;
+**comptime-eligibility (§5) is a property of the value**, derived from its requirement
+set (R43 — an earlier version of this section still claimed both were typeid-encoded,
+"comptime-eligible variants with distinct typeids"; that was the pre-R43 fossil, corrected
+R213). Neither lives in the `lval` flag byte, and each placement has its reason from the
+value-representation discipline:
 
-- **They are not per-value.** Every value of a given function type has identical
-  errorability and eligibility; there is no throwing and non-throwing *instance* of the
-  same function type. The `lval` flag byte is reserved for per-value dynamic state
-  (`isNull`, `isUndefined`), which can differ between two values of one type. These
-  cannot.
-- **They are derivable from the type.** Storing them as flags would denormalize the type
-  and let a flag disagree with the `typeid`, the same reason error-ness is derived from
-  the typeid rather than flagged (value-representation §2.1).
+- **Errorability is not per-value and is type-derivable.** Every value of a given function
+  type has identical errorability — there is no throwing and non-throwing *instance* of
+  one function type — and storing it as a flag would let the flag disagree with the
+  `typeid`, the same denormalization value-representation §2.1 forbids for error-ness.
+  So `fn (int): int` and `fn (int): int!` are distinct typeids, checked at assignment and
+  call.
+- **Eligibility is per-value and value-derivable.** Two values of one written type may
+  hold different requirement sets (fixed where each closure was created, §3), so the
+  typeid *cannot* carry it — and it needs no flag either, being one masked read of the
+  descriptor's requirement set (§5.1, function-representation §2). Derive, never cache.
 
-So `fn (int): int` and `fn (int): int!` are distinct types with distinct typeids, and the
-comptime-eligible and comptime-ineligible variants likewise. A function value's `lval` is
-unchanged by any of this: `typeid` (the specific function type) plus `dataPtr` (the
-closure). The caller reads errorability and eligibility from the callee's type in O(1),
-and the type system checks them at assignment and call, which it could not do if they
-were hidden in per-value flags.
+A function value's `lval` is unchanged by any of this: `typeid` (signature plus
+errorability) plus `dataPtr` (the closure block).
 
 The same discipline, run in reverse, is why **capabilities live on the value and not in
 the type** (§3): a capability set is genuinely per-value, two closures of one written

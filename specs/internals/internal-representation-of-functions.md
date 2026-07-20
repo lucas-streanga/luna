@@ -79,10 +79,14 @@ The field representations are ruled, each by a lesson this file's siblings taugh
   pointer to its static block (§1.1).
 - **The derived fields are not stored** — derive-don't-cache (table-representation §1.5),
   five times over: `paramCount` = `len(names)`; `minArity` = `len(names) − len(defaults)`;
-  **comptime eligibility ⇔ `requirementMask == 0`** — the R43 theorem doing representation
-  work (ineligibility sources are *exactly* capabilities, and `use` propagates transitively,
-  capabilities §5, so the mask already carries transitive effect-freedom); errorability is in
-  the `typeid`; post-variadic named-only-ness follows from `hasVariadic` plus the
+  **comptime eligibility ⇔ `requirementMask & NON_COMPTIME_CAPS == 0`** — the R43 theorem
+  doing representation work (ineligibility sources are *exactly* capabilities, and `use`
+  propagates transitively by declaration, capabilities §5/R33, so the mask already carries
+  transitive effect-freedom), refined by R213: **comptime capabilities exist** (functions
+  §5.5, capabilities §7.1) and occupy mask bits, so the test masks them out first —
+  `NON_COMPTIME_CAPS` is a link-time constant, and the read stays one masked compare (an
+  earlier form said `mask == 0`, forgetting the comptime-capability bits); errorability is
+  in the `typeid`; post-variadic named-only-ness follows from `hasVariadic` plus the
   trailing-rest rule (R108).
 - **`flags` has exactly two live bits**: `generator` (the evaluator and emitter need
   "calling this constructs a generator machine") and `hasVariadic` (load-bearing for §4's
@@ -161,7 +165,16 @@ a binding fact, never an evaluation fact, so effects cannot vanish based on call
 
 `@f` reads the descriptor's `typeid` — the interned signature — and `f is fn (A): R`
 dispatches per value-representation §4.2: the `fn`/`fn!` ladder by interval, signature
-leaves by the link-time pairwise table (R131). `==` is identity: one pointer compare on the
+leaves by the link-time pairwise table (R131).
+
+**The optimistic-`as` claim is representable today, for free** (R213, closing functions
+§3.2's loop): after `f as fn (int): int`, the **claimed** signature rides the value's
+`lval` typeid — re-typing the lval is what `as` *is* — while the **real** signature stays
+in the descriptor. The two-sided per-call checks then read their natural sources: the
+contravariant argument checks and the binder consult the **descriptor** (the real
+parameters, §4), and the covariant result check consults the **lval's claimed** typeid.
+No new state, no claim table: the claim travels wherever the value does, exactly as `as`
+semantics require. `==` is identity: one pointer compare on the
 closure block (equality §2 — extensional function equality is undecidable, so identity is
 the only sound answer, already ruled). Two *capturing* closures from one literal are unequal
 (distinct blocks, one per evaluation); one closure aliased twice is equal to itself; and a

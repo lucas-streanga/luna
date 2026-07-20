@@ -56,7 +56,7 @@ of the program: user code wraps a credential with `secret(...)`, passes the comm
 raw value never appears in user-visible output.
 
 ```
-const countLines = fn (path: string) use (exec): int !=> {
+const countLines = fn (path: string) use (exec): int! => {
   let out = try run(`wc -l ${path}`);
   return parseFirstInt(out);
 };

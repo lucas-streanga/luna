@@ -5265,6 +5265,53 @@ answer exists); the R131 marker already stood. Swept: `enum.md` §0, §1,
 casing throughout; `overview/types.md` (the declaration example's colon);
 `introspection.md`; `type.md` ×3.
 
+**R213 — functions.md's close audit: ten findings, all fixed — three
+internal contradictions (one a whole fossil model), three stale
+representation claims, three internals-compatibility gaps, and the `!=>`
+spelling normalized out of existence.** The contradictions: **§7's opening
+was the pre-R43 fossil** — it still claimed comptime-eligibility
+"encoded into the typeid" with "comptime-eligible variants [as] distinct
+typeids," flatly against §3/§5.2/R43; rewritten as the two-placement story
+(errorability in the typeid — not per-value, type-derivable; eligibility on
+the value — per-value, derived from the requirement set, never cached).
+**§5.1's whole-program fixpoint was a fossil contradicting R33 itself**:
+with no inference tier — every capability explicitly declared, propagation
+by declaration (capabilities §5, verified) — the transitive information is
+already in each function's own declared set, so eligibility is a **local
+read**, the same shape as errorability's check; the §5 rule's redundant
+second conjunct ("every callee eligible") deleted, slot-calls noted as
+sound via the comptime-empty-grant panic (§5.4), and §4's parenthetical —
+which cited the fossil as its contrast — now records all three checks
+(errorability, capabilities, eligibility) sharing the
+local-against-declarations shape. **§5.2 misstated the binding ladder**
+("a `let` that could be reassigned" — `let` never rebinds, keywords §1):
+the rule and example now say `var`, with `let` noted as coinciding with
+`const` for functions (§8). The stale claims: §1's "16-byte value" (the
+R170 sweep's fifth missed site — now the logical/physical split), §1's
+"everything lives in the type" (wrong §6 cite, and imprecise post-R43 —
+now type-or-descriptor, never lval flags), §3.3.2's "function values pay a
+small fixed metadata cost" (names ride the shared per-literal descriptor;
+a value pays one pointer, R204/R206). The compatibility gaps closed at
+both ends: **the eligibility formula refined** in function-representation
+§2 — comptime capabilities exist (§5.5) and occupy mask bits, so the test
+is `mask & NON_COMPTIME_CAPS == 0`, a link-time constant, still one
+compare (R206's `mask == 0` had forgotten them); **the optimistic-`as`
+claim shown representable for free** (function-representation §5): the
+claimed signature rides the lval typeid — re-typing the lval is what `as`
+*is* — the real one stays in the descriptor, and §3.2's two-sided checks
+read their natural sources; **R205's per-literal identity folded into
+functions.md §2.1** (observable `==` semantics were living only in an
+internals file): a capture-free literal denotes one value, its evaluations
+identical, phase invariance the clinching ground. And **`!=>` is ruled a
+non-token**: the errorability `!` belongs to the return type
+(`: int! => {`), the detached `int !=>` habit recorded as a drafting
+accident — technically the same parse, stylistically wrong — and all six
+corpus sites normalized (functions §4, exec, capabilities ×3,
+stringBuilder). Swept: `functions.md` §1, §2.1, §3 (the R45 note), §3.3.2,
+§4 (the example + the parenthetical), §5, §5.1 (rewritten), §5.2, §7
+(rewritten); `internal-representation-of-functions.md` §2, §5;
+`exec.md`, `capabilities.md` ×3, `stringBuilder.md` (the spelling).
+
 **R212 — general shape types deferred, with the full design recorded in a
 new home: `deferred-constructs/`, for deferred core-language constructs.**
 The brainstorm's outcome, recorded so it is never re-derived
