@@ -98,7 +98,7 @@ precision, full uniformity, the "unions instead" doctrine.)
 Beyond `as secret` (the default form), the **constructor** attaches gates:
 
 ```
-const secret = fn (raw: string|bytes, ...gates: type): secret
+const secret = fn (raw: string|bytes|table, ...gates: type): secret
 
 const a = raw as secret;                     // ≡ secret(raw): gated by the default, [@reveal]
 const b = secret(raw, @dbCred);              // gated by dbCred
@@ -115,6 +115,10 @@ const c = secret(raw, @dbCred, @prodAccess); // gated by BOTH (AND, §5)
   secrets are type `secret`.
 - **Re-gating is reveal-then-rewrap** (`secret(reveal(s), @newGate)`), so changing a
   secret's gates requires authority over its current ones, by construction.
+- **`raw` takes the full payload set** (`string | bytes | table`): the signature read
+  `string|bytes` from R79 until R218 caught the missed R111 widening — self-contradictory
+  since R113, whose stacktrace is a gated *table* secret (`@revealStackTrace`) that the
+  runtime itself constructs.
 
 ### 3.3 Naming a gate in a signature: the constraint idiom (R111)
 
@@ -233,9 +237,11 @@ confines exposure to controlled, reviewable points.
 - **Wraps `string`, `bytes`, and `table`** (R111): text, raw bytes, and structure.
 - **Does not wrap `any`.** There is no real use for a secret function, secret command, or
   secret regex; admitting arbitrary payloads adds nonsense cases for no benefit. Because
-  the payload set is small and its kind is carried in the type (§3.1), the extractors
-  return a concrete type rather than `any`, and the right extractor is checked at compile
-  time, which is why revealing needs no coercion.
+  the payload set is small, `reveal` returns the concrete union `string | bytes | table`
+  rather than `any` (§5), narrowed like any union (`as`, `match`) — no dynamism enters
+  through a secret. (The per-kind-extractor claim that stood here was R111's design,
+  superseded by R113's one union `reveal` — §3.1 carries the tombstone; this sentence was
+  the sweep's missed site, fixed by R218.)
 - **The structure-vs-leaves line** decides which of two shapes sensitive compound data
   takes. **Wrap the leaves** when only the values are sensitive: a credentials object is
   an ordinary table whose sensitive leaf values are secret
@@ -261,17 +267,32 @@ for a secret key.
 
 ---
 
-## 7. Open questions
+## 7. Resolved (R218)
 
-- **`reveal` as a keyword:** `reveal` requires the secret's gates
-  (capabilities spec, R79), which is what makes non-revelation a guarantee. What remains open is
-  whether `reveal` should *also* be a keyword (so it cannot be shadowed or aliased at all),
-  on top of the capability gate; the capability requirement already prevents laundering
-  (it rides in the type), so this is a minor additional hardening, not a necessity.
-- **Mark-preserving operations:** whether a few operations (notably concatenation) may
-  combine secrets into a new secret without revealing (`a . b` staying secret for secret
-  operands), so credentials can be composed without exposure, kept minimal to limit leak
-  vectors.
-- **Equality and comparison:** whether two secrets may be compared for equality without
-  revealing (a constant-time compare on the payloads), which is a common need for token
-  checking and should avoid `reveal`ing both sides into the clear.
+- **`reveal` is not a keyword.** The guarantee never lived in the name: it lives in the
+  gate ⊆ frame-grant check at the effect site, which no aliasing can launder (§5). A
+  keyword would harden the wrong half — `reveal` the default gate is an ordinary
+  capability const, deliberately aliasable and delegatable like every capability
+  (capabilities §5.2), and freezing the extractor's spelling while the authority it
+  checks stays a value protects nothing. The audit that matters is `use (reveal…)` in
+  signatures, not `reveal(` at call sites. (keywords.md never listed it; the ruling
+  formalizes the de facto corpus.)
+
+- **No mark-preserving operations; concatenation is dead.** **`reveal` is the sole
+  consumer of a secret's payload** — that is the auditable invariant, and every
+  mark-preserving operation would trade it away. Concatenation specifically fails three
+  ways: the combined secret's gate set is invented policy no matter how it is chosen,
+  while reveal-then-rewrap — `secret(reveal(a) . reveal(b), @g)` — already requires the
+  combined authority at the site, proven by machinery that exists (the re-gating shape,
+  §3.2); admitting even one string operation for secret operands is the flagged-string
+  failure mode §1 refuses; and payloads are `string | bytes | table`, so "concatenation"
+  is meaningless for a third of the set.
+
+- **Two secrets are never equal, including the same secret.** `s == s` is `false`; the
+  full ruling lives at equality §5 — secret joins IEEE nan as deliberate
+  non-reflexivity, with the same contagion, and `command` is identity-equal precisely to
+  avoid dragging secret comparison in. The payloads are **never consulted at all**:
+  `==` on secrets is constant `false`, so it is not a timing oracle either. Token
+  checking is served honestly — reveal-and-compare inside the granted frame (explicit,
+  audited), with the constant-time form named in std.crypto's deferred scope (R140),
+  which inherits "key material is `secret`-shaped."

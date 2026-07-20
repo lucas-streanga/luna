@@ -5447,6 +5447,41 @@ onto it. regex §9's named-captures open resolved; the b-engine, step-budget,
 and delimiter opens stand. Swept: `regex.md` §5.4 (new), §7, §9;
 `strings.md` §5 (the match-shape ruling; the `regexEscape` entry rewritten).
 
+**R218 — secret.md closed out: `reveal` stays a name, mark-preserving operations
+dead, never-equal confirmed; two missed sweep sites fixed.** The three opens,
+ruled. **`reveal` is not a keyword**: the guarantee never lived in the name — it
+lives in the gate ⊆ frame-grant check at the effect site, which no aliasing can
+launder (the laundering theorem, secret §5). Keyword-ness would harden the wrong
+half: `reveal` the default gate is an ordinary capability const, deliberately
+aliasable and delegatable like every capability (capabilities §5.2), so freezing
+the extractor's spelling while the authority it checks stays a value protects
+nothing; the audit that matters is `use (reveal…)` in signatures, not `reveal(`
+at call sites — and keywords.md never listed it, so the ruling formalizes the de
+facto corpus. **No mark-preserving operations** — concatenation specifically is
+dead, and the invariant is stated positively: **`reveal` is the sole consumer of
+a secret's payload**. Three grounds: the combined gate set is invented policy no
+matter how it is chosen, while reveal-then-rewrap (`secret(reveal(a) .
+reveal(b), @g)`) already requires the combined authority at the site, proven by
+machinery that exists (the re-gating shape, §3.2); admitting even one string
+operation for secret operands is the flagged-string failure mode §1 refuses; and
+payloads are `string | bytes | table`, so "concatenation" is meaningless for a
+third of the set. **Never equal, including the same secret** — confirmed, not
+newly ruled: equality §5 already carried the full position (constant `false`,
+non-reflexive beside IEEE nan, the same contagion, `command` identity-equal
+precisely to avoid dragging secret comparison in); secret §7 had simply gone
+stale behind it. Stated on the record: the payloads are never consulted at all,
+so `==` is not a timing oracle either; token checking is reveal-and-compare
+inside the granted frame, with the constant-time form named in std.crypto's
+deferred scope (R140), which inherits "key material is `secret`-shaped." **Two
+missed sweep sites fixed in passing**: §3.2's constructor still read `raw:
+string|bytes` — R79's signature, missed by R111's widening, and
+self-contradictory since R113 made the stacktrace a gated *table* secret
+(`@revealStackTrace`) that the runtime itself constructs; now
+`string|bytes|table`. And §6 still promised per-kind extractors "checked at
+compile time" — R111's plural-extractor language, superseded by R113's one union
+`reveal`, contradicting §3.1 and §5 in the same file; rewritten onto the union
+story. Swept: `secret.md` (§3.2 two sites, §6, §7 → Resolved).
+
 ---
 
 ## Still open (out of scope of these rulings)
