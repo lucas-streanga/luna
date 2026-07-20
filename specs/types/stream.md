@@ -23,8 +23,9 @@ and a `foreach` consumer," not "a table computed lazily."
 
 ## 1. Producing a stream: generator functions
 
-A stream is produced by a **generator function**, a function whose body uses `yield`. Calling
-it returns a stream; the return type is `stream`:
+A stream is produced by a **generator function**, a function whose body uses `yield` — or
+inline, by a `gen` block (§1.4). Calling a generator returns a stream; the return type is
+`stream`:
 
 ```
 const naturals = fn (): stream {
@@ -104,6 +105,23 @@ yields bare values (`yield v`) produces **implicit keys** `0, 1, 2, …` — exa
 no "values-only" kind of stream (the earlier dichotomy is erased): a stream is to a table
 exactly what a list is to a keyed table.
 
+The implicit key is a **running next-integer-index**, the same counter the table-literal
+fold maintains (spread §1), defined over the **whole yield sequence**, not over bare yields
+alone (R223): a bare `yield v` emits at the counter and increments it; an integer key that
+flows through **explicitly or by delegation** (`yield 5 => v`; `yield from t`, §1.5) is
+emitted verbatim and advances the counter past it (`counter = max(counter, k + 1)`); string
+keys never touch it. So a bare yield after delegation continues where the delegated keys
+left off instead of colliding with them (the PHP wart this rule exists to refuse). The one
+divergence from the fold is deliberate: the fold *renumbers* contributed integer keys
+because a table's keys are an index and must be unique, while a stream's keys are **flowing
+data** — duplicates are representable and pass through — and uniqueness is enforced only at
+materialization, by `collect` applying the table's own write rules (§5.1).
+
+A key is **`int` or `string`, and nothing else** — the table key rule, verbatim (tables
+spec; R224): a `yield k => v` with any other key type is a `typeError` panic, a compile
+error where statically evident. This is what keeps the stream↔table parallel exact (§5.1);
+element **values**, like a table's, are per-element dynamic (§6).
+
 Implicit keys are real keys, behaving precisely as a list's: every key-facing function
 (`keys`, `keyOf`, `keyFirst`, `flip`, mode `{keys}`) sees them; per-element transforms
 preserve them (so they go sparse after `filter`, as a list's would); `values` reindexes
@@ -151,6 +169,72 @@ Two riders complete the rule:
 Non-top-level defers (inside a block within the body) are unaffected: they run at their
 block's exit during ordinary body execution between yields, per defer §1.
 
+### 1.4 Inline generators: `gen` blocks (R221)
+
+An inline stream is spelled with a **`gen` block** — a keyword-introduced literal whose
+value is the unstarted stream:
+
+```
+let countdown = gen {
+  var n = 3;
+  while (n > 0) { yield n; n = n - 1; }
+};
+
+let errLines = gen use (io) {
+  foreach (line in lines(fd)) {
+    if (line.contains('ERROR')) { yield line; }
+  }
+};
+```
+
+- **Pure sugar.** `gen { body }` is `(fn () => { body })()` — an immediately invoked
+  anonymous generator; `gen use (io) { body }` carries the clause onto the literal. The
+  invocation *constructs* the stream and runs nothing (lazy-start, §1.2); captures are the
+  closure's const-snapshot at construction (functions §2.1); the `use` clause is checked at
+  the creation site against the enclosing frame (capabilities §5.1), making the result an
+  ordinary effect carrier (R121). Every generator rule applies to the body unchanged: keys
+  (§1.1), bare `return` only (R209), no `yield` in `try` (R210), defers on exhaustion
+  (R207).
+- **A `gen` block is a generator by form.** The keyword is the lexical marker, so §1's
+  yield-scan is unnecessary here; a yield-free `gen {}` is the canonical **empty stream**,
+  not an error.
+- **Parse: one token.** `gen` is a keyword and only ever the literal former (keywords §1);
+  `use (` after a `gen` head is the declaration clause, joining `fn` and `test` in R112's
+  decided-at-one-token list. The former deliberately does **not** reuse the type's name:
+  `stream {}` collides in return-annotation position with the generator's own canonical
+  spelling (`fn (): stream { ... }`), and the house already separates literal former from
+  type name — backticks construct a `command`, slashes a `regex`, `gen` a `stream` (R221;
+  promoted-`stream` is the recorded road not taken).
+- **No parameters.** A `gen` block is invoked at construction; a parameterized producer is
+  an ordinary named generator function (§1). Being an expression, it chains:
+  `gen { ... }.take(10)` is a pipeline head like any other (§7).
+
+### 1.5 Delegation: `yield from` (R223)
+
+`yield from src;` delegates to any iterable — the whole of it, lazily, one element per
+pull:
+
+```
+const walk = fn (node: table): stream {
+  yield node['value'];
+  foreach (c in node['children']) { yield from walk(c); }
+};
+```
+
+- **Pure sugar**: `yield from src;` is exactly `foreach (k => v in src) { yield k => v; }`.
+  Everything inherits: keys pass through verbatim and advance the implicit counter (§1.1),
+  a `table` source iterates by the ordinary `foreach` rules, laziness holds (the outer
+  generator suspends per inner element), and the desugar contains `yield`, so `yield from`
+  is banned inside `try` and `defer` exactly as `yield` is (R210, R207).
+- **A stream operand is taken.** Delegating to a stream transfers it (§7.3,
+  iterable-functions §1.5 — the syntax obeys the catalogue's rule): the delegating
+  generator is now the one live handle, and prior aliases panic (`useAfterTaken`, §2).
+- **Lexing**: `yield from` is one compound token; `from` stays unreserved, exactly as
+  contextual as import's `from` (modules spec). The one casualty is bare-yielding a
+  binding literally named `from` — parenthesize: `yield (from);`.
+- **`yield` is a statement**, never an expression: with bidirectionality axed (§8, R224),
+  a yield has no value, so `let x = yield v` is unrepresentable rather than forbidden.
+
 ---
 
 ## 2. Single-pass consumption
@@ -163,15 +247,23 @@ foreach (k => v in s) { ... }    // key => value (implicit or explicit keys, §1
 ```
 
 Streams are **consumable**: consumption is **single-pass**, each element is produced once, seen once, and not retained.
-After a stream is consumed, it is **exhausted**, iterating it again yields nothing (an empty
-pass), because its elements are gone and its generator has run to completion.
+After a stream is consumed, it is **exhausted**: its elements are gone and its generator
+has run to completion.
 
-This is a **discipline, not an enforced move** for plain re-iteration: iterating an
-exhausted stream is not a compile error, it simply produces nothing (deterministically; the
-one aliasing case that was worse than exhaustion, a piped-from stream, is an **enforced**
-move instead, §7.3, and whether re-iteration should follow is flagged in §8). To traverse
-a sequence more than once, re-create the stream (§4) or materialize it into a table or list
-(§5), paying the memory cost deliberately.
+**Re-consuming an exhausted stream panics** (`useAfterConsumed`, errors §2, R222) — the §8
+review ran, and single-pass is now **enforced everywhere**, not a discipline (the silent
+empty second pass is gone; it hid exactly the double-consumption bugs single-pass exists
+to surface). Consumption means `foreach`, destructuring (§2.1), spread, and every
+catalogue call; the probes (§3) stay total and never panic — `isConsumed` is the guard,
+the probe form to consumption's assertion form, the same hard/soft pairing as
+`canReveal`/`reveal`. The panic is about **handle reuse, never emptiness**: a first pass
+over an empty stream is zero iterations, ordinary, and marks it exhausted; only the
+*second* consumption panics. `useAfterConsumed` and `useAfterTaken` (§7.3, concurrency
+§2.3) are siblings under `useAfter` (errors §2) — one family for using a spent handle,
+the use-after-free of a language without free, distinguished by *why* the handle is dead:
+ended by consumption, or moved. To traverse a sequence more than once, re-create the
+stream (§4) or materialize it into a table or list (§5), paying the memory cost
+deliberately.
 
 ### 2.1 Destructuring consumes a prefix
 
@@ -192,7 +284,7 @@ let [head, ...rest] = s;         // consumes one; rest IS the stream, advanced
 - **The rest element is the remaining stream.** `...rest` binds the stream itself,
   advanced past the consumed prefix — lazy head/tail decomposition, no buffering. (On a
   table, `...rest` collects a `list`; on a stream, collecting would defeat the point.)
-- **Destructuring takes the stream** (§7.3's discipline): after `let [a, b] = s`, `s` is
+- **Destructuring takes the stream** (§7.3's move): after `let [a, b] = s`, `s` is
   taken, and `rest`, if bound, is the one live handle. Without a rest binding, the
   unconsumed tail is dropped with the stream — or recoverable via `restart` where the
   source allows it (§4).
@@ -212,13 +304,18 @@ minimally without losing data:
 - **`isEmpty()`** peeks and reports whether an element exists. It starts the stream (a bounded
   side effect, e.g. opening the file and reading one line) but consumes nothing (the peeked
   element is still delivered).
-- **`isConsumed()`** reports whether the stream has been exhausted (fully consumed). It runs
-  nothing; it reads the stream's state.
+- **`isConsumed()`** reports whether the stream can no longer produce — exhausted, **or
+  taken** (§7.3): it is the guard for R222's re-consumption panic, so it answers wherever
+  that panic could fire. It runs nothing; it reads the referent's terminal state — a
+  query, not a use (concurrency §2.3), total even on a taken handle. `taken(x)`
+  (concurrency §2.3) distinguishes the reason.
 
 So emptiness is knowable at the cost of *starting* the stream (one element of work, a bounded
 side effect) but never at the cost of *losing* an element. Zero-side-effect emptiness is
 impossible under laziness; one-element lookahead is the best achievable, and it is
-non-destructive. `peek` and `isConsumed` are catalogued in **stream-api** (§2); `isEmpty`
+non-destructive. On a **taken** handle (§7.3) the state probes still answer — `isConsumed`
+and `taken` are queries, not uses (concurrency §2.3) — while `peek` and `isEmpty` panic
+(`useAfterTaken`): they must run a body another owner holds. `peek` and `isConsumed` are catalogued in **stream-api** (§2); `isEmpty`
 is total over `iterable` and lives in **iterable-functions** (§2.1).
 
 ---
@@ -321,7 +418,7 @@ exception to a table being an independent value:
   **same** stream. Consuming that stream through `a` (or `b`) consumes it for **both**, exactly
   as consuming any shared stream reference consumes it everywhere (§2, §7.3).
 
-This is the ordinary single-pass discipline (§2), not a new rule: a stream is a shared,
+This is the ordinary single-pass rule (§2, enforced since R222), not a new one: a stream is a shared,
 single-pass reference wherever it lives, so aliasing one through a containing table is the same
 "don't consume a stream twice" situation as aliasing one directly. A table holding a stream is
 therefore **not** fully independent of its copies with respect to that stream element; the
@@ -364,7 +461,9 @@ produces one element that flows forward through the stages. One element traverse
 chain per step, on demand. So `take(10)` pulls only ten times, and the file source produces
 only about ten lines, the chain short-circuits, and memory stays bounded. Each stage's
 result is itself a lazy stream (a description of the pull-chain), inert until consumed
-(§1.2).
+(§1.2). (A chain wholly visible at its consumption site may compile to a single fused
+loop — the fused lowering, stream-representation §2.2, R225 — with semantics unchanged by
+construction.)
 
 ### 7.3 Chaining transfers and consumes (single-pass through the chain)
 
@@ -373,8 +472,9 @@ building the chain consumes nothing; but when the chain is consumed, it pulls fr
 so **consuming the chain consumes `a`**. After the call, `a` is a **stage of the chain,
 not an independent stream**: consume the result, not the original.
 
-Unlike general single-pass exhaustion (§2), this is an **enforced move**: after
-`a.map(f)`, `a` is **taken** and any later use **panics**, a compile error
+Like §2's exhaustion enforcement, this is an **enforced move**: after
+`a.map(f)`, `a` is **taken** and any later use **panics** (`useAfterTaken`, errors §2,
+R222), a compile error
 where statically evident, the same enforcement as a stream crossing `spawn` (concurrency
 §2.3), a promise after `await`, a file after `close`. The upgrade from the earlier
 "discipline" wording is deliberate: an aliased source handle and its chain shared a live
@@ -389,28 +489,31 @@ sources as it is itself consumed.
 
 ---
 
-## 8. Open questions
+## 8. Resolved (R221, R222, R224)
 
-- **Inline streams:** whether an anonymous stream literal (a `stream { ... }` block) exists
-  alongside named generator functions, or whether generators are always named functions.
-- **Bidirectional generators:** whether `yield` can receive a value back from the consumer (a
-  two-way generator, as in Python), or is one-way (produce only); current model is one-way.
-- **Single-pass enforcement generally:** §2's exhausted-second-pass behavior (`foreach`
-  twice) remains a discipline while `spawn`, `await`, `close`, and every catalogue call (§7.3) all enforce
-  moves; whether plain re-iteration should also upgrade to taken-value enforcement is a
-  consistency review to run once real code exists (the pipe case was upgraded because it
-  aliased a *live* cursor; a fully exhausted stream is deterministic, so the case is
-  weaker there).
+- **Inline streams: ruled, the `gen` block** (R221, §1.4) — a keyword-introduced literal,
+  pure sugar over the immediately-invoked anonymous generator, with `use` composing on
+  the head. The former is deliberately not the type's name (`stream {}` collides with
+  `fn (): stream { ... }` in annotation position; the command/regex precedent separates
+  former from type).
+- **Bidirectional generators: axed** (R224). `yield` is one-way; two-way communication is
+  a channel pair (`channel()`, channels §1), and a value-returning yield would be a
+  second, implicit channel mechanism — one that also composes wrong (a sent-back value
+  cannot thread through `map`/`filter`, the wart PHP and Python both carry). Corollary,
+  now fixed: **`yield` is a statement**, never an expression (§1.5).
+- **Single-pass enforcement: upgraded** (R222, §2). Re-consuming an exhausted stream
+  panics `useAfterConsumed`, sibling of `useAfterTaken` under `useAfter` (errors §2); the
+  probes stay total (§3). The consistency review this bullet awaited ran: the empty
+  second pass hid exactly the bugs single-pass exists to surface.
 - *(**Parallel consumption: resolved** — a stream is never shared across tasks: it crosses
   a spawn boundary by **ownership transfer**, leaving every spawner-side alias
   enforced-dead (the taken state, concurrency §2.1, §2.3). Two tasks can never hold live
   handles to one stream, so the question does not arise.)*
-- **Element typing through `toStream`:** whether a `stream` carries its element type as
-  precisely as a typed table does, pending how far element typing is carried through
-  transformers.
-- **Early termination and cleanup:** the general mechanism for releasing a resource on any exit
-  path is **`defer`** (defer spec): `let f = open(...); defer f.close();` closes the file when
-  the owning block exits, whether the pipeline is fully consumed, short-circuits (`take(10)`
-  stops early), or is abandoned. What remains open is whether a stream *also* offers its own
-  scoped-cleanup convenience (an automatic close when a stream tied to a resource is dropped or
-  fully consumed), on top of `defer`, pending the stream resource model.
+- **Element typing: the table rules, nothing more** (R224, §1.1, §6). Elements and keys
+  are per-element dynamic exactly as a table's members are; keys are `int | string` and
+  nothing else (§1.1); there are no generics to carry more, by doctrine (secret §3.3),
+  and transformers track nothing — narrowing is the consumer's `is` / `as` / `match`.
+- **Cleanup: R207 is the whole story** (R224). Defers-on-exhaustion during the final
+  pull, abandoned streams run nothing (a stated contract), resources belong to the
+  consumer's `defer` (io §6). No additional scoped-cleanup convenience rides the stream;
+  none earned its weight over the existing rule.

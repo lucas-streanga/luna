@@ -50,7 +50,10 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── closedChannelError (send after finish, or to a departed receiver; channels §4)
 │   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── divisionByZero    (division/remainder by zero, tower-wide: int `/` `%`, rational `/`, decimal `div`; int spec §5)
-│   ├── doubleAwait       (second await of a consumed promise; concurrency §3.1, R142)
+│   ├── useAfter          (use of a spent handle, ended or moved — the family root; R222)
+│   │   ├── useAfterTaken     (access to a moved value through any stale alias; concurrency §2.3, stream §7.3)
+│   │   │   └── doubleAwait   (second await of a consumed promise — the named await instance; concurrency §3.1, R142; reparented R222)
+│   │   └── useAfterConsumed  (re-consumption of an exhausted stream; stream §2)
 │   ├── died              (the `die(msg)` failure panic — the user-invocable arm, runtime-minted; §5.2, R215)
 │   └── ... (runtime-defined)
 ├── applyError            (dynamic protocol application/removal: `apply()` / `unapply()`; protocols §4.4, §4.6)
@@ -90,6 +93,15 @@ Two policies attach to the two subtrees, and each is an O(1) subtree test
 
 So "must this be declared" and "may a user extend this" both reduce to "which subtree,"
 answered by the interval test on the statically-known hierarchy.
+
+**Granularity via subtyping** (R222, a standing convention): when one recovery boundary
+serves several causes, the runtime prefers **finer panic types under a catchable parent**
+over one coarse type. `useAfter` names the family (any use of a spent handle — the
+use-after-free of a language without free); its children say *why* the handle is dead
+(`useAfterTaken`: moved; `useAfterConsumed`: ended), and a named instance can sit deeper
+still (`doubleAwait <: useAfterTaken`). Catch the parent to handle the family, a child to
+handle the cause; the interval test prices either at O(1) (value-representation §4.2).
+New runtime panics join or found a family rather than widening a catch-all.
 
 ### 2.1 The root `error` shape
 

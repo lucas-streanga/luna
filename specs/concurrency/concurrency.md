@@ -146,11 +146,15 @@ principle as constraint enforcement, which follows the **value**, not the bindin
   once, at the spawn point, then only read afterward (write-once-then-read-only), so the spawner's
   panic-checks and the task's ownership never race and **no atomic is needed**, the same discipline
   that lets the eager copy skip atomic refcounting (§2).
-- **Using a taken value panics** (a `panic`, errors §9), immediately, on any access through any
-  alias. This is **distinct from consumed**: a *consumed* stream yields **empty** on read (a normal
-  end-state, no panic), a *taken* stream **panics**, because another task now owns it. The
-  referent therefore carries a small terminal state, **active / consumed / taken**, not one
-  reused bit.
+- **Using a taken value panics** (**`useAfterTaken`**, errors §2, R222), immediately, on any
+  access through any alias. This is **distinct from consumed** by panic type, no longer by
+  behavior (R222): a *consumed* stream panics on **re-consumption** too (`useAfterConsumed`,
+  stream §2) — the two are siblings under `useAfter` (errors §2), one family for
+  spent-handle use, split by why the handle is dead: moved, or ended. Mere access to a
+  consumed stream (a probe, passing it along) stays legal; **every** access to a *taken*
+  one panics, because another task now owns it. The referent therefore carries a small
+  terminal state, **active / consumed / taken**, not one reused bit — it selects the panic
+  and answers the probes (`taken`, `isConsumed`, stream §3).
 - **`taken(x): bool`** is the non-panicking query. `const taken = fn (x: any): bool` reports whether
   `x` has been taken, reading the referent's state **without touching the value**. It returns
   `false` for any non-movable value (an `int` is never taken) and never panics, the total,

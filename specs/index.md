@@ -137,7 +137,7 @@ table is a map.
 | Iterable functions | `iterable-functions.md` | Built-in free functions over `iterable` (tables and streams): traversal, transform, aggregate, bridges. |
 | Indexable functions | `indexable-functions.md` | Built-in table-only free functions: keyed access, mutation, and the whole-input (sort) family. |
 | Functions | `functions.md` | The `fn` value: capture, errorability, and comptime-eligibility. |
-| Stream | `stream.md` | The lazy, single-pass sequence type and its two defining properties. |
+| Stream | `stream.md` | The lazy, single-pass sequence type: generators, `gen` blocks and `yield from` (R221, R223), single-pass enforced via the `useAfter` family (R222), pipelines. |
 | Stream API | `stream-api.md` | The stream-only surface: producing, `peek`/`isConsumed`, `foreach`, restart; the shared catalogue is iterable-functions. |
 | String builder | `stringBuilder.md` | The mutable string accumulator that avoids O(n²) concatenation. |
 | Enum | `enum.md` | The discriminated union (tagged sum) declaration form. |

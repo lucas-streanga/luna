@@ -40,7 +40,7 @@ These query a stream with at most **one element of lookahead**, never full consu
 
 ```
 fn peek(s: stream): any            // the next value, buffered (not consumed); undefined if empty
-fn isConsumed(s: stream): bool     // whether the stream has been exhausted (runs nothing)
+fn isConsumed(s: stream): bool     // whether the stream can still produce (runs nothing; R222)
 ```
 
 - **`peek`** runs the generator just far enough to produce the first element, buffers it,
@@ -48,11 +48,15 @@ fn isConsumed(s: stream): bool     // whether the stream has been exhausted (run
   consumption. The corresponding key is `keyFirst` (iterable-functions §2.2) — the old
   key-aware-peek question is closed by R93: values through `peek` / `first`, keys through
   `keyFirst` / `keyLast`, pairs through `foreach (k => v)`.
-- **`isConsumed`** reports exhaustion. It does not start or advance the stream; it reads
-  state.
+- **`isConsumed`** reports whether the stream can no longer produce — exhausted **or
+  taken** (stream §3, R222): the guard for the `useAfterConsumed` re-consumption panic,
+  answering wherever it could fire. It does not start or advance the stream; it reads the
+  referent's terminal state — a query, not a use (concurrency §2.3), total even on a
+  taken handle. `taken(x)` distinguishes the reason.
 - **`isEmpty`** is no longer stream-only: it is total over `iterable`
   (iterable-functions §2.1). On a stream it peeks one element — it **starts** the stream (a
-  bounded side effect) but **consumes nothing**.
+  bounded side effect) but **consumes nothing**. Like `peek`, it panics (`useAfterTaken`)
+  on a taken handle: it must run a body another owner holds (stream §3).
 
 ---
 

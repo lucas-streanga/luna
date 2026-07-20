@@ -5573,6 +5573,142 @@ predeclared-names list while every other builtin type is present; added.
 Swept: `secret.md` (§3.3 heading, predicate, example comment, all three
 bullets, §5 `gatesOf` order note), `keywords.md` (§5).
 
+**R221 — inline streams ruled: the `gen` block, a keyword-introduced literal;
+`stream {}` rejected.** The stream spec's oldest open, closed. The form:
+`gen { body }`, an expression, optionally `gen use (io) { body }` — **pure
+sugar** over the immediately-invoked anonymous generator
+(`(fn () => { body })()`, the exact shape §1's R209 discussion already
+exhibited), so lazy-start, const-snapshot capture, creation-site capability
+check (the R121 carrier story), R207/R209/R210, and §1.1 keys all inherit with
+zero new semantics. One strengthening: a `gen` block is a generator **by
+form** — the keyword is the lexical marker, no yield-scan, and a yield-free
+`gen {}` is the canonical empty stream. The spelling question was decided by
+parse cost. `stream {}` — the blessed candidate — fails twice: in
+return-annotation position it collides with the generator's own canonical
+spelling (`fn (): stream { ... }` — the brace must be the body), and
+`stream use (io) {` re-runs the delegation-grammar objection R220 just
+sustained against `secret use (…)`, with `stream` a predeclared identifier
+whose shadowability is a standing flag (keywords §6) — contextual parsing
+would hang on an unresolved question. `gen` is a full keyword and only ever
+the literal former: **one-token decision, zero carve-outs**, `use (` after a
+`gen` head joining `fn`/`test` in R112's list verbatim. The former≠type split
+is not new doctrine but the house pattern: backticks construct a `command`,
+slashes a `regex`, `gen` a `stream` — and the corpus already names the concept
+(generator functions, generator bodies; fn : function :: gen : generator; the
+same spelling Rust chose for the same construct). Also rejected: `yield { }`
+(one keyword meaning construct at the head and suspend inside, two lines
+apart), compound formers (`fn stream`), a sigil literal (command and regex
+earned theirs from universal outside precedent; generators have none to
+borrow). Swept: `stream.md` (§1 intro, §1.4 new, §8), `keywords.md` (§1 new
+row, §6 classification note), `internal-representation-of-streams.md` (the
+parity note's example generator was named `gen()` — now a keyword; renamed
+`naturals()` in passing).
+
+**R222 — single-pass enforced everywhere; the `useAfter` panic family;
+granularity-via-subtyping recorded as a standing convention.** §8's
+consistency review ran, and the empty second pass lost: **re-consuming an
+exhausted stream panics** (`useAfterConsumed`) — the silent empty pass hid
+exactly the double-consumption bugs single-pass exists to surface, and every
+neighboring construct (`spawn`, `await`, `close`, every catalogue call)
+already enforced its move. Consumption means `foreach`, destructuring, spread,
+and the catalogue; the panic is about **handle reuse, never emptiness** (a
+first pass over an empty stream is ordinary and zero iterations). Probes stay
+total — the hard/soft pairing: `isConsumed` now answers "can this handle still
+produce?" (true on exhausted **and** taken, the exact guard for the panic),
+joining `taken()` as a query-not-a-use, legal on taken handles; `peek`/
+`isEmpty` panic on a taken handle (they must run a body another owner holds)
+and stay honest on an exhausted one. The panic taxonomy: parent **`useAfter`**
+(use of a spent handle — the use-after-free of a language without free), the
+prefix naming the family exactly as `reveal*`/`unsafe*` do (R113, R219), with
+children **`useAfterTaken`** (moved — naming what was previously a bare
+`panic`, concurrency §2.3) and **`useAfterConsumed`** (ended; the participle
+pair matches the probes: `taken()` / `isConsumed()`). Siblings, not a chain: a
+prospective `useAfterClose` (file after close, today a plain io failure) fits
+a family of siblings but not a chain rooted at taken — recorded as a deferred
+candidate. `doubleAwait` **reparented** under `useAfterTaken` (a second await
+is precisely a taken use; the name survives as the finer instance) — the new
+convention applied to an existing type on day one. The convention itself,
+recorded at errors §2: **granularity via subtyping** — one recovery boundary,
+several causes ⇒ finer panic types under a catchable parent, never one coarse
+type; catch the parent for the family, a child for the cause; new runtime
+panics join or found a family rather than widening a catch-all. Swept:
+`stream.md` (§2 rewritten, §3 probes, §7.3, §8, §2.1/§6.1 stale "discipline"
+cites), `errors.md` (§2 tree + convention paragraph), `concurrency.md` (§2.3 —
+the "consumed yields empty, no panic" sentence, the direct casualty),
+`spread.md` (§2), `stream-api.md` (§2 — `isConsumed`/`isEmpty` probe wording),
+`index.md` (the stream row refreshed across R221–R223).
+
+**R223 — `yield from` ruled: one compound token, pure sugar; the implicit key
+unified as the running next-integer-index.** Delegation:
+`yield from src;` ≡ `foreach (k => v in src) { yield k => v; }` — the desugar
+*is* the spec, so table iteration, laziness (one element per outer pull), the
+R210/R207 bans (the desugar contains `yield`), and stream-taking (a stream
+operand transfers, iterable-functions §1.5 extended to the syntax) all
+inherit. Lexing: `yield from` is a single compound token; `from` stays
+unreserved, exactly as contextual as import's `from` — the one casualty,
+bare-yielding a binding named `from`, parenthesizes (`yield (from);`). What
+makes pure sugar *possible* is the key ruling: §1.1's implicit key is
+redefined as a **running next-integer-index over the whole yield sequence** —
+a bare yield emits at the counter; an explicit or delegated integer key is
+emitted verbatim and advances the counter past it (`max(counter, k+1)`);
+string keys never touch it. This is the table-literal fold's counter
+(spread §1) minus its renumbering, and the divergence is principled: a table's
+keys are an index and must be unique, a stream's keys are **flowing data**
+(duplicates representable, passing through), with uniqueness enforced only at
+materialization by `collect` applying the table's own write rules. PHP's
+delegation key-collision wart dies as a corollary of the counter rule, not as
+a carve-out on delegation. Swept: `stream.md` (§1.1 rewritten, §1.5 new),
+`keywords.md` (§2 yield row).
+
+**R224 — stream.md's remaining opens closed: bidirectional axed, element
+typing is the table rules, cleanup is R207.** **Bidirectional generators:
+axed.** `channel()` already returns the two-way pair (`[sink, stream]`,
+channels §1); a value-returning yield would be a second, *implicit* channel
+mechanism — against small-surface — and it composes wrong: a sent-back value
+cannot thread through `map`/`filter`, the wart PHP's `send()` and Python's
+both carry into every pipeline. Corollary banked immediately: **`yield` is a
+statement**, never an expression — `let x = yield v` is unrepresentable rather
+than forbidden, the hole closed by construction. **Element typing:** a stream
+carries no static element typing; elements and keys are per-element dynamic
+exactly as table members (the §6 sentence stood; the open closes onto it), no
+generics by doctrine (secret §3.3), transformers track nothing, narrowing is
+the consumer's `is`/`as`/`match`. One precision added: keys are **`int` or
+`string` and nothing else** — the table key rule verbatim, enforced at
+`yield k => v` (`typeError`; compile error where statically evident) — without
+which `collect` and the stream↔table parallel (list : keyed table :: implicit
+: explicit, §1.1) break. **Cleanup:** no scoped-cleanup convenience rides the
+stream; R207 is complete — defers on exhaustion at the final pull, abandoned
+streams run nothing by stated contract, resources belong to the consumer's
+`defer` (io §6). Swept: `stream.md` (§1.1 key rule, §1.5 statement note, §8 →
+Resolved).
+
+**R225 — the fused lowering (stream-representation §2.2): the as-if license
+and the syntax-directed catalogue.** Streams that cannot be observed *as
+values* need never exist: producer and consumer compile into one loop — no
+streamBlock, no dispatch — `foreach (x in (1..n).filter(p).take(k))` emitting
+the counting loop a programmer would write. The license extends elision's
+doctrine (constraints §9.5, "never changes meaning") from checks to
+representation, and it is *sound because the semantics already paid for it*:
+pull-driven single-pass **is** loop semantics (the observable order — steps
+alternating per pull, defers at the final pull, panics from the pull site —
+is the loop's own), and the language outlaws observation exactly where fusion
+would show (stream §7.3's enforced move; R222's exhausted-handle upgrade).
+Identification respects the compiler's refusal of flow-sensitivity (compiler
+§1.4.1): a **syntax-directed catalogue** in the §9.5 shape — mechanism fixed,
+catalogue pending implementation. Tier 1: the chain wholly visible at its
+consumption site (a `foreach` head, spread, or `collect` argument), source a
+range / `toStream` / `gen` block / generator call, stages catalogue
+transformers with literal arguments — nothing bound, nothing escapes, nothing
+observes, decided from the parse tree alone; the bound-once tier is deferred.
+Fusion is a fast path, never load-bearing. The name: "flattening" was already
+taken in the same file (§2's flattened dispatch loop), "stream elision" would
+stretch a term the corpus uses precisely for check-removal — **fusion** is the
+literature-exact word (the Haskell lineage) under the file's own §2.1 word,
+**lowering**. Distinct from comptime generator folding (same file), which
+evaluates rather than emits. Swept:
+`internal-representation-of-streams.md` (§2.2 new), `stream.md` (§7.2
+cross-reference).
+
 ---
 
 ## Still open (out of scope of these rulings)

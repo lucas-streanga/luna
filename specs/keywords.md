@@ -12,6 +12,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `let` | fixed binding (never rebinds) | variables §1 |
 | `const` | deep-frozen binding | variables §1, §3 |
 | `fn` | function literal / function type | functions |
+| `gen` | inline generator literal (`gen { ... }`, optional clause `gen use (io) { ... }`): constructs an unstarted `stream` | stream §1.4 |
 | `constraint` | constraint declaration, braceless, legal only as a `const` initializer (`const byte = constraint i: int where …`, R137) | constraints §1 |
 | `proto` | protocol declaration, legal only as a `const` initializer (`const person = proto {…}`, R126) | protocols §1 |
 | `enum` | enum declaration | enum |
@@ -32,7 +33,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `while` | loop (block and postfix) | control-flow |
 | `break` / `continue` | loop exit / next iteration | control-flow |
 | `return` | function return | functions |
-| `yield` | generator suspension (`yield v`, `yield k => v`); a function containing `yield` is a generator | stream §2 |
+| `yield` | generator suspension (`yield v`, `yield k => v`) and delegation (`yield from src` — one compound token, `from` stays unreserved, R223); a **statement**, never an expression; a function containing `yield` is a generator | stream §1, §1.5 |
 | `match` | pattern dispatch (valued and open-ended) | match |
 | `where` | guard (match arms) **and** predicate clause (constraints); two homes, one meaning, "holds when"; never part of a type, which is what lets it terminate one — the property that makes the braceless constraint form parse (R137) | match §3, constraints §1 |
 | `defer` | scope-exit statement | defer |
@@ -118,7 +119,9 @@ All seven original flags are ruled (R33):
   keyword.
 - **`yield` classification is lexical, per function literal**: a literal is a generator iff
   its own body, excluding nested literals, contains `yield`; a nested `fn` with `yield` is
-  its own generator (stream §2). No flow analysis.
+  its own generator (stream §2). No flow analysis. A `gen` block is a generator **by
+  form** (R221) — the keyword is the marker, its body needs no scan, and a yield-free
+  `gen {}` is the empty stream.
 - **`by` is reserved now** for future stepped-range syntax; rejecting it as an identifier
   today costs nothing and avoids a breaking change (associativity §4, R28).
 - **`unsafe` is a camelCase naming prefix** (`unsafeShellExec`), never a hyphen: `-` is

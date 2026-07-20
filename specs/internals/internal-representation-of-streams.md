@@ -116,8 +116,47 @@ And the parity note that closes the loop with R192: **the evaluator needs none o
 the oracle interprets IR with an explicit stack, so a suspended generator is a saved
 interpreter frame. The state-machine transform is *emitter-only*, sitting exactly on the
 divergence surface the oracle patrols: generator semantics are differentially testable by
-construction, and comptime generator folding (`const xs = collect(gen())`, legal at
+construction, and comptime generator folding (`const xs = collect(naturals())`, legal at
 requirement-mask zero) runs in the evaluator with zero transform machinery.
+
+### 2.2 The fused lowering (R225)
+
+The state machine is the **general** lowering; where a stream cannot be observed *as a
+value*, the emitter may skip it entirely — the **fused lowering**: producer and consumer
+compile into one loop, no streamBlock, no `resumeFn` dispatch.
+`foreach (x in (1..n).filter(p).take(k)) { body }` emits the counting loop a programmer
+would have written — a `continue` for the filter, a counter break for the take, the body
+inlined.
+
+- **The license is the as-if rule**, elision's doctrine extended from checks to
+  representation (constraints §9.5: never changes meaning, only removes what is provably
+  redundant). The semantics fix what is observable — producer and consumer steps
+  alternating per pull (stream §7.2), defers at the final pull (R207), panics propagating
+  from the pull site — and a fused loop preserves that order **by construction**, because
+  pull-driven single-pass semantics *is* loop semantics. The language, not analysis, is
+  what makes fusion invisible: stream §7.3's enforced move outlaws aliasing a chain
+  mid-consumption, and R222 closed the exhausted-handle path. Fusion is a fast path,
+  never load-bearing; the general lowering is always correct.
+- **Identification is a syntax-directed catalogue, not analysis** — the compiler's
+  standing refusal of flow-sensitivity (compiler §1.4.1), in the §9.5 shape: mechanism
+  fixed here, catalogue pending implementation. **Tier 1** fuses a chain **wholly visible
+  at its consumption site**: the `foreach` head (or a spread / `collect` argument) is one
+  expression whose source is a range, a `toStream`, a `gen` block, or a generator call,
+  and whose stages are catalogue transformers with literal arguments. Nothing is bound,
+  so nothing escapes, so nothing can observe — decidable from the parse tree alone. A
+  second tier (a stream bound once, consumed in the same block) is deferred with the rest
+  of the catalogue.
+- **What blocks fusion is exactly observation**: binding and reusing any stage, `peek` /
+  `isEmpty` / `restart`, crossing `spawn`, entering a table. Blocked fusion means the
+  general lowering, nothing more.
+- **Stage shapes**: `map(f)` a binding, `filter(p)` a `continue`, `take(k)` a counter
+  break; a fused `gen` block or generator body inlines with each `yield` becoming the
+  consumer body's entry — the §2.1 machinery unneeded exactly when no suspension survives
+  fusion. Effect stages fuse unchanged: creation-site authorization (R121, capabilities
+  §5.1) ran where the chain was written, and fusion moves no code across that boundary.
+- Distinct from **comptime generator folding** (the parity note above): folding
+  *evaluates* a capability-free chain at compile time in the oracle; fusion *emits
+  better code* for a runtime chain. Different tiers, both meaning-preserving.
 
 ## 3. The rejected implementations, with full grounds
 
