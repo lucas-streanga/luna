@@ -9,7 +9,7 @@ one means "you may do this"; not holding one means, checkably, that you cannot.
 Capabilities underpin several guarantees relied on elsewhere: they sandbox comptime (comptime
 cannot hold one, functions §5.5), they make effects auditable (a function's `use` clause is
 its capability manifest), and they let the *absence* of a capability be a guarantee (a
-function without `use (reveal)` cannot reveal a secret, secret spec).
+function without `use (revealSecret)` cannot reveal a secret, secret spec).
 
 ---
 
@@ -19,11 +19,11 @@ A capability is declared with the **`capability` declaration form**, bound to a 
 same way a protocol or error type is declared (`proto {...}`, `error {...}`):
 
 ```
-const reveal = capability;
-const exec   = capability;
-const io     = capability;
-const cfg    = comptime capability;             // opt into comptime use (§8); non-comptime is the default
-const webApp = capability { io, net };  // a composed set: grants io and net together (§7.1)
+const revealSecret = capability;
+const exec         = capability;
+const io           = capability;
+const cfg          = comptime capability;       // opt into comptime use (§8); non-comptime is the default
+const webApp       = capability { io, net };    // a composed set: grants io and net together (§7.1)
 ```
 
 - **Bare declares a leaf; braces compose a set.** A bare `capability` (no braces) declares a
@@ -36,17 +36,18 @@ const webApp = capability { io, net };  // a composed set: grants io and net tog
   capabilities may appear inside the braces (`capability { 5 }` or any non-capability content is
   a syntax error), and there is no `union` to consider, the braces are a **set** of members, not
   a choice among them.
-- **Each declaration is a distinct type.** `const reveal = capability` declares `reveal` as a
-  **distinct capability type**, just as `myError = error {}` declares a distinct error type.
-  `reveal` and `io` are *different types*, which is what lets `use (reveal)` demand the
-  reveal authority specifically and nothing else.
+- **Each declaration is a distinct type.** `const revealSecret = capability` declares
+  `revealSecret` as a **distinct capability type**, just as `myError = error {}` declares a
+  distinct error type. `revealSecret` and `io` are *different types*, which is what lets
+  `use (revealSecret)` demand the revelation authority specifically and nothing else.
 - ~~The `implicit` modifier~~: **removed** (R33). Every capability is explicit; a
   required-but-undeclared `use` is a compile error, uniformly, no inference tier exists.
 
-Capabilities live in the **modules that define them** (`io` exported by `std.io`, `reveal` by `std.secret`), imported and named like any binding (§4), a light,
-dataless module, so that capability names never collide with ordinary function names. `reveal`
-the function (secret spec) and `reveal` the capability coexist because they are in
-different namespaces (the exact namespacing mechanism is the module system's, deferred).
+Capabilities live in the **modules that define them** (`io` exported by `std.io`,
+`revealSecret` by `std.secret`), imported and named like any binding (§4). A capability's name
+is chosen **distinct from the functions it gates** — `env` gates `envVars()`, `argv` gates
+`args()`, `revealSecret` gates `reveal` (R219) — so capability names never collide with
+ordinary function names, and no namespacing rule is owed anywhere to keep them apart.
 
 ---
 
@@ -57,8 +58,8 @@ different namespaces (the exact namespacing mechanism is the module system's, de
 member:
 
 ```
-reveal <: capability          // a specific capability is-a capability
-io     <: capability
+revealSecret <: capability          // a specific capability is-a capability
+io           <: capability
 ```
 
 So `capability` is a **supertype** of every specific capability, the same relationship
@@ -100,18 +101,18 @@ For the `use`-clause to be a **complete** manifest of a function's authority (§
 comptime sandbox (§8) to hold, a capability must reach a scope **only** through `use`, and never
 through any value-carrying channel. It does not, because it is nocopy (and always `const`, §1):
 
-- **Not a parameter.** `fn (c: reveal) { ... }` is illegal: passing an argument copies it into
-  the parameter slot, and a capability cannot be copied. So a capability cannot be smuggled in
-  as a function argument (the hole this closes: otherwise a function could reveal without
-  declaring `use (reveal)`, voiding the absence guarantee).
-- **Not a binding.** `let c = reveal` is illegal (nocopy). **Aliasing** an existing capability to
+- **Not a parameter.** `fn (c: revealSecret) { ... }` is illegal: passing an argument copies it
+  into the parameter slot, and a capability cannot be copied. So a capability cannot be smuggled
+  in as a function argument (the hole this closes: otherwise a function could reveal without
+  declaring `use (revealSecret)`, voiding the absence guarantee).
+- **Not a binding.** `let c = revealSecret` is illegal (nocopy). **Aliasing** an existing capability to
   a new name is likewise **not permitted**: it would copy a nocopy value, and there is no use for
   the alias anyway, since a `use` clause names the capability's declared type, not an alias.
-  (Declaring a capability, `const reveal = capability`, §1, is a different thing and is how
+  (Declaring a capability, `const revealSecret = capability`, §1, is a different thing and is how
   capabilities come into being; it is not aliasing an existing one.)
 - **Not a field, element, or return value.** A capability cannot be stored in a table or list or
   returned, all are value slots a nocopy value cannot enter.
-- **Not an `&` reference.** `&reveal` is illegal because `&` requires a **`var`** binding
+- **Not an `&` reference.** `&revealSecret` is illegal because `&` requires a **`var`** binding
   (variables spec) and a capability is always `const`. So a capability cannot be taken by
   reference outside `use`; the const-ness already blocks `&`, and no separate "no-reference"
   mechanism is needed (a blanket one would wrongly block `use` itself, which *is* a referential
@@ -202,14 +203,14 @@ acquisition *is* referential capture, so it is spelled `use`, not a distinct `re
 
 There is **no `caps` namespace and no capability registry**: a capability is an ordinary
 `const` declaration (§1) that its defining **module `export`s** like any other binding
-(modules spec), `std.io` exports `io`, `std.secret` exports `reveal`, and a `use` clause names
+(modules spec), `std.io` exports `io`, `std.secret` exports `revealSecret`, and a `use` clause names
 the **imported binding**. Modules are unnamed and resolved at compile time, so the name in a
 `use` clause is unambiguous the same way every imported name is; auditing "what can exercise
 X" is a search for `use (X)` against the one canonical declaration the import resolves to.
 
 ```
-const authenticate = fn (s: secret) use (reveal): response! => {
-  let raw = reveal(s);          // permitted: this function holds the reveal capability
+const authenticate = fn (s: secret) use (revealSecret): response! => {
+  let raw = reveal(s);          // permitted: this function holds the revealSecret capability
   ...
 };
 ```
@@ -244,14 +245,14 @@ one. Because a callee cannot secretly exercise an authority the caller does not 
 "this body does no io." So:
 
 ```
-// Guaranteed not to reveal s: no use(reveal) anywhere in its call tree.
+// Guaranteed not to reveal s: no use(revealSecret) anywhere in its call tree.
 const forward = fn (s: secret, dest: command): command => attachAuth(dest, s);
 ```
 
 Auditing "what can exercise authority X" is a search for `use (X)`, which finds every
 function *able* to, transitively. The honest limit: a capability governs **reaching** an
 authority, not what happens to a value **after** a permitted use. Once a function that holds
-`use (reveal)` reveals a secret, it has a plain value the type system no longer tracks.
+`use (revealSecret)` reveals a secret, it has a plain value the type system no longer tracks.
 The capability boundary is the last point the type system can help.
 
 ### 5.1 The creation-site check, and the one check that outlives it
@@ -436,8 +437,8 @@ no authority.** A capability is a zero-data, inert boundary token; it *does* not
 own. Real authority (io, process spawning, secret revelation) comes from the runtime-held
 instances handed to `main` (§7), which a user declaration never touches. So a user capability
 can only *gate* functions, not *empower* them. And because every capability is a distinct type
-(§1), a user capability cannot impersonate or breach a standard one: `use (reveal)` still
-demands the real reveal type, which only the runtime hands out. Declaring `dbAccess` gives you
+(§1), a user capability cannot impersonate or breach a standard one: `use (revealSecret)` still
+demands the real `revealSecret` type, which only the runtime hands out. Declaring `dbAccess` gives you
 no more access to anything than you already had; it only lets you *require* it.
 
 **Rooting and scope.** A user capability is rooted where it is declared: whoever declares it
@@ -507,8 +508,8 @@ adds no separate mechanism.
 |-|-|-|
 | `io` | Input/output (files, streams, console) | std.io |
 | `exec` | Spawn and run a structured `command` | std.exec (R172) |
-| `reveal` | Reveal a `secret`'s payload | secret |
-| `env` | Enumerate environment variables (`envVars()`, values are `secret`, reading them needs `reveal`) | std.process (R134; ruled in exec §6) |
+| `revealSecret` | Reveal a `secret`'s payload | secret |
+| `env` | Enumerate environment variables (`envVars()`, values are `secret`, reading them needs `revealSecret`) | std.process (R134; ruled in exec §6) |
 | `argv` | Read the program's arguments (`args() use (argv): list`) | std.process (R134) |
 | `time` | The temporal environment: clock, `sleep`, local zone | std.time §4 (R132) |
 | `filesystem` | Enumerate, inspect, and alter filesystem *structure* (`stat`, delete, directories; contents stay `io`'s) | std.filesystem (R135) |

@@ -35,7 +35,7 @@ environments to children, but reading your *own* environment is process-self, no
 command-running — exec composes with this module when it needs to. The ruling carries
 unchanged: values are **`secret`**, so enumeration and reading are **separately
 gated** — `use (env)` lists what exists, extracting a value's content requires
-`reveal` — the double gate falling out of machinery that already exists (secret spec).
+`revealSecret` — the double gate falling out of machinery that already exists (secret spec).
 
 ## 3. Refusals, recorded
 

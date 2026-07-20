@@ -5482,6 +5482,97 @@ compile time" — R111's plural-extractor language, superseded by R113's one uni
 `reveal`, contradicting §3.1 and §5 in the same file; rewritten onto the union
 story. Swept: `secret.md` (§3.2 two sites, §6, §7 → Resolved).
 
+**R219 — the default gate renamed `revealSecret`; the capability/extractor
+collision dissolved and the namespacing deferral retired.** The default gate was
+spelled `reveal`, the same identifier as the extractor it keys, and capabilities
+§1 held the pair apart with "different namespaces (the exact namespacing
+mechanism is the module system's, deferred)" — a two-namespace resolution rule
+(`use`-position vs expression position) the module system would have owed, since
+both names are exports of `std.secret` and both appear bare in one signature
+(`use (reveal)` over a body calling `reveal(s)`). Renamed: the capability is
+**`revealSecret`**; the function stays `reveal`. Grounds. **The family already
+names authorities apart from the functions they gate** — `env` gates
+`envVars()`, `argv` gates `args()`, `egress` gates `dial`/`send` — and the
+`reveal`/`reveal` pair was the lone exception, so the rename joins the standing
+style instead of inventing one. **The R113 `reveal*` convention survives
+verbatim**, being prefix-anchored: `grep "use (reveal"` still returns every
+revelation authority, and `revealSecret` is the convention's own shape, reveal +
+the material opened (default-gated secrets are exactly the ones that are just "a
+secret"). The name is the default gate's key, not a skeleton key — R113's
+demotion stands, restated against the new spelling at secret §5. **The rejected
+alternative** — keeping `reveal` for the capability and renaming the function
+(`expose`) — would orphan the convention's verb (capabilities named for an act
+the language no longer spells), drag `canReveal` with it, and churn every
+example call site in the corpus, for no audit gain: R218 already placed the
+audit in `use (reveal…)` signatures, not call-site spellings. Beyond the
+collision, the rename buys a real deletion: capabilities §1's deferral dies —
+capability names are chosen distinct from the functions they gate, so no
+namespacing rule is owed anywhere. Adjacency noted and accepted: json's
+`revealSecrets` revealer parameter (json §2.1) is plural, a delegated closure,
+not a capability. Swept: `capabilities.md` (intro, §1 declarations + the
+coexistence passage rewritten, §2 subtype example, §3.1 illegal-forms ×4, §4
+export line + example, §5 absence example + honest-limit, §7.2 impersonation,
+§9 table — `reveal` and `env` rows), `secret.md` (§3.2 default set ×2, §5
+default-gate key + convention list, §7 header + R218 bullet + new bullet),
+`overview/types.md` (capability bullet ×2 + subtype line), `index.md` (std.exec
+row), `exec.md` (§0 shape cite), `process.md` (§2 double gate),
+`constraints.md` (§2 purity list). The extractor's own mentions (`reveal(`,
+`canReveal`, prose verbs) stand unchanged throughout, as does
+`revealStackTrace`. One misstatement fixed in passing: secret §7's R218 bullet
+called the default gate "deliberately aliasable and delegatable like every
+capability" — capability aliasing is illegal (nocopy, capabilities §3.1);
+aliasable-without-laundering describes the *extractor*, delegatable the
+capability, and the bullet now says which is which (R218's entry above stands
+as written, frozen history).
+
+**R220 — the gate-naming constraint re-shaped exact and compiler-blessed;
+§3.3's elision claim made sound; `secret use (…)` rejected as syntax.** The
+question was compiler legibility: the constraint idiom (R111) names a gate
+through a runtime predicate the compiler treats as opaque, and a dedicated form
+was proposed — `const dbSecret = secret use (dbCred)`. **Rejected, three
+grounds.** *Grammar*: `use (` after a completed postfix expression *is*
+call-site delegation, decided at one token (R112, associativity §1), and
+`secret` is a predeclared identifier, not a keyword (keywords §5), so
+`secret use (dbCred)` already parses today as delegation over the expression
+`secret`; discriminating a second meaning needs either reserving `secret` or
+value-dependent parsing — two settled principles spent on one form. *Keyword
+semantics*: `use`'s two positions share one meaning, capture — capabilities
+flow where `use` names them (keywords §3); a gate stamp captures nothing and
+demands rather than holds, which is why gates are spelled as typeid *data*
+(`@dbCred`, secret §3.2) in the first place — and it would dilute the
+`use (dbCred)` audit (capabilities §5) with hits that neither exercise nor
+extend authority. *And it would not buy the analysis*: the blocker was never
+predicate opacity. R111's conventional predicate,
+`gatesOf(s).exists(@dbCred)`, is a lower bound — a
+`{@dbCred, @prodAccess}`-gated value satisfies it, enters, and panics at
+`reveal` under `use (dbCred)` — so §3.3's claim that the compiler "can prove
+the gate check passes and elide it" was **unsound as written**, on exactly that
+counterexample, under any surface syntax. **Ruled instead: the blessed shape is
+exact** — `constraint s: secret where gatesOf(s) == [@dbCred]`, superseding
+R111's `exists` convention. An upper bound is what elision needs: a frame's
+grant is a superset of its declared `use` (delegation only adds, capabilities
+§5.2), so pinned-gates ⊆ declared-`use` proves gates ⊆ grant and the
+reveal-site check is provably redundant — elided in constraints §9.5's
+meaning-preserving sense (the comptime corner is unreachable: a frame declaring
+a non-comptime capability is comptime-ineligible, functions §5.5). The exact
+predicate also moves the wrong-material failure to the entry boundary, where
+the mismatch is legible; the `exists` shape admitted values that were doomed to
+panic mid-body. Mechanics: list `==` is strict structural equality (equality
+§4) and type values compare by identity, so the predicate is one identity
+compare per gate; `gatesOf` order is now pinned as **construction order**
+(secret §5, previously unstated and newly load-bearing), knowable by the
+predicate's author through the pairing convention — the module that constructs
+the material writes its constraint beside it. A set-semantics probe
+(`gatesAre`) was considered and **deferred** until a real order mismatch shows
+up. The sugar `constraint secret use (dbCred)` — keyword-introduced,
+second-token-decided against the binder form, desugaring to the exact
+predicate — is recorded as **considered and deferred**: grammatically clean,
+sugar over one existing mechanism, but the blessed predicate alone serves
+until demand exists. Fixed in passing: `secret` was missing from keywords §5's
+predeclared-names list while every other builtin type is present; added.
+Swept: `secret.md` (§3.3 heading, predicate, example comment, all three
+bullets, §5 `gatesOf` order note), `keywords.md` (§5).
+
 ---
 
 ## Still open (out of scope of these rulings)

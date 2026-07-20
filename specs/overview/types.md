@@ -64,9 +64,9 @@ declaration forms, not type-theory "kinds"; Luna has no kind system.
   member. A protocol is also usable as a type via `@proto` (the application type).
 - **`error`** is the root and union of all error types; specific errors (`commandError`,
   `panic`, user-defined errors) are members, related by single inheritance.
-- **`capability`** is the union of all capabilities; a specific capability (`reveal`, `io`) is
-  a member. Capabilities are zero-data, nocopy, and reached only through `use`. They live in
-  its defining module's exports (`reveal` from `std.secret`).
+- **`capability`** is the union of all capabilities; a specific capability (`revealSecret`,
+  `io`) is a member. Capabilities are zero-data, nocopy, and reached only through `use`. They
+  live in its defining module's exports (`revealSecret` from `std.secret`).
 
 A related declaration form is **`constraint`**, which refines a base type by a pure predicate
 (`byte = constraint i: int where i >= 0 && i <= 255`). A constrained type is a subtype of
@@ -91,7 +91,7 @@ returns (so attributes never affect `@a == @b`), is transparent to assignability
 **only by comptime** (which consumes attributes to generate code, such as serializers). It is a
 declaration-metadata sidecar, not a member of any type universe (attributes spec).
 
-So `reveal <: capability`, `commandError <: error`, and `stringBuilder <: proto`, each a
+So `revealSecret <: capability`, `commandError <: error`, and `stringBuilder <: proto`, each a
 specific type inside its form's union supertype, the same is-a relationship in all three.
 
 ---

@@ -100,7 +100,7 @@ Beyond `as secret` (the default form), the **constructor** attaches gates:
 ```
 const secret = fn (raw: string|bytes|table, ...gates: type): secret
 
-const a = raw as secret;                     // ≡ secret(raw): gated by the default, [@reveal]
+const a = raw as secret;                     // ≡ secret(raw): gated by the default, [@revealSecret]
 const b = secret(raw, @dbCred);              // gated by dbCred
 const c = secret(raw, @dbCred, @prodAccess); // gated by BOTH (AND, §5)
 ```
@@ -108,7 +108,7 @@ const c = secret(raw, @dbCred, @prodAccess); // gated by BOTH (AND, §5)
 - Each `gates` element is a **capability's typeid** (`@dbCred`), pure data, never the token
   itself, which stays confined (capabilities §3.1); a non-capability `type` **panics** at
   construction (compile error where statically evident).
-- **Zero gates means the default set `[@reveal]`**, and there is deliberately no spelling
+- **Zero gates means the default set `[@revealSecret]`**, and there is deliberately no spelling
   for an *empty* set: an ungated secret is a contradiction.
 - **Wrapping requires no capability**: hiding data hurts nobody. The gate set rides the
   **value** (like a function's requirement set, capabilities §3.1), not the typeid; all
@@ -120,32 +120,48 @@ const c = secret(raw, @dbCred, @prodAccess); // gated by BOTH (AND, §5)
   since R113, whose stacktrace is a gated *table* secret (`@revealStackTrace`) that the
   runtime itself constructs.
 
-### 3.3 Naming a gate in a signature: the constraint idiom (R111)
+### 3.3 Naming a gate in a signature: the constraint idiom (R111, R220)
 
 Gates ride values (§3.2); a **signature** names them through an ordinary constraint — the
 `json` pattern (json §1), here over the immutable base `secret`, so the predicate runs
-**once, at entry**, and never again:
+**once, at entry**, and never again. The blessed shape pins the gate set **exactly** (R220):
 
 ```
 export const dbCred   = capability;
-export const dbSecret = constraint s: secret where gatesOf(s).exists(@dbCred);
+export const dbSecret = constraint s: secret where gatesOf(s) == [@dbCred];
 
 const connect = fn (cred: dbSecret) use (dbCred): conn! => {
-  let raw = reveal(cred);      // gate ⊆ frame grant: statically discharged here
+  let raw = reveal(cred);      // pinned gates ⊆ declared use: the gate check is elided, soundly
   ...
 };
 ```
 
 - **No generics.** The "parameterization over a capability" is a named type, which is how
   Luna spells every refinement. `@dbCred` in the predicate is the capability's typeid
-  (pure data, §3.2), and membership is the catalogue's `exists`
-  (iterable-functions §2.3) — one typeid compare per gate.
+  (pure data, §3.2), and the predicate is ordinary list equality (equality §4) over
+  typeids — one identity compare per gate. Order is construction order (§5), which the
+  predicate's author controls: the module that constructs the material writes its
+  constraint beside it (the convention below). A set-semantics probe (`gatesAre`) was
+  considered and is deferred until a real order mismatch shows up (R220).
+- **Exact, not `exists`** (R220, superseding R111's lower-bound shape). A membership
+  predicate (`gatesOf(s).exists(@dbCred)`) guarantees a gate is present but bounds
+  nothing from above: a `{@dbCred, @prodAccess}`-gated value satisfies it, enters, and
+  panics at `reveal` in a `use (dbCred)` frame — admitted while doomed, and no compiler
+  can elide a check a legal value can fail. The exact predicate rejects the mismatch at
+  the **entry boundary**, where the wrong-material fact is legible, and is what makes
+  the type compiler-analyzable at all. Composed-gate materials get their own named
+  constraints, written by whoever composes them.
 - **The signature tells the whole story**: `use (dbCred)` declares the *authority*,
   `cred: dbSecret` declares the *material*, and `reveal` joins them at the effect site
-  with the one requirement-⊆-grant test that already exists (§5). Through a
-  constraint-typed parameter inside a matching `use` frame, the compiler can prove the
-  gate check passes and **elide it** (constraints §9.5); through bare `secret`, the
-  runtime check stands.
+  with the one requirement-⊆-grant test that already exists (§5). The blessed shape is
+  **compiler-recognized** (R220): `gatesOf(s) == [...literal typeids]` yields the static
+  fact *gates = that set*, and a frame's grant is always a superset of its declared
+  `use` (delegation only adds, capabilities §5.2), so where the pinned set ⊆ the
+  declared set, the reveal-site gate check is provably redundant and **elided** —
+  elision in constraints §9.5's sense, meaning-preserving, never load-bearing. (The
+  comptime corner is unreachable: a frame declaring a non-comptime capability is
+  comptime-ineligible, functions §5.5.) Through bare `secret`, or any other predicate
+  shape, the runtime check stands.
 - **The convention**: a module that exports a capability exports its secret constraint
   beside it — one line, the same convention as capabilities-are-consts.
 
@@ -179,7 +195,7 @@ The underlying value is obtained only through `reveal`:
 ```
 fn reveal(s: secret): string | bytes | table   // the payload; narrow with `as` or `match` (R113)
 fn canReveal(s: secret): bool                  // gate set ⊆ frame grant — the probe form (R113)
-fn gatesOf(s: secret): list                    // the gate set, as typeids (elements are type values)
+fn gatesOf(s: secret): list                    // the gate set as typeids, in construction order (R220)
 ```
 
 - **`reveal` checks the secret's gate set against the executing frame's grant** (R79):
@@ -193,8 +209,8 @@ fn gatesOf(s: secret): list                    // the gate set, as typeids (elem
   occurs under a declared `use (dbCred)` on the executing path.
 - **The audit is now per-gate, which is the point**: grep `use (dbCred)` and you have the
   complete list of functions that can see *that* secret, not the list that can see
-  everything. `use (reveal)` is demoted from skeleton key to the **default gate's** key: it
-  opens `as secret` / `secret(raw)` values and nothing gated tighter. A function with no
+  everything. `use (revealSecret)` is the **default gate's** key, not a skeleton key (the
+  R113 demotion): it opens `as secret` / `secret(raw)` values and nothing gated tighter. A function with no
   relevant grant **cannot** reveal a secret it holds, so "this code does not expose this
   secret" is still read off signatures, just precisely now.
 - **`reveal` is the only way** to get a payload out — one extractor, a **union return**
@@ -208,7 +224,8 @@ fn gatesOf(s: secret): list                    // the gate set, as typeids (elem
   returned instead of enforced. The render-or-redact idiom:
   `canReveal(s) ? reveal(s) : '<secret>'`, panic-free over mixed-gate structures.
 - **The `reveal*` naming convention** (R113): a capability whose *purpose* is revelation
-  is `reveal*`-prefixed — `reveal` (the default gate), `revealStackTrace` (errors §2.1),
+  is `reveal*`-prefixed — `revealSecret` (the default gate, R219: deliberately not bare
+  `reveal`, which names the extractor), `revealStackTrace` (errors §2.1),
   and any future kin — so `grep "use (reveal"` returns **every revelation authority** in
   a program, declarations and delegations alike (capabilities §5.2). General capabilities
   (`dbCred`) may still serve as gates; the prefix marks purpose-built revelation
@@ -267,14 +284,14 @@ for a secret key.
 
 ---
 
-## 7. Resolved (R218)
+## 7. Resolved (R218, R219)
 
 - **`reveal` is not a keyword.** The guarantee never lived in the name: it lives in the
   gate ⊆ frame-grant check at the effect site, which no aliasing can launder (§5). A
-  keyword would harden the wrong half — `reveal` the default gate is an ordinary
-  capability const, deliberately aliasable and delegatable like every capability
-  (capabilities §5.2), and freezing the extractor's spelling while the authority it
-  checks stays a value protects nothing. The audit that matters is `use (reveal…)` in
+  keyword would harden the wrong half — the extractor is an ordinary function (aliasable,
+  harmlessly), the default gate `revealSecret` an ordinary capability const (delegatable,
+  capabilities §5.2; never aliasable, capabilities §3.1) — and freezing the extractor's
+  spelling while the authority it checks stays a value protects nothing. The audit that matters is `use (reveal…)` in
   signatures, not `reveal(` at call sites. (keywords.md never listed it; the ruling
   formalizes the de facto corpus.)
 
@@ -296,3 +313,13 @@ for a secret key.
   checking is served honestly — reveal-and-compare inside the granted frame (explicit,
   audited), with the constant-time form named in std.crypto's deferred scope (R140),
   which inherits "key material is `secret`-shaped."
+
+- **The default gate is `revealSecret`, not bare `reveal`** (R219). Capability and
+  extractor shared one spelling, held apart only by a namespacing rule the module system
+  would have owed (capabilities §1, retired). Now the capability names its material like
+  its kin — `revealSecret` beside `revealStackTrace`, as `env` gates `envVars` and
+  `egress` gates `dial` — and the verb stays with the function. The R113 convention
+  survives verbatim: `grep "use (reveal"` still returns every revelation authority. Not a
+  skeleton key (§5): the name reads "may reveal plain secrets," never "may reveal any
+  secret." (json's `revealSecrets` parameter, json §2.1, is the nearby non-collision:
+  plural, a delegated closure, not a capability.)

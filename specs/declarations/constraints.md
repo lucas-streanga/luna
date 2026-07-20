@@ -117,7 +117,7 @@ What rejection costs is one reusable line — cheaper still now that the form is
 ## 2. Pure by construction
 
 A constraint predicate **must be pure**: no side effects, no capability use (no `io`, no
-`reveal`), deterministic on its input. This is not a rule the author must remember; it is
+`revealSecret`), deterministic on its input. This is not a rule the author must remember; it is
 enforced by the form. A `constraint` declaration's predicate slot admits only a pure boolean expression over the
 bound value, so an impure constraint is **unrepresentable**, the same "safe by construction"
 move used elsewhere (a `capability` cannot have a body, a regex literal is compiled once).

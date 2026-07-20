@@ -90,7 +90,7 @@ such restriction, they are ordinary producible doubles (`let x = nan;` is fine),
 ## 5. Predeclared names, deliberately not keywords
 
 Builtin type names (`int`, `double`, `bool`, `string`, `bytes`, `table`, `list`, `iterable`,
-`stream`, `sink`, `promise`, `never`, `any`, `regex`, `command`, `type`, `byte`, `number`,
+`stream`, `sink`, `promise`, `never`, `any`, `regex`, `command`, `secret`, `type`, `byte`, `number`,
 `duration`, `instant` — committed with `std.time`, R132; `u64` and the `i16`/`u16`/`i32`/`u32`
 constraints, pulled into alpha by std.binary, R187 — and `decimal`/`rational`/`complex`,
 specced R161/R162/R164, delivery post-alpha with the extended tower) and builtin

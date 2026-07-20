@@ -7,7 +7,7 @@ capability, the two run functions (`run` and `capture`), the `commandError` rais
 failure, and the pipefail semantics. The command value itself — its construction, backtick
 literal, interpolation, and `pipe()` pipelines (R146) — is the built-in `command` type
 (types/command.md): **built-in type, std-module effect**, the same shape as
-`secret`/`reveal` (R172).
+`secret`/`revealSecret` (R172).
 
 ```
 import { exec, run, capture } from std.exec;   // the capability travels by name
