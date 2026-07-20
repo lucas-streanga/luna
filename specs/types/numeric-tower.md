@@ -248,12 +248,15 @@ integer; a fixed `int128` is a possible future library type only (§1.4).
 
 ## 6. Status: committed, partly deferred past alpha
 
-The current specced primitives are `int`, `double`, and the `byte` constraint. The rest of this tower,
-`u64` and the signed and unsigned small-width constraints, `float` and `f16`, and the
-arbitrary-precision and exact built-ins `decimal`/`rational`/`complex` (all three now
+The **alpha-delivered core** is `int`, `double`, and the `byte` constraint — plus, by the
+R187 carve-out below, `u64` and the 16/32-bit constraints (R216: an earlier sentence here
+said "the current *specced* primitives," stale twice — the exact types are specced in
+full, and specced ≠ delivered). The rest of this tower,
+the remaining small widths, `float` and `f16`, and the
+arbitrary-precision and exact built-ins `decimal`/`rational`/`complex` (all three
 **specced** — decimal.md R161, rational.md R162, complex.md R164 — delivery
 unchanged), is **committed** but
-**deferred past the alpha surface** (§6): int and double cover the majority of code, and
+**deferred past the alpha surface**: int and double cover the majority of code, and
 the remaining types slot into mechanisms fixed now (the built-in-only operator rule of operators §1,
 the constraint-subtype widening, explicit cross-family conversion), so adding them later is **new
 typeids under existing rules**, not new machinery.
@@ -273,7 +276,10 @@ exhaustiveness or type-set reflection.
 
 ---
 
-## 7. Open questions
+## 7. Resolved and deferred (R216)
+
+Nothing here is open: three questions are resolved, and the two remainders are
+**deferred**, each waiting on a trigger, not a decision.
 
 - *(**`decimal` rounding and context: resolved by R161** — the `decimal` spec exists
   (decimal.md). `+`/`-`/`*` are exact always; **`/` and `%` are omitted from the
@@ -289,10 +295,17 @@ exhaustiveness or type-set reflection.
   held in **canonical form as an invariant** (reduced, denominator positive), which
   makes equality structural and `1/2`-vs-`2/4` unrepresentable. There is still no
   user-facing `bigint`; the bignum stays internal, with two public faces.)*
-- **Literals for the wider types.** Whether there are literal forms for `decimal` and the
-  unsigned/float types (suffixes, or context-driven), with the literal grammar.
-- **Bit operations.** Bitwise `and`/`or`/`xor`/`not` and shifts on the integer types (arithmetic vs
-  logical shift, shift-amount edges), pending the bitwise spec (int spec §8).
+- **Literals for the wider types — deferred** (R216). Whether `decimal` and the
+  unsigned/float types ever get literal forms (suffixes, or context-driven) rides the
+  literal grammar, and the deferral is cheap because the standing answer already covers
+  the need: **the comptime-folded constructor is the literal story** (R161's own ruling,
+  applied three times since — `parseDecimal("19.99")`, `parseRational("1/3")`,
+  `complex(3.0, -4.0)` all fold at build time). A dedicated suffix would buy spelling,
+  not capability; it waits until it earns grammar.
+- **Bit operations — deferred** (R216). Bitwise `and`/`or`/`xor`/`not` and shifts on the
+  integer types (arithmetic vs logical shift, shift-amount edges) wait for the bitwise
+  spec as a whole (int §8, operators §0.4): the natural tokens `&` and `|` are spoken
+  for, so the surface needs its own design pass, and nothing in alpha demands it.
 - *(**`complex` over what component type: resolved by R164** — always `double`,
   permanently (the `complex` spec exists, complex.md). A `float`-component complex is an
   array-storage optimization for an audience Luna does not serve, exact-component complex

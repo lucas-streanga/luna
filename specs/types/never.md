@@ -25,17 +25,24 @@ it is meaningful only as "what the caller receives," which is a claim about cont
 
 ## 1. `fn (): never`, control does not return
 
-A function returning `never` (non-errorable) **does not return to its caller**. It dies,
-halts the thread, or loops forever. The statement after such a call is unreachable, and the
-`never`-returning branch contributes nothing to any value (§3). Typical uses: an
-unconditional failure helper (`die` is itself the primitive case), an event loop that
-never terminates. (A process-exit *function* is not among them and never will be: the
-exit code is `main`'s return value and teardown is structured — no call unwinds the
-process past pending `defer`s from mid-frame; std.process §3, R134.)
+A function returning `never` (non-errorable) **does not return to its caller**: it
+panics, halts the thread, or loops forever. The statement after such a call is
+unreachable, and the `never`-returning branch contributes nothing to any value (§3). Its
+inhabitants come in exactly two kinds (R215): **divergers** (an event loop that never
+terminates) and **always-panickers** — and the latter exist *because* `die` exists:
+users construct no panic values themselves (errors §9), but `die(msg)` raises the `died`
+panic on their behalf (errors §5.2, R215), so `die` and its wrappers are the failure
+inhabitants of `fn (): never` — panic-side, unchecked, no `!`. This section's original
+text called `die` "the primitive case," and R215 confirms it (an intermediate ruling,
+R214, briefly made `die` a declarable thrower — superseded). What is *not* an
+inhabitant, and never will be: a process-exit function (the exit code is `main`'s return
+value and teardown is structured — no call unwinds the process past pending `defer`s
+from mid-frame; std.process §3, R134); an uncaught `die` *reaches* program exit by
+unwinding, which is the difference.
 
 ```
-const fatal = fn (msg: string): never => { die("fatal: $msg"); };
-const loop = fn (): never => { while (true) { tick(); } };
+const fatal = fn (msg: string): never => { die("fatal: $msg"); };   // an always-panicker
+const loop  = fn (): never => { while (true) { tick(); } };          // a diverger
 ```
 
 ### 1.1 `never` (the exit case) is not checked at compile time
@@ -78,13 +85,20 @@ the ordinary `!` suffix, and its meaning ("only ever an error, never a value") i
 composition says.
 
 ```
-const die = fn (msg: string): never! => { throw error(msg); };   // always throws, never returns a value
+const rejectAll = fn (msg: string): never! => { throw error(msg); };   // always throws, never a value
 ```
+
+(This is the **declarable** always-fails shape — a user-written thrower whose callers
+must handle or propagate. It is deliberately *not* `die`: `die` lives on the **panic**
+side, `fn (msg): never` with no `!`, raising the `died` panic — errors §5.2, R215 — so it
+imposes no `fn!` contagion on its callers. The two one-line failure forms, one per
+channel, are paired at errors §5.2.)
 
 ### 2.1 `never!` (the throw case) **is** checked
 
 Unlike the exit case, `never!` is a **type-level** fact, and Luna already tracks it. Errorability is
-part of the function type and is propagated over the call graph (functions spec §4): the compiler
+a declared part of the function type, locally verified — never propagated or inferred (functions
+spec §4): the compiler
 knows a `never!` is errorable and enforces it the same way it enforces every `fn!`. A caller must
 handle the error (with `try`, or by being `fn!` itself), exactly as for any errorable call. So the
 **error is checked**, at compile time, through the existing errorability machinery. What is asserted
@@ -101,8 +115,9 @@ beyond annotating no-return functions:
 
 - **`never <: T` for all `T`.** A `never` value is usable where any type is expected (vacuously, since
   there are no `never` values), so a `never`-returning branch type-checks in any context. This is what
-  lets `if (c) { x } else { exit() }` have the type of `x`: the `exit()` branch is `never`, and
-  `T | never` is `T`.
+  lets `if (c) { x } else { die("no x") }` have the type of `x`: the `die` branch is `never` (its
+  panic is ambient, on no channel at all — R215), and `T | never` is `T`. (An earlier draft's
+  example called `exit()`, a function R134 abolished — the sweep's missed site, R214.)
 - **`T | never == T`.** `never` is the identity for union, so a branch that never produces a value
   contributes nothing to the result type. A function that "returns an `int` or exits" has value type
   `int | never == int`, which is correct: the exit branch adds no values. This is also why `never!`

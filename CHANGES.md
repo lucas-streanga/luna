@@ -5339,6 +5339,85 @@ constructs, distinct from deferred std libraries (recorded in modules) and
 deferred decisions (recorded where they arose). Swept:
 `deferred-constructs/shape-type.md` (new), `index.md` (the new section).
 
+**R214 — never.md validated: the `die` contradiction resolved (R134 forces
+always-throws), `die` given its ruled home, and two fossils fixed.** The
+finds: **never.md contradicted itself about `die`** — §1 called it "the
+primitive case" of `fn (): never` (the exit form) while §2 defined it
+`never!` (always-throws), and `die` was defined *nowhere* (errors.md
+silent; usage only in examples). **R134 decides it**: a `die` that exited
+the process would *be* the abolished `exit()`, while `die` as `never!`
+composes exactly — "exit with a message" *is* "throw an error nobody
+catches," unwinding through pending `defer`s (structured teardown, R134's
+own requirement), reaching `main`, the runtime reporting and terminating
+(functions §4's `main` story); a *caught* `die` is an ordinary handled
+error — both correct, chosen by the caller, which no true process-exit
+could offer. Ruled and homed: **`fn die(msg: string): never!` ≡
+`throw error(msg)`**, a builtin free function beside the throwaway it
+sugars (errors §5.2). The corollary recorded in never §1: since users
+cannot construct panic values (errors §9), `fn (): never`'s only honest
+user-written inhabitants are **divergers** (event loops) — §1's `fatal`
+example, which called the throwing `die` from a non-`!` function (a
+functions-§4 containment violation besides), moved to §2 as the `never!`
+wrapper it must be. The fossils: **§2.1 said errorability "is propagated
+over the call graph"** — the exact phrasing functions §4 refuses (declared,
+locally verified, never propagated) — fixed; and **§3's lattice example
+called `exit()`**, the R134-dead function, contradicting §1's own
+parenthetical two sections up (the earlier combing fixed §1's mention and
+missed §3) — now `die("no x")`, with the value-arm/error-channel split
+noted. Checked clean: §1.1/§1.2's unverified-claim-plus-runtime-trap
+design, §3's algebra, §4's asymmetry, §5's both resolutions. Swept:
+`never.md` §1, §2, §2.1, §3; `errors.md` §5.2 (the `die` ruling).
+*(The `die` half is superseded the same day: R215.)*
+
+**R215 — `die` re-ruled: a true panic, `fn die(msg: string): never` with no
+`!` — superseding R214's declarable-thrower answer, whose R134 argument
+conflated *must unwind* with *must be declarable*.** The correction owned in
+the entry: both channels unwind through defers with structured teardown, so
+R134 never forced the declarable form — it forbids only non-unwinding
+process exit. What decides the channel is die's **use profile**, and it is
+panic-shaped on every axis: assertions, impossible states, and usage-bail
+are exceptional conditions *outside the caller's contract*, so the
+declarable form would have spread **`fn!` contagion** through every
+die-using codebase (exactly what the panic exemption exists to prevent,
+functions §4); as a true panic, `die` is **catchable at deliberate
+boundaries** (a bare `catch (e)` catches everything by the single-root
+design; supervisors catch `panic`-typed) so die-using code survives
+supervised contexts without systematic deletion; and the `!` is not merely
+unnecessary but **false** — `!` names the declarable channel, and a
+panic-raiser has nothing on it. Mechanically: `die` raises the new **`died`
+panic type** (carrying the message; joins the tree beside `cancelled`,
+whose non-`*Error` name is the precedent — rename open to the user),
+runtime-minted on the caller's behalf, so "users construct no panic values"
+stands unbroken. The pleasant reversal recorded: never §1's *original*
+text ("die is itself the primitive case") was right all along — R214's
+restructure swung the wrong way — and `fn (): never`'s inhabitants are now
+two kinds, divergers *and* always-panickers, the latter existing because
+`die` does; `fatal` returns to §1 as an always-panicker, §2's example
+renamed (`rejectAll`) as the deliberately-not-die declarable shape, and
+errors §5.2 now pairs **the two one-line failure forms, one per channel**:
+`throw error('msg')` (declarable, `fn!` required) and `die('msg')` (panic,
+no signature change). R214's fossil fixes (the §2.1 propagation phrasing,
+§3's `exit()`) stand. Swept: `errors.md` §5.2 (rewritten), the panic tree
+(the `died` arm); `never.md` §1, §2, §3.
+
+**R216 — numeric-tower.md closed out: the last two opens deferred, §7
+retitled, and §6's stale status sentence corrected.** The file was indeed
+mostly correct (the R164/R187 sweeps had kept it current); the remainders:
+**literals for the wider types — deferred**, cheaply, because the standing
+answer already covers the need (R161's comptime-folded-constructor ruling,
+applied three times since: `parseDecimal`, `parseRational`,
+`complex(re, im)` all fold at build time — a suffix would buy spelling, not
+capability, and waits until it earns grammar); **bit operations —
+deferred** with the bitwise spec as a whole (int §8, operators §0.4 — `&`
+and `|` are spoken for, the surface needs its own pass, nothing in alpha
+demands it). §7 retitled Resolved and deferred: three resolved markers
+(R161/R162/R164) stand, nothing open. The one staleness found: §6's opener
+"the current specced primitives are `int`, `double`, and `byte`" — stale
+twice, since the exact types *are* specced (specced ≠ delivered) and R187
+pulled five typeids into alpha — now states the **alpha-delivered core**
+(int, double, byte, plus the R187 five) with the carve-out below it
+unchanged. Swept: `numeric-tower.md` §6, §7.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -51,6 +51,7 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── divisionByZero    (division/remainder by zero, tower-wide: int `/` `%`, rational `/`, decimal `div`; int spec §5)
 │   ├── doubleAwait       (second await of a consumed promise; concurrency §3.1, R142)
+│   ├── died              (the `die(msg)` failure panic — the user-invocable arm, runtime-minted; §5.2, R215)
 │   └── ... (runtime-defined)
 ├── applyError            (dynamic protocol application/removal: `apply()` / `unapply()`; protocols §4.4, §4.6)
 ├── timeoutError          (a deadline expired: `timeout` / `awaitTimeout` / `receiveTimeout`; concurrency §5.1, R142 — declarable, a timeout is expected and recoverable)
@@ -294,6 +295,33 @@ The throwaway is **declarable** and **`try`-catchable** like any user error, bec
 policies key on "outside the `panic` subtree" (§2), and the root is outside its own
 `panic` child. So `throw error('msg')` requires the enclosing function to be `fn!` (§7)
 and is caught by a `try` expression (§8.1), exactly as a declared error type would be.
+
+**`die` is the panic-channel one-liner, ruled** (R215, superseding R214's first answer —
+it had been the corpus's failure primitive by usage, defined nowhere):
+
+```
+fn die(msg: string): never         // raises the `died` panic carrying msg; no ! — panics are unchecked
+```
+
+A builtin free function that **raises a panic** — the `died` panic type, runtime-minted on
+the caller's behalf (users still construct no panic values themselves, §9) — so it is
+`never`, **not** `never!`: the `!` channel is for declarable errors, and putting it on a
+panic-raiser would be false, not merely redundant. The channel choice is die's use
+profile: assertions, impossible states, usage-bail — exceptional conditions that are *not
+part of the caller's contract* — so `die` imposes **no signature contagion** (any
+function may `die` without becoming `fn!`, the panic exemption, functions §4). Uncaught,
+it unwinds through pending `defer`s (structured teardown, std.process §3/R134), reaches
+`main`, and the runtime reports and terminates — the program exit `die` means. Caught —
+a bare `catch (e)` catches everything, and a supervisor catches `catch (p: panic)` or
+`catch (d: died)` by type — die-using code survives supervised contexts without
+systematic deletion. (R214 first ruled `die` a declarable thrower on the argument that
+R134 forced it; that conflated *must unwind* with *must be declarable* — both channels
+unwind through defers — and the declarable form would have spread `fn!` through every
+die-using codebase. Superseded.)
+
+So §5.2 holds the two one-line failure forms, one per channel: **`throw error('msg')`**
+fails the *declarable* way (the caller's contract; `fn!` required) and **`die('msg')`**
+fails the *panic* way (ambient; no signature change).
 
 When a throwaway error wants **structured** data, that data goes in the `data` table
 (§2.1), not into a new type:

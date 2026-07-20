@@ -100,11 +100,11 @@ cache line.
 The layout's quiet crown jewel: **in-order iteration is a linear memory walk.** Entries are
 stored in-line (~48 bytes each in mapped mode — 24 in the keyless modes, §1.3 — one to two
 entries per cache line, the prefetcher's ideal case), and for the hot element types the walk
-dereferences **nothing at
-all** — `int`, `double`, `bool` are inline scalars, and a string of ≤ 8 bytes is
-string-representation's **tier-1 inline**, living entirely inside the value `lval`. A table
-of ints or short strings iterates as one sequential memory stream. Contrast the
-node-per-element world (Go's own map, C++ node maps): a guaranteed cache miss per element.
+dereferences **nothing at all** — `int`, `double`, `bool` are inline scalars, 
+and a string of ≤ 8 bytes isstring-representation's **tier-1 inline**, 
+living entirely inside the value `lval`. A tableof ints or short strings iterates as one 
+sequential memory stream. 
+Contrast the node-per-element world (Go's own map, C++ node maps): a guaranteed cache miss per element.
 
 The flip side, accepted with its accounting: **sorting moves whole entries, not pointers** —
 and the trade is safer than it first looks, three ways:
