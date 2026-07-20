@@ -165,19 +165,34 @@ flags, engine guarantees (linear-time by default, opt-in backtracking under `/b`
 runtime construction are specified in **regex** (its own document); this section only
 fixes how strings consume one.
 
+**The match-table shape is ruled** (R217), and it is one table with **both key spaces** —
+PHP's `preg_match` shape, proven by two decades of the lineage Luna's tables descend
+from: **int keys** are the positional groups (`0` the whole match, `1..n` the groups in
+order), and a **named** group (`(?<name>…)`, regex §5.4) appears under **both** its
+number and its name:
+
+```
+let m = text.find(/(?<year>\d{4})-(?<month>\d{2})/);
+// m: [0 => "2026-07", 1 => "2026", 2 => "07", 'year' => "2026", 'month' => "07"]
+let ['year' => y] = m;          // keyed destructuring composes for free
+```
+
+The duplication is deliberate (positional iteration and named access coexist; one table,
+no accessor functions). **Positions are not in the table** — offsets are a different
+question and a position-returning variant is deferred until need.
+
 #### regexEscape()
 ```
-const regexEscape = regex.escape;    // string-side alias of regex.escape
+fn regexEscape(str: string): string
 ```
-Escapes all regex metacharacters in a string so it can be matched as literal text. This is
-a **delegating alias**, not a separate implementation: because functions are values and the
-`regex` module exports `escape`, the string module binds it to a new name with an ordinary
-`const`, so `regexEscape(s)` and, under UFCS, `s.regexEscape()` both call the one canonical
-`regex.escape` (regex spec §7). The metacharacter rules live in exactly one place; this is
-only a name in string-land for discoverability (`userInput.regexEscape()` reads naturally).
-It makes the string module depend on the `regex` module, which is fine, both are built-in
-and always present, so the dependency carries no version or availability cost, and the
-direction is correct (string consumes regex, which defines what a metacharacter is).
+Escapes all regex metacharacters in a string so it can be matched as literal text.
+**This is the one function, ruled** (R217): a builtin free function, one name, one
+signature (functions §3.4), reached as `regexEscape(s)` or `s.regexEscape()` under UFCS —
+pure and comptime-eligible, which is what lets it run inside a regex literal's
+interpolation while preserving compile-time compilation (regex §7). (An earlier draft
+spelled it `regex.escape` in "the regex module" with this entry as a "delegating alias" —
+the module-qualification fossil, R188's class: `regex` is a built-in *type*, no module
+exists, and there was never anything to delegate.)
 
 ---
 

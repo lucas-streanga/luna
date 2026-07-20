@@ -179,6 +179,24 @@ mechanism: it bounds the exponential worst case so that opting into `b` cannot d
 program, only fail loudly. The default engine needs no such budget, because it is linear by
 construction.
 
+### 5.4 Named captures (R217)
+
+A capture group may be named: **`(?<name>...)` is the canonical spelling** — the form
+JavaScript, .NET, and Go (1.22+) share — with the engine's classic `(?P<name>...)` accepted
+as a silent synonym (an RE2 fact, not a second documented form). The feature costs the
+language nothing: the literal passes its interior through as pattern source (the only
+literal-special characters are `/` and `${`), so named groups work in plain literals,
+verbose mode, and the runtime `regex()` path identically, and a malformed group name in a
+literal is a **compile error at the literal**, per §2's existing rule.
+
+What a named group does to a **match result** is the string API's half (string-api §5,
+R217): the match table carries both key spaces — positional groups under int keys, named
+groups under **both** their number and their name — so `m['year']` is the access path and
+no accessor function exists or is needed. Two deferrals ride elsewhere: a
+**`captureNames(r: regex): list`** introspection function (Go's `SubexpNames` surfaced —
+useful for generic code, deferred until need), and **named backreferences** (`\k<name>`),
+which are backtracking-only and ride the `b` engine's own deferral (§9).
+
 ---
 
 ## 6. Building a regex from a runtime string
@@ -244,20 +262,21 @@ Two properties follow, and both are why the comptime restriction is worth it:
 Because interpolation splices *source*, a comptime fragment containing regex metacharacters
 changes the pattern's meaning (that is composition, the intended use). To splice a comptime
 string as **literal text to match** (escaping metacharacters) rather than as source, use
-`regex.escape` inside the interpolation:
+`regexEscape` inside the interpolation:
 
 ```
-fn escape(s: string): string        // in the regex module; escapes all regex metacharacters
+fn regexEscape(str: string): string     // builtin free function; escapes all regex metacharacters
 ```
 
-`regex.escape("a.b")` returns `"a\.b"`, so `/${regex.escape(name)}/` matches the literal text
-of `name` rather than treating its metacharacters as pattern syntax. `regex.escape` is a pure
-function, so it stays comptime-evaluable and preserves the compile-time-compilation guarantee
+`regexEscape("a.b")` returns `"a\.b"`, so `/${regexEscape(name)}/` matches the literal text
+of `name` rather than treating its metacharacters as pattern syntax. `regexEscape` is pure,
+so it stays comptime-evaluable and preserves the compile-time-compilation guarantee
 inside a literal. It is also the tool for escaping a runtime string before `regex()`, e.g.
-`regex("${regex.escape(userText)}\\d+")`. No new syntax is needed: bare `${expr}` composes
-(raw source), `${regex.escape(expr)}` escapes (literal text). The string API exposes a
-delegating convenience, `string.regexEscape` (string-api §5), for reaching this from
-string-land.
+`regex("${regexEscape(userText)}\\d+")`. No new syntax is needed: bare `${expr}` composes
+(raw source), `${regexEscape(expr)}` escapes (literal text). This is **the one function**,
+documented string-side too (string-api §5, R217 — an earlier draft spelled it
+`regex.escape` in "the regex module," the module-qualification fossil: `regex` is a
+built-in type, and no module exists).
 
 ---
 
@@ -279,9 +298,11 @@ captures, positions) is specified with those functions in the string API.
 
 ## 9. Open questions
 
-- **Named captures:** the syntax for named capture groups (`(?<name>...)`) and how a match
-  result exposes them (as keyed fields in the result table), pending the match-result shape
-  in the string API.
+- *(**Named captures: resolved by R217** — canonical `(?<name>...)` (§5.4;
+  `(?P<name>...)` an accepted engine synonym), free at the literal, and the match table
+  carries both key spaces — named groups under number *and* name, the PHP shape
+  (string-api §5). Deferred with their triggers: `captureNames(r)` introspection (need),
+  named backreferences `\k<name>` (the `b` engine below).)*
 - **The `b` engine choice:** whether an existing backtracking engine can satisfy the
   semantic-compatibility contract (§5.2) or a purpose-built one is required; deferred, but
   constrained by the contract.

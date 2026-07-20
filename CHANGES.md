@@ -5418,6 +5418,35 @@ pulled five typeids into alpha — now states the **alpha-delivered core**
 (int, double, byte, plus the R187 five) with the carve-out below it
 unchanged. Swept: `numeric-tower.md` §6, §7.
 
+**R217 — named captures ruled (canonical `(?<name>...)`, the PHP-shaped
+both-key-space match table), and the `regex.escape` module fossil normalized
+to the one `regexEscape`.** The brainstorm's outcome. **Syntax** (regex
+§5.4): `(?<name>...)` canonical — the form JavaScript, .NET, and Go 1.22+
+share — with RE2's classic `(?P<name>...)` an accepted engine synonym; the
+feature costs the language nothing (the literal passes its interior as
+pattern source; the only literal-special characters are `/` and `${`), works
+identically in plain literals, verbose mode, and `regex()`, and a bad group
+name in a literal errors at the literal per §2's standing rule. **The match
+table** (string-api §5): one table, **both key spaces** — int keys the
+positional groups (0 the whole match), a named group under **both** its
+number and its name — PHP's `preg_match` shape, proven by the lineage
+Luna's tables descend from; `m['year']` is the access path, keyed
+destructuring composes for free, and no accessor function exists or is
+needed (the proposed `.regexCaptures()` reinterpreted: regex-side
+introspection, deferred as `captureNames(r): list` until need). Positions
+deliberately not in the table (a position-returning variant deferred).
+Named backreferences (`\k<name>`) ride the `b` engine's deferral. **The
+fossil** (R188's class, regex edition): §7 spelled `regex.escape` "in the
+regex module," and string-api §5's entry was a "delegating alias"
+(`const regexEscape = regex.escape`) — but `regex` is a built-in type, no
+module exists, and there was never anything to delegate. Ruled as the user
+spelled it: **`fn regexEscape(str: string): string`**, one builtin free
+function, one name one signature, pure and comptime-eligible (which is what
+lets it run inside literal interpolation, regex §7) — both files rewritten
+onto it. regex §9's named-captures open resolved; the b-engine, step-budget,
+and delimiter opens stand. Swept: `regex.md` §5.4 (new), §7, §9;
+`strings.md` §5 (the match-shape ruling; the `regexEscape` entry rewritten).
+
 ---
 
 ## Still open (out of scope of these rulings)
