@@ -28,7 +28,7 @@ overview, not a definition; each type's spec is authoritative.
 nothing); it is language-produced (never written), storable but panics on use, and unstorable *in a
 table*. See the undefined spec (and value-representation, coalescing).
 
-The wider numeric set — `u64`, the sized-integer constraints, `f16`, and the built-in
+The wider numeric set — `uint`, the sized-integer constraints, `f16`, and the built-in
 `decimal`/`rational`/`complex` — is committed and fully specced (decimal/rational/complex
 specs, R161/R162/R164), with delivery deferred past alpha (numeric-tower §6).
 
@@ -165,9 +165,9 @@ Not types, but how types are reached and tested:
 ## Deferred types
 
 The core type inventory is specified, and the committed remainder is **delivery, not
-design**: the extended numeric tower (`u64`, the sized smalls, `float`, `f16`, and
+design**: the extended numeric tower (`uint`, the sized smalls, `float`, `f16`, and
 `decimal`/`rational`/`complex` — all specced, R161/R162/R164) lands post-alpha as new
-typeids under existing rules (numeric-tower §6), except `u64` and the 16/32-bit
+typeids under existing rules (numeric-tower §6), except `uint` and the 16/32-bit
 constraints, pulled into alpha by std.binary's read family (R187). What stays genuinely
 later is API surface, not types: a stream decoder waits on need (typed multi-byte reads
 landed — std.binary, R187).

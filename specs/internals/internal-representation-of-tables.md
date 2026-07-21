@@ -248,7 +248,7 @@ record keys are short, an inline (≤8-byte) string key **is one 64-bit word** (
 lookup in an 8-entry record is eight masked word-compares against contiguous memory — SIMD
 shape, zero dereferences.
 
-**The fingerprint word: considered and ruled against** (R201). One `u64` of per-slot key
+**The fingerprint word: considered and ruled against** (R201). One 64-bit word of per-slot key
 fingerprints — the swiss *control word* without the table — would SWAR-filter the scan to
 candidate slots. Rejected because its economics do not transfer from the context it comes
 from: swiss groups filter comparisons that are *expensive* (dereference + memcmp on

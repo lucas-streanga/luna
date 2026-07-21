@@ -435,6 +435,13 @@ only removes a check the compiler can prove redundant.
 
 - **`byte`** = `constraint i: int where i >= 0 && i <= 255`. The element type of `bytes`
   (bytes spec). An **immutable-base** constraint: checked on entry only (§7).
+- **`nat`** = `constraint i: int where i >= 0` (R226). The **non-negativity** refinement of
+  `int` — the type a signature gives indexes, counts, and sizes — range `0..2^63 - 1`. An
+  **immutable-base** constraint: checked on entry only (§7). Deliberately the signed
+  family's range refinement, not the unsigned family (numeric-tower §1.1): `nat <: int`,
+  so a `nat` flows into every `int`-taking surface with no family crossing, and
+  intermediates compute at `int` width — a delta may go negative; only a store-back into a
+  `nat` slot checks.
 - **`list`** = `table` constrained to keys exactly `0..n-1` (tables §2.1). An ordinary
   **invariant table-level constraint** (§7.1, tables §8), special only in **cost**: every
   table maintains its shape as an O(1) bit (tables §2.2), so `list`'s per-mutation predicate

@@ -592,7 +592,7 @@ it — and the striking fact is that most were closed by rulings made for other 
 
 | Channel | Closed by |
 |-|-|
-| integer width | the **spec**: no platform-sized integer exists anywhere in the surface — `int` is i64, `u64` is 64, the smalls are constraints; Go computes int64 identically on every architecture. The classic 32-vs-64 poison has no channel to flow through |
+| integer width | the **spec**: no platform-sized integer exists anywhere in the surface — `int` is i64, `uint` is u64, the smalls are constraints; Go computes int64 identically on every architecture. The classic 32-vs-64 poison has no channel to flow through |
 | float arithmetic | **IEEE + §6.2**: correctly-rounded operations (`+ − * /`, `sqrt`) are bit-identical on every target Go supports (amd64 is SSE2 — Go removed x87, the historical double-rounding villain); §6.2 closed contraction |
 | endianness | **R187**: no endian-implicit byte read exists — `readI32(b, off, {little})` folds identically on any host *because* endianness has no default. The host's byte order is simply unobservable |
 | word-size / platform observables | **R138**: no `sizeof` exists in the surface; `platform.*` are *target* facts injected into the evaluator |

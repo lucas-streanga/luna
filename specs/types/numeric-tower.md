@@ -37,16 +37,27 @@ computes at `int` width and the range is checked on entry (assignment, `as`, sto
 leaving its range **panics** (int spec §6.1), it never silently wraps. Widening up the chain is
 implicit and lossless; narrowing down is an explicit checked `as` that panics out of range.
 
+The family carries one **range** refinement beside the width rungs: **`nat`** —
+`constraint i: int where i >= 0` (constraints §10, R226) — non-negative `int`, range
+`0..2^63 - 1`, `nat <: int`. It is deliberately **not** the unsigned family below: a `nat`
+stays inside `int`'s arithmetic, literals, and every `int`-taking surface (the §3 crossing
+rules never engage), and intermediates compute at `int` width — a delta may go negative;
+only a store-back into a `nat` slot checks. `nat` is what a signature says for indexes,
+counts, and sizes; `uint` (§1.2) is the boundary type for values that genuinely need the
+top half.
+
 ### 1.2 Unsigned integers
 
 ```
-u8  <:  u16  <:  u32  <:  u64
+u8  <:  u16  <:  u32  <:  uint
 ```
 
-`u64` is the 64-bit unsigned primitive (int spec §6.2), a **separate primitive** from `int` because
+`uint` is the 64-bit unsigned primitive (int spec §6.2; named `u64` until R226), a **separate
+primitive** from `int` because
 its top range (2^63 to 2^64 - 1) does not fit in signed 64-bit storage. The narrower widths `u8`,
-`u16`, `u32` are **constraints** on `u64`, exactly as the signed smalls are constraints on `int`, so
-`u8 <: u16 <: u32 <: u64`. Same discipline: compute wide, check on entry, panic out of range, implicit
+`u16`, `u32` are **constraints** on `uint`, exactly as the signed smalls are constraints on `int`, so
+`u8 <: u16 <: u32 <: uint` — the exact mirror of the signed chain, each family topped by its
+width-unsuffixed 64-bit primitive (R226). Same discipline: compute wide, check on entry, panic out of range, implicit
 widening up, checked narrowing down.
 
 ### 1.3 Floats
@@ -109,7 +120,7 @@ which is why they are built-in rather than library: they are meant to be ergonom
 
 There is **no arbitrary-precision integer** (`bigint`): Luna does not provide one, because its
 motivation is diffuse, `decimal` covers the concrete need for exactness (currency), and 64-bit `int`
-and `u64` cover ordinary integers. A **fixed** wide integer (`int128`) is a *possible future library
+and `uint` cover ordinary integers. A **fixed** wide integer (`int128`) is a *possible future library
 type* (method syntax), not committed and not built-in, since it is rarely needed and `decimal` and the
 64-bit integers cover the common cases.
 
@@ -128,7 +139,7 @@ the **widest** operand's type, and the narrower operand widens implicitly (lossl
 
 ```
 someI8 + someI32       // i32   (the i8 widens to i32)
-someU16 + someU64      // u64   (the u16 widens to u64)
+someU16 + someUint     // uint  (the u16 widens to uint)
 someFloat + someDouble // double (the float widens to double, losslessly)
 ```
 
@@ -150,8 +161,8 @@ Between families, there is **no implicit conversion**; you convert with an expli
 someInt + someDouble          // ERROR: different families, no implicit crossing
 someInt.toDouble() + someDouble   // OK: explicit widening to double, then double arithmetic
 
-someInt + someU64             // ERROR: signed and unsigned are different families
-someInt.toU64() + someU64     // OK: explicit (and checked: a negative int cannot become u64)
+someInt + someUint            // ERROR: signed and unsigned are different families
+someInt.toUint() + someUint   // OK: explicit (and checked: a negative int cannot become uint)
 ```
 
 The families that require explicit crossing are: **signed integers, unsigned integers, floats, and
@@ -200,7 +211,7 @@ one criterion (as spec §3, R124): **`as` where lossless, a function where not.*
 exactly when the value, where accepted, is preserved exactly, so range is its only question; a move
 that computes a new value gets a name.
 
-- **Integer narrowing** (`int as i8`, `u64 as u8`, and cross-family `int as u64`): an explicit `as`
+- **Integer narrowing** (`int as i8`, `uint as u8`, and cross-family `int as uint`): an explicit `as`
   that **panics** if the value is out of the target range (the constraint-on-entry check, constraints
   spec; int spec §6). Lossless where accepted, so it is `as`.
 - **Float narrowing** (`toFloat(d: double): float`): a **conversion function**, total — IEEE
@@ -227,19 +238,20 @@ rather than panicking (double spec).
 |-|-|-|-|-|
 | `i8`, `i16`, `i32` | signed int | inline (constraint on `int`) | wider signed, up to `int` | panic |
 | `int` (i64) | signed int | inline primitive | (widest signed fixed) | panic |
-| `u8`, `u16`, `u32` | unsigned int | inline (constraint on `u64`) | wider unsigned, up to `u64` | panic |
-| `u64` | unsigned int | inline primitive | (widest unsigned fixed) | panic |
+| `u8`, `u16`, `u32` | unsigned int | inline (constraint on `uint`) | wider unsigned, up to `uint` | panic |
+| `uint` (u64) | unsigned int | inline primitive | (widest unsigned fixed) | panic |
 | `f16` | float | inline primitive (binary16) | `float`, `double` (lossless) | IEEE inf |
 | `float` | float | inline primitive (binary32) | `double` (lossless) | IEEE inf |
 | `double` | float | inline primitive (binary64) | (widest float) | IEEE inf |
 | `byte` | signed int | inline (`int` in `0..255`) | `int` | panic |
+| `nat` | signed int | inline (`int` in `0..2^63 - 1`) | `int` | panic |
 | `decimal` | arbitrary decimal | heap-backed built-in | (none; explicit entry) | grows, no overflow |
 | `rational` | exact fraction | heap-backed built-in | (none; explicit entry) | grows / panic on /0 |
 | `complex` | complex | heap-backed built-in | (none; explicit entry) | IEEE per component |
 
 All are **built-in** (all have operators). Crossing any family boundary (a horizontal move between
 family groups, or fixed to arbitrary-precision) is **explicit** — `as` where the move is lossless
-(`int as u64`, `int as decimal`), a conversion function where it is not (`toDouble`, `toFloat`, the
+(`int as uint`, `int as decimal`), a conversion function where it is not (`toDouble`, `toFloat`, the
 policy verbs; §4, as spec §3). Widening within a family group (vertical, to a wider width) is
 **implicit and lossless**. There is no arbitrary-precision
 integer; a fixed `int128` is a possible future library type only (§1.4).
@@ -249,7 +261,9 @@ integer; a fixed `int128` is a possible future library type only (§1.4).
 ## 6. Status: committed, partly deferred past alpha
 
 The **alpha-delivered core** is `int`, `double`, and the `byte` constraint — plus, by the
-R187 carve-out below, `u64` and the 16/32-bit constraints (R216: an earlier sentence here
+R187 carve-out below, `uint` and the 16/32-bit constraints — and, by R226, the `nat`
+constraint beside `byte` (a one-line constraint typeid; the string-API adoption that
+motivated it is a deferred follow-up) (R216: an earlier sentence here
 said "the current *specced* primitives," stale twice — the exact types are specced in
 full, and specced ≠ delivered). The rest of this tower,
 the remaining small widths, `float` and `f16`, and the
@@ -261,10 +275,11 @@ the remaining types slot into mechanisms fixed now (the built-in-only operator r
 the constraint-subtype widening, explicit cross-family conversion), so adding them later is **new
 typeids under existing rules**, not new machinery.
 
-One carve-out (R187): **`u64` and the small-width constraints `i16`/`u16`/`i32`/`u32` are
+One carve-out (R187): **`uint` (named `u64` at that ruling; renamed R226) and the
+small-width constraints `i16`/`u16`/`i32`/`u32` are
 pulled into the alpha surface**, because std.binary's read family returns them and shipping
 widened-then-tightened signatures was rejected. This is scheduling, not design — the smalls
-are exactly this section's "new typeids under existing rules," and `u64` is the one new
+are exactly this section's "new typeids under existing rules," and `uint` is the one new
 primitive (binary §2.1). `i8`/`u8`, `float`/`f16`, and the exact types keep the post-alpha
 schedule.
 

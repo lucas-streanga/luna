@@ -283,7 +283,7 @@ export const constraintPredicate = comptime fn (t: type): fn;
 export const kind = enum {
   scalar,          // int, double, bool, string, null, undefined, never; duration and
                    // instant (std.time §1, R132); and the committed tower primitives
-                   // (u64, float, f16, decimal, rational, complex) as they land
+                   // (uint, float, f16, decimal, rational, complex) as they land
                    // (numeric-tower §6)
   bytes, table, stream, sink, promise, command, regex, secret,
   fnType, errorType, enumType, protocol, constraintType, capabilityType,

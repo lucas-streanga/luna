@@ -44,7 +44,7 @@ export const readU16 = fn (b: bytes, offset: int, endianness: endian): u16;
 export const readI32 = fn (b: bytes, offset: int, endianness: endian): i32;
 export const readU32 = fn (b: bytes, offset: int, endianness: endian): u32;
 export const readI64 = fn (b: bytes, offset: int, endianness: endian): int;
-export const readU64 = fn (b: bytes, offset: int, endianness: endian): u64;
+export const readU64 = fn (b: bytes, offset: int, endianness: endian): uint;
 ```
 
 - **The width lives in the name, not a parameter.** A size enum
@@ -56,7 +56,9 @@ export const readU64 = fn (b: bytes, offset: int, endianness: endian): u64;
 - **Reads are exact-width and position-explicit**: `readI32(b, off, {little})` reads the four
   octets `b[off..off+3]` (inclusive) as a little-endian two's-complement integer. Signed reads
   sign-extend into the return type; unsigned reads zero-extend. `readU64` is the one member
-  whose values need `u64` (its top range does not fit `int`).
+  whose values need `uint` (its top range does not fit `int`; the function keeps the wire
+  width in its name per this section's rule — it reads 64 bits — while the type it returns
+  is `uint`, R226).
 - **Out of range panics.** `offset < 0`, or `offset + width > byteLength(b)`, is the
   indexing-misuse class (`b[i]` out of bounds, bytes §3) and panics identically. The caller's
   guard is the O(1) `byteLength` check; a truncated-input concern is handled *before* the
@@ -67,10 +69,10 @@ export const readU64 = fn (b: bytes, offset: int, endianness: endian): u64;
 ### 2.1 Scheduling: the small typeids are pulled forward (R187)
 
 Four return types are small-width constraints (`i16`, `u16`, `i32`, `u32`) and one is the
-`u64` primitive — all previously scheduled post-alpha with the extended tower. Shipping this
+`uint` primitive (`u64` until R226) — all previously scheduled post-alpha with the extended tower. Shipping this
 family in alpha **pulls those five typeids forward**, and this is a scheduling choice, not new
 design: numeric-tower §6's own words make the smalls "new typeids under existing rules" (the
-constraint-subtype mechanism `byte` already exercises), and `u64` is the one new primitive.
+constraint-subtype mechanism `byte` already exercises), and `uint` is the one new primitive.
 The alternative — alpha signatures returning widened `int` and tightening later — was
 rejected: changed signatures are a compatibility wart, and `readU64` must not ship broken.
 Recorded in numeric-tower §6.

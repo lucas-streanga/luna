@@ -50,7 +50,7 @@ the types spec is the authoritative index, and each type has its own spec.
 | `type` | a type as a first-class, comparable value |
 
 `undefined` is the **absence** sentinel (a missing key), distinct from `null` (a present nothing) and
-unstorable. The wider numeric set (`u64`, `float`, `f16`, sized-integer constraints, and the built-in
+unstorable. The wider numeric set (`uint`, `float`, `f16`, sized-integer constraints, and the built-in
 `decimal`/`rational`/`complex`) is committed and now fully specced (decimal/rational/complex specs,
 R161/R162/R164), with delivery deferred past alpha (numeric-tower §6).
 

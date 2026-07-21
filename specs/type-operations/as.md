@@ -86,14 +86,14 @@ The line between `as` and a conversion function is exact:
 | Needs `!`? | Never | Yes if fallible (`parseInt`), no if total (`toString`) |
 
 The criterion, stated once (R124): **losslessness**. `as` may move a value between
-representations — `int as u64`, `int as decimal` (numeric-tower §3.1, §4) — exactly when
+representations — `int as uint`, `int as decimal` (numeric-tower §3.1, §4) — exactly when
 the value, where accepted, is preserved **exactly**, so that the only possible failure is
-a membership/range check (`typeError` panic on a negative `int as u64`), never a
+a membership/range check (`typeError` panic on a negative `int as uint`), never a
 precision question. A direction that loses information is a conversion no matter how it
 is dressed: `double as float` (rounds) and `decimal as int` (a fractional `decimal` has
 no lossless `int` reading) do not exist — they are `toFloat` and the policy verbs
 (conversion §2, numeric-tower §4). The retired shorthand "same bits" was wrong on both
-sides: `int as u64` legally changes representation while preserving the value, and a
+sides: `int as uint` legally changes representation while preserving the value, and a
 bit-preserving reinterpretation that changed the *value* would be exactly what `as`
 forbids.
 
@@ -235,7 +235,7 @@ and §3.2.1.
   reports whether `e` is a `commandError` but does **not** narrow `e`; to obtain a `commandError`
   binding you use `as` (or `match`), which produces a new narrowed value.
 - **The numeric tower's `as` moves** (numeric-tower §2–§4): integer narrowing and crossing
-  (`int as i8`, `u64 as u8`, `int as u64`), the arbitrary-precision entry
+  (`int as i8`, `uint as u8`, `int as uint`), the arbitrary-precision entry
   (`int as decimal`), and the plane entry (`double as complex`, R164) are `as` because
   each is lossless where it accepts and preserves the value as read — range is the
   only question, a panic. The lossy directions are functions, not `as`: `double as float`

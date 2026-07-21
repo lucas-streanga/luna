@@ -5709,6 +5709,55 @@ evaluates rather than emits. Swept:
 `internal-representation-of-streams.md` (§2.2 new), `stream.md` (§7.2
 cross-reference).
 
+**R226 — `u64` renamed `uint`; `nat` minted as the non-negative `int`
+constraint; the two jobs of "unsigned" split by family.** The trigger was
+strings.md's sentinel review: `indexOf` wants a structurally non-negative
+index type, the obvious name was `uint`, and a full-width merge of that name
+with `u64` was proposed — one 64-bit unsigned type for both jobs. **The merge
+is rejected on the tower's own rulings.** A full-width unsigned type cannot
+subtype `int` — int §6.2's top-bit argument is representation, not policy —
+so merged-`uint` indexes would live in the *other* integer family, where the
+ruled semantics bite in sequence: `idx + 1` is an explicit-crossing compile
+error (§3; literals are int-family), `idx == 0` is *silently false* (the
+`1 == 1.0` rule — the exact silent-wrong-value class the language closes),
+`idx - 1` panics at zero (unsigned computes at its own width with no wider
+signed space for intermediates — the `size_t` footgun, panic-flavored), and
+an offset could not key a table (`int | string`) or enter any `int`-taking
+signature without ceremony. The empirical record concurs: Go — the backend —
+has a full-width `uint` and deliberately types `len()` as `int`. **Ruled
+instead, the split**: *the rename* — the unsigned primitive is **`uint`**,
+the chain `u8 <: u16 <: u32 <: uint` the exact mirror of
+`i8 <: i16 <: i32 <: int`, each family topped by its width-unsuffixed 64-bit
+primitive, so the name now promises exactly what the type delivers (`int`'s
+full-width unsigned twin — the aesthetic complaint that triggered the merge
+proposal is *dissolved*, not argued away); std.binary's `readU64` keeps the
+wire width in the function name (R187's width-in-the-name rule names what is
+read, not what is returned) and returns `uint`; `toU64` follows R106's
+target-naming to `toUint`. And *the mint* — **`nat`** =
+`constraint i: int where i >= 0` (constraints §10, predeclared, keywords §5,
+alpha beside `byte`): the signed family's one **range** refinement, range
+`0..2^63 - 1`, `nat <: int`, compute-at-`int`-width with entry checks, so a
+`nat` flows into every `int` surface with zero crossing ceremony — the
+property indexes need and the unsigned family structurally cannot offer. The
+division of labor, stated: **`uint` is the boundary type** (binary formats
+whose values need the top half), **`nat` is the domain refinement** (indexes,
+counts, sizes). The string-API adoption of `nat` that motivated all this is
+**deferred by instruction** — a follow-up ruling sweeps that surface. One
+contradiction fixed in passing: int §6.1's code block still declared
+`u8`/`u32` as constraints on *`int`* with a `u8 == byte` note — flatly
+contradicting §6.4's "`u8` is not `byte`" row and numeric-tower §1.2's
+constraints-on-the-unsigned-primitive rule; stale since the family split,
+rewritten signed-only (and its `someU8` example, now wrong-family, moved to
+`i16`). Swept: `numeric-tower.md` (§1.1 `nat` paragraph, §1.2 chain + mirror
+note, §1.4, §2/§3 examples incl. `toUint`, §4, §5 table — `uint (u64)` row
+mirroring `int (i64)`, new `nat` row, §6 + carve-out), `int.md` (§6.1
+rewritten, §6.2 renamed, §6.3, §6.4 table + `nat` row, §8), `binary.md` (§2
+signature + readU64 note, §2.1), `as.md` (×4), `overview/types.md` (×3),
+`overview/high-level-overview.md`, `constraints.md` (§10 `nat`),
+`keywords.md` (§5), `index.md` (std.binary row), `introspection.md` (comment),
+`compiler.md` (§7.5 width row), `internal-representation-of-tables.md` (R201
+note's `u64` was a machine word, reworded "64-bit word").
+
 ---
 
 ## Still open (out of scope of these rulings)

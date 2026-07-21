@@ -145,22 +145,30 @@ Luna has one integer *primitive* (`int`, signed 64-bit); every other integer typ
 one of three mechanisms, chosen by whether the type fits in 64 bits and whether it needs new
 arithmetic.
 
-### 6.1 Small widths are constraints on `int`
+### 6.1 Small signed widths are constraints on `int`
 
-The narrower signed and unsigned widths all **fit within signed 64-bit**, so they are
-**constraints** (constraints spec), shipped as stdlib declarations, not new primitives:
+The narrower **signed** widths fit within signed 64-bit, so they are **constraints**
+(constraints spec), shipped as stdlib declarations, not new primitives:
 
 ```
-const u8  = constraint i: int where i >= 0 && i <= 255;            // == byte
+const i8  = constraint i: int where i >= -128 && i <= 127;
 const i16 = constraint i: int where i >= -32768 && i <= 32767;
-const u32 = constraint i: int where i >= 0 && i <= 4294967295;
-// i8, u16, i32, ... likewise
+const i32 = constraint i: int where i >= -2147483648 && i <= 2147483647;
 ```
 
-These are **range-checked ints** (Model A): arithmetic happens at `int` width, and the width
+(The unsigned smalls `u8`/`u16`/`u32` are the same mechanism on the **other** base:
+constraints on `uint`, the unsigned primitive — §6.2, §6.4, numeric-tower §1.2. An earlier
+version of this block showed `u8`/`u32` as constraints on `int` with a `u8 == byte` note,
+contradicting §6.4's `u8`-is-not-`byte` row; stale since the family split, fixed R226.)
+
+The family also has one **range** (not width) refinement: **`nat`**,
+`constraint i: int where i >= 0` (constraints §10, R226) — non-negative `int`,
+`nat <: int`, the type for indexes, counts, and sizes.
+
+These are **range-checked ints** (Model A): arithmetic happens at `int` width, and the
 constraint is a **bound enforced on entry** (assignment, `as`, store-back), not a change to how
-`+` computes. So `someU8 + someU8` computes in `int` (no wrap at the int level), and storing the
-result back into a `u8` re-checks the range, a value that left `0..255` **panics** (the ordinary
+`+` computes. So `someI16 + someI16` computes in `int` (no wrap at the int level), and storing the
+result back into an `i16` re-checks the range, a value that left `-32768..32767` **panics** (the ordinary
 constraint-on-entry check, constraints §7), it does not silently wrap.
 
 This is deliberate and consistent with `int`'s overflow rule (§2): a `u8` leaving its range
@@ -169,16 +177,18 @@ a bug factory; wrapping is available explicitly (`wrappingAdd`, §4) when it is 
 math. So the small widths cost no new machinery (they are constraint declarations) and inherit
 the safe, panic-on-out-of-range behavior.
 
-### 6.2 `u64` is a separate primitive
+### 6.2 `uint` is a separate primitive
 
-`u64` (the full 0 to 2^64 - 1 range) **cannot** be a constraint on `int`, because a constraint
+`uint` (the full 0 to 2^64 - 1 range; named `u64` until R226) **cannot** be a constraint on
+`int`, because a constraint
 filters values but cannot add representable ones: the values 2^63 to 2^64 - 1 do not fit in
-signed 64-bit storage at all (the top bit is the sign). So `u64` is a **separate primitive**
+signed 64-bit storage at all (the top bit is the sign). So `uint` is a **separate primitive**
 with its own representation (64 bits read as unsigned) and its own arithmetic (unsigned add,
 subtract, multiply, divide, and comparison differ from signed at the instruction level). It is
 inline in the `lval` like `int`, so it is representationally cheap; the cost is a parallel
-arithmetic surface. `u64` is provided as a primitive because there is genuinely no other way to
-reach its range. (Its own spec is deferred.)
+arithmetic surface. `uint` is provided as a primitive because there is genuinely no other way to
+reach its range — it is `int`'s full-width unsigned twin, and the name says so (R226). (Its
+own spec is deferred.)
 
 ### 6.3 Integers wider than 64 bits
 
@@ -190,9 +200,9 @@ provide: a constraint refines which values are valid but does not implement arit
 Luna does **not** provide an arbitrary-precision integer (`bigint`). The concrete need for exactness
 beyond 64-bit integers, currency and exact decimals, is met by the built-in **`decimal`** type
 (numeric-tower spec §1.4), which has a sharp motivation; a general arbitrary-precision integer does
-not, and 64-bit `int` and `u64` cover ordinary integer work. A **fixed** wide integer (`int128`) is a
+not, and 64-bit `int` and `uint` cover ordinary integer work. A **fixed** wide integer (`int128`) is a
 *possible future library type* (method syntax, since operators are built-in only, operators spec §1),
-not committed and not built-in. The language provides `int` and `u64` as the native words such a
+not committed and not built-in. The language provides `int` and `uint` as the native words such a
 library type would be built from.
 
 ### 6.4 Summary
@@ -201,9 +211,10 @@ library type would be built from.
 |-|-|-|
 | `int` (i64) | primitive | the native word; inline; panic on overflow |
 | `i8`, `i16`, `i32` | constraint on `int` | fit in signed 64-bit; range-checked, panic out of range |
-| `u8`, `u16`, `u32` | constraint on `u64` | the unsigned tower's smalls, `u8 <: u16 <: u32 <: u64` (numeric-tower §2); range-checked, panic out of range. **`u8` is not `byte`**: same value range, different bases (`byte` is `int`-based, the `bytes` element and IO workhorse; `u8` is `u64`-based, the unsigned tower's smallest), so crossing them is a family crossing and needs an explicit conversion, like every signed/unsigned crossing |
-| `u64` | separate primitive | needs the full 0..2^64 - 1 range signed-64 cannot hold |
-| `int128` | library (if ever) | fixed 128-bit; rarely needed; `decimal` covers exactness, `int`/`u64` cover ordinary work |
+| `nat` | constraint on `int` | non-negative `int` (`i >= 0`), the range refinement for indexes, counts, sizes (constraints §10, R226) |
+| `u8`, `u16`, `u32` | constraint on `uint` | the unsigned tower's smalls, `u8 <: u16 <: u32 <: uint` (numeric-tower §2); range-checked, panic out of range. **`u8` is not `byte`**: same value range, different bases (`byte` is `int`-based, the `bytes` element and IO workhorse; `u8` is `uint`-based, the unsigned tower's smallest), so crossing them is a family crossing and needs an explicit conversion, like every signed/unsigned crossing |
+| `uint` | separate primitive | needs the full 0..2^64 - 1 range signed-64 cannot hold (`u64` until R226) |
+| `int128` | library (if ever) | fixed 128-bit; rarely needed; `decimal` covers exactness, `int`/`uint` cover ordinary work |
 
 There is no arbitrary-precision integer (`bigint`); the built-in **`decimal`** covers exact,
 unbounded numeric needs like currency (numeric-tower spec §1.4).
@@ -228,7 +239,7 @@ just an int literal used in a `byte` context (bytes spec).
   detail is pending a `float` spec.
 - **Bit operations:** bitwise and, or, xor, not, and shifts, their behavior on the signed
   representation (arithmetic vs logical shift), and shift-amount edge cases.
-- **`u64` primitive surface:** the concrete operations and conversions for the `u64` primitive
+- **`uint` primitive surface:** the concrete operations and conversions for the `uint` primitive
   (§6.2), and how it interconverts with `int` (a narrowing both ways, since neither range
   contains the other), pending its own spec.
 - **Wide integers:** whether a fixed `int128` library type is provided (§6.3); there is no
