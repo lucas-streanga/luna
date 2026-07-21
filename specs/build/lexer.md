@@ -3,7 +3,7 @@
 Token inventory for the Luna lexer, cross-referenced from every spec in the repository
 (keywords.md is the keyword authority; lexical-structure.md the encoding, identifier,
 and comment authority; operators.md and associativity.md the operator catalogue; literal
-forms from int.md §7, double.md §8, strings.md §13, bytes.md §7, regex.md §2–3,
+forms from int.md §7, double.md §8, string.md §5, bytes.md §7, regex.md §2–3,
 command.md §2–3; punctuation confirmed against every code sample in the corpus). Regexes target **Go's `regexp` package (RE2)**.
 
 Conventions used throughout:
@@ -35,7 +35,7 @@ pattern (see flags F1–F3). The lexer therefore runs a small mode stack:
 | `INTERP_EXPR` | `${` inside any of the three modes above | the `}` that returns brace depth to zero (depth counted by the lexer) |
 
 `INTERP_EXPR` lexes with the full `DEFAULT` rule set. Single-quoted strings and `b"..."`
-bytes literals do **not** interpolate (strings §13, bytes §7) and are handled by a single
+bytes literals do **not** interpolate (string §5, bytes §7) and are handled by a single
 regex each.
 
 ## 2. Whitespace and comments
@@ -232,8 +232,8 @@ compete with `REGEX` and comments; see F2.
 | Token | Name | Go regex (RE2) |
 |-|-|-|
 | `${` | `INTERP_OPEN` | `\$\{` — pushes `INTERP_EXPR` |
-| `$name` | `INTERP_IDENT` | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (strings §13) |
-| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, strings §13.1 (R150) |
+| `$name` | `INTERP_IDENT` | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
+| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, string §5.1 (R150) |
 | text run (dq) | `DQ_TEXT` | `[^"\\$]+` |
 | lone `$` | text (fallback, all modes) | `\$` — a `$` not starting an interp form is literal text (in commands: `$` not followed by `{`, command §2.2) |
 | text run (regex) | `REGEX_TEXT` | `[^/\\$]+` |
@@ -353,7 +353,7 @@ Seven gaps surfaced during cross-referencing; six are now ruled, one stays open.
   and C-style `/* … */` block comments that do **not** nest, so §2's regex is the complete
   rule. There is no doc-comment syntax — attributes carry documentation — and the corpus's
   doc-comment references are gone.
-- *(**G4 — resolved by R150.** The full escape table is authoritative in strings §13.1:
+- *(**G4 — resolved by R150.** The full escape table is authoritative in string §5.1:
   per-context rows for `"…"`/`'…'`/`b"…"`/`` `…` ``/`/…/`, with `\u{…}` added (the
   strings-side codepoint escape; `\xNN` stays bytes-only on the UTF-8-validity split),
   `\r` confirmed, the exemplified `\0` retired (no shorthand; `\u{0}`), and unknown
@@ -363,7 +363,7 @@ Seven gaps surfaced during cross-referencing; six are now ruled, one stays open.
   spelling a literal backtick through interpolation (``${'`'}``, joined by the adjacency
   rule) — ceremony where one escape pair suffices, and the mode table's "unescaped
   `` ` ``" terminator had implied the escape reading all along. Commands now escape
-  `` \` `` `\\` `\$` (command §2, strings §13.1); `COMMAND` mode gains `ESCAPE_PAIR`
+  `` \` `` `\\` `\$` (command §2, string §5.1); `COMMAND` mode gains `ESCAPE_PAIR`
   and `CMD_TEXT` excludes the backslash, §4.)*
 - **G6 — resolved.** The identifier grammar is now formal (lexical-structure §2): ASCII
   `[A-Za-z_][A-Za-z0-9_]*` as actual bytes, no Unicode identifiers, and all source files

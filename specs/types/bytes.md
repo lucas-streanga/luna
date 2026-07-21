@@ -166,14 +166,14 @@ let empty  = b"";                  // the empty bytes
 - **The value is the UTF-8 octets of the enclosed text**, as a **compile-time constant**
   `bytes`. `b"GET "` is the four octets `71 69 84 32`, known at parse time.
 - **Escapes** are the shared string escapes **plus `\xNN`**, a raw hex octet — the
-  authoritative table is strings §13.1 (R150). `\xNN` is **bytes-only by ruling**: a raw
+  authoritative table is string §5.1 (R150). `\xNN` is **bytes-only by ruling**: a raw
   byte in a *string* could break the UTF-8 validity guaranteed at ingress, but bytes have
   no validity to break — so `b"..."` covers both "text as bytes" and "arbitrary raw
   octets" in one form (no `\$` — no interpolation — and no `\u{}`; a codepoint's octets
   are spelled as the bytes they are). A separate hex-string literal is not needed.
 - **No interpolation.** Unlike a `string` literal, `b"..."` does **not** interpolate. It is a
   fixed, compile-time sequence of octets, not a runtime-built value. Interpolation is a
-  string-building operation (string-api §13); building bytes from runtime values is a runtime
+  string-building operation (string §5); building bytes from runtime values is a runtime
   operation (append to a `bytes`, or build a `string` and take its `bytes()`), not a literal.
   Because it never interpolates, the quote style (`"` or `'`) carries no difference.
 

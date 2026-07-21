@@ -117,7 +117,8 @@ table is a map.
 | Int | `int.md` | The 64-bit signed integer primitive (inline, overflow panics). |
 | Double | `double.md` | The 64-bit IEEE 754 float primitive (inf/nan, never panics). |
 | Bool | `bool.md` | The two-valued `true`/`false` primitive, with no truthiness. |
-| String API | `strings.md` | The programmer-facing surface of the immutable UTF-8 `string` type. |
+| String | `string.md` | The immutable UTF-8 `string` type: binding, the units doctrine, no concat operator, the builder's place, interpolation + the R150 escape table. |
+| String API | `string-api.md` | The function catalogue over `string`: construction, search, slicing, transformation, splitting, views, C-interop. |
 | Bytes | `bytes.md` | The packed, mutable, growable byte buffer type. |
 | Regex | `regex.md` | The compiled regular-expression type and its `/.../` literal. |
 | Command | `command.md` | The structured, inert program/pipeline type built from a backtick literal. |

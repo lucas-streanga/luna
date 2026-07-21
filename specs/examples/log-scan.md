@@ -5,7 +5,7 @@ the **chain**: catalogue calls compose lazy stages (the dataflow pipeline, strea
 the `|>` operator is retired, R146), and `take(10)` bounds the whole thing, the
 file source produces only about ten matching lines' worth of input (stream §7.2).
 
-```
+```luna
 import std.io;
 import std.process;
 

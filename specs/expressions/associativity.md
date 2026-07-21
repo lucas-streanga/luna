@@ -14,7 +14,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 1a structure | `x apply P(...)` | left | the `apply` operator (R158): the left operand is a complete tier-1 postfix expression; the right side is the operator's **own closed grammar** — a proto name plus an optional initializer list, never an expression (protocols §4.2) — so only the left edge needs a tier; chains left (`[] apply person(...) apply employee(...)`, protocols §7) and binds tighter than every comparison, so `x apply P is @P` needs no parens |
 | 2 prefix, symbolic | `!x` `-x` `@x` `@@x` | right (stack) | `!` is logical not, prefix, expression position only (operators §0; the postfix `T!` lives in the type grammar) |
 | 3 multiplicative | `*` `/` `%` | left | |
-| 4 additive | `+` `-` | left | `+` is numeric only; there is **no** concat operator (strings §11), interpolation joins |
+| 4 additive | `+` `-` | left | `+` is numeric only; there is **no** concat operator (string §3), interpolation joins |
 | 5 range | `..` `..<` `by` | **none** | non-chainable: `a..b..c` is a parse error; arithmetic binds tighter, so `0..n-1` is `0..(n-1)` and `0..n by k+1` steps by `k+1`; `by` is part of the range production (range §3, §4a), one per range |
 | 6 comparison | `<` `<=` `>` `>=` `is` `as` | **none** | non-chainable, `a < b < c` is a compile error, comparisons yield `bool` and re-comparing a bool to a number is a base mismatch anyway (equality §1); `is`/`as` take a **type expression** on the right (table §2), so no right-side ambiguity, and they sit here so `x is int == y` demands parens |
 | 7 equality | `==` `!=` | **none** | non-chainable; there is **no** `===` / `!==` (§4, resolved) |
@@ -23,7 +23,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
 | 11 | *(retired, R146 — was the pipeline `\|>`, retired/pipeline.md; the tier number is kept so tier-12 citations stand)* | — | — |
 | 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` `declared` | right | see §3: word prefixes bind the **whole expression** below assignment; `declared` is the degenerate member (R158) — its operand is exactly **one binding name**, never a general expression (type §4), so precedence barely bites, but it lives here as the word prefix it is |
-| 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (strings §11) |
+| 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (string §3) |
 
 Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
 control-flow spec) are statement grammar, not operators, and sit outside this table; `where`
@@ -73,7 +73,7 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
   never defined it (the F11 drift). Under erasure equality (equality §1) `!= null` is exact
   and total, and an identity operator would duplicate what `==` already means for identity
   types (equality §2); bool.md is fixed to `!=`.
-- **No infix `.`**, no `.=` (strings §11): removes the whitespace-sensitive collision with
+- **No infix `.`**, no `.=` (string §3): removes the whitespace-sensitive collision with
   member access at tier 1.
 - **`@int` in a pattern is a compile error** (match §2): pattern-type position is type
   position, table §2 applies.

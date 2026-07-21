@@ -5758,6 +5758,35 @@ signature + readU64 note, §2.1), `as.md` (×4), `overview/types.md` (×3),
 `compiler.md` (§7.5 width row), `internal-representation-of-tables.md` (R201
 note's `u64` was a machine word, reworded "64-bit word").
 
+**R227 — strings.md split: `string.md` (the type) and `string-api.md` (the
+catalogue), the stream/stream-api shape.** The corpus had already voted:
+cross-references throughout said "string-api §N" while the file was
+`strings.md`, and the file titled "String API" carried type-level content —
+immutability and binding, the units doctrine, the no-concat rule,
+interpolation and the R150 escape table — fused to the function catalogue.
+Split along that seam, mirroring the existing stream.md / stream-api.md pair.
+**string.md** takes the type: §1 immutability and binding, §2 the units
+doctrine (the count functions and offset conventions stay catalogue-side), §3
+no concatenation operator, §4 the builder's place, §5 interpolation with §5.1
+the escape table — the R150 one-authority moves with its section, and every
+pointer at it moves too. **string-api.md** keeps the catalogue with **§1–§10
+numbering preserved**, which is what made the split's direction obvious:
+every pre-existing "string-api §N" citation (regex ×8, bytes, stream,
+stringBuilder, control-flow, conversion) now lands correctly with no edit.
+§1 keeps the catalogue rules (no-overloading, UFCS, naming, return shapes)
+with pointers to the moved type facts; the opens renumber §14 → §11. **No
+function content changed** (by instruction): the review findings — `cString`'s
+R150-stale `"\0"`, the `-1` sentinels, the slice-length sentinel — stay
+recorded in §11 for their own ruling. The file rename is a git move
+(history preserved on the catalogue half). Swept (file-name and section
+fixes): `associativity.md` (×3 → string §3), `operators.md` (×2),
+`conversion.md` (×3), `lexer.md` (×6 → string §5 / §5.1),
+`lexical-structure.md`, `command.md` (§2), `bytes.md` (×2 + §9 name),
+`bool.md`, `spread.md`, `functions.md` ("strings spec" → string-api §1),
+`type.md` (same), `stringBuilder.md` (×7),
+`internal-representation-of-strings.md` (×3), `one-billion-rows.md`,
+`overview/types.md` (string row), `index.md` (one row → two).
+
 ---
 
 ## Still open (out of scope of these rulings)

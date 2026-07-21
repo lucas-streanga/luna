@@ -1,8 +1,10 @@
 # String API
 
-The string type as the Luna programmer sees it. This is the public surface; the
-internal layout (inline vs. descriptor, borrowed slices, UTF-8 validity) is in
-string-representation and is not visible here except through performance notes.
+The `string` function catalogue — the public surface. The type itself (immutability
+and binding, the units doctrine, the no-concat rule, interpolation and the escape
+table) is **string** (its own document, R227); the internal layout (inline vs.
+descriptor, borrowed slices, UTF-8 validity) is in string-representation and is not
+visible here except through performance notes.
 
 The API is implemented in Go and exposed virtually, but to the programmer every entry
 below behaves like an ordinary function reachable through UFCS: `str.trim()` and
@@ -15,19 +17,9 @@ below behaves like an ordinary function reachable through UFCS: `str.trim()` and
 These follow from the language and from string immutability, and they are assumed by
 every entry in the catalogue rather than restated per function.
 
-**Strings are immutable, so every operation is pure.** No method mutates its
-receiver; each returns a new string (or a view, number, bool, or table). There is no
-`&`-write-back *into* a string the way there is into a table, because there is no
-interior to write into; a `&` reference to a **`var`** string binding follows the
-general rule (variables §5.1) and can only **rebind the slot** to a new string.
-
-**Binding modes follow the variables spec exactly; strings add no carve-out.** `var s`
-may be rebound to a new string; `let s` fixes the binding and may **never** be rebound
-(`reassignmentError`, variables §1.1), the "new value, not a mutation" reading is
-wrong, rebinding is precisely what `let` forbids; `const s` is the same as `let` here,
-since an immutable string has no interior for `const` to additionally freeze
-(variables §3.1). Since strings have no in-place mutation at all, the practical ladder
-is: `var` to reassign, `let`/`const` (equivalent) otherwise.
+**Strings are immutable, so every operation is pure** (string §1): no method mutates
+its receiver; each returns a new string (or a view, number, bool, or table). Binding
+modes are likewise the type's (string §1).
 
 **No overloading; unions instead.** Where another language would overload, Luna takes
 a union parameter. `split` accepts `string | int` for its separator; `replace` accepts
@@ -54,9 +46,9 @@ always `int` (see §2).
 
 ## 2. Length, indexing, and units
 
-There is no `length` and no integer indexing, because "the length of a string" and
-"the character at position i" each mean three different things in UTF-8 and silently
-picking one is the most common source of Unicode bugs. Instead:
+The units doctrine — no `length`, no integer indexing, three explicit units, because
+silently picking one meaning is the most common source of Unicode bugs — is the
+type's (string §2). The counts:
 
 - **`byteLength(str): int`** the number of UTF-8 bytes. O(1).
 - **`codepointCount(str): int`** the number of Unicode scalar values. O(n).
@@ -97,7 +89,7 @@ same rendering used by `println`. The identity function on `string`.
 #### interpolation
 Interpolation is surface syntax, not a function: `"$name is $age"` and `"${expr}"`
 splice values into a double-quoted literal using their `toString`. Its rules, and its
-relationship to the string builder, are in §13. (A positional `format` function is
+relationship to the string builder, are in string §5. (A positional `format` function is
 deliberately omitted for now; it is a larger design in its own right.)
 
 #### repeat()
@@ -297,7 +289,7 @@ discoverability: it concatenates the elements of any iterable (each coerced via
 `toString`) separated by `glue`, with `finalGlue` as a distinct last separator
 (`"a, b and c"`). Receiver-first like the whole catalogue — `parts.join(", ")` — which
 settles the receiver-position wander functions §3.4 flagged. For a known collection it
-is the direct tool; for incremental accumulation, the builder (§12; a pairwise
+is the direct tool; for incremental accumulation, the builder (string §4; a pairwise
 concatenation loop is O(n^2), string-representation §10).
 
 ---
@@ -363,7 +355,7 @@ the two functions below exist precisely because Luna does not do what C assumes.
 fn cString(str: string): string
 ```
 Returns a string with a single NUL byte appended. It is defined to be exactly
-`"$str\0"` (one interpolation, §13), nothing more: no scanning,
+`"$str\0"` (one interpolation, string §5), nothing more: no scanning,
 no de-duplication of existing NULs, just an appended terminator so the result is safe
 to hand to C. Because the terminator is a real, counted byte, the result's
 `byteLength` is `str.byteLength + 1`.
@@ -392,110 +384,7 @@ in the presence of interior NULs, which is the whole reason `cStringLength` exis
 
 ---
 
-## 11. There is no concatenation operator
-
-An infix `.` concatenation (and its `.=` compound) existed in earlier drafts and is
-**removed**, vestigial (operators §0.1). Two reasons beyond redundancy: infix ` . `
-collides gramatically with member access `a.b`, making whitespace load-bearing at a parser
-choice point, and its implicit `toString` coercion of both operands was the one silent
-coercion in a language that forbids them. Luna joins strings with exactly two mechanisms,
-each already the better tool at its scale:
-
-- **Interpolation** (§13) for a fixed, small number of joins: `"n=$x"`, `"hi $name!"`,
-  `"${a}${b}"`. Conversion is visible (interpolation renders via `toString`, conversion
-  spec, by stated rule rather than operator side-effect), and the join is one allocation.
-- **The builder** (§12) for accumulation, and **`join`** (§8) for a known collection; a
-  loop of pairwise concatenations was O(n^2) under the old operator and the builder is the
-  answer the old section already pointed at.
-
-Arithmetic `+` stays strictly numeric: `"3" + 4` is a compile error, never a concat and
-never a coercion.
-
----
-
-## 12. String builder
-
-Because strings are immutable, repeated concatenation reallocates on every step, an O(n^2)
-loop. The **string builder** is the mutable, amortized-O(1)-append accumulator that solves
-this: you append into it freely, then materialize a `string` once. It is the one place in
-the string story where mutation lives.
-
-The builder is realized as a table with the applied `stringBuilder` protocol (an element-empty
-table whose growable buffer is an ungranted per-table protocol member), so its operations
-are protocol functions reached with `->`:
-
-```
-var b = builder();
-&b->append("Hello, ")->append(name)->append("!");   // chainable; & writes back
-let greeting = b->build();                           // immutable string
-```
-
-The full builder API, construction, the surface (`append`, `appendAll`,
-`appendCodepoint`, `reserve`, `byteLength`, `isEmpty`, `clear`, `build`), reference
-passing, performance, and concurrency, is specified in **string-builder** (its own
-document; `take` is retired there, R99 — `build()` is COW-cheap and build-and-drop *is*
-the zero-copy path). Interpolation (§13) lowers to a builder, so an interpolated literal
-is one builder pass rather than a chain of reallocating concatenations.
-
----
-
-## 13. Interpolation
-
-Interpolation is lexer-level surface syntax that lowers to builder calls (§12), so a
-`"$a$b$c"` literal costs one builder pass rather than a chain of reallocating `.`
-joins. The rules follow PHP for quoting and Perl for what may be spliced:
-
-- **Double quotes interpolate and honor escapes.** `"$name"`, `"${expr}"`, and escapes
-  like `"\n"`, `"\t"`, `"\$"`, `"\u{1F600}"` are all live in a double-quoted literal —
-  the complete set is §13.1's table, the one authority.
-- **Single quotes are literal.** `'...'` neither interpolates nor processes escapes;
-  `'$name\n'` is the eight characters `$`, `n`, `a`, `m`, `e`, `\`, `n` (and a literal
-  `$`). The only single-quote escape is `\'` for a quote itself (and `\\` for a
-  backslash), matching PHP.
-- **`$name`** splices a bare variable (longest valid identifier wins).
-- **`${expr}`** splices an **arbitrary expression** (Perl-style): `"${a.b + c}"`,
-  `"${items.count()}"`, `"${x ?? "none"}"`. The braces bound the expression, so it may
-  contain anything, including nested double-quoted strings.
-- Every spliced value is rendered with `toString`, the same coercion `.` uses.
-
-Lowering: a double-quoted literal with interpolations becomes a builder that appends
-the literal runs and the `toString` of each splice in order, then `build()`s once. So
-interpolation and manual builder use share one mechanism, and interpolation carries no
-hidden O(n^2) cost.
-
-### 13.1 The escape table (R150)
-
-The complete escape set, per literal context — this table is the one authority
-(lexical-structure §4 and lexer G4 point here; bytes §7 and command §2 defer to it for
-their shared rows):
-
-| Context | Escapes |
-|-|-|
-| `"…"` double-quoted string | `\n` `\t` `\r` `\\` `\"` `\$` (a literal dollar — suppresses interpolation) `\u{H…}` (1–6 hex digits, a Unicode scalar value) |
-| `'…'` single-quoted string | `\'` `\\` only (above — literal strings stay literal) |
-| `b"…"` bytes literal | `\n` `\t` `\r` `\\` `\"` `\xNN` (one raw byte) — no `\$` (no interpolation), no `\u{}` (bytes §7) |
-| `` `…` `` command literal | `` \` `` `\\` `\$` |
-| `/…/` regex literal | the regex spec's own escape language (`\/` plus RE2's), passed through undecoded (regex §2) |
-
-Three rules, each ruled (R150):
-
-- **`\u{…}` is the strings-side codepoint escape, and the `\xNN` split is safety, not
-  taste**: a raw byte in a *string* could break the UTF-8 validity guaranteed at
-  ingress (lexical-structure §1 — a lone `\xFF` is not valid UTF-8), so `\xNN` is
-  **bytes-only**, while `\u{…}` encodes a codepoint to valid UTF-8 *by construction*.
-  Surrogates (`\u{D800}`–`\u{DFFF}`) and values above `\u{10FFFF}` are lex errors.
-  Without `\u{…}`, control and invisible characters would be unwritable in strings,
-  since the raw-byte door is (correctly) closed.
-- **An unknown escape is a lex error.** Any `\` followed by a character not in its
-  context's row is a compile error — never PHP's silent pass-through (`"\q"` staying
-  `\q`), which is a silent-wrong-value.
-- **No `\0` shorthand, no octal**: `\u{0}` spells NUL when genuinely wanted; octal
-  escapes are a C-ism with no constituency. (An earlier §13 example showed `"\0"`; it
-  is retired by this table.)
-
----
-
-## 14. Open questions
+## 11. Open questions
 
 - **Builder capacity semantics:** whether `capacityHint` is bytes or something coarser.
   (The other half of this question — whether `build()` transfers or copies — is resolved,

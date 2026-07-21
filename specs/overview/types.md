@@ -12,7 +12,7 @@ overview, not a definition; each type's spec is authoritative.
 | `int` | 64-bit signed integer, inline; overflow panics | int |
 | `double` | 64-bit IEEE 754 float, inline; IEEE semantics (inf/nan, no throw); never a key | double |
 | `float` | 32-bit IEEE 754 float (separate primitive, lower precision) | numeric-tower §1.3 (own spec deferred) |
-| `string` | Immutable, valid-UTF-8 text | string-representation, string-api |
+| `string` | Immutable, valid-UTF-8 text | string, string-api |
 | `bool` | `true` or `false`, inline; no truthiness; conversions are functions | bool |
 | `null` | The explicit "present nothing" value | value-representation, coalescing |
 | `regex` | Compiled regular expression (own type, `/.../ ` literal) | regex |

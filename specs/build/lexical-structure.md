@@ -129,7 +129,7 @@ compile.
 
 **Open.**
 
-- *(The full **escape-sequence table** is **closed by R150** — strings §13.1, the one
+- *(The full **escape-sequence table** is **closed by R150** — string §5.1, the one
   authority: per-context rows, `\u{…}` added on the UTF-8-validity split (`\xNN` stays
   bytes-only), unknown escapes are lex errors, no `\0`/octal, and command literals gained
   their three escapes, superseding lexer G5.)*

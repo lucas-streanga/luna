@@ -1,6 +1,6 @@
 # String builder
 
-Luna strings are immutable (string-representation, string-api), so accumulating a string
+Luna strings are immutable (string-representation, string §1), so accumulating a string
 by repeated pairwise joining in a loop reallocates on every step and is O(n^2) in the
 total length. The **string builder** is the mutable accumulator that solves this: you
 append into it freely, then materialize an immutable `string` once. It is the single place
@@ -10,8 +10,8 @@ A builder is not a new primitive type. It is realized as a **table with the appl
 `stringBuilder` protocol** (protocols): an element-empty table whose growable byte buffer
 is an ungranted per-table protocol member (protocols §2.2, §2.3). This is the canonical
 minimal use of the protocol model, so the builder doubles as its worked example. This
-document is the authoritative builder spec; string-api §12 references it, and
-interpolation (string-api §13) lowers to it.
+document is the authoritative builder spec; string §4 references it, and
+interpolation (string §5) lowers to it.
 
 ---
 
@@ -111,8 +111,8 @@ forbidding protocol members from taking catalogue names died with the built-in p
 ### 3.1 `append` coerces via `toString`
 
 `append` takes `any` and appends the bytes of `value.toString()`, the same coercion
-interpolation and `join` use (string-api §8, §13; conversion §3 — there is no
-concatenation operator, string-api §11). So `b->append(42)` appends `"42"`. To
+interpolation and `join` use (string-api §8, string §5; conversion §3 — there is no
+concatenation operator, string §3). So `b->append(42)` appends `"42"`. To
 append a raw scalar value by code point rather than its decimal text, use
 `appendCodepoint`.
 
@@ -241,7 +241,7 @@ a different type with its own contract, not a lock bolted onto the builder.
 
 ## 8. Interpolation lowers to a builder
 
-String interpolation (string-api §13) is surface syntax that **lowers to builder calls**.
+String interpolation (string §5) is surface syntax that **lowers to builder calls**.
 A double-quoted literal with interpolations, `"$greeting, $name!"`, becomes a builder that
 appends the literal runs and the `toString` of each interpolated expression in order, then
 materializes once:

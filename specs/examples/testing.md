@@ -4,7 +4,7 @@ Tests are declarations (tests spec): string-literal names, zero parameters, impl
 `undefined!`, failure is any throw. `luna -t` runs them in parallel tasks; `luna -t -c
 prog` gates the build on them (compiler §0.1).
 
-```
+```luna
 import std.io;
 import std.json;
 

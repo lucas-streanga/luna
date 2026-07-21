@@ -154,7 +154,7 @@ an optional **constraint conjunction** over that base, plus an optional **protoc
   thing, and Luna errors rather than warns. `never` is reachable only by writing `never`.
 - **`fn` types never intersect.** `fn (int): int & fn (string): string` would be a
   multi-signature callable, which is **overloading**, and Luna rejects overloading by design
-  (strings spec, functions spec); the intersection is a **compile error**, not `never`.
+  (string-api §1, functions spec); the intersection is a **compile error**, not `never`.
 - `any & X` is `X`; `never & X` is uninhabited (hence the error above if written).
 
 **Membership decomposes by conjunction**, the exact dual of the union rule

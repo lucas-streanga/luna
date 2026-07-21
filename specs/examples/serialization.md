@@ -3,7 +3,7 @@
 The flagship comptime pipeline (attributes §4, std.json): field attributes drive a
 compile-time generator that returns a plain runtime serializer with the tags baked in.
 
-```
+```luna
 import std.io;
 import std.json;
 

@@ -85,7 +85,7 @@ parseBool(s)          // "true" -> true, "false" -> false, else an error: bool! 
     boundary. The spelling is the composition: `parseInt(s)` and then the comparison you
     mean (`n != 0`, `n == 1`), each step visible.
   - **Surrounding whitespace is rejected** — `" true"` errors. Parsing is exact; trimming
-    is the caller's explicit, visible step (`s.trim()`, strings §6). This is the `parse*`
+    is the caller's explicit, visible step (`s.trim()`, string-api §6). This is the `parse*`
     family's general stance: the function parses the text it is given, never a cleaned-up
     version of it.
 

@@ -57,7 +57,7 @@ list**, not a shell string:
 ```
 
 - The literal's escapes are `` \` `` (a literal backtick), `\\`, and `\$` (a literal
-  dollar) — the authoritative table is strings §13.1 (R150, superseding the earlier
+  dollar) — the authoritative table is string §5.1 (R150, superseding the earlier
   no-escapes ruling, lexer G5: the `${'\u{60}'}`-style interpolation workaround for a
   literal backtick was ceremony where one escape pair suffices).
 - The literal is tokenized into a program name and arguments by whitespace, like a shell

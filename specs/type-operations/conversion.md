@@ -145,8 +145,8 @@ Because `toString` is total, it always yields a string:
   totality is **contract, not courtesy**: the member's declared type is `fn (any): string`,
   no `!`, and an apply initializer is checked against the member's declared type
   (protocols §4.2), so an errorable implementation cannot enter the protocol. Display
-  paths (logging, interpolation, `join` — strings §8, §13; there is no concatenation
-  operator, strings §11, R27) therefore never fail through the extension point; only ambient
+  paths (logging, interpolation, `join` — string-api §8, string §5; there is no concatenation
+  operator, string §3, R27) therefore never fail through the extension point; only ambient
   panics remain possible, as everywhere (errors §7).
 
 This totality is what lets **string interpolation** (string-builder spec) lower to `toString`
@@ -203,7 +203,7 @@ specs and summarized here:
   `parseBool(s: string): bool!` — one per parseable built-in (string spec and each type's
   spec).
 - **To bytes (total):** `toBytes(src: string | iterable): bytes` — the packed conversion
-  (strings §9); the iterable arm panics per element on a non-byte int (R107), the §2
+  (string-api §9); the iterable arm panics per element on a non-byte int (R107), the §2
   misuse precision.
 - **To stream (total):** `toStream(src: iterable | bytes): stream` — the lazy O(1) bridge
   (iterable-functions; producers produce streams, R102).

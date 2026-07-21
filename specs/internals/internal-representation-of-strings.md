@@ -203,7 +203,7 @@ across languages, so Luna does not offer one. Nor is there a bare `length`: it i
 
 - **`byteLength`** returns the byte count. O(1), stored in the descriptor.
 - **`bytes()`** returns the raw UTF-8 bytes as borrowed views. For I/O, hashing, and
-  low-level work; the copying bridge to the `bytes` type is `toBytes()` (strings §9).
+  low-level work; the copying bridge to the `bytes` type is `toBytes()` (string-api §9).
 - **`codepoints()`** returns Unicode scalar values, one per element. The safe technical
   unit: fixed meaning, no Unicode-version dependence. ASCII elements are inline strings
   (zero allocation); non-ASCII elements are borrowed slices into the parent (O(1), no
@@ -215,7 +215,7 @@ across languages, so Luna does not offer one. Nor is there a bare `length`: it i
   codepoints; if it meant codepoints, `"café"` with a combining accent would give a
   surprising count.
 
-Each view returns a **stream** — producers produce streams (R102, strings §1) — and every
+Each view returns a **stream** — producers produce streams (R102, string-api §1) — and every
 string-derived stream is restartable for free, because its source is immutable (stream §4,
 R105).
 
@@ -234,7 +234,7 @@ R105).
 - **Slice:** O(1) borrow (buffer-backed parents) or O(<=8) copy (inline parents).
 - **`copy` (detach):** O(n) over the slice's bytes; drops the parent pin.
 - **Joining:** O(n + m) per pairwise join; a result <= 8 bytes is inline. There is no
-  concatenation operator (strings §11, R27) — joining is interpolation, `join`, and the
+  concatenation operator (string §3, R27) — joining is interpolation, `join`, and the
   builder — and immutability makes a repeated pairwise-join loop O(n^2), so the builder
   (stringBuilder spec) is the accumulation tool.
 - **`byteLength`:** O(1). **`codepoints()` / `graphemes()` counting:** O(n).

@@ -75,7 +75,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 another way rather than as an operator:
 
 - **No string-concatenation operator.** Joining strings is **interpolation** (`"$a$b"` is `a`
-  followed by `b`; `"$name is $age"`, string-api §13), with `join` and the string builder for
+  followed by `b`; `"$name is $age"`, string §5), with `join` and the string builder for
   accumulation. A concat operator would want the `.` token, which is already table key access, and
   that overload is undecidable on a union like `table | string`; interpolation removes the need, so
   `.` keeps its single meaning (§0.1).
@@ -89,7 +89,7 @@ another way rather than as an operator:
 ### 0.1 `.` has one meaning: table key access
 
 The `.` token means **only** static key access on a table (`tab.key`, tables §3.2). It is **not**
-string concatenation, Luna has no concat operator (joining is interpolation, `"$a$b"`; string-api).
+string concatenation, Luna has no concat operator (joining is interpolation, `"$a$b"`; string §3, §5).
 
 This is deliberate. A concat operator would naturally want `.` (the PHP/Perl lineage), but `.` is
 already key access, and the two cannot be disambiguated by the left operand's type on a **union**: for

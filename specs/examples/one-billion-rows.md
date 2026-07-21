@@ -5,7 +5,7 @@ min/mean/max, sorted by station. The Luna version is a straight stream fold: con
 memory in the input (the file never materializes; `lines()` is lazy), one table of
 aggregates.
 
-```
+```luna
 import std.io;
 import std.process;
 
@@ -45,7 +45,7 @@ What the example exercises, with the rulings it leans on:
 - **`??=`** (associativity §1): first-sight initialization of the aggregate row, exactly
   the absent-assign it was added for.
 - **Stream destructuring** (destructuring §1.4): `split` produces a stream (producers
-  produce streams, strings §1, R102), and the pattern pulls exactly the two fields it
+  produce streams, string-api §1, R102), and the pattern pulls exactly the two fields it
   binds; a malformed extra field is simply left unconsumed, and a missing one binds
   `undefined`, which **panics at the `parseDouble` use** rather than passing silently
   (undefined spec: holding is fine, using panics).

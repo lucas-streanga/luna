@@ -201,7 +201,7 @@ table, `t.values()` is, because it says what it does.
 **`toString`** exactly as scalar interpolation renders (`"${x}"`, conversion §3), so spread
 interpolation is **total**: it is precisely the loop of `"${x}"`s it abbreviates, and display
 never fails. No separator is inserted; a separator is `join`'s job (`"${join(', ', xs)}"`,
-strings §8). Interpolation is a sequence context, so `xs` is a `list` (or a list-like
+string-api §8). Interpolation is a sequence context, so `xs` is a `list` (or a list-like
 stream) under §4's rule. *(A stricter rendering rule, panic unless every element is already a
 `string`, was considered and rejected: it would make this the one non-total rendering form in
 the language, diverging from the scalar interpolation it claims to abbreviate; strictness at a
