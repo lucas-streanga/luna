@@ -1528,13 +1528,4484 @@ functions §3 says the fact is "readable at any boundary that needs it" and this
 for the capability story, but reflection §3's runtime tier lists `typeName`, `kind`, `isNullable` and
 nothing else. Also unchanged: the builtin error types' casing (keywords §6), still open since R87.
 
+**R89 — spread: one spec, and sequence contexts require a `list`.** R36 opened by saying the
+corpus cited "a spread spec that did not exist" and wrote `expressions/spread.md`. The spec
+did exist, in `bindings/`, which is why every citation said "spread spec" and none said a
+path. So R36 founded a **second** spread spec and swept neither the first nor the two `Spread`
+rows in `index.md`'s single table, leaving `bindings/spread.md` still listing as **open** the
+three questions R36 had just ruled (streams spread, deep spread, call-site spread) and the two
+files disagreeing about what an integer key does. Partial application, the one defect this
+process exists to catch, and it hid a semantic contradiction for eighty-odd rulings. One file
+now, `expressions/spread.md`; `bindings/spread.md` is deleted, its fold-with-running-index and
+worked example, list-ness-as-emergent, and comptime spread merged in (none of it duplicated
+elsewhere; its `{...}` gloss corrected to the bracketed table literal). The keeper is the
+expressions one because **spread contributes values**: destructuring is the pattern-side
+counterpart and keeps `bindings/`. Splitting one token's two halves across two directories is
+what let them drift.
+
+**The ruling that organizes the file: a table literal is the only spread context with a key
+slot.** Keys survive it, under the fold. **Sequence contexts**, call arguments, command argv,
+and interpolation, have no key slot, so they require a `list`. This derives all four contexts
+from one distinction and adds no mechanism. **Argument spread therefore requires a `list`, and
+spread contributes no rule to enforce it**: `f(...xs)` demands exactly what `someFn(xs)`
+demands of a `list` parameter, because narrowing is never implicit (tables §2.3). A static
+`table` is a **compile error**, the `someFn(tab)` error tables §2.3 already prints; a value
+reached dynamically takes the `as list` check at the call, `typeError` on failure, the same
+panic `as list` raises. Rejected: **take the values**, spreading whatever the table holds in
+iteration order. It is the simpler sentence and it is what a spread token naively suggests, but
+it would make `...` **the one implicit `table → list` narrowing in the language**: `someFn(tab)`
+is a compile error while `someFn(...tab)` would silently reindex, so writing the token would
+*loosen* the check it looks like it tightens. tables §2.3 has already ruled the two spellings and
+each says what it means, `t as list` **asserts** that a non-list here is a bug, `t.values()`
+**produces** a list from any table, and its own words are "nothing reindexes silently." Silent
+reindexing is the bug class; ergonomics is not the axis. The consequence is recorded rather than
+apologized for: `f(...t)` is deliberately stricter than `[...t]`, which reindexes `[5=>50]` to
+`[50]` without complaint, because a literal is *building* a table, where integer keys carry no
+positional contract, and a parameter list has one.
+
+**Three further defects in R36's own text.** *Arity was wrong in the surplus direction.* §4 said
+"panic on mismatch," but functions §3.3 **drops** surplus arguments (the rule that lets a callback
+declare fewer parameters than the protocol supplies) and raises `ArityError` only on a deficit. A
+spread of ten elements into a two-parameter function is legal, exactly as the written ten-argument
+call is; corrected. *The rationale for positional-only spread was false.* §4 justified it with
+"named arguments do not exist," while table-api's notation defines a keyword-only tail after a
+`*,` marker and `merge`, `diff`, `intersect`, and `replace` all use one. Replaced with the reason
+that is true and is this ruling's principle: an argument list has no key slot. *Spread is not the
+materialization.* `collect(s)` **preserves** a key-value stream's integer keys (stream-api) while
+the fold reindexes them, so the equation was false for exactly the streams it mattered for;
+`[...s]` is `[...collect(s)]`, and `values(s)` for a values-only stream. Streams flow into
+sequence contexts and into variadics **values-only**, that being the stream analogue of a `list`
+(stream §1.1); a key-value stream needs `.values()` first, precisely as a keyed table does.
+
+**`"$...xs"` does not lex, and is deleted.** lexer §6's `INTERP_IDENT` is
+`\$[A-Za-z_][A-Za-z0-9_]*`, which `$.` cannot match, and the spread splice is defined only inside
+`${ }` (`INTERP_OPEN` + `SPREAD`). `"${...xs}"` is the one spelling and had to be, since bare
+`$name` is `DQ_STRING`-only while spread must also work in command literals, where no bare form
+exists. R36's rejection of a panic-unless-every-element-is-a-`string` **rendering** rule stands
+untouched and is now visibly a different axis from this one: that rule is about elements, the
+`list` requirement is about shape.
+
+**Stale citations, two of them R36's own and one inherited.** `operators §0.1` is the `.` token;
+the no-`+`-on-tables rationale is `operators §0.4` ("What some tokens deliberately do NOT do"),
+twice. `command §4` is the pipeline operator; `${...flags}` is `command §3`, twice, and `lexer.md`
+cited §3 correctly, so the corpus disagreed with itself. `variables §5.2` is the `copy` operator;
+copy-on-write value semantics are `tables §4`. And `flatten`'s cited signature had shed two of its
+five parameters, restored, the fuller signature strengthening the very argument it was cited for:
+four policy knobs (`depth`, `preserveKeys`, `onNoGet`, `asStream`) do not fit in a token, which is
+why depth is a function and `[......t]` is not a thing.
+
+Swept: `expressions/spread.md` (rewritten, absorbing the deleted file); `bindings/spread.md`
+(deleted); `index.md` (its two `Spread` rows, in one table, collapsed to one);
+`operators.md` (the `...x` catalogue row, which said "spreads a table/stream" of argument
+lists too, and had no note of the third position); `table-api.md` (`merge`, R90). Verified
+unmoved by the section renumbering: `command.md`'s and `lexer.md`'s citations of **spread §5**
+(interpolation and command literals), and `await.md`'s **spread §2** for
+`[...await promises]`, which is a values-only stream and so needs no `.values()`.
+
+**R90 — `merge` appends: `preserveKeys` defaults to `false`.** `table-api.md`'s `merge` was
+internally contradictory: its prose, "Appends `tabs` onto `tab` in order," says integer keys
+renumber, while its signature defaulted `preserveKeys: bool = true`, which keeps them, so they
+collide with `tab`'s and overwrite. Both cannot hold, and under the default the *documented*
+behavior was the one you could not get: `[10, 20].merge([30])` was `[0=>30, 1=>20]`, not
+`[10, 20, 30]`. The prose is right and the default was the error. Forced independently by R89:
+spread §1.3 states `[...a, ...b]` is `a.merge(b)`, and operators §0.4 rests the whole
+no-`+`-on-tables ruling on spread "already expressing merge" — under the old default that equation
+was false in its integer-key half, and concatenating two lists silently overwrote. Three claims,
+one of them with no argument behind it; the default gives way. `preserveKeys: true` survives as
+the *other* operation, layering `tabs`' entries at their own integer keys so they collide, it is
+simply not what merge means. The generalization is worth naming because it decides the rest of
+that audit: **combiners reindex by default; per-element reshapers preserve by default.** `flatten`
+already defaults `false`, "since keys collide across levels"; `merge` has the identical collision,
+across sources rather than levels, and defaulted the other way.
+
+Deliberately not swept, and now flagged: the **rest of `table-api.md`.** `preserveKeys` is a
+per-method flag defined nowhere globally and still defaults `true` on `chunk`, `partition`,
+`random`, and others; and the notation section leans on three parameter forms `functions.md` §3.3
+does not define — the `...tabs` variadic, the `*,` keyword-only tail, and the `name?` optional
+parameter. That is the table-api revision, not this one.
+
+**R91 — the built-in table protocol is retired; the catalogue is built-in free functions.**
+The corpus held three incompatible accounts of how a table operation is called: table-api §1
+said "you may call `tab.map(...)`" — a dot-reached protocol member, impossible since functions
+§3.4 ruled that `x.name(` is UFCS and that "UFCS never searches protocol meta pools"; tables
+§3.3 said the catalogue lives in meta space behind bare `->` (`tab->map()`); and tables §4's
+own examples write `myTable.sort()` and `&myTable.pop()`. Meanwhile `map` existed twice — a
+stream free function and a table protocol member with different signatures — against §3.4's
+own rule, "one name, one signature, first parameter is the receiver," whose tail flagged
+exactly this std-shaping work. The ruling: **there is no built-in protocol.** Every operation
+is a built-in free function, receiver first, reached by call or UFCS — the account the stream
+API already followed and the examples already assumed. Free availability: no import, no
+module; a local binding shadows the built-in, and a UFCS call through the shadow is a compile
+error (not callable) — loud, and accepted. Dead with the protocol: bare `->` (the operator now
+reaches only *named* user protocols), views §7.2's special case (nothing left to exclude from
+`@@tab`), the "represented virtually" implementation note, and the members-not-assignable
+rule. `&`-write-back is untouched: `&` at the call site assigns the return value back (tables
+§4), however the call is spelled. Swept: `table-api.md` (stubbed to the successor map plus
+deferrals), `iterable-functions.md` / `indexable-functions.md` (created, R92), `index.md`.
+The rest of the corpus is a flagged remainder (Still open).
+
+**R92 — one vocabulary over `iterable`; whole-input retention takes a `table`.** `iterable`
+is a built-in type, the union `table | stream`, written bare like `list`. The catalogue
+splits on one test: an operation whose semantics need only **ordered traversal of
+`key => value` pairs** — lazy, short-circuiting, or bounded-memory — takes `iterable`
+(`iterable-functions.md`: 47 functions, including `take` / `skip` / `takeWhile` / `dropWhile`,
+formerly stream-only, now on tables too); an operation needing keyed access, table state,
+positional mutation, **or the entire input at once** takes `table`
+(`indexable-functions.md`: 22). The retention rule is the load-bearing half: `sort`,
+`reverse`, `shuffle`, `groupBy`, `partition` cannot emit their first element before seeing
+their last, so on a stream they would be a *silent* collect — hiding exactly the O(n) the
+explicit bridge exists to show — and streams may be infinite, so the type keeps unbounded
+input out of unbounded buffering; the stream spelling is `s.collect().sort()`. `random` is
+the deliberate exception (reservoir sampling, O(num), single pass) and stays iterable;
+`reduce` is the deliberate escape hatch for building retained data by hand. Output kind
+follows the primary operand (first operand, for constructor-style `combine`): table in →
+table out, stream in → stream out, and the `asStream` flag is retired from every signature.
+Rejected alternative: an output-kind parameter for "merge two tables, get a stream" —
+unnecessary, because `asStream(tab)` is O(1) and lazy, so bridging the primary
+(`a.asStream().merge(b)`) already spells it with no new mechanism; the bridges' costs match
+their explicitness (`asStream` free, `collect` the visible O(n), both total on `iterable`
+and identity on their own kind). A stream passed as *any* argument is **taken**, extending
+the `|>` transfer discipline (stream §7). `onNoGet` / `onNoSet` are dropped from every
+signature and deferred — with `TableReadViolationError` / `TableMutationViolationError` and
+the `canGet` / `canSet` grant semantics — to the protocol redesign; the deferrals are
+recorded in the `table-api.md` stub. R90's audit, `preserveKeys` half: **discharged** — the
+surviving defaults follow R90's rule (combiners `merge` / `flatten` reindex; reshapers and
+pickers `chunk` / `partition` / `random` / `slice` preserve); its parameter-forms half stays
+open below.
+
+**R93 — every stream is keyed; the name mergers.** The values-only / key-value stream
+dichotomy (stream spec §1.1) is erased: every iterable yields `key => value` pairs, and a
+generator yielding bare values has **implicit keys** `0, 1, 2…` — a stream is to a table
+exactly what a list is to a keyed table, and implicit keys behave precisely as list keys
+(preserved by per-element functions, hence sparse after `filter`; reindexed by `values`).
+The symmetry makes every key-facing function (`keys`, `keyOf`, `flip`, `keyFirst` /
+`keyLast`, mode `{keys}`) total over `iterable`, and closes stream-api §9's key-aware
+`peek` / `first` question: `peek` / `first` return values, `keyFirst` / `keyLast` return
+keys, `foreach (k => v)` gives pairs. The mergers, one name per operation: **`empty` →
+`isEmpty`** (joins the `isList` / `isConsumed` predicate family; bare `empty` reads as a
+verb, which is `clear`'s job); **`concat` → `merge`** (on streams, merge is lazy
+concatenation — duplicate string keys flow through in order and resolve at `collect`, last
+wins, the same table `merge` would build); **`enumerate` → nothing** (it only made implicit
+keys explicit, and they are always present); **the stream `values` collector → `collect`**
+(`values` is everywhere the kind-preserving reindexing transform; a stream with undisturbed
+implicit keys collects to a `list`, so the old collector's behavior falls out of the one
+bridge instead of being a second one). Retired spellings are tabulated in
+iterable-functions §3; do not reintroduce.
+
+**R94 — the table→stream bridge is `toStream`, not `asStream`.** Renamed in-session, before
+any sweep landed on the old name. `as` is the narrowing operator (as spec): `x as T`
+reinterprets a value the expression already has, producing no new one. The bridge *builds* a
+new value — a stream adapting the table's elements — and that is the conversion family's
+territory, where every member is spelled `to*` and is an ordinary UFCS-reachable function
+(conversion spec: `toInt`, `toDouble`, `toBool`, …). `tab.asStream()` claimed a narrowing
+that is not happening; `tab.toStream()` says what it does. Two names deliberately keep their
+spelling: the retired `asStream: bool` *flag* (R92) stays `asStream` in the log and the
+retired-spellings table, since it names a dead thing; and `collect` does **not** become
+`toTable`, because it is a consumer, not a conversion — it exhausts its source and retains
+O(n), and its name carries that cost (R92's explicitness rule) where `toTable` would read as
+free. Swept: `iterable-functions.md` (§1.3, §2.11, and the §3 retired-spellings table, which
+now lists the old name); the Still-open grep list (the old corpus's `asStream` — stream-api
+§7's function and every `asStream:` flag — now sweeps to `toStream` / the R92 kind rule).
+
+**R95 — `->` is all protocol member access; protocol space is closed; views are retired.**
+The protocol model is rebuilt on one move: a protocol's members live in **protocol space**
+— per-protocol namespaced, reached only by `->`, and **closed at compile time** (every
+proto block fixes its member set at definition) — and element space (`.` / `[]`) is
+protocol-free, pure user data. Everything the old model fought follows from ending the
+shared space: declared-element-member collisions (old §6.3), the `@P & @Q` disjointness
+constraint (old §7.2), the declared-vs-dynamic install machinery (old §5.1–5.2), and the
+built-in-name avoidance rule (old §6.4) are all structurally impossible rather than
+checked. `->` resolves statically against in-scope protocols: bare `tab->m` when exactly
+one declares `m`, qualified `tab->P.m` otherwise, unknown names a compile error — so
+`undefined` never masks a typo. The one runtime question left is application (a dynamic
+fact): a bare read of an unapplied protocol's member is `undefined` (two absences, one
+rule, matching element space), a hard use — write or call — **panics** (a silent no-op
+call is Objective-C nil messaging, the failure mode that parses as success; rejected),
+and `?->` is the explicit soft form, short-circuiting argument evaluation like `?.`.
+This ruling also settles a live contradiction: old protocols §10 said an unapplied reach
+panics while §4.4 and views §3.2 said `undefined` — resolved as above (soft read, hard
+panic). **Views are retired with the space they navigated**: `->` yields values directly,
+chaining rides return values, `self` is the receiver typed `@CurrentProto`, `tab->P.m` is
+pure qualification syntax producing no intermediate value, and `@@` (tables only) moves
+into protocols §8. The §5.4.2 widening/`&`-alias hole closes by construction: no `.`
+write can touch a protocol member, no `->` write can touch element data, and grants
+travel with the member, not the binding. Swept: `protocols.md` (rewritten), `views.md`
+(stubbed to a replacement map), `index.md`.
+
+**R96 — the proto block is member declarations only: the ladder plus grants.** A protocol
+contributes exactly one kind of thing, members, declared
+`<const|let|var> [get] [set] name[?]: type [= default]` — three existing mechanisms
+composing with their ordinary meanings (binding keyword = mutability, variables §1
+including the §1.2 write-once optional; `?` = type; default presence = apply-time
+omissibility, the same rule as function parameters, so there is no `required` marker).
+The `meta` keyword is **retired**; its old sense (per-table private state) is an
+ungranted member, and protocol-level constants fall out of **`const`'s one-binding
+rule**: a `const` with a default is bound at *definition* — uniform across tables, a
+protocol fact, reachable off the proto value (`person->species`), excluded from
+equality, serialization, and initializers, and never per-table overridable (hence **no
+virtual dispatch**: fn-typed members cannot be overridden per table); a `const` without
+a default takes its one binding from a required apply initializer — a per-table
+immutable, the record field. Mutable protocol-level state is inexpressible; shared
+mutable state belongs to a task, per the concurrency commitments. **Functions are
+`const` fn-typed members** — no separate category: `get` makes one public, ungranted is
+a private helper, receiver first by value with caller-side `&`-write-back (the R91
+catalogue convention; no `&` parameters). `P->fn` yields the bare function value
+(receiver-first, so it composes with `map` directly); `tab->fn` uncalled is a compile
+error (a bound method would be a stale snapshot under capture §2.1 or an alias, both
+rejected; bake a receiver with an explicit closure). Grants are external-only (a
+protocol's own functions always reach their own members), canonically ordered `get set`,
+orthogonal (write-only is legal), and **a grant that can never be exercised is a
+definition error** (`const … set`; `let set` on a scalar) — likewise **required ⇒
+granted is a theorem** (no default + no grant = unbindable = ill-formed). The surfaces
+sharpen to one boundary: **per-table `get` members = the equality surface = the
+serialization surface; granted per-table members = the initializer surface**;
+definition-fixed members are vacuous everywhere; `identityEquality` is retained for
+hidden-state types. And ruled here: **fn values do not serialize** (no representation,
+no way back, a security hazard) — `toJson` raises `typeError` on a fn in the
+serialization surface, with `skipFunctions: true` to omit fn-valued slots instead.
+Swept: `protocols.md`.
+
+**R97 — application is pure machinery; initializers are data; requirements auto-apply.**
+Custom `apply` functions are **dead**: application runs no user code, ever — it attaches
+the protocol and binds its per-table members from initializers or defaults, atomically
+(all-or-nothing, no observable partial state). What `apply` bodies did is covered by
+constraints (validation), initializers (population), or ordinary factory functions
+returning `@P` (everything else — no constructor concept, hence none of the constructor
+failure modes: no init-order semantics, no partially built values, no overloads).
+Initializers are a named, typed, compile-checked value list — the **apply operator's own
+grammar**, deliberately not function named-arguments (that question stays open,
+R89/R90 tail) — supplying required members and overriding `let`/`var` defaults;
+definition-fixed and ungranted members may not appear. Two forms with a clean split:
+the **operator** (`[] apply person(name: "Lucas")`, onto any table expression) is
+**never errorable** — under this model a table's element data is *irrelevant* to
+application, so the old shape-dependence (§7.4) and its whole errorability tier system
+(§7.5–7.6) collapse; the **free function** (`&tab.apply(p, inits)`, R91-style with
+write-back) is the dynamic form and carries the model's **single residual error**,
+`ApplyError`: missing required initializer, unknown/unbindable initializer key,
+initializer value failing type or constraint, or re-application with initializers. Bare
+**re-application is a no-op** (idempotent, state kept — which keeps application monotone
+and the fact/promise split sound); re-applying **with initializers is an error** (silent
+data loss or broken idempotency otherwise). **Requirements**: a proto block may state
+`apply otherProto;` — the same keyword because the semantics *are* auto-application
+(transitive, idempotent, safe precisely because application is machinery); `require` as
+a new keyword was rejected as both costly and a misnomer. The requirement graph is a
+**DAG** (modules §2's argument verbatim), and `@B <: @A` falls out: a `@B` provably has
+`A` applied. One restriction keeps initializer lists single-protocol: a requirement with
+*required* members cannot be auto-applied — the target must have it applied already
+(compile error in the operator form naming the missing requirement). Swept:
+`protocols.md`; resolves old §11's apply-reach question (a built-in free function, per
+R91) and its applied-check question (the closed space plus the O(1) tag test).
+
+**R98 — the element-permission model is deleted; the R92 deferrals resolve by deletion.**
+With protocols out of element space (R95) and grants compile-checked (R96), per-key
+element permissions have nothing left to govern: a bare table was always fully
+accessible to its holder, and protocol members answer to static grants. Deleted, not
+deferred: **`onNoGet` / `onNoSet`** (bulk operations traverse element space, which
+carries no permissions — the enums return to no signature, ever),
+**`TableReadViolationError` / `TableMutationViolationError`** (grant violations are
+compile errors, not runtime events), and **`canGet` / `canSet`** (retired from
+indexable-functions; `has` covers presence, and there is no runtime grant to query).
+This discharges the deferrals R92 parked in `table-api.md` and empties tables §6's
+runtime model (the tables.md sweep itself remains flagged below). Swept: `table-api.md`
+(deferral section rewritten as resolved), `indexable-functions.md` (§1, §5),
+`iterable-functions.md` (§1.6, §3).
+
+**R99 — the R95–R98 sweep, first pass: tables, the builder, secret, keywords.** Applying
+the protocol redesign where it bit deepest, with three consequences the sweep forced into
+the open rather than deciding silently. **`tables.md`**: §3.3 rewritten to the two-space
+model (element vs. protocol space; `->` now legally appears left of `=` where a member
+grants `set`, retiring the old "never assignable" absolute); §6's per-key permission
+model deleted bodily (R98) — the section now states the positive rule (element space
+carries no permissions; encapsulation lives in protocol space, compile-checked) and
+absence collapses from three cases to two (absent → `undefined`, present `null` →
+`null`; the denial case is gone); §4's write-back prose de-protocoled (no *built-in or
+protocol function* takes a `&` receiver — the R91/R96 convention stated once); §8.1's
+constraint examples respelled to free functions (`count(t)`, `values(t)`). **Forced
+ruling one, §7 unified: derived tables are born open *and bare*.** A transformer reads
+element space only, so it cannot reproduce a protocol's per-table member state, and a
+protocol without its state is incoherent — so transformers shed protocols, uniformly.
+This also resolves a tension the old text carried (access "propagates by key identity"
+in §7.2 while §6.4 said derived values are born protocol-free): the shed side wins,
+identity copies keep everything, and re-attaching behavior is an explicit `apply` that
+must re-supply what the protocol requires. **`stringBuilder.md`**: rewritten to the
+member model — `buf` is an ungranted per-table `var` member (under new-`meta` it would
+have been one shared buffer for every builder in the program, the exact hazard R96's
+retirement of the keyword was for), the surface is `const get` fn members, chaining is
+`&b->append(...)->append(...)`, and `identityEquality` is declared. **Forced ruling two:
+`take()` is retired.** It is inexpressible under the pure-receiver convention (one
+return channel cannot carry both the string and the reset receiver) and redundant under
+COW: `build()` shares the buffer with the produced string and the O(n) copy happens only
+if the builder is appended to again — so build-and-drop *is* the zero-copy path, and
+interpolation's lowering (build on a dropped temp) gets it by construction. Rejected
+alternative: a `[string, @stringBuilder]` pair return, which buys nothing over
+`build()` + `&clear()`. **Forced ruling three: protocol members may take catalogue
+names.** The builder keeps `isEmpty` — `b->isEmpty()` (buffer) and `b.isEmpty()` (UFCS,
+element space, vacuously true) coexist because the spaces are disjoint; the old §6.4
+name-avoidance rule died with the built-in protocol, and the doc now demonstrates the
+split instead of legislating around it. **`secret.md`**: no protocol content after all —
+swept for a latent defect instead: two sections were both numbered §3.1; gated
+construction is now §3.2. **`keywords.md`**: the `meta` row deleted (R96); `apply`'s row
+rewritten (expression operator + proto-block requirement declaration; the dynamic form
+is a free function, not a keyword use); `self`'s row updated (type in return position,
+value in bodies — no view); `get` / `set` added as contextual modifiers; and in the
+predeclared-name list, `view` removed (R95) and **`iterable` added** — an R92 sweep item
+that had no home until now. The `?->` token is deliberately not added yet (deferred by
+decision, with the lexer/associativity work). Also swept, discovered by the verification
+greps: `indexable-functions.md` §2's stale pointer into old tables §6;
+`concurrency.md`'s value-carried-enforcement cite (old tables §6.4 → §6.2, and its
+protocol half dropped — grant enforcement is compile-time now, so only constraints
+still "follow the value"); `operators.md`'s `->`, `@@`, and `apply` rows plus its
+operators-run-no-user-code passage (`->` is protocol-member *access*; the call parens
+are what run a protocol function, exactly as with UFCS; the statement-form
+`tab apply proto` row respelled to the expression operator, the dynamic form being the
+free function per R97); and `spread.md` end to end (its old flatten signature respelled
+without `onNoGet` / `asStream`; `table-api` cites → the catalogue files; and every
+"values-only stream" translated to its R93 equivalent, a **list-like** stream — one
+with implicit, undisturbed integer keys — including the R89 variadic-fill note and the
+§2 fold-vs-collect distinction, which now bites only for *explicit* integer keys).
+
+**R100 — the R95–R98 sweep, third pass: coalescing, `toString`, json, functions.** Four
+files, and the one genuinely load-bearing translation of the whole sweep.
+**`optional-access-and-coalescing.md`**: rewritten to the two-axis model. The R99 flag on
+`???` resolves in its favor — its cut (absent-or-null vs. value) is entirely on the
+*value* axis, which R98 never touched, so both coalescers survive verbatim; only the
+denial axis dies, and the file now says where it went: **not deleted but moved to compile
+time** (a forbidden access does not compile, protocols §3.1). The write-side tables lose
+their grant rows; a `???=` overwrite is unconditionally legal, so both compound forms
+share exactly one failure, the add-path `OpenViolationError`; the read-to-classify
+`TableReadViolationError` caveat and the permission-throws-through-coalescers ruling are
+deleted (the latter's three-row table is two rows now); a stale `freeze` disclaimer went
+with them. Added: a **protocol space** section — the unapplied protocol is one more
+absence under the same rules (`undefined` on bare read, coalescable; `?->` for calls,
+argument-short-circuiting like `?.`), members of an applied protocol are **never absent**
+(application binds every member, so `??=` has no protocol-space role), and a member's
+*value* being `null` is the ordinary `???` case. **`conversion.md` — the forced
+translation: the interface pattern.** Old `stringify` declared "its one member:
+`toString = meta fn`", assuming each applier implements a protocol function — an
+*abstract member*, which the member model does not have (protocol functions are
+definition-fixed, R96; there is no per-applier override, deliberately). The faithful
+translation uses only ruled machinery: **a required fn-typed member**,
+`const get toString: fn (any): string;`, bound per application as an apply initializer
+(protocols §4.2), immutable after, with non-errorability still contract-not-courtesy
+(the initializer is checked against the declared member type, so no `!`-typed renderer
+can enter). Dispatch respelled `value->stringify.toString(value)` — a qualified fn-member
+read-and-call (protocols §3.4), not a protocol-function call, which is precisely what
+lets every application carry a different renderer; the "earlier draft ill-formed" note
+rewritten (bare `->toString` is no longer impossible, merely scope-dependent, which is
+reason enough to qualify a dispatch entry point). This is the pattern for every
+interface-shaped contract under the member model, and the spec now says so. It also
+closes conversion §6's first open question ("`stringify` signature and totality
+contract", which waited on "the protocol spec's meta-function conventions"): the
+conventions arrived, the answer is the declared member type, and the bullet is removed;
+the `fromString` question stays open, respelled as the pattern in reverse. One honest
+consequence recorded: a renderer is a `get` fn-typed per-table member, so it sits in the
+serialization surface and meets the fn rule — `toJson` on a `@stringify` value is a
+`typeError` unless `skipFunctions` is set. **`json.md`**: §2.1 added — the serialization
+surface stated per R96 (element space + `get`-granted per-table members;
+definition-fixed and ungranted members never serialize, with the round-trip argument),
+`skipFunctions: bool = false` added to both writers (per-call on `toJsonDynamic`, baked
+into the generated writer on `toJson`), fn values raise `typeError`; open questions gain
+the protocol-member nesting shape, and the `fromJson`-into-shapes item now names its
+mechanism (apply + initializers over the granted surface). **`functions.md`**: §3.3's
+arity example respelled (`myTab.filter`, UFCS); §3.4's `->` bullet rewritten (bare or
+qualified `->`, no view form, no "meta pools"); §3.4's flagged std-shaping tail marked
+**discharged** (the catalogues satisfied it, R91–R92); §4's errorability cross-reference
+replaced (the dead custom-`apply` `: self!` and §7.5 cites → an errorable protocol
+function and the dynamic `apply()`'s `table!`); §5's capability citation corrected
+(protocols spec → capabilities spec).
+
+**R101 — the sweeps completed: equality, the stream family, `?->`, and the tail.** The
+final pass; with it, **the R91–R93 and R95–R98 sweeps are complete** — no spec file still
+speaks the pre-catalogue or pre-redesign language (the examples were verified already
+clean). **`equality.md`**: §4.4's proto example modernized to the member model, and
+**§4.5 added** — the R96 equality surface as a numbered rule: applied-protocol sets must
+match *as sets* (order not load-bearing), each protocol's `get`-granted per-table members
+compare by `==`, ungranted members never do (incidental by declaration —
+`identityEquality` is that rule's other half, not an exception), definition-fixed members
+are vacuous, fn-typed members compare by identity; §4's opening and the summary table row
+carry the addition, and the `view`-equality open question is retired as mooted (R95).
+**`stream.md`**: §1.1 rewritten — "values-only vs. key-value" is erased for implicit vs.
+explicit keys (R93), with the implicit keys stated to be *real* (key-facing functions see
+them, transforms preserve them, `values` reindexes them, undisturbed they collect to a
+`list`); §5.1's bridges respelled (`toStream` / `collect`, the retired flags noted); §7.3
+extended with the R92 rule that passing a stream to *any* catalogue function takes it.
+**`stream-api.md`**: restructured to the stream-only surface it actually owns —
+producing, `peek` / `isConsumed`, `foreach`, restart — plus an orientation table over the
+shared catalogue; the absorbed transform/collect/bridge sections are gone,
+the key-aware-peek question is recorded closed (values via `peek`/`first`, keys via
+`keyFirst`/`keyLast`, pairs via `foreach`), and the open questions trim to three, the
+infinite-consumer guard staying open (iterable-functions §1.4 cites it, now at §6).
+**`range.md`** and **`control-flow.md`**: enumeration prose respelled to implicit keys —
+observable behavior unchanged (`foreach (k => v in 10..20)` always gave the index), but
+the model is now uniform and the keys are real, `keys` and `keyOf` included.
+**`associativity.md`** tier 1: `x->P` generalized to `x->name` (bare protocol-member
+access), `x?->name` added, notes updated for assignability-where-granted. **`lexer.md`**:
+the deferred **`?->` token lands** — `OPT_PROTO_ACCESS`, regex `\?->`, slotted into the
+maximal-munch ordering (`??` › `?->` › `?.` › `?`). **`wildcard.md`**: the unused-parameter
+example moves from `map` to `reduce` — under the catalogue signatures the old
+`map(fn (_, index) => ...)` would need a `mode` argument (and would arity-error without
+one, functions §3.3); `reduce`'s two-argument callback (`fn (_, item)`) makes the point
+with no mode at all. **`regex.md`**: `text->find(pattern)` → `text.find(pattern)` (UFCS).
+**`constraints.md`** §7: its cross-reference respelled — "protocol *element* types
+(protocols §5.4)" → "protocol *member* types (protocols §3.3)"; the
+checked-on-write / trusted-on-read analogy survives intact, since member writes still
+check the declared type wherever the site cannot discharge it statically. `index.md`'s
+Stream API row updated to the slimmed scope.
+
+**R102 — producers produce streams; the string API sheds its flags.** The convention gets
+its name: everything that generates a sequence from a non-sequence source — generators,
+ranges, `io`'s `lines()`/`chunks()`, and now the string API — returns a **stream**, with
+retention always the explicit `collect()`. `strings.md` was the last holdout (eleven
+`asStream: bool` flags, a `stream | table` return convention, and a "materialize by
+default" stance nothing else shared); all eleven flags are deleted and
+`findAll` / `split` / `lines` / `codepoints` / `graphemes` / `characters` return `stream`,
+with `lines`' inexplicable `table` return fixed by the same stroke and `slice`'s
+vestigial flag dropped (one string in, one string out). The cost is one word in the small
+case (`s.split(' ').collect()[1]`) — and the compiler may fuse `collect(split(...))` into
+the eager build, an elision, not a semantics. **`bytes()` splits along the
+producer/conversion seam**: `bytes(str): stream` is the iteration view (octets as ints);
+`toBytes(str): bytes` is the conversion to the packed value (`to*` family, R94), the
+inverse of `fromBytes`. Also swept while in the file: §12's builder summary — a **R99
+straggler**, missed because the grep pattern "meta fn" does not match "meta functions" —
+respelled to `&b->append(...)`, `take` noted retired; `join`'s glue-first receiver
+deleted in favor of the ruled catalogue signature (the exact "receiver position
+wandering" functions §3.4 flagged); `toInt`/`toDouble` respelled `int!`/`double!`
+(postfix-errorable convention); `isValidUtf8`'s "future `bytes` type" updated (it
+exists); §14's build-transfer question marked resolved by R99. **Discovered and flagged,
+not fixed**: the conversion family (`toInt` over `string`/`bool`/`double` with differing
+signatures and errorability across `strings.md` and `conversion.md`) still has the
+per-receiver variants that functions §3.4's one-name-one-signature rule forbids — the
+catalogues' half was discharged (R100); the conversion family's half is open below.
+
+**R103 — stream destructuring: take-what-you-bind.** Positional patterns accept a stream
+source, pulling **exactly as many elements as they bind**. Exhaustion binds the remaining
+targets to `undefined` — the stream's ordinary absence, the answer `peek` already gives —
+and surplus is simply left in the stream; neither is an error. This is deliberately *not*
+destructuring §1.1's exact-length rule, and the ruling names why the asymmetry is
+principled: the table rule is a **shape assertion**, meaningful because a table's length
+is checkable in O(1) before binding; a stream's length is unknowable without consumption
+and may be infinite, so a stream pattern is a **take-request**, and the no-silent-loss
+philosophy does not bite (nothing is asserted, and the tail remains recoverable via a
+rest binding or `restart`). **`...rest` binds the remaining stream, not a list** — lazy
+head/tail decomposition with nothing buffered (on a table, rest collects; on a stream,
+collecting would defeat the point). **The destructure takes the source** (the `|>`
+transfer discipline): `rest`, if bound, is the one live handle. Two guards: keyed
+patterns reject streams (no random access — compile error where statically known,
+`typeError` otherwise), and **match arms reject streams** (a failed pattern test would
+have consumed elements it cannot restore; streams are identity values to `match`, never
+structure). Swept: `destructuring.md` (§1.4 added; intro, §5's rest type, §6),
+`stream.md` (§2.1 added).
+
+**R104 — bytes: `foreach` yes, `iterable` no.** The criterion that excluded strings from
+iteration becomes the stated rule: **`foreach` consumes anything with an unambiguous
+element sequence.** `bytes` passes — every element is unambiguously a byte — so
+`foreach (x in b)` (and `foreach (i => x in b)`, offsets as keys) is direct; a bare
+`string` fails (bytes, codepoints, or graphemes?) and keeps choosing its unit through
+producers. But **`iterable` stays exactly `table | stream`**: admitting `bytes` would
+break kind-follows-primary at every transform — `map`'s output cannot promise `0..255`,
+`filter` cannot leave a sparse packed buffer — costing either ~47 per-function special
+cases or an implicit bytes→stream conversion, and Luna does neither. The catalogue is
+reached by the explicit bridge instead: **`toStream` widens to `iterable | bytes`** (a
+union parameter, the documented no-overloading pattern), the single place `bytes` touches
+the catalogue, yielding ints; `collect` of a byte stream is a **list of ints** (no
+special case), and repacking is an explicit build — a `toBytes(iterable)` conversion is
+flagged open below. `bytes.md`'s promised direct `b.map` / `b.filter` (§2, §6) are
+**retracted** accordingly. This closes the bytes-iterability flag standing since R91's
+landing. Swept: `bytes.md`, `control-flow.md` (the foreach-source rule),
+`iterable-functions.md` §2.11.
+
+**R105 — restartability: the immutable-snapshot rule.** `canRestart` is decided by one
+rule: **a stream whose source is an immutable retained snapshot is restartable** — string
+producers, ranges, and `toStream` over a table or `bytes` (the COW capture *is* a
+snapshot, the case easy to miss); generator functions stay source-dependent per stream
+§4, since a generator over a socket cannot promise replay. The rule's cost, asked and
+answered: a restartable stream **pins its snapshot** for its lifetime. Not a real
+problem — it is ordinary value lifetime, identical in kind to a closure's deep-`const`
+capture (functions §2.1) and to a string slice pinning its parent's buffer (string-api
+§6, the in-corpus precedent), and the escape is the ordinary one: `collect` the small
+result and drop the stream. Swept: `stream.md` §4, `stream-api.md` §4, `range.md`.
+
+**R106 — the conversion family unified: three prefixes, three contracts.** The last
+standing violation of functions §3.4's one-name-one-signature rule — `toInt` in three
+per-receiver variants (`string → int!`, `double → int!`, `bool → int`), `toDouble` in two
+— resolves by the **distinct-names** arm, not the union arm, because this family is the
+union pattern's weak spot: errorability varies with the input, so a union signature
+(`toInt(v: string|bool|double): int!`) would force the `try` tax onto the provably-total
+`bool` path — a signature that lies in the safe direction is still a signature that lies.
+The resolution recognizes **three different operations wearing one verb**, and gives each
+its prefix, tabulated in conversion §2: **`to*` is total, always** (`toString`, `toInt`,
+`toDouble`, `toBytes`, `toJson`, `toStream` — seeing `to` means no error handling);
+**`parse*` acquires from bare text, always `!`, and names the *target*** (`parseInt`,
+`parseDouble`, `parseBool` — the input type, universal `string`, says nothing, so the
+name must); **`from*` decodes a typed carrier, always `!`, and names the *source***
+(`fromJson`, `fromBytes`, `fromYaml` — the output, ambient `table`/`string`, says
+nothing, so the name echoes the input). The principle: *the name carries whichever end
+the signature doesn't make obvious.* The families never compete — `parseJson` would mean
+"text → `json`", which already has its one spelling (`raw as json`, the constraint
+entry), so it does not exist and `fromJson` keeps its name; the `parseFromJson`
+contortion dies with the false dilemma. Noted, not papered over: `from*` is uniform about
+naming, not about where validation runs (`fromJson` trusts its constraint-validated
+input; `fromBytes` validates raw octets itself). **`double → int` is a policy, not a
+conversion**: the retired `toInt(d)` silently truncated; it becomes the **policy verbs**
+`trunc` / `round` (ties away from zero) / `floor` / `ceil`, each `fn (d: double): int!`,
+deliberately outside the prefix families — they are decisions, not conversions, and the
+choice is now visible in the source. Survivors, each exactly once and total:
+`toInt(b: bool): int`, `toDouble(n: int): double`. Swept: `conversion.md` (§2 rewritten
+around the contract table, §4, §5), `double.md` §7 (the four verbs), `strings.md` §4
+(`parseInt` / `parseDouble`) and §14, `functions.md` §3.4 (the discharge note now true in
+full), `bool.md` (already conformant — `toInt(b)` *is* the surviving `toInt`), and the
+examples, where the sweep surfaced two latent drifts fixed with cause:
+`one-billion-rows.md` **indexed a `split` result** (unindexable since R102 made it a
+stream) — rewritten to R103 stream destructuring, which the example now showcases; and
+`testing.md`'s `parsePort` used `n as int` on a `double`, violating the as-never-converts
+rule (as spec §3) — rewritten to a direct `parseInt`. `fromString`-as-open-coercion stays
+open (conversion §6), unchanged.
+
+**R107 — `toBytes` widens; the `to*` contract is precise about panics.** The R104 open —
+repacking an iterable of ints into a `bytes` — resolves into the **existing name**:
+`fn toBytes(src: string | iterable): bytes`. Two observations make the name legal:
+constraint violations are **panics**, not declarable errors (constraints §7.1, bytes §2),
+and panics are signature-exempt (functions §4, "just about every function can panic") —
+so the iterable arm, which checks each element against the `byte` constraint, carries no
+`!`, and the union R106 forbade for `toInt` is clean here: *both* arms are `!`-free (the
+string arm cannot even panic — a string's octets are bytes by construction), so neither
+forces a `try` tax on the other. `parseBytes`, the floated alternative, is rejected by
+R106's own table: it would be the one `parse*` taking no text and carrying no `!`,
+eroding both halves of a one-ruling-old contract — and "parse" misdescribes an operation
+that decodes nothing (the ints are already values; only the packing changes). Semantics:
+the iterable arm is a **bulk append**, morally the `b[] = x` loop it abbreviates,
+inheriting its per-element `typeError` panic — and panic is *right*: a non-byte int out
+of your own transform is an invariant bug, not the data-dependent recoverable failure
+that makes `fromBytes` errorable (world octets may not be UTF-8; your map's range is
+your contract). A stream argument is taken (iterable-functions §1.5). Sharpened
+alongside, in conversion §2: the contract table's "**never**" means never **`!`** —
+panics stay possible in `to*` as everywhere, with `toJson`'s `typeError` on fn values
+(json §2.1) and `toBytes`' constraint panic as the in-family examples; the contract is
+"no error *handling*," not "cannot fail on misuse." Swept: `strings.md` §9,
+`conversion.md` §2, `bytes.md` §6; the R104 open is retired below.
+
+**R108 — named arguments and variadics: the call surface completed.** The R89/R90 flag —
+three parameter notations used across the std surface and defined nowhere — closes as
+functions §3.3.1–§3.3.3. **Named arguments** (§3.3.2), on the PHP rules: always optional,
+pure ergonomics (skipping defaulted parameters; `a.merge(b, preserveKeys: true)`),
+positional-first (a positional after a named is a compile error), usable with any
+function including a type-erased `fn` — parameter names ride fn values as runtime
+metadata, and are therefore **contract**: renaming a std parameter is a breaking change,
+stated in the spec. Double-binding and unknown names error on the established
+static/dynamic split: compile error against a known signature, the new
+**`NamedArgumentError`** panic (errors §2's tree, the sibling of `ArityError` — arity is
+the count-mismatch binding panic, this is the name-mismatch one) through erased calls.
+One deliberate asymmetry named: surplus *positional* arguments stay dropped (§3.3, the
+callback idiom) while a surplus *name* panics — an extra positional means the callee
+ignores it; a wrong name always means the caller was aiming at something. The PHP 8.1
+associative-spread-becomes-named-arguments behavior is **rejected** ("an evil, evil
+footgun", ruled): spread into arguments remains a list-only sequence context (spread
+§4); names are visible at call sites, never manufactured from data. Function resolution
+is untouched — names bind arguments, never select functions. **Variadics** (§3.3.3):
+`...name: T`, collected as a **`list`** always (zero arguments → `[]`, each element
+checked against `T`, bare is `any`, no declarable default) — and the R35 unification
+**now holds**: the variadic is destructuring's trailing rest in the *positional*
+parameter sublist, with what follows outside positional space. **Only defaulted
+parameters may follow a variadic**, named-only by construction — a *required* named-only
+parameter would make named arguments mandatory at every call, contradicting their
+always-optional charter. The `*,` keyword-only marker is **retired as redundant**
+("after the variadic" already says named-only); the four catalogue signatures shed it.
+Call-site spread composes as the identity (`f(...xs)` re-collects to `rest == xs`,
+COW-cheap; list-like streams fill variadics, R89). **`name?` settled** (§3.3.1): `?` is
+only ever the type (`T | null`, uniform with proto members, R96); a parameter `p?: T`
+with no written default reads as `= null` — sugar, not a divergence. And the convergence
+R97 hedged on is embraced: apply initializers and named arguments share one surface
+(`name: value`) by design, binding members and parameters respectively — protocols §4.2
+and §10 updated, the initializer-grammar open closed. Swept: `functions.md`
+(§3.3.1–§3.3.3), `errors.md` (the panic tree), `iterable-functions.md` (§1.6, four
+signatures), `spread.md` (§4's rejection bullet, §7 resolved), `protocols.md` (§4.2,
+§10), `associativity.md` (argument punctuation).
+
+**R109 — the growth seal is removed: tables carry no seal state at all.** `open()` /
+`close()` / `neverOpen()` are deleted, and `OpenViolationError` / `InvalidOpenError`
+with them — §5.2's freeze/thaw argument transferred verbatim to the growth axis: under
+copy-on-write value semantics a callee receives a copy and tasks never share a mutable
+table, so nobody can add a key to *your* table but you, and a growth seal protected a
+table only from its own holder — a three-state runtime flag, a revocability
+distinction, and two panic types spent encoding *discipline* in a
+safety-by-construction language. The old §5 design note had already confessed the
+direction ("better expressed as a compile-time contract… under review"); the
+replacements now exist, and the removal record names them (tables §5.1): a fixed shape
+as contract → a **protocol** (compile-checked member space, R95–R96); an element-space
+invariant including a fixed key-set → a **table-level constraint** (tables §8,
+value-carried, elided where provable, `list` the built-in instance); the `neverOpen`
+optimization claim → **`const` tables** (Amendment A) and the deferred `toImmutable()`
+(§5.2.1). One use has no zero-setup replacement, deliberately: accidental key creation
+(`tab['tpyo'] = v`) is now guarded only by a *declared* invariant — an invariant you
+care about is declared, not toggled. What the deletion buys: **element-space operations
+have no runtime errors at all** (indexable §5's inventory is empty — R98 took the
+permission errors, R109 takes the seal errors; ambient panics only, as everywhere);
+**`??=` and `???=` are total** (the seal was their only failure mode; both compound
+tables lose their error rows); **`&`-write-back is ordinary assignment** (§4.2's
+"flag-respecting structural update" had no flags left to respect — governed by the
+binding's mutability and declared constraints, like any assignment); and tables §7
+simplifies to "derived tables are born bare." Swept: `tables.md` (intro, §4.1.1's
+seal parenthetical → the declared-invariant note, §4.2 rewritten, §5 restructured as
+the two-axis removal record with §5.2 / §5.2.1 preserved and subsection numbers stable,
+§7), `indexable-functions.md` (intro, §2 → removal record with its section number kept
+so references land, §3's legality note, `splice` / `fill`, §5 — where a stale "denial"
+mention from before R100 was also caught), `iterable-functions.md` (intro,
+`prepend` / `append`), `optional-access-and-coalescing.md` (write-side totality, both
+tables, the sealed-tables section deleted, the laziness ruling), `bindings/variables.md`
+(the `const` paragraph — where two stale "table-protocol violation" phrases, R95–R98
+residue, were discovered and respelled as `typeError` panics), `index.md` (two rows).
+`indexable-functions` drops from 22 functions to 19; `defer.md` and the build-cache
+spec's `open()` / `close()` are file handles and untouched.
+
+**R110 — error equality: the identity surface; `toTable`.** Equality §7's oldest open
+resolves as **structural-minus-trace, made principled**: `a == b` for errors iff the
+same error **type** (nominal, no erasure — the enum-variant rule) and the **identity
+surface** deep-matches by `==` — `message`, the declared fields, `data`, and `cause`
+(recursively, each level by its own surface) — with **`stacktrace` never comparing**:
+the trace is runtime-attached provenance, written by `throw`, recording *where* the
+error happened rather than *what* it is, so two equal errors thrown at different sites
+are equal, which is exactly the tests-and-dedup case `==` exists for. This is the
+**surface principle's third instance** (protocols' granted members, R96; tables'
+element space), now stated as one sentence: *equality compares what the author
+declared; what the runtime attaches is not identity.* A premise from the discussion
+corrected on the way: the stacktrace is **not** a `secret` and cannot be one
+(`stacktrace: table`, sealed but readable, errors §2.1 — with the documented
+`stacktrace.isEmpty()` idiom; and `secret` wraps `string | bytes` only, secret §6), so
+the secrets-never-equal trap does not fire — though **secret contagion** is now stated
+explicitly where it was only derivable: a container whose compared surface holds a
+secret (a table element, an error field) is never equal, including to itself, the same
+family as nan; guidance recorded (don't put secrets in compared fields). **`toTable`**
+lands as the surface reified: `fn toTable(e: error): table` — total (`to*` contract),
+*the* definition of the surface (`==` is typeid plus `toTable` equality), and the
+shape-matching bridge (`match (e.toTable()) { ['code' => 11] => … }` rides ordinary
+table patterns while the type axis stays with typed binders / `is` / `@`). It claims
+the global `toTable` name under one-name-one-signature; nothing else wants it. Swept:
+`errors.md` (§2.2 added), `equality.md` (§2's list, §5's error bullet and the secret
+contagion line, §6's row, §7 resolved), `conversion.md` (§2's table, §5's catalogue).
+
+**R111 — secrets widen to `table`; the gate-constraint idiom; the stacktrace becomes a
+secret.** Three rulings in one motion. **The payload set gains `table`** — §6's old "there
+is no meaningful secret table" met its counterexample: data whose *structure itself* is
+the disclosure, the stacktrace (frames leak paths and internal shape) being the motivating
+case. The kind tag goes three-way, `revealTable` joins the extractor family, and the
+doctrine is re-scoped rather than deleted: **wrap the leaves** when only values are
+sensitive (the credentials object stays the canonical example), **wrap the table** when
+the shape is the secret — the whole-table secret is the exception, not the default. The
+challenge was run and found obligations, not blockers, all discharged in the sweep: the
+`stacktrace.isEmpty()` idiom (unreadable through a secret) is replaced by
+**`wasThrown(e: error): bool`**, a dedicated predicate disclosing one bit and no
+contents; the crash reporter becomes a named reveal boundary (secret §5.1's
+infrastructure pattern — and user-facing display now redacts traces *by construction*,
+the display concern from R110's discussion solved as a feature); and **the R110/R111
+interlock is stated in three files**: because R110 already excluded the trace from the
+identity surface, wrapping it in a secret adds no equality contagion — had equality been
+ruled structural-in-full, this widening would have made every error never-equal to
+itself. Discharged in passing: the `revealBytes` deferral (`bytes` exists). **The
+gate-constraint idiom** delivers "secrets parameterized over capabilities" with zero new
+mechanism — no generics, the `json` pattern over the immutable base `secret`:
+`export const dbSecret = constraint { s: secret where gatesOf(s).exists(@dbCred) };`
+entry-checked once, then `fn (cred: dbSecret) use (dbCred): conn!` tells the whole story
+(authority in `use`, material in the type, `reveal` joining them at the effect site with
+the existing requirement-⊆-grant test, statically discharged through constraint-typed
+parameters in matching frames); convention recorded — a module exports its secret
+constraint beside its capability. **A membership operator was considered and scratched**:
+the draft spelling `@dbCred in gatesOf(s)` would have made `in` a membership operator,
+which keywords §6 explicitly reserved against ("`in` remains spoken for by `foreach`") —
+and the survey surfaced that protocols §8's `stringBuilder in @@b` example (inherited
+from the retired views spec) had been illegal under that ruling all along; both spellings
+land on the catalogue's `exists`, the note stands, and `in` stays foreach-only. The
+trace's gate is the default `[@reveal]` for now, with the dedicated-trace-capability
+question flagged (errors §10). Swept: `secret.md` (intro, §3, §3.1, §3.3 added, §5, §6),
+`errors.md` (§2.1, §2.2, §6.1, §10), `equality.md` (the interlock clause),
+`protocols.md` (§8's example).
+
+**R112 — call-site delegation: `use` on a call; the dynamic check stays frame-local.**
+The R39 contradiction is resolved by *addition*, not by picking a side. Capabilities §5.1
+said value-mediated calls check against "the executing frame's granted set (the frame's
+declared `use`)" — frame-local, under which a `use`-free function invoking an effectful
+closure panics, the guarantee that a declaration bounds its dynamic extent. §3.1
+simultaneously promised "callback-taking APIs accept effectful functions with no special
+cases," which frame-locality makes false (`each`'s frame holds nothing). Two earlier
+resolutions were examined and rejected: an **ambient / task-root grant** (the check
+nearly vacuous within a task — "every function implicitly holds `main`'s capabilities"
+for the dynamic frontier, extent purity lost, recoverable only by an opt-in `pureFn`
+constraint, purity-as-opt-in in a language whose charter is authority-as-opt-in); and a
+**dynamic-grant statement** (`grant io { … }` — ambient authority manipulation,
+degrading the audit from "read the declarations" to "trace the grants"). The synthesis:
+**the frame-local check stands, and a frame's grant is its declared `use` plus what
+callers explicitly delegated into it** — a clause on the call, in the same spelling:
+`someFn(cb)` panics when `cb` needs io (the negative case, now a worked example);
+`someFn(cb) use (io)` extends io into that call's dynamic extent, legal only where the
+delegator itself holds io (statically checked). Delegation is extent-scoped, feeds the
+**dynamic frontier only** (value-mediated invocations and reveal gates — named calls
+still require declared `use`, everywhere, at compile time), and `spawn f() use (io)` is
+the explicit spelling for granting a task. §3.1's promise becomes true as written: the
+*API* has no special cases; the caller authorizes at the site. The audit strictly
+improves: `grep "use (io)"` now returns declarations *and* delegations, one search for
+the complete authority story. **Reuse of `use` over a new `with` keyword, ruled**: the
+unified reading is real (capabilities flow where `use` names them — a body's extent or a
+call's), position-resolved dual roles are the established device (`apply`, `error`,
+`comptype`), the grep unification *requires* one spelling, and `with` would add a
+keyword with JS's worst associations. Grammar: the clause wraps one complete postfix
+expression, no postfix may follow it, operators and statement modifiers compose outside;
+decided at one token (`use (` after a postfix expression vs. after a keyword-introduced
+header), LR(1). Every corpus phrase "the executing frame's granted set" stays true —
+its *definition* gains the delegation component in one place. Swept: `capabilities.md`
+(§3.1 ×2, §5.1, §5.2 added), `keywords.md` (`use`'s row), `associativity.md` (the
+clause). R88's flagged reflection query (`requirementsOf`) stays open but is now
+**decoupled from safety**: extent purity is the default again, so no `pureFn` bandaid is
+needed.
+
+**R113 — secrets completed: union `reveal`, `canReveal`, `revealStackTrace`,
+`<secret>`, delegated serialization.** Five rulings landing on R112's foundation.
+**`reveal` returns the union** `string | bytes | table` — one extractor, superseding
+R111's `revealBytes` / `revealTable` days after they landed (the log preserves the
+chain): the "no overloading; unions instead" doctrine applied to reveal itself, with the
+payload narrowed like any union (`as`, `match`) and §3.1's static kind tag dissolving
+into ordinary union typing — less static precision, full uniformity. **`canReveal(s):
+bool`** is the probe form to reveal's assertion form — the same gate ⊆ grant test
+returned instead of enforced, the hard/soft pairing of `.`/`?.` and `->`/`?->`, and the
+panic-free render-or-redact idiom (`canReveal(s) ? reveal(s) : '<secret>'`). **The
+`reveal*` convention**: capabilities whose purpose is revelation are `reveal*`-prefixed —
+`reveal`, and now **`revealStackTrace`**, the trace's dedicated gate (resolving R111's
+open; the crash reporter holds it; `grep "use (revealStackTrace)"` audits who may see
+internal structure) — so `grep "use (reveal"` returns every revelation authority,
+declarations and delegations alike. **The placeholder is `<secret>`**, replacing
+`<redacted>` on every display path (toString, interpolation, `debugJson`, error display):
+it names *what kind of thing* was concealed, so a reader knows to look for a gate rather
+than wonder which redaction policy fired. **Serialization ruled** (the flag standing
+since R96): `toJson` renders every secret as `'<secret>'` — serialization is a display
+path and concealment-on-display is the secret's designed behavior, so no error (contrast
+fn values, a structural impossibility) and no skip flag; lossy by design. Revealed
+serialization is **explicit twice over**: both writers take
+`revealSecrets: fn (s: secret): string | bytes | table = null`, and the idiomatic call
+delegates the gates at the site —
+`toJson(cfg, revealSecrets: r) use (dbCred, revealStackTrace)` — with revealed tables
+serialized recursively, revealed bytes routed through `string.fromBytes` (the one
+revealer-path error), and declining spelled by returning the placeholder. Swept:
+`secret.md` (§3.1, §4, §5, §7), `errors.md` (§2.1, §10 resolved), `json.md` (§2's
+signatures, §2.1), `command.md` (two placeholder mentions; prose uses of "redacted" as a
+verb stay).
+
+**R114 — call-site delegation does not breach the comptime sandbox (amends R112).** The
+review question: did R112 break the "comptime needs no sandbox because effects are
+structurally impossible" guarantee (capabilities §8)? **It did** — the hole is
+`comptime render(tpl) use (exec)`: `render` is eligible (its declared set is empty, it
+only *invokes* a closure argument), the delegator-holds check passes at module top level
+under `main`'s grant, and the value-mediated check passes because the delegated `exec` is
+now *in* the frame grant — so `exec` reaches inside a comptime evaluation. The guarantee
+had an unstated premise: **`use` appeared only in declarations, which eligibility
+inspects.** R112 added a second `use` site (the call) that eligibility does not inspect,
+and the premise silently failed — the "no sandbox needed" assertion would have been false
+after R112 without a fix. Closed by three rules, all now in the spec: **(1)** a comptime
+boundary **resets the frame grant to ∅**, regardless of what the enclosing runtime frame
+declared or was delegated — a hard floor no `use` of either kind can raise, and now
+stated as the premise §8 rests on; **(2)** **`comptime f() use (X)` is a compile error**
+(ruled a hard error, not a vacuous no-op: `use` in that position is purely runtime and
+holds zero compile-time meaning) — the `comptime`/delegation interaction R112 never
+considered, the sibling of `spawn`'s narrowing; **(3)** delegation is **invisible to
+comptime-eligibility**, which reads declared `use` only — it *could not* contribute
+soundly, since eligibility is a fixed property of a value (§5.1) while a delegation is a
+property of the caller, so letting it flip a callee's eligibility would make a value fact
+depend on who calls it (the same reason it stays out of §6's inference). The laundering
+theorem holds at comptime again: the only non-comptime authority in reach is one the
+compile-time frame was never granted, and neither `use` site can manufacture it. A second,
+independent §8 argument (no non-comptime capability *instance* exists at comptime, so the
+dynamic check fails vacuously) was already correct and is unaffected — belt, brace, and
+bolt still agree. Swept: `capabilities.md` (§5.2's two carve-outs, §8's boundary-reset
+premise and the vacuous-check phrasing), `functions.md` §5.5 (eligibility reads declared
+`use` only).
+
+**R115 — cancellation is specified alpha semantics, runtime-initiated only.** The
+concurrency review found the family's largest contradiction: `concurrency.md` built
+fail-fast (§4), structured lifetime (§6), and the guarantees (§7) *on* cancellation as
+current semantics, while `await.md` §3 said "there is no cancellation in the alpha."
+Resolved in concurrency.md's favor — the alternative was examined and found untenable:
+without cancellation, fail-fast degrades to fail-slow (scope exit waits on the slowest
+unrelated sibling), a task blocked on a dead socket hangs program shutdown *permanently
+with no in-language remedy*, timeouts become impossible forever (§8's own no-time-limits
+resolution cites cancellation existing), and structured concurrency loses the co-feature
+that makes scoped tasks worth having. The semantics (new §6.1): **cooperative,
+suspension-point-delivered, refused-on-entry** — `cancelled` (a runtime-minted panic,
+now in errors §2's tree) is delivered *instead of* performing the suspension point's
+operation, the same before-the-effect principle as the R39 check, and a parked task is
+interrupted at the park (the blocked-io fix); **observable, never stoppable** —
+catchable like any panic (uniformity kept), but re-delivered at the next suspension
+point, the pending flag uncloseable by user code, with the safety proof recorded:
+catch-resistance is exactly as strong as never suspending, which is the
+already-conceded compute-hang carve-out, so zero new attack surface; **defers run
+uncancelled, unconditionally** — and are therefore *the compensation context* (a catch
+block's io gets re-delivered; a defer's completes), with body-maintained progress state
+as the exit-reason channel and the misbehaving-defer hang accepted as a residual beside
+logic-bug hangs; **runtime-initiated only** — fail-fast and scope exit cancel, no user
+`cancel(p)` exists, and timeouts / `awaitAny` / deadlines stay deferred *as surface*
+over these semantics. The Luna-specific asymmetry is stated in §6.1: the classic
+async-exceptions blast radius is a shared-state blast radius, and Luna deleted the
+shared state — a cancelled task's partials are invisible copies, its handles already
+taken, its promise resolves; only the external world remains, the existing carve-out.
+Swept: `concurrency.md` (§6.1 added, §7's two carve-out bullets, §8's cancellation open
+resolved), `await.md` (§3 rewritten from full deferral to surface-only deferral),
+`errors.md` (the `cancelled` row).
+
+**R116 — error collection is per-promise; the stream-of-`T!` form is retired.** The
+second contradiction: concurrency §4 promised "await into a stream of `T!`" for
+collecting failures, while await §1.1 ruled streams have no error channel (a failed task
+panics at the pull). await.md's side wins — it is the newer text and the one consistent
+with the stream model: the stream-collecting `await` is fail-fast in stream form, and
+collection is **individual** (`try await p` per promise, where the declarable channel
+exists), kept honest by ordinary errorable-value rules. Swept: `concurrency.md` §4 (the
+paragraph rewritten, the retirement recorded inline).
+
+**R117 — promise confinement wins; the circulation rule made precise.** The third
+contradiction: concurrency §3.1 ruled promises confined (compile error crossing spawn
+boundaries — the premise of the await-DAG deadlock proof), while await §4's open floated
+"it moves" (transfer + taken, like streams). Confinement wins, because the deadlock
+guarantee cites it; and the review forced the precise circulation rule: a promise flows
+through **bindings and streams only** (single-pass, scope-local — the §5
+`map(fn (x) => spawn f(x))` composition, load-bearing for await §1.1) and may **not**
+enter retained storage — a table element would let a copyable, boundary-crossing
+container carry it — nor be captured, passed into, or returned from a task; `collect` on
+a promise stream is likewise an error (await the stream, then collect the *results*).
+Compile error where statically evident, panic otherwise. Swept: `concurrency.md` §3.1,
+`await.md` §4 (the open resolved).
+
+**R118 — the task root; concurrency aligned with R112; three opens closed.** The
+R42-era closing entry — "capability scoping at spawn: none… no narrowing-or-widening
+mechanism" — was falsified by R112 (`spawn f() use (io)` *is* the widening mechanism).
+Superseded in place: a task's **root grant** is the spawned function's declared
+requirement set **plus spawn-site delegation**, checked against the spawner's grant at
+the spawn; frames inside follow the ordinary R112 rules from that root. The §5 examples,
+which predated the catalogue and the pipeline spec, are respelled legal:
+`map(spawn expensiveThing)` (spawn is a word-prefix operator, not a passable value) →
+`map(fn (x) => spawn expensive(x))` with the R112 delegation annotation where the work
+is effectful, and `|> await` (await is not a pipeline stage) →
+`await (xs |> map(…))` per await §1.1; await.md's tier number corrected (12, not 11).
+Closed by pointing at the now-correct text: stream-api §6's parallel-transformers open
+(concurrency is opt-in per stage; no transformer is implicitly parallel), stream §8's
+parallel-consumption open (streams transfer with the taken state; two live cross-task
+handles cannot exist), and concurrency §8's capability-scoping open (the task root is
+the mechanism). The await-surface open is trimmed to its one genuinely-open remainder,
+`awaitAsCompleted` versus fail-fast. Swept: `concurrency.md` (§5, §8, the closing
+entry), `await.md` (§1), `stream-api.md` §6, `stream.md` §8.
+
+**R119 — channels: the stream receive end, the shared `sink`, the owner-task pattern.**
+The last major missing piece lands as `channels.md`, on the shape §8's old open predicted
+and this design confirmed. **Creation**: `let [tx, rx] = channel(capacity: int = 0)` — a
+destructured two-list; `0` is rendezvous, `n` buffers with backpressure. **The receive
+end is literally a `stream`** — the whole catalogue applies unmodified, parking on empty
+is ordinary stream consumption, `canRestart` is `false` by R105's own rule, and
+exhaustion *is* the closed signal (receive-from-closed is a stream ending, not an
+error). **The `sink`** (a new predeclared type) is the one deliberate exception to
+single-ownership in the stateful class, governed by the principle that makes the
+exception precise — **ownership follows readability**: a stream is taken because reading
+is stateful consumption; a sink has no readable surface (no peek, no count — "once sent,
+it's gone"), so sharing it shares no readable state. Sinks are **shared** on every copy
+and crossing (the taxonomy row is capabilities', for capabilities' reason; the channel
+interior is runtime machinery beside the scheduler), which is fan-in — the feature; the
+residual mutual observables (interleaving, backpressure timing, finished-ness) are all
+synchronization-class, never data-class, so §7's no-data-races survives verbatim. MPSC
+now; select and MPMC deferred. **Sent values cross by the spawn taxonomy unchanged**
+(eager deep copy for mutables — §2's non-atomic-refcount argument forces it at this
+boundary too — `const` shares, streams/builders transfer, promises forbidden per R117);
+"gone, poof" is ruled as no-shared-view, in-flight values owned by the runtime alone.
+**Parked sends and receives are suspension points** (the R115 list grows), so
+cancellation delivers there, refused-on-entry. **Completion is per-handle**: `finish(tx)`
+relinquishes one handle, the stream ends when the last is finished or scope-dropped, and
+there is **no whole-channel close** — which dissolves multi-producer close coordination
+entirely (nobody can close a channel out from under a sibling). The name is `finish`
+because `close` is unavailable under one-name-one-signature: io's
+`fn close(&fd: file) use (io)` differs in reference mode *and* requirement set, which a
+union cannot carry per-arm (and defer.md's `f.close()` vs. io's `close(&fd)` drift is
+flagged for the io sweep). Send after finish, or to a departed receiver, panics —
+**`ClosedChannelError`**, new in the panic tree — rare under structured lifetime, since
+producers parked on sends receive `cancelled` at the park when the consumer's scope
+fails. **The owner-task pattern is now real**: the counter example in channels §5 is
+R96's "mutable static" as an owning task with reply sinks riding request tables —
+protocols §2.1's pointer finally has a referent, and the R95–R98 open closes as *an
+answer, not a deferral* (statics stay inexpressible by design; the owner task is the
+expression). **`sync` variables considered again and rejected again**, citing
+concurrency §5's own words: reintroduced shared state, false safety on compound
+operations, hidden cost — the owner task is `sync` with the synchronization made
+explicit and visible. **The honest cost, stated in bold in both specs**: §7's "no
+deadlocks" weakens to "no lock or await deadlocks" — **channel-wait cycles exist** (two
+tasks parked sending to each other's full channels), classed with logic-bug hangs,
+contained by scope-bounding, cancellable at the parks, not structurally prevented; and
+one leak shape is flagged (a sink sent through its own channel keeps it alive forever).
+Swept: `channels.md` (created), `concurrency.md` (§2.1's sink row, §6.1's suspension
+list, §7's deadlock guarantee, §8's channels open resolved), `protocols.md` §2.1,
+`errors.md` (the tree), `keywords.md` §5 (`sink`), `index.md`.
+
+**R120 — the BEAM scrutiny: five deferrals named, one softened.** The concurrency model
+was audited against Elixir/BEAM, the SOTA. Where it stands: even on isolation (both
+share-nothing-by-copy), **ahead** on structured lifetime (BEAM processes free-float and
+leak; Luna orphans are structurally impossible), effect containment (BEAM has no
+capability analogue), bounded-by-default channels (BEAM's unbounded mailboxes are its
+classic overload death; Luna's rendezvous default makes backpressure the default), and
+failure defaults (unawaited-error elevation, fail-fast); **behind** on hang *recovery* —
+BEAM survives its own deadlocks because call timeouts are ubiquitous, and Luna currently
+cannot express "wait, but not forever." Hence the notes, each now on the ledger:
+**(1)** timeouts + `awaitAny` / select are deferred and **named the top post-alpha
+priority** (concurrency §8) — *safety, not convenience*: the admitted channel-wait-cycle
+deadlock has no in-language recovery until they land; a deadline is a cancellation and a
+select is a race, riding R115. **(2)** **`std/time.md` created as a full deferral
+record**: nothing in the corpus can read a clock, sleep, or build a timer (a
+retry-with-backoff is unwritable today); two constraints are ruled now (`sleep` is a
+suspension point; the timeout family is race-against-`sleep`, so the module and the
+surface land together), everything else deferred. **(3)** capacity-as-decoupling
+guidance in channels §1 (rendezvous maximizes both backpressure and wait-cycle risk).
+**(4)** the stdlib patterns layer recorded in channels §7 — `call(tx, req)` (the
+`GenServer.call` shape), the supervisor loop, the registry task; library, not language,
+wanted especially once timeouts land. **(5)** unconditional kill (BEAM's
+`Process.exit(:kill)`) recorded as nonexistent and **extremely unlikely** ever to exist —
+softened from "never" at Lucas's direction, since the Go backend (which cannot kill a
+goroutine) is the forecloser and a backend change could reopen it; concurrency §7 and
+await §3 both carry the phrasing. Also acknowledged in the audit, not actioned: the
+crossing taxonomy's six rows are the model's honest complexity concentration (BEAM has
+one row — everything copies), the taken state is a runtime lesson where Rust teaches at
+compile time, and task observability (BEAM's observer) has no story yet. Swept:
+`concurrency.md` (§7, §8), `await.md` (§3), `channels.md` (§1, §7), `std/time.md`
+(created), `index.md`.
+
+**R121 — the io review: the stream convention for files, creation-authorized lazy
+effects, three deferral records.** The io family's verdict: the failure model is the
+best-reasoned corner of the corpus (the three-category table; io-errors' five-fates
+errno partition, where every errno the target can return has exactly one row) — but §2
+missed the protocol redesign, the `&fd` convention contradicted the settled model, and
+the review surfaced one genuine capability-model gap. Fixed: **(1)** io §2's "meta state
+(protocol-private)" — an R99-family straggler — respelled as ungranted per-table `var`
+members, the builder's shape. **(2) The `&` is gone from every file signature** (`close`,
+`flush`, `append`, `appendLine`, `write`, `seek`): a file is a **referent-stateful**
+value in the transferred/taken class, "like a stream or a builder" by io's own words, and
+`close` *marks the referent's terminal state* — the concurrency §2.3 model — so file
+operations follow the **stream** convention (take the handle by value, mutate the
+referent, no write-back), not the COW-table convention. The R119-flagged
+`&fd`-vs-`f.close()` drift resolves in **defer.md's favor** — it was right all along;
+seven call sites swept (`index.md`'s front page, both big examples, log-scan, tests,
+await §3's quote), and channels §5's `finish`-not-`close` rationale re-grounded on the
+capability axis alone (which was always sufficient). **(3) Lazy io ruled
+creation-authorized** — the interesting find: `lines(fd)` performs its reads at *pull*
+time, possibly in a `use`-free frame, with no invocation check (streams are consumed by
+syntax, not called), which made the laundering theorem's literal statement false for
+lazy carriers. Ruled (option (a)): the theorem's honest general form is now stated in
+capabilities §3.1 — *every capability exercise is authorized by a declared `use`, at the
+exercising call or at the creation of the value that carries it* — with the stream as a
+pre-authorized effect in motion, the §5.2 trust model verbatim; io §6 carries the
+companion paragraph. **(4)** io-errors §4's `interrupted` open **closed by R115**:
+`EINTR` absorption and cancellation are separate mechanisms (syscalls restart
+transparently; cancel-pending is checked at the park, `cancelled` refused-on-entry) —
+user code sees neither. **(5)** file streams ruled **non-restartable** (a live cursor is
+not an immutable snapshot; R105) in io §6 and stream §4, whose "a file can be re-opened"
+example was the drift; re-traversal is explicit, `seek(fd, 0)` plus a fresh view.
+**(6)** the `sink` wordage collision with R119's type reworded in io §2.1/§4. **(7)**
+Three more absences become decisions: **`std/platform.md`** (the most load-bearing stub
+in the corpus — `println`'s *default parameter* reads it today), **`std/system.md`**
+(the metadata boundary io §9 names, under the separate `system` capability), and
+**`std/net.md`** (the largest missing std family — with its gating dependency stated
+plainly: no network API before the timeout surface, the R120 lesson applied
+prospectively). Healthy and untouched: the capability story, the `path` constraint, the
+printing surface, the per-format composition seam, and exec's secret boundary. Swept:
+`std/io.md`, `std/io-errors.md`, `capabilities.md` §3.1, `stream.md` §4,
+`channels.md` §5, `await.md` §3, `index.md` + five example/spec call sites;
+`platform.md` / `system.md` / `net.md` created and indexed.
+
+**R122 — error casing: camelCase everywhere; the R87-era flag closes.** The oldest small
+flag in the file resolves the way the evidence always leaned: **every error and panic
+type name is camelCase**, matching the roots (`error`, `panic`), the always-camel
+builtins (`typeError`, `outOfMemory`, `cancelled`), and the std family (`ioError`,
+`fileNotFound`, `commandError`). The
+eight live PascalCase holdouts renamed in place across twelve files: `arityError`,
+`namedArgumentError`, `overflowError`, `divisionByZero`, `closedChannelError`,
+`applyError`, `writeOnceViolationError`, `stringBoundaryError`. **Historical mentions
+keep their dead spellings deliberately**: the retirement records (tables §5.1's
+`OpenViolationError` / `InvalidOpenError`, the R98-retired violation errors) name things
+that no longer exist, and their names are frozen in the record — renaming a tombstone
+would falsify the history it preserves; the same holds for this log itself. One
+collision caught in passing: protocols §2.2's write-only example member was named
+`sink`, a type name since R119 — renamed `output`. Swept: `errors.md` (the tree),
+`functions.md`, `match.md`, `spread.md`, `concurrency.md`, `channels.md`,
+`numeric-operators.md`, `defer.md`, `int.md`, `protocols.md`, `variables.md`,
+`strings.md`, `keywords.md` §6 (the flag itself, now a resolution record).
+
+**R123 — removal exists: `unapply`, a checked write, never a free mutation.** The
+R95–R98 open closes on the side of existence, and the standing condition (§6.3: removal
+must get invariant-constraint treatment, constraints §7.1) turned out to be the design,
+not an obstacle. The soundness audit found the hard part already built: tables are
+copy-on-write values (tables §4) and Luna refuses flow narrowing (`as` §7), so no third
+party ever holds your table (`let q = t as @person` is a value copy a later `unapply` on
+`t` cannot reach) and no scoped static assumption exists to falsify — the only promises
+in the universe are the written-back binding's declared type and the value-carried
+constraint typeids, both checkable at the one place removal happens, the write. And the
+post-removal state needs no new semantics: a stripped protocol is an unapplied protocol,
+protocols §3.2's fully-specified world (`undefined` on bare read, panic on hard use,
+`?->` to ask). The shape: **a built-in free function mirroring dynamic `apply`** —
+`fn unapply(tab: table, protocol: proto): table!`, `&t.unapply(p)` write-back — no
+keyword, no operator: typed *construction* is common and fully compile-time-checkable,
+typed *deconstruction* is neither, and a static form would buy refinement-subtraction
+type algebra for a rare payoff. Failure taxonomy: **not applied → no-op** (the mirror of
+idempotent re-apply, §4.3); **still required by an applied requirer → `applyError`** —
+stripping `person` under an applied `employee` would leave `@employee <: @person`
+claiming members that no longer exist, so unapply refuses and the caller peels in
+reverse requirement order (**cascade removal rejected**: silently removes more than
+asked; **a minted `unapplyError` rejected**: one name for the protocol subsystem's
+runtime-data failures, `applyError` widened to application/removal); **a breaking write
+→ `typeError` panic**, never the error union, compile error where statically evident
+(`&p.unapply(person)` on `p: @person` always is — the operand's declared type contains
+what is being removed). Per-table member state is destroyed, apply-initialized `const`s
+included — data loss is the point — and re-apply after removal is a genuine fresh apply
+(the "already has" tests never fire); §2.1's heading is honest now: **"one binding per
+application," not "ever."** The audit also surfaced a **latent hole predating this
+ruling**: constraints §7 defined the checked-mutation class enumeratively (key writes,
+element writes), but predicates can observe protocol facts — negatively too (`where
+!(t is @tagged)`) — so a dynamic `apply` through an untyped container slot could break a
+constraint unchecked; monotonicity protects `@P` promises, never arbitrary predicates.
+Fixed by defining the class semantically: **every mutation a predicate can observe** —
+element-key writes, writes to `get`-granted protocol members through any path (a
+predicate's reach is the granted surface, so ungranted writes are exempt), and
+applied-set changes in either direction. Swept: `protocols.md` (§2.1 heading and body,
+§4.3, §4.4, new §4.6, §6.3 soundness rewritten, §10 resolved), `constraints.md` §7 (the
+mutation class), `errors.md` §2 (`applyError` annotated), `keywords.md` §3 (the `apply`
+row; the keyword table itself untouched — `unapply` is a predeclared identifier, §5),
+`operators.md` (the `apply` row).
+
+**R124 — the F-series closes: F6 ruled (`as` is lossless), F4/F9/F22 were already
+dead.** The audit first: three of the four F-entries this file's tail still carried were
+stale, closed long ago — F4 (`list` drift vs panic) by R9/R10's fact/promise split keyed
+to the write path's declared type; F9 (union subtyping vs the interval test) by R18's
+two-tier test; F22 (`any` pipelines) by R34's types/any.md (universal operations work,
+`|>` demands narrowing). The tail now says so. F6 — "the `as` algebra exceptions" — was
+real: as.md §3 ruled "same bits, never a conversion" while the numeric tower granted
+`as` powers beyond subset-narrowing: `double as float` (rounds — a silently computed new
+value), `decimal as int` (panic-unless-exact over a precision-losing direction), and the
+representation-crossing `int as u64` / fixed-to-arbitrary entry. **Ruling: the criterion
+is losslessness, not representation.** "Same bits" was wrong on both sides — `int as
+u64` legally changes representation while preserving the value exactly, and a
+bit-preserving reinterpretation that changed the value would be exactly what `as`
+forbids. `as` may move a value between representations precisely when the value, where
+accepted, is preserved exactly, so the only possible failure is a membership/range check
+(panic), never precision. Consequences: `int as i8`, `u64 as u8`, `int as u64`, and
+`int as decimal` (total; §3.1's spelling updates from the `n.toDecimal()` placeholder —
+the cost argument there was against *implicit* widening, and `as` is explicit, so the
+rationale survives untouched) are all legal `as`. **`double as float` does not exist**:
+rounding is a computation, so it is the conversion `toFloat(d: double): float`, total
+(IEEE round-to-nearest-even, overflow to `float` inf, `nan` to `nan`), landing with
+`float`; `toF16` likewise when `f16` lands. **`decimal as int` does not exist**: a
+fractional `decimal` has no lossless `int` reading and picking a nearby one is a
+rounding *decision* — exactly the double→int question R106 answered with policy verbs —
+so `trunc` / `round` / `floor` / `ceil` widen to `double | decimal` when `decimal`
+lands. Corroboration that the algebra was already at work unnamed: R106 made int→double
+the *function* `toDouble` because it is lossy above 2^53, and R94 renamed `asStream` →
+`toStream` on the same instinct. En-route finds, both fixed: as.md §8's lone open ("`as`
+on secret payloads, pending `bytes`") was **resolved by R113** — `reveal`'s union
+narrows with ordinary `as string` / `match` (secret §5) — and is now recorded closed;
+and variables.md still used the retired `values()`-as-collector idiom
+(`(0..50).values()` "materializes… a list" — `values` has been the kind-preserving
+reindexer since R92, the materializer is `collect()`) plus an inference example claiming
+`t.values()` infers `list` against the catalogue's `iterable` signature — re-exampled
+onto a declared `fn (): list` producer. Swept: `as.md` §3 (the criterion, the table
+row), §6 (the numeric known-uses bullet), §8 (resolved); `numeric-tower.md` §1.3, §2,
+§3.1, §4 (all three narrowing rows rewritten), §5 footer; `conversion.md` §2 (the
+verbs-widen note), §5 (the deferred `toFloat` / verb-widening entry); `variables.md`
+(two sites); this file's tail (the stale F-list cleaned).
+
+**R125 — protocol serialization: the `"@@"` section, off by default.** The JSON-nesting
+open (R95–R98) closes. **Shape**: with `includeProtocols: true`, both writers emit the
+protocol surface under one reserved key, `"@@"` — the axis's own operator name — mapping
+each applied protocol's name to an object of its `get`-granted per-table members,
+recursively serialized, sections in **application order** — not aesthetics but the
+requirement-safe replay order (a requirer never precedes its requirement, protocols §7),
+so the document doubles as an apply script. Empty sections emit: a marker protocol's
+presence is equality-bearing data. **Default: excluded** (`includeProtocols: bool =
+false` on both writers, baked into the generated writer like `skipFunctions`).
+Serialization is an interop boundary first — the common call feeds consumers that know
+nothing of protocols — and the default keeps `fromJson |> modify |> toJson` total over
+foreign documents, a literal `"@@"` key included. The honest cost, recorded in protocols
+§5: the one-boundary claim weakens to "the fourth consumer on request" — by default two
+non-`==` tables can serialize identically; equality and the initializer surface are
+untouched. A quiet win the default buys: the fn-member `typeError` narrows to protocol
+mode, so a table wearing an interface-pattern protocol (conversion §3) serializes its
+data cleanly by default. **Opt-in refusals, both `typeError`**: an element key literally
+`"@@"` (in default mode it emits verbatim and no question arises — default-exclude is
+what made refusal affordable, since the foreign-JSON objection lives entirely on the
+default path), and two applied protocols sharing a name (legal composition, §6.1, but
+duplicate section keys are illegal JSON; module-qualifying would make data depend on
+file layout — refusal is cheaper, the case degenerate). **The read side stays
+caller-driven**: no registry (R19), a name string cannot summon a proto, so `fromJson`
+parses `"@@"` as ordinary nested data; rebuilding is the caller's — proto values in
+hand, apply in section order, each section the initializer table; a reordered document
+may fail with `applyError` (stated, not defended against). Round-trip is thereby
+**`==`-faithful, not state-faithful** (ungranted members re-default, `==` reads the
+granted surface — the one-boundary theorem), with two recorded exceptions:
+`identityEquality` protocols (never `==` anything but themselves) and interface-pattern
+protocols (the required fn member raises `typeError`, and `skipFunctions` omits exactly
+what `apply` then demands — they do not round-trip; fn has no data form). Deferred,
+named: whether `jsonTag` attributes reach member declarations inside a `proto` block,
+riding with the generated read side (json §4). Swept: `json.md` §2 (signatures), §2.1
+(rewritten around flag and shape), §3 (the read-side bullet), §4 (nesting resolved, the
+`jsonTag` open added); `protocols.md` §5 (boundary reworded, serialization bullet), §10
+(open closed); this file's tail.
+
+**R126 — `@@` is total; protos are const-declared brands; a pre-R95 fossil deleted.**
+The last R95–R98 open closes. **Operand surface**: `@@` is total over `any` — on a value
+with no protocol axis (everything but a table) it yields `[]`, joining any.md §1's
+universal-question set beside its sibling `@`. The coherence argument decided it:
+`5 is @person` is already `false`, not an error — the language answers protocol
+questions about non-tables with "no," and `@@` is the same question through the sibling
+operator; refusing statically would make the two answers disagree. The result value
+pinned: a **fresh snapshot `list`** of `proto` values in application order (value
+semantics — mutating the copy touches nothing; after `unapply` (R123) the next `@@`
+reflects the shrunk set), carrying the `list` commitment into inference. **Protos are
+const-declared**: a `proto` block is legal in exactly one position, the initializer of a
+`const` declaration (the `capability` precedent), and the binding identifier *is* the
+protocol's name — captured at declaration, carried by the value, never renamed by
+aliases or reexports. Anonymous protos do not exist (small use case; may be added
+later). One declaration, one identity, one name makes a proto a **brand**, and the brand
+settles equality: **protos join the identity-equality class** (equality §2) — two
+structurally identical protos from different modules are deliberately distinct, so
+structural proto comparison is meaningless. Honest cost, recorded in protocols §1:
+membership-shape tests ("does this table wear something *shaped like* X") cannot be
+spelled structurally — you need the proto value in hand — and that is not the hot path.
+Both rulings are what R125 quietly needed: `protoName`, now the JSON section key and
+collision comparator, is well-defined for every proto that can exist. **The fossil**:
+reflection.md missed the R95–R98 sweep in six places — §3.4's pre-R95 query set
+(`elementMembers`, `metaMembers`, `metaFunctions`, `hasApply`), views citations in
+§3.4/§3.5 and the §5 operator summary, a `view` variant still in §3.3's `TypeKind`
+enum, the closing-summary bullet still routing meta members through the deleted
+queries, and two §6 opens premised on protocol-installed *element members* (a thing
+R95 made structurally impossible — both dissolved, the `fields`-ordering half
+surviving alone) — all reflecting a protocol model (meta space, declared element
+members, custom apply bodies) that R95–R98 retired. **Deleted, not renamed** (per the tombstone rule
+the deletions are recorded here and in place); `protoName` and
+`declaresIdentityEquality` survive; the member-model query surface (members with
+binding keyword / grants / type / default-presence; requirements) is **explicitly
+deferred to the reflection deep pass**, with the two boundaries any future surface must
+keep recorded in place: keyed on the proto, not the table; declarations, never values.
+Swept: `protocols.md` §1 (const-only, the brand paragraph), §2/§7/§10 examples
+(`const` added), §8 (totality and snapshot pins), §10 (open closed); `any.md` §1
+(`@@v` universal); `equality.md` §2 (proto in the identity list); `reflection.md` §3.3 (the `view`
+variant), §3.4 (rebuilt short), §3.5 (views cites), §5 (summary bullets), §6 (two
+opens dissolved); `operators.md` (`@@` row); `keywords.md` (`proto`
+row); `overview/types.md` (the literal); `stringBuilder.md` and `conversion.md` §3
+(example spellings); this file's tail.
+
+**R127 — introspection: the name, the module, the principles.** The reflection deep pass
+opens with structure rather than API: the surface moves to a standard module,
+**`std.introspection`** (new file `std/introspection.md`; `reflection.md` is a
+retirement stub with a was→is section map), and the name change is load-bearing, not
+cosmetic — names carry the contract (R94/R106's discipline), "reflection" is the
+industry's name for the mutable surface Luna structurally refuses (runtime type
+mutation, accessibility overrides, the PHP/Ruby failure), and *introspection* is the
+read-only word; the module's own name declines the feature requests. **The split:
+operators are language, functions are library.** `@`, `@@`, `declared`, `comptype`,
+`is`, `as` stay built-in — grammar, the hot path; every named query imports from
+`std.introspection`, and **the import is an audit signal**: a file that introspects says
+so on its first lines, the same greppable-declaration property `use` gives effects.
+**The module is capability-free, recorded as a theorem, not a choice**: every export is
+a pure read of static declaration data, and a surface that can neither mutate nor
+resolve names has no authority to protect. Comptime-tier exports fold exactly as
+builtins (modules resolve at compile time, the R19 argument). **The five principles**
+(introspection §1), each already latent in scattered rulings, now pillars: (1)
+introspection, never reconstruction — rebuilding is `apply` plus initializers (R125),
+never a query; (2) **no name→value resolution, ever** — no registry, no `forName`
+(R19), every query takes a value already held; (3) declarations, never values — the
+R126 encapsulation boundary, promoted; (4) results are inert value-semantic snapshots —
+no live link into the closed type universe; (5) **nothing grantable, nothing
+bypassed** — capability-shaped results are inert descriptors (the `gatesOf` precedent),
+never authority, and no query opens a side door: grants hold, constraints check,
+secrets stay sealed, the closed member space stays closed (dynamic member access by
+runtime name never exists). Plus the home rule: kind-specific value probes live in
+their kind's spec (`gatesOf`/`canReveal` in secret, `toTable`/`wasThrown` in errors);
+this module owns the declaration level. The sound content carried over intact (the two
+tiers, `comptype` and its confinement, `@P`-by-decomposition); the audit-condemned rows
+carried **with explicit in-place flags** naming their re-derivation slices (§7):
+`TypeKind` re-derived from the closed universe, `fields`/`attributes` re-grounded
+(errors/enums/constraints; the dead `@P` domain), the proto member surface, the
+fn-value cluster (R88's capability set + R108's parameter names, inert descriptors),
+`baseOf` (subsuming `constraintBase`), the `unionMembers`/`T!`/alias-`typeName` pins,
+and the §5 worked example rewritten onto the ratified `comptype` pipeline. En-route
+fixes: enum.md's live `IOError` → `ioError` (missed by R122's sweep — enum.md was not
+on its file list); overview/types.md's `@@`-over-"table or view" and two stray "views"
+cites; internals' "`super` companion" → `declared` and "view types" → `@P` refinements;
+constraints §8's dangling "detailed type-reflection API is deferred" now points at the
+module. Swept (cites `reflection §3.x` → `introspection §4.x` and prose):
+`serialization.md`, `any.md`, `json.md`, `attributes.md`, `is.md`, `enum.md`,
+`operators.md`, `keywords.md`, `type.md`, `compiler.md`, `functions.md`,
+`constraints.md`, `errors.md`, `protocols.md` §8 (retitled), `associativity.md`,
+`variables.md`, `internals/internal-representation-of-variables.md`,
+`overview/types.md`, `overview/high-level-overview.md`, `examples/serialization.md`,
+`index.md` (stub row + std row), this file's tail (the R88 open now names its slice).
+
+**R128 — the `kind` enum: nineteen closed variants, `kindOf`, and a fourth fossil
+layer.** The first API re-derivation slice. **Names**: the enum is **`kind`**
+(lowercase — `TypeKind` was a PascalCase island, the R122 argument) and the function
+is **`kindOf`** — the two cannot share one name (a module exports one binding per
+name), and `kindOf` joins the `*Of` query family (`gatesOf`, `baseOf` pending).
+**Spelling**: the old enum was illegal by Luna's own lexer — `fn`, `capability`, and
+`constraint` are reserved words (keywords §1) and cannot be variant names. The rule:
+**where the natural name is a reserved keyword, the variant appends `Type`** (`fnType`,
+`errorType`, `enumType`, `constraintType`, `capabilityType`); everything else keeps its
+bare name — including `type` and `protocol`, which are **not** reserved (`type` is a
+predeclared identifier, keywords §5; the keyword is `proto`), so the old `typeType`
+dodge was over-caution. Predeclared names are safe as variants because variant
+references are **fenced** (enum §3.3, R20) and resolve against the expected enum, never
+lexical scope — the precedent being the catalogue mode enum's `values` variant beside
+the live `values` function. **The derivation** (from keywords §5's closed predeclared
+list, no ellipsis — a closed universe deserves a closed, exhaustively matchable enum):
+`scalar` (int, double, bool, **string** — ruled a scalar, the enum dispatches
+structural queries and a string walks like an atom — null, undefined, never, and the
+committed tower primitives as they land), `bytes`, `table`, `stream`, `sink`,
+`promise`, `command`, `regex`, `secret`, the five `*Type` dodges, `protocol`,
+`refinement`, `union`, `type`, `any`. **`union` retained over the initial instinct to
+drop it**: `@x` never yields a union (R18, concrete typeids — the instinct was exactly
+right for the `@` path), but `declared x` does, `number` and `iterable` are predeclared
+union aliases, every `T!` is one, and `unionMembers`' guard *is* `kindOf(t) ==
+{union}`. `list` correctly absent (a constraint, R10 — and the reconciliation with
+tables §2.1 recorded: a value that entered `list` carries the constraint typeid, so
+`typeName` says `"list"` while `kindOf` says `{constraintType}`, a constraint name, not
+a kind). No `intersection` variant: `&` normalizes at interning (type §3.1, R25), with
+**one pin deferred** — the kind of the mixed normal form (`list & @drawable`).
+**The fourth fossil layer**: the carried §4.5 claimed "`@P` is not a `type` value, it
+has no `typeid`" while *citing* type.md §5, whose literal title is "Every type-position
+form is a `type` value, **including `@P`**" — a pre-R25 relic contradicting R25,
+type §5, and protocols §6 (refinements intern canonicalized protocol-set typeids).
+§4.5 rewritten on the corrected foundation: `kindOf(@P)` answers `{refinement}`; what
+survives is that membership stays the applied-set test on the value, `@x` never
+*reports* a refinement, structural queries have nothing to walk (decomposition via
+§4.4), and dispatch is `match`. En route, more pre-R95 residue cleaned from type.md:
+`view` in §5's universe list, "views spec" cites, a stale "protocols §9" cite, and
+§7's meta/view-vocabulary passage (the old `b->P`-produces-a-view story) rewritten in
+member-model terms with `?->` and the qualified form. Swept: `introspection.md` §2,
+§3, §4.1 (`kindOf` signature and bullet), §4.3 (rewritten), §4.5 (rewritten), §5, §7
+(slice closed, pins extended: mixed-intersection kind, refinement protocol-set query);
+`type.md` §5, §6 (the Kind bullet), §7/§7.1 (de-viewed); `reflection.md` (stub map row
+annotated).
+
+**R129 — the protocol member surface: declarations fully visible, granted values
+readable, ungranted values sealed.** The second and third re-derivation slices land
+together. **The foundational split** the ruling turns on: "introspecting a table's
+members" conflates two reads with different safety profiles. Member **declarations** —
+ungranted included — are fully visible: a declaration is source structure the author
+published by writing it, and knowing `stringBuilder` has a private `var buf: bytes`
+discloses nothing about any table (pillar 3's exact line, now exercised). Member
+**values** split by grant. **Ungranted values stay sealed** — the ruling's one refusal,
+against the initial trial balloon that reads are harmless because mutation is
+impossible. The mutation half is indeed structurally dead three times over (immutable
+typetable declarations, inert results, no spelling for a grant change — no
+`setAccessible` is *possible*), but disclosure is an independent, live danger the
+corpus already legislates against twice: serialization excludes ungranted members
+*because* emitting them would disclose (protocols §5), and secrets gate reads, not
+writes. A read-side bypass would make `get` advisory — privacy by discipline, not
+construction — and because grants never change retroactively, an ungranted member is
+*permanently* private by declaration; introspection reading it would be the one place
+the language lets that declaration lie. **Granted values become generically readable**
+via the `read` accessor: each `get`-granted row of `members(p)` carries
+`fn (t: table): any`, the `constraintPredicate` pattern (the declaration hands you its
+public reader *to run*), mirroring `->` exactly (`undefined` on an unapplied table,
+§3.2; the uniform value for definition-fixed members). No name→value resolution occurs
+(the accessor comes from the declaration you hold, pillar 2) and **no setter accessors
+exist** — introspection is read-only, and generic writing is not a walker's need
+because rebuilding is `apply` plus initializers (R125). This closes the R127
+asymmetry: user-space generic walkers (pretty-printers, differs) now have exactly the
+power of R125's builtin dynamic writer — the granted surface, nothing more. **The
+surface**: `members(p)` (runtime tier — `@@t` protos are runtime values; rows: name,
+`binding`, `get`/`set` bools, type, `required` = no-default, `definitionFixed` =
+const-with-default, `read`, `attributes` reserved against the `jsonTag` deferral) and
+`requirements(p)` (**direct** requirements only, proto values held never summoned; the
+transitive closure is a caller's fold), both in **declaration order** — resolving the
+last pre-R95 ordering pin (deterministic generated output; tables are ordered, proto
+blocks read top to bottom). The **`binding` enum** (`constBinding` / `letBinding` /
+`varBinding`) dodges the reserved ladder words per R128's suffix discipline; a
+semantic vocabulary (`{mutable, fixed, frozen}`) was rejected as a second name-set for
+a ladder users know by keyword. **The re-groundings**: `fields(t)` scoped to **error
+types** (the one nominal declaration form with fields; empty everywhere else — enums
+via `variants`, constraints via `constraintBase`/`constraintPredicate`, refinements
+decompose, anonymous shapes via `comptype`), and `attributes(t)` scoped to
+errors/enums/constraints (protos are not types). Swept: `introspection.md` §4.2 (both
+flagged bullets rewritten), §4.4 (the surface), §7 (two slices closed, ordering pin
+resolved); `protocols.md` §8 (the `members` pointer line).
+
+**R130 — the function axis: `capabilitiesOf`, `params`, signature decomposition; the
+`fn ≡ fn (...any): any` equation rejected.** The fn-value cluster lands
+(introspection §4.6), and with it the **last review-era open closes** — R88's
+"reflection-visible in principle" becomes an actual query. **The governing split was
+already law**: functions §3.2 says verbatim that the capability "requirement set rides
+the value, not the type," and the ruling generalizes it — *the signature lives in the
+type; names and capabilities ride the value* — with one sharpening recorded: **erasure
+is a declared-position phenomenon, never a value phenomenon** (function types are not
+erased, `@f` reports the full signature, typeids are concrete, R18; a bare-`fn` slot
+erases what the slot knows, not what the value is), and errorability sits in the type
+even at the wildcard tier (`fn`/`fn!` split on it alone). **`capabilitiesOf(f)`**
+returns the *declared* requirement set as **capability types** — `gatesOf`'s exact
+twin, inert by construction (a type can never appear in a `use` clause, so nothing
+grantable leaks; the user's own framing: nothing important leaks because the values
+cannot be used) — with delegation invisible (R112) and frame grants absent (not part
+of the value). **`params(f)`** is the home R108 promised its metadata: names are value
+metadata *by force* — structural typing makes `fn (x: int)` and `fn (y: int)` one
+type, yet named arguments bind through erased values at runtime, so the names
+demonstrably ride the value — rows name/type/optional/variadic in declaration order
+(R129). **`paramTypes(t)` / `returnType(t)`** decompose fn *types* for
+no-value-in-hand codegen (walking `members` rows' fn-typed member types), `null` on
+the wildcards — the existential has no signature to report. **The rejected equation**,
+recorded in place: bare `fn` is not `fn (...any): any`. The property the equation
+seems to buy already holds operationally (erased calls are statically accepted,
+dynamically checked — `arityError` / `typeError` / `namedArgumentError`), but the
+equation is unsound twice over: contravariance would make *no* concrete function a
+subtype of the wildcard (every argument list would have to fit each concrete
+signature), and the spelling belongs to a real citizen — `fn (...args: any): any` is
+R108's declarable `println` shape, the *most-accepting* signature, where the wildcard
+means the opposite quantifier, an existential, soundly formalized as the interval over
+the function typeid region (type §7.1). One spelling would conflate ∃ with the top
+signature: **`fn` calls like `(...any): any`; it is not typed as it.** Swept:
+`introspection.md` (intro, new §4.6, §7 slice closed), `functions.md` §3.2 (the
+`capabilitiesOf` pointer on the requirement-set law), this file's tail (the review-era
+opens list now reads *none*).
+
+**R131 — `baseOf`, `{intersection}`, `protocolsOf`, the sugar pins: the introspection
+re-derivation closes.** The final slice; introspection §7 is now a closure record and
+**nothing is open in that spec**. **`baseOf(t): type?`** is the general
+refinement-parent query — a constraint's base (`byte` → `int`, `list` → `table`,
+`json` → `string`), an error type's parent (`fileNotFound` → `ioError`; the root
+answers `null`), an enum variant's enum (`@Shape.circle` → `Shape`, resolving enum.md's
+standing recovery deferral on the **general** side, `enumOf` retired unminted), and a
+refinement's or mixed intersection's base (`@person` → `table`); atoms, unions, and
+`any` answer `null`. It **subsumes `constraintBase`** — one query, one question — with
+every cite swept. **The mixed-intersection pin resolves with a new kind**:
+`{intersection}` names exactly the mixed constraint-and-protocol normal form
+(`list & @drawable`), the *only* form that survives R25's normalization as an
+intersection (pure constraint meets conjoin to `{constraintType}`, pure protocol meets
+to `{refinement}`); it is genuinely both, so its kind privileges neither and dispatch
+queries both halves. The proposed third variant **`{complex}`** ("union and
+intersection both involved") was **rejected**: `&` distributes over `|` at interning,
+so the outermost form is always a union whose members are intersection-free-or-mixed —
+`kindOf` reports the outermost constructor and `unionMembers` recurses, which answers
+what `{complex}` would double-encode — and the name collides with the committed
+numeric type `complex` (a future `{scalar}`); the enum is now **twenty** variants,
+still closed. **`protocolsOf(t): list`** completes decomposition: a refinement's set,
+a mixed intersection's protocol half, `[]` for everything else — total, mirroring
+`@@`'s R126 totality, protos held through the type in hand (pillar 2). **The sugar
+pins**: `unionMembers` decomposes the sugar because the sugar *is* the union mechanism
+(`?` is `| null`, `!` adds the error arm — the governing small-surface idea) —
+`unionMembers(int!)` is `[int, error]`, `unionMembers(int?)` is `[int, null]`, no
+special case because no special type. And **`typeName` never shows alias names** —
+the answer the "could `baseOf` own this?" musing dissolves into: **forced, not
+chosen**. Aliases are pure sugar (R21), `iterable` and `table | stream` are one
+typeid, one typeid has one name, and with two aliases for one type a display-name slot
+would have no sound owner; `baseOf` cannot carry it either, because a union refines
+nothing (`baseOf` answers `null`, not a spelling). The alias name lives in source; the
+canonical structural spelling lives in output. **The §5 worked example** is rewritten
+on the module's own surface — a ten-line generic `describe` walker (imports as audit
+signal, `@@`'s totality, `members` rows, the granted-only `read` accessor) whose
+closing observation is the whole design: it *could not* see more if it tried. Swept:
+`introspection.md` §4.1 (`typeName` alias rule, `unionMembers` sugar rule,
+`constraintBase` → `baseOf`), §4.2/§4.3 (cites, the twenty-variant enum, the
+`{intersection}`/`{complex}` note), §4.5 (`protocolsOf`), §5 (the example), §7 (the
+closure record, external riders named: `jsonTag` reach, json §4/attributes §6.3; the
+deferred tower's numeric questions); `constraints.md` §8; `enum.md` (the deferral
+resolved).
+
+**R132 — `std.time`: built-in `duration`/`instant`, one monotonic clock, `sleep`; the
+timeout surface is unblocked.** The R120 deferral record becomes a real module — the
+named prerequisite of the top post-alpha priority delivered. **The types are
+built-ins, and that is forced**: the essence of a chrono-style library is dimensional
+safety (`instant + instant` must not compile), Luna has no generics and no operator
+overloading, and the R120 record's own lean ("the constraint idiom, as everywhere")
+does not survive contact with arithmetic — a constraint over `int` erodes on first use
+(`byte + byte` widens) and can forbid nothing dimensional. So the built-in-only
+operator rule becomes the feature: only built-ins get operators, make them built-ins —
+the path the tower already reserves (breaking-change-before-1.0, universe-growth
+tolerance, tower §6). The **dimensional operator table** (time §2) is closed and its
+compile errors are the safety: `duration ± duration`, `-duration`,
+`duration * int`, `duration / int`, `duration / duration = int` (the ratio),
+`duration % duration`, `instant - instant = duration`, `instant ± duration`; nothing
+else — no point addition, no time-squared, no bare-number mixing, no `double` scaling
+(a policy question deferred with datetime's needs). **Representation: 64-bit signed
+nanoseconds** (one inline word, ±292 years, overflow panics never wraps, signed
+either-order subtraction). **One clock, monotonic** — "high resolution" ruled a
+quality of implementation, not a second type, killing cross-clock subtraction by
+construction; `now() use (time): instant`, arbitrary epoch, order-and-subtract only.
+An `instant` has no data form that survives the process, so `toJson` refuses it (the
+`fn` precedent); a `duration` serializes as its canonical string, round-trippable via
+`parseDuration`. **The `time` capability gates both effects** (clock read and
+`sleep`) — recorded as a theorem, not a taste: eligibility is empty-requirement-set,
+every ineligibility source is a capability (R43, capabilities §10), and a build must
+not depend on when it runs; the record's is-sleep-gated open closes on the same
+argument. Corollary recorded: `now: fn (): instant` parameters make virtual time the
+path of least resistance. **`sleep(d) use (time)`** is a suspension point *always*
+(cancellation delivers, R115; zero/negative returns immediately but still suspends —
+`sleep(seconds(0))` is the portable yield point), sleeps at least `d` monotonically,
+absorbs `EINTR` (R121). **Wall-clock time is exiled to `std.datetime` entirely**
+(user-ruled: nothing is lost — "what time is it" was always a calendar question),
+which kills the monotonic-versus-wall conflation bug structurally, and the seam is
+fixed: `duration` is the shared currency datetime will consume. Units: constructors
+`nanoseconds`…`hours` (total, pure, comptime-foldable; the ladder stops at `hours` —
+a "day" is a calendar claim); extraction is the `whole*` family (truncation named in
+the word; no `toSeconds` — one name one signature, and `to*` would hide the loss the
+spelling states, the R106 discipline); `parseDuration(s): duration!` joins the
+`parse*` family; `toString` is Go-style compound units, exact. Deliberately absent,
+each with its reason: days-and-up, a second clock, `tick` streams (an R102 stream
+producer, deferred so its shape follows the timeout surface), deadline objects
+(patterns layer). Swept: `std/time.md` (rewritten in full), `keywords.md` §5
+(`duration`/`instant` predeclared), `introspection.md` §4.3 (the `{scalar}`
+as-they-land clause), `operators.md` (`+` and `-a` rows), `concurrency.md` §8 (the
+timeout open now reads **unblocked**), `index.md` (the row). The timeout / `awaitAny`
+/ select session is next, sitting directly on `sleep`.
+
+**R133 — `std.datetime`: mandatory timezones, two arithmetic families, the DST
+policies ruled.** The calendar module lands on R132's seam exactly as contracted
+(`duration` the currency; wall reading exiled here). **Three commitments**: every
+datetime has a timezone, always — no zoneless value exists or ever will (C#'s
+`DateTimeKind.Unspecified` is the recorded cautionary tale; the one legitimate
+pressure, recurring civil events, is deferred as a future `date`/`timeOfDay`
+component pair, never a zoneless datetime); **immutable by grants** — the `datetime`
+protocol's members (`epochSeconds: int`, `nano: int`, `zone: @timezone`, all
+`const get`, no `set` anywhere) make interface immutability free (protocols §2.2 +
+COW), derivations returning new values via the factory pattern; **no operators** —
+named functions (`difference`, `isBefore`/`isAfter`, `add*`), consistent with
+protocol-tables and the built-in-only rule. **Representation**: seconds-since-epoch +
+nanosecond-of-second (two integer members, ~24 bytes of heap-backed protocol state
+like any table's — the Go model, the PHP size) — a single `duration`-since-epoch was
+rejected because int64 nanos spans only 1678–2262, amputating history.
+**Strict `==` includes the zone** (the one-boundary rule: all three members granted),
+with `sameMoment(a, b)` as the named zone-blind instant question. **The default zone
+is UTC and the language decided it**: `localZone()` is an environment read under the
+`time` capability, so a pure constructor structurally cannot default to local —
+"local" is always a visible opt-in in the `use`-auditable position; the user's
+local-vs-UTC split dissolved on Luna's own rules. **Zones versus offsets**: one
+`timezone` type, two origins (`zone(id)!` with full IANA rules; `offset(d)` fixed and
+DST-blind; `isFixed` distinguishes), with the ISO-text trap recorded (parsed
+datetimes hold offset-zones; `withZone` is the upgrade). **The tzdb is bundled with
+the runtime** (the Go backend's `time/tzdata` makes it nearly free), which makes
+`zone` **pure and comptime-eligible** — `const chicago = zone('America/Chicago')`
+folds and a typo is a compile error; a `timezone` **enum was rejected** (~600 ids,
+renames in nearly every tzdb release = perpetual breaking changes; ids arrive as
+runtime data anyway; comptime folding already delivers the enum's static checking
+without its breakage). **The two arithmetic families** — absolute (`add`/`subtract`
+by `duration`, exact physics) versus calendar (`addDays`/`addWeeks`/`addMonths`/
+`addYears`, zone-aware) — with the three policies ruled: **month-end clamps** (Jan 31
++ 1 month = Feb 28/29, the C# answer); **DST gap: lenient shift-forward**; **DST
+overlap: earlier wins** (the first occurrence in real time — the java.time/NodaTime
+convention; the user's earlier-or-later question answered on convergence and
+physicality), overridable by named argument (`onAmbiguous: {later}`), policy visible
+per R106/R108. **Derivation**: `next`/`previous` over the **`weekday` enum** (ISO,
+Monday-first — ruled once, keeping the module out of locale space; months stay `int`
+1–12, arithmetic operands more often than names), `startOf*`/`endOf*`, `withZone`.
+**Construction**: `create(...): @datetime!` (errorable — the user's call, wide
+data-shaped failure surface), `now(zone = utc) use (time)`, `fromUnixSeconds!`
+(R106's `from*`), `parseDatetime!` (ISO 8601/RFC 3339; **PHP's format specification
+is the planned, deferred adoption** for custom formats — noted, stolen later).
+**Serialization is deliberately not special** (user-ruled): a datetime serializes
+like any protocol table (R125), and the wire idiom is `toString` into the field you
+mean — ISO 8601 with offset, round-trippable. **Leap seconds do not exist** (unix
+semantics); the calendar is **proleptic Gregorian**, named as such. One capability
+(`time`) covers both effects (`now`, `localZone`); everything else folds. Swept:
+`std/datetime.md` (new, the full module), `std/time.md` (three deferred-pointers now
+landed-pointers), `index.md` (the row). Deferred with reasons: PHP format spec,
+sequences/recurrence (a separate stream-shaped library), floating civil values,
+locale, non-Gregorian calendars.
+
+**R134 — `std.system` retired: `std.process` lands, `std.filesystem` named.** The
+alpha-modules audit found the old grab-bag hiding two modules, and the split follows
+**R121's own argument**: the record justified separating metadata from `io` because
+contents and structure are "different authorities" — and the authority *is the
+filesystem*, which is what a `use` clause should say to an audit. So the metadata
+surface becomes **`std.filesystem`** under a **`filesystem` capability** (superseding
+R121's capability-name half; the io-stays-contents-only boundary stands; the surface
+itself is the next ruling, R121's composition constraints carrying unchanged), keeping
+every effect module **1:1 with its authority** (`io`/`io`, `time`/`time`) — the
+C++/Rust fine-grained precedent over Go's `os` grab-bag. Everything process-shaped
+lands now as **`std.process`** (new file): **`args()` under `argv`** (the capability
+R43 ruled; the "module home flagged with std.system" row in capabilities §9 resolves
+here) and **`envVars()` under `env`, relocated from exec §6** — it sat there because
+exec passes environments to children, but reading one's *own* environment is
+process-self; the R42 ruling carries unchanged (secret-valued entries, enumeration
+and reading separately gated through `reveal`). Two refusals recorded: **no `chdir`,
+ever** — the working directory is process-global mutable state, one task's change
+re-resolving every relative path in every other task, a data race by OS design, the
+shared-mutable-state class the language forbids; relative paths resolve against the
+start-of-process directory, always — and **no `exit()`** — the exit code is `main`'s
+return, teardown is structured, and no call unwinds the process past pending `defer`s
+from mid-frame. En-route finds, both fixed: capabilities §9's table **was missing the
+`time` row entirely** (R132 never added it) and its `system` row still claimed the
+clock (moved to `time` in R132) — row replaced by `filesystem`, `time` added; and
+never.md's worked example was a user-written `exit(code) use (system)` wrapping a
+deferred `exitProcess` — contradicting both halves of this ruling — re-exampled onto
+a `die`-based `fatal` helper with the no-exit rationale stated in place. Swept:
+`std/process.md` (new), `std/system.md` (rewritten as the split record),
+`exec.md` §6 (the env bullet now points home), `capabilities.md` §9 (four rows),
+`io.md` §9 (the boundary names `filesystem`), `tests.md` (temp-resources deferral
+repointed), `never.md` §1, `index.md` (two rows, plus `import std.process;` in the
+front-page example), `examples/one-billion-rows.md` and `examples/log-scan.md`
+(imports). `pid`/hostname/username deferred inside the module. `std.filesystem`'s
+surface is next.
+
+**R135 — `std.filesystem`: the structure surface, the collect-idiom convention, and
+the slot-inhabitant rule.** The alpha-blocking module lands. **The import convention
+is the ruling's front door**, two lines, each forced by an existing rule: `import
+{ filesystem, path } from std.filesystem;` plus `const fs = import * from
+std.filesystem;` — names like `delete`/`copy`/`join` are too valuable to dump bare, so
+the **importer-collects idiom** (modules §6, the mechanism the user half-remembered)
+is the documented convention, keeping the author's exports free functions (the
+author-side forced table was rejected: modules §6 assigns namespacing to the
+importer's choice, selective import stays available to scripts, and static capability
+checking rides direct references). The user's storability challenge produced **the
+slot-inhabitant rule, now ruled in modules §6**: collection gathers every export that
+can inhabit a table slot — a **capability export is excluded**, because capability
+tokens never inhabit value slots (capabilities §3.1, the anti-laundering rule already
+on the books) and nothing is lost: `use` clauses name *bindings* (R19), so authority
+is only ever useful arriving through the name-dumping forms. Authority travels by
+name; data travels by value. Protos, types, enums, fns collect fine (all already
+load-bearing as table contents — `@@`, `requirements`, `unionMembers`). Adjacent
+wrinkle recorded: annotations take type *names*, never element accesses, so `path`
+also arrives bare (pinned against type.md if contested). **The surface**: `path`
+**relocated from io §2.0** (io imports it; `isValidPath` still rides std.platform);
+the pure half (`join` variadic, `dirname`, `basename`, `extension: string?` — null,
+coalesce if you want text — `normalize`), comptime-eligible, the
+pure-half/gated-half module shape for the third time running; the gated half under
+`use (filesystem)` — `exists` (the probe form, never errors, `false` covers absent
+*and* inaccessible, **advisory by declaration**: check-then-open is a race, the
+open's own error is the truth), `stat` following symlinks into a get-only
+`@fileInfo` (`size`, `modified: @datetime` UTC — the R133 payoff — `kind` as the
+`entryKind` enum; **permissions deliberately absent**, the model deferred whole),
+`entries`/`walk` as non-restartable stream producers yielding **paths only** (ruled:
+smallest surface; the runtime may cache d-type internally) under the
+creation-authorized-carrier law (R121), `walk` **never following directory symlinks**
+(cycle safety is not optional), `createDir(recursive:)`, **`delete(p, recursive:
+true)` as the visibly-flagged rm-rf** (no separately-named `deleteAll` to reach for by
+accident), `rename`, `copy` (file-only; recursive deferred with its
+metadata-preservation question), and `tempDir`/`tempFile` — the primitive tests.md
+waited on, with the soundness note (entropy inside an already-gated effectful
+function is as lawful as `now()`'s nondeterminism) and `tempFile` returning the
+opened `file`, not a path (a path would be a TOCTOU invitation). **Errors extend the
+`ioError` family** rather than minting a tree (errors classify what failed;
+capabilities classify who may — orthogonal): `alreadyExists` already existed
+(EEXIST), `directoryNotEmpty` added (ENOTEMPTY). **chmod deferred whole** with the
+reasoning recorded: a separate capability rejected (R121's split was
+contents-versus-structure and permissions are structure; `delete` is strictly more
+destructive and lives here), `exec chmod` the existing escape hatch, setuid flagged
+for the eventual permissions scrutiny. Deferred with owners: symlink axis, watching,
+recursive copy, `cwd()`. Swept: `std/filesystem.md` (new), `modules.md` §6 (the
+slot-inhabitant rule), `io.md` §2.0 (relocation pointer), `io-errors.md` (the new
+arm, the moved cite), `capabilities.md` §9 (row closed), `std/system.md` (surface
+landed), `tests.md` (primitives exist; only machinery remains open), `index.md` (the
+row).
+
+**R136 — the import grid: four forms, two axes, no `*`.** The module-import surface
+resolves into a **two-axis grid**, now stated as a table in modules §5 (the user's
+request — the table *is* the motivation): *position* decides dump-versus-collect
+(statement dumps names; assignment collects a table), *braces* decide all-versus-some.
+Statement-all is the bare **`import std.filesystem;`** — legalizing the form every
+example already wrote, which modules §5 had never defined (the wrinkle R135 parked
+resolves as ratification, not repair) — statement-some is the existing braced form,
+assignment-all is `const fs = import std.filesystem;`, and assignment-some is **new**:
+`const fs = import { stat, exists } from std.filesystem;`, partial collection with
+aliases renaming keys (`t.jsonParse` — §8's one mechanism, one more consumer). Under
+the grid, **`import * from p` is retired entirely**: bare-path already means
+"everything," so the glob sigil was a second spelling for the first cell — the `*`
+disappears from the import grammar (lexer note updated). Four supporting rules:
+**assigned imports are `const` only**, load-bearing not style — a const table with
+comptime-known members is what lets `fs.stat` fold to statically resolved, statically
+capability-checked calls (the `platform.lineEnding` precedent), so `let`/`var` would
+demote every call to the dynamic frontier for nothing; assignment-position imports are
+**top-level only** like the statement forms (§4, reaffirmed); **naming a capability in
+a braced assigned form is a compile error**, not a silent exclusion — an explicit
+request for what slots cannot hold (R135) fails loudly, with the fix in the message —
+while the bare assigned form keeps R135's silent exclusion (nothing you named is
+missing); and **the path never becomes a name** — `import std.filesystem;` binds
+nothing called `filesystem`, this is not Python's `import os`, and namespacing is
+exclusively the assignment form's job. The §5 coupling warning survives, rescoped:
+bare import is the happy path for `std.*` and your own modules; the
+entire-export-surface coupling stays worth a thought for third-party dependencies.
+`import` is the language's one bare directive, and that is fitting — mechanics, not a
+value. Swept: `modules.md` §5 (the grid table, the forms), §6 (partial collection,
+const-only, the loud error, the one-line distinction de-globbed), `std/filesystem.md`
+(the canonical import updated), `lexer.md` (the `*`-glob note now a retirement
+record).
+
+**R137 — constraints go braceless; inline `where` considered and rejected.** The user's
+parse observation held all the way down: the braces in `constraint { i: int where … }`
+had **no function**. Not parse — the keywords table already carried the proof, `where`
+is "never part of a type, which is what lets it terminate one," so the type ends and
+the predicate begins with no delimiter, the declaration's `;` ends the predicate, and
+a further `where` (reserved, never an expression operator) unambiguously starts the
+next conjunct — multi-clause survives braceless with its reason intact (which clause
+failed). Not purity — §2's "enforced by the form" was always the *declaration form's*
+property, not the braces'. Not content — every other brace-former holds a list (proto
+members, enum variants, error fields); a constraint holds one typed binder, and
+`capability`, the other fixed-shape form, never had braces. And dropping them
+*strengthens* §1's own claim that a constraint body "is exactly a match arm" — arms
+are braceless. New form: **`const byte = constraint i: int where i >= 0 && i <= 255;`**
+The companion ruling that makes the parse airtight: **constraint literals are
+const-initializer-only, stated explicitly** (the R126 proto precedent — §1 said
+"bound to a const" but never forbade expression position), with **name-capture now
+stated**: the binding identifier is the constraint's name, what `typeName` reports and
+a failing check cites — a rule the corpus relied on (`"byte"`, `"json"`) without ever
+writing down. **Inline `where` in signatures — anonymous constraints,
+`fn (n: int where n > 0)` — considered and rejected** (constraints §1.1, a tombstone
+because PHP/TS-lineage users will ask), three times over: it breaks R79
+*structurally* (the inline predicate sees sibling parameters, so
+`fn (lo: int, hi: int where lo <= hi)` — not a function of the value alone — becomes
+representable and needs a rule, where the named form makes it unrepresentable by
+construction); it forces a typeid identity crisis (per-occurrence minting makes
+identical signatures different types against R130's structural rule; interning
+demands alpha-equivalence over predicate ASTs — permanent machinery for a
+convenience); and it optimizes away the feature (the name is the API — `typeName`,
+the panic's citation, the third caller's reuse). Rejection costs one reusable line,
+cheaper now. Swept (28 sites, 14 files): `constraints.md` (§1 rewritten with the
+braceless rationale, const-only, name-capture, §1.1; §2's wording), `json.md`,
+`types/json.md`, `serialization.md`, `csv.md`, `yaml.md`, `xml.md`, `filesystem.md`
+(`path`), `secret.md` (`dbSecret`), `double.md`, `int.md` (the sized-int family),
+`bytes.md`, `tables.md` §8, `overview/types.md`, `keywords.md` (the `constraint` row,
+the `as` row's R87 note, the `where` row crediting its terminator property as the
+enabler).
+
+**R138 — `std.platform`: one export, target facts, the tension inverted.** The most
+load-bearing stub in the corpus becomes the smallest module in std, deliberately: one
+export, the `const` **target-facts** table (`os`, `arch`, `lineEnding`,
+`pathSeparator`). **The comptime tension dissolves on one distinction**: these are
+facts about the *target* — an input to the build; in script mode the host is the
+target — never the build machine's ambient environment. So comptime access is not a
+portability hazard but **conditional compilation done right**: the same source
+compiled for linux folds `"\n"`, for windows `"\r\n"`, each binary correct for its
+target, reproducible under the only definition that survives cross-compilation (same
+source + same target = same binary); and the flip side is decisive — without
+comptime-visible platform facts, portable libraries are unwritable. No capability,
+recorded as **the R43 theorem run in reverse**: capabilities mark what must not fold;
+deterministic per-build inputs are eligible, nothing to gate. **`os`/`arch` are
+strings, not enums** (the Go `GOOS`/`GOARCH` vocabulary): an exhaustive `match` over
+an `os` enum would break on every toolchain release that adds a target — the R133
+enum-growth hazard arriving through slow growth rather than volatility; strings grow
+silently, and one matches an open set with a wildcard arm. **Module over ambient
+global** (considered and rejected): predeclaring the table would erase the audit
+trail — platform-dependence is exactly the cross-cutting concern a portability review
+wants greppable, the R127 import-as-audit-signal argument — and the cost is nothing,
+since under R136's grid `import std.platform;` dumps exactly one name and the table
+is its own namespace, pollution-free by construction (the user's
+global-const-table instinct, landed as the module's shape). **The debtors settle**:
+`isValidPath`'s deferral chain (io → filesystem → platform) terminates — it is
+`std.filesystem`'s export, comptime-branched on `platform.os`, and for the sole
+current target the rule is real: nonempty, no NUL byte, ≤ 4096 bytes; errno
+portability stays io-errors' own question. Deferred: endianness, word size, CPU
+features — FFI-era facts; a row is added only when a *target* fact earns it. Swept:
+`std/platform.md` (rewritten from the R121 record), `std/filesystem.md` §1
+(`isValidPath` ruled), `std/io.md` §2.0 and §10 (the stub note now a landed
+pointer), `index.md` (the row).
+
+**R139 — `std.random`: seeding is the effect, generation is pure; the catalogue's
+`randFn` was doubly unsound.** The last non-network alpha gap closes on one idiom —
+one capability-gated entropy read at the top, a pure deterministic stream everywhere
+after — whose consequence is a feature no bolted-on RNG gets: **every randomized run
+is replayable by logging one int**. **Two findings fixed the shape.** First, the known
+one: the catalogue's optional `randFn?` on `random`/`shuffle` defaulted the randomness
+source to nothing specced, and an ungated nondeterministic default breaks the R43
+theorem — a capability-free `shuffle(t)` would fold a "random" order into the binary.
+Second, the new one: **a function-shaped PRNG is unimplementable in Luna** — a PRNG
+carries mutable state between calls, closures capture a `const` snapshot (functions
+§2.1), so a stateful counter closure cannot exist; stateful sequence generation has
+exactly one home, the generator, which is to say a **`stream`** (the user's phrasing,
+now the spec's: stateful functions *are*, semantically, streams — and O(1) state
+besides). So `randFn` was mis-typed the day it was written, and the catalogue
+parameter becomes **`rng: stream`, required** (`random`/`shuffle` respecced; the
+retired-spellings table gains the row) — optional-with-default was the unsoundness,
+since a pure function cannot conjure entropy and a `use` set cannot be conditional on
+an argument's absence. **The surface**: the **`entropy`** capability (not `random` —
+the catalogue's picker owns that name, and the authority *is* the entropy source);
+gated `randomSeed`, `randomBytes` (the secure path — OS entropy, never the PRNG;
+tokens wrap `as secret`), and **`randomStream()`** — the everyday one-call spelling,
+which exists because the convenient alternatives died under scrutiny: **the seed
+default was considered and rejected** (§6, a tombstone) — an entropy-read default is
+structurally impossible (a capability set cannot be conditional on argument presence;
+defaults are comptime-known, functions §3.3.1), and a constant default is the C
+`rand()` footgun verbatim, the same sequence every program every run, shipped as the
+convenient spelling. Pure side: **`prng(seed)` with the algorithm pinned as contract —
+PCG-64** (Go `math/rand/v2`'s choice, backend-free; pinning matters because
+comptime-folded values and seeded tests must not change across toolchain releases),
+**no engine zoo** (PHP's Mt19937/Pcg/Xoshiro/Secure menagerie is compat history not
+inherited — one pinned engine plus one secure source); `nextInt` (unbiased, rejection
+sampling — nobody ships dice that roll low), `nextDouble` ([0,1), 53-bit), `nextBool`,
+each visibly consuming the by-reference stream. **Restart is replay, reseed is
+rebinding**: a PRNG's source is its seed, an immutable int, so `restart(rng)` replays
+the identical sequence — the *exemplar* of R105's immutable-snapshot rule (a range
+restarts from `lo`, a PRNG from its seed), holding for `randomStream` too (its
+snapshot is the seed drawn at creation — restart the rng, replay the exact randomized
+execution); fresh randomness is an ordinary new stream, never an in-place reseed —
+"same sequence again" and "different sequence now" never share a spelling. `prng`
+with a fixed seed is comptime-eligible (reproducible test data folds); the gated
+three are ineligible by the same theorem, landing the R43 fix exactly where it
+should. Deferred: distributions and sampling utilities (library territory over
+`prng`/`nextDouble`), cryptographic constructions (`randomBytes` covers secure
+material). Swept: `std/random.md` (new), `iterable-functions.md` §2.9 (`random`
+respecced; the retired-spellings row), `indexable-functions.md` §4 (`shuffle`
+respecced), `index.md` (the row).
+
+**R140 — the PCG security analysis on the record; `std.crypto` named and deferred,
+deliberately.** The user's lock-in scrutiny of PCG-64 produced three permanent
+records. **PCG-64's security is zero, settled, and irrelevant by design**: it is a
+statistical generator with no cryptographic claim, and prediction is not an open
+question — practical full-state recovery from a handful of outputs is published
+(Bouillaguet, Martinez & Sauvage, 2020). **The seed theorem** (random §3.1, new):
+`prng(seed: int)` has a 64-bit seed, so *no* engine in that slot could be secure — an
+attacker brute-forces 2⁶⁴ seeds offline regardless of the algorithm, and the module's
+headline feature (every run replayable from one logged int) is precisely the property
+a security RNG must never have; the slot is structurally non-secure, so engine choice
+is a statistics-and-speed question only, which is what makes the PCG pin a *low*
+lock-in risk (statistically battle-tested; the surface is engine-agnostic; the
+contract-pin makes any future change a visible versioned break in the pre-1.0
+window, never silent drift). **The Go attribution precised** (random §3): PCG is
+`math/rand/v2`'s *seedable* engine; Go's auto-seeded default is ChaCha8, a
+misuse-hardening chosen because Go's rand API predates the secure/statistical
+split — legacy pressure Luna does not have, because this module *is* the split.
+**`std.crypto` is named and deferred in full** (new record, std/crypto.md; the
+user's rationale verbatim in spirit: crypto surfaces are really tight stuff and poor
+decisions last a very long time — an ecosystem inherits its crypto API's mistakes
+for decades, the mcrypt precedent) — designed as its own dedicated effort, never in
+passing. The record fixes what exists today (`randomBytes` for secure material, the
+`secret` type for containment, the exec hatch) and the constraints any future design
+inherits: capability-gated effects, `secret`-shaped key material, and the permanent
+statistical/secure split — nothing in `std.crypto` will ever be seedable-for-replay,
+nothing in `std.random` will ever claim security. Swept: `std/random.md` §3
+(attribution), §3.1 (new), §7 (crypto pointed home), `std/crypto.md` (new),
+`index.md` (the row).
+
+**R141 — `std.math`: the alpha standard library completes.** The shortest real module
+after platform, everything pure, capability-free, comptime-eligible, IEEE-sentinel
+throughout (`sqrt(-1.0)` is `nan`, nothing errors, nothing panics — double.md's
+stance applied). **What it deliberately does not duplicate** frames the module: the
+catalogue owns collection aggregates (`sum`/`average`/`product`/`min`/`max`/`mode` —
+so `mean` is not added, it is `average`), double.md owns the special-value probes and
+the rounding **policy verbs** — and a double-returning `floor`/`ceil` family is
+**recorded absent**: the policy verbs own rounding, and a parallel float family would
+put two meanings behind one name. **The surface**: `pi`/`e`; `abs`/`sign`/`clamp`
+over `number` with **kind following the operand** (the R92 precedent; `abs(minInt)`
+panics, the int rule); **`lerp`** (user-added — simple, very useful for graphics)
+with the C++20 endpoint discipline (`lerp(a,b,0)` and `lerp(a,b,1)` exact; `t`
+unclamped, extrapolation is the graphics convention, compose with `clamp`);
+`sqrt`/`hypot`/`pow`/`exp` — `hypot` stating the module's inclusion criterion, a
+function earns a row when the obvious composition is a trap (`sqrt(x*x+y*y)`
+overflows); **`ln`, not `log`** (bare "log" is ambiguous between mathematics and
+engineering, so no export bears it; `log2`/`log10` round out three
+precision-optimized names, a general base being a one-liner); trig in **radians
+only** with `toRadians`/`toDegrees` at the boundary (R106's `to*` contract exactly);
+and **statistics split by the R92 retention rule**, which slots them perfectly —
+`variance`/`stddev` take `iterable` (single-pass Welford, stream-legal, `sample:
+bool = false` for Bessel's correction), `median`/`percentile` take `table` only (they
+sort; whole-input family), empty input yielding `nan`, the IEEE answer to an
+undefined statistic. Deferred until earned: hyperbolics, `gcd`/`lcm`, combinatorics,
+integer `pow`. Swept: `std/math.md` (new), `index.md` (the row). **With this, the
+alpha standard library is complete below the network tier**: io, json, time,
+datetime, introspection, process, filesystem, platform, random, math, secret, exec,
+channels — all landed; what remains is the designed-last networking sequence, the
+timeout / `awaitAny` / select session and `std.net` behind it.
+
+**R142 — the timeout surface: `awaitAny` is the one primitive, scope exit was the
+cancel all along; the top priority delivered.** The ruling twenty rulings built
+toward (concurrency §5.1, new). **The central proof**: timeout is a *library
+function* with zero new cancellation machinery, because R115's scope-exit rule was
+the missing cancel primitive — `timeout(f, d)` spawns the work and the `sleep(d)`
+timer *in its own frame*, races them, and its **return is its scope exit**, so the
+loser is cancelled by the already-ratified rule; there is **still no user-facing
+`cancel(p)`** (R115 reaffirmed — the race adds no third canceller, only a new reason
+for scope exit to fire), and raw `spawn` stays timeout-free (the user's instinct:
+deadlines live in scope-owning wrappers, because scope ownership is what makes loser
+reclamation fall out for free). **The primitive**: `awaitAny(...ps: promise): [int,
+any]!` — first completion wins (already-completed → immediate; ties by position),
+winner's error propagates on §4's per-promise channel, **losers not consumed and not
+cancelled** (observed, still awaitable, still scope-owned). **The family over it**:
+`awaitTimeout(p, d)` (timer frame-local and reclaimed; `p` consumed if it wins,
+untouched and still the caller's if it loses) and `receiveTimeout(rx, d)` — the
+channel-recovery form the BEAM scrutiny demanded: the one admitted deadlock shape,
+channel-wait cycles, is now *escapable*, not merely contained (channels §6 amended;
+the `GenServer.call`-with-deadline pattern is buildable, channels §7). All three
+yield **`timeoutError`** — declarable, never a panic: a timeout is expected,
+recoverable, data-shaped (errors §2). **The contract, stated loudly**: timeout
+bounds *waiting*, never *execution* — the caller always unblocks; the loser stops at
+its next suspension point, and a suspension-point-free loop has none (§7's accepted
+cost, the Go backend cannot kill, R120; `sleep(seconds(0))` is the yield-point
+discipline) — the one place Luna is honestly weaker than BEAM, traded knowingly.
+**Go-style `select`: mostly dissolved, remainder deferred** — Go needs select
+because bare channels are the primitive and fan-in requires choosing; Luna's MPSC
+sinks make **fan-in one channel with N senders**, the owner-task pattern *is* the
+select loop, residual heterogeneous races get a merge task or `awaitAny` over
+wrappers, and a dedicated construct waits for a case that survives the merge idiom —
+recorded as a decision, not a gap. **Two supporting rulings in §3.1**: the
+**carrier-list extension by the rule's own criterion** — a carrier is legal iff it
+structurally cannot retain, duplicate, or export; the variadic's frame-bound
+argument list passes the same audit bindings and streams passed, enforcement is
+type-directed (`...ps: promise` makes the element type static; existing confinement
+checks fire transitively; no new check family, no special runtime representation —
+stock Go select underneath), and provenance is closed (user code cannot construct a
+promise-bearing list, the literal is the banned store; the variadic calling
+convention is the only producer, joining apply-initializer lists and fenced enum
+literals in the grammar-constructed-ephemera family). And **a promise is `nocopy`**
+(the user's call; the `argv` precedent, legal because built-ins own their binding
+semantics): `let q = p;` is a compile error — one handle, one name; parameter
+passing is **by reference**, joining the consumable class streams defined (variables
+§5); `await` consumes, a second await is a compile error where evident and a
+**`doubleAwait` panic** (errors §2, new leaf) through the one dynamic path nocopy
+leaves open. Swept: `concurrency.md` §3.1 (both rulings), §5.1 (new), §8 (the
+top-priority open is a landed record); `await.md` §1/§3/§4 (surface landed,
+no-cancel reaffirmed, `awaitAll` dissolved into §1's stream form); `channels.md` §6
+(recovery), §7 (select dissolved-record; patterns layer unblocked); `errors.md` §2
+(`timeoutError`, `doubleAwait`); `std/time.md` §5 (the seam closed as designed);
+`std/net.md` (**the gate is open** — pending real use alone).
+
+**R143 — `std.net`: TCP and UDP under `egress`/`ingress`; the alpha closes.** The
+last module, shaped by two principles stated as its header. **Zero timeout
+parameters, anywhere**: every net operation is a suspension point (R121), so every
+wait is bounded by the R142 family — Go threads `SetDeadline` through its entire net
+API because its timeouts do not compose; Luna's do, and this module collects that
+payoff by shipping no deadline in any signature. **Alpha net is plaintext, loudly**:
+TLS is gated on `std.crypto` (R140, deferred deliberately), and the chain is fixed
+and recorded — **crypto → tls → http**, no link before the one under it.
+**Two capabilities, not one** (superseding R121's provisional single `net`):
+**`egress`** (originate — `dial`, `send`) and **`ingress`** (bind and accept —
+`listen`, `udpBind`), because "may phone home" and "may open listening ports" are
+different authorities — the distinction every firewall draws, drawn in the `use`
+clause where Luna draws everything; splitting later would break, splitting now cost
+two good names. Bytes on established connections stay **`io`'s** — the R134 symmetry
+completed: `filesystem` : structure :: `egress`/`ingress` : connections :: `io` :
+contents. **A `connection` wears `fileDescriptor`** (its proto requires it, §7), so
+io's entire byte surface — `chunks`, `write`, `close`, `defer close` — works on
+connections with **no new functions**, per R121's referent-stateful no-`&`
+convention; `connection`'s own members are the socket facts, identityEquality,
+single-owner, transferred class. **Accept is a stream** — `connections(l)`, R102 —
+making the server three lines (`foreach` + `spawn`, handlers scope-bounded), lazy
+and creation-authorized (the listener carries the `ingress` grant, the laundering
+rule), non-restartable (a socket is the canonical non-replayable source), bounded by
+`receiveTimeout` like any wait. **UDP**: `udpBind` / `send` / `datagrams` — the
+datagram is the unit (rows of from/port/data), and the capability shape is honest:
+one socket can need both authorities, `use (ingress, egress)`, each word meaning
+itself. **`port` becomes real**: the constraint that has been the corpus's running
+example since R9 is exported by the module that owns it (constraints §1 notes the
+graduation). **Errors extend `ioError`** (the R135 orthogonality rule):
+`connectionRefused`, `connectionReset`, `hostUnreachable`, `addressInUse`,
+`dnsError` — all declarable (network failure is expected, recoverable, data-shaped —
+the `timeoutError` argument). Free by composition, stated: backpressure (pull-based
+streams — no buffering-policy surface exists because none is needed), cancellation
+(every park is a suspension point; R142's contract holds verbatim), credentials as
+secrets at the boundary. **`std.http` deferred by decision** (new record,
+std/http.md): a whole other beast atop net, its secure half gated two modules deep
+by the chain; today's answers are hand-spoken HTTP/1.1 over net or the exec hatch;
+future constraints fixed (no new authority — HTTP is a protocol, not a new reach;
+R142 timeouts; stream bodies; secret-shaped credentials). Also deferred with owners:
+socket options, unix domain sockets, half-close, explicit IPv6 surface. Swept:
+`std/net.md` (rewritten from the R121 record), `std/http.md` (new deferral record),
+`io-errors.md` (five arms), `capabilities.md` §9 (two rows), `constraints.md` §1
+(the graduation note), `index.md` (both rows). **With this ruling the alpha surface
+is complete**: every module on the ledger is landed or deliberately deferred with
+its reason recorded, and the corpus stands at R143 with no open contradiction.
+
+**R144 — housekeeping: `docs/retired/`, and one more fossil.** Routine cleanup, on
+the ledger so future greps understand the moves. The four retirement stubs leave the
+live directories for **`docs/retired/`** (git-moved, history preserved):
+`table-api.md` (R91–R93), `views.md` (R95), `reflection.md` (R127), `system.md`
+(R134) — each a was→is tombstone map, none authoritative, and the rule stated in the
+index's new **Retired** section, which replaces their four scattered rows. Path
+references swept: `process.md` (the split-record pointer), `indexable-functions.md`
+(the R98 retirement cite), `index.md` (consolidated). The deep name-sweep caught
+**one live fossil the R95 passes missed**: compiler.md's optimization pass still
+read "protocol-dispatch devirtualization (protocols, **views** specs)… resolve the
+**meta-function**… instead of a runtime **view lookup**" — pre-R95 on all three
+counts, and conceptually stale besides: the member model has **no virtual dispatch
+to devirtualize** (protocols §2.1), so the pass is rewritten as **protocol-member
+resolution** (static applied-set at `@P`-typed sites → direct access; otherwise the
+dynamic check, protocols §3.2/§6.2), with the correction recorded in place. Frozen
+history untouched, as always: retired names inside `retired/` stubs and CHANGES
+entries keep their spellings.
+
+**R145 — housekeeping: the spec directory is `specs/`.** `docs/` renamed to `specs/`
+(a plain `git mv`, its own commit, history preserved — git detects renames at diff
+time, so `--follow` and blame walk through unbroken). More accurate: the directory
+holds the specification, not documentation; `user-docs/` remains the planned name for
+the latter. References swept: `CLAUDE.md` (the repo map, plus its stale
+README-mismatch note — README had since been fixed and needed only the rename — and
+the orientation-layer paths corrected to `specs/overview/`), `README.md` (three path
+lines), `tooling/shiki-luna.ts` (the source-of-truth comment; `make-archive.sh`
+needed nothing — it is path-agnostic via `git ls-files`). Two pieces of drift caught
+in README's Taste example en route: `defer close(&fd)` predated R121's de-`&`'d io
+surface (now `close(fd)`), and the imports predated R134 (`import std.process;`
+added for `args()`/`argv`). Rulings before R145 cite `docs/` paths and are frozen
+history, per the tombstone rule.
+
+**R146 — the pipeline operator `|>` is retired; commands get `pipe()`.** The
+scrutiny's finding: the operator's own §1 condemned a general pipe as "a second
+spelling of what `.`-chaining already does" and reserved `|>` for dataflow, "a notion
+UFCS cannot express" — **a claim that went false at R91–R93**, when the catalogue made
+every transformer a lazy, kind-following, stream-taking free function. Since then
+`s |> map(f)` and `s.map(f)` have been the *same operation* (lazy-start, pull-driven,
+short-circuiting, source-taking, effects at the pull — none of which were ever the
+operator's, as its own §5.1/§5.2 admitted), and mechanically `s |> filter(p)` had to
+inject the left operand as the call's first argument — UFCS with different
+punctuation. The stream half had become exactly the redundant second spelling its spec
+was written to forbid. The command half (`a |> b`, stdout→stdin — genuine semantics,
+neither side a function) was one function's worth: it is now **`pipe(first: command,
+second: command, ...rest: command): command`** (command §4) — variadic, the two
+leading required parameters making a one-stage pipeline *unrepresentable* rather than
+checked, every property kept (structured, shell-free, injection-safe, inert, immutable
+operands, `commandError.stage` per argument), the name evoking the shell pipe without
+spending an operator on one domain. The spec moved to **retired/pipeline.md** with the
+why and the was→is map; the `PIPELINE` token is gone (lexer §4, munch lists);
+**associativity tier 11 is a tombstone** (the number kept so tier-12 citations
+stand); operators.md's two rows deleted; any.md's `|>`-needs-narrowing rule is moot
+(`pipe` is an ordinary typed function under the existing UFCS rule). **Stream §7 is
+rewritten as "Chains are pipelines"** — same section numbers (widely cited), same
+semantics, now stated as what chains always had; §7.1 keeps the explicit
+stream↔command bridge rule. **A precision the sweep forced** (concurrency §5): the
+old `xs |> map(fn (x) => spawn …)` examples respell as `xs.toStream().map(…)`, and
+the `toStream` is load-bearing, not style — kind follows the primary
+(iterable-functions §1.3), so a spawning map over a *table* would yield a table of
+promises, the retained storage §3.1 bans; the operator's spelling had been hiding the
+kind question, and the honest spelling surfaces it. Swept (18 files):
+`retired/pipeline.md` (the stub), `command.md` §2/§4/§8, `stream.md` §7/§8,
+`iterable-functions.md` (four sites), `stream-api.md`, `any.md` (rule deleted),
+`bytes.md`, `range.md` (both examples), `spread.md`, `channels.md`, `json.md` (the
+figurative pipe), `concurrency.md` (three sites plus the toStream note),
+`exec.md` (three sites, `pipe(a, b, c)` spelling), `associativity.md` (the
+tombstone tier), `lexer.md` (token, escape note, two munch lists),
+`examples/log-scan.md` (rewritten to the chain), `index.md` (live row → the Retired
+table). One process note, honestly: a careless sed corrupted three lines of
+concurrency.md mid-sweep; restored from git and redone with exact-match edits — the
+committed-before-sweeping discipline paid for itself.
+
+**R147 — nested destructuring lands; the deferral's cost had already collapsed.** The
+opens-combing pass begins, and the first question answers itself from the corpus:
+destructuring §7 deferred nesting "until real code demands depth," but **match §4 had
+already built everything** — the nested shape grammar, the recursion, the binding
+semantics, and the declaration that a match pattern is the *strict superset* of a
+destructuring pattern. So a `let` reusing that grammar costs nothing new, and the
+standing asymmetry (the same pattern legal in a `match` arm, a syntax error in a
+`let`, for data shaped exactly like the language's bread and butter) was a wart, not
+an economy. **The one genuinely new question** — statements have no next arm to fall
+to — resolves by the flat rules' own personalities, stated as one recursion rule
+(destructuring §3.1): *a nested pattern destructures the value at its position under
+its own mode's rules.* **Keyed stays partial and absence propagates** — a nested
+keyed pattern under an absent or `undefined` value binds all its names `undefined`
+(§2.1's philosophy extended; what the flat spelling plus a second statement would
+have produced; `??` recovers) — while **positional stays exact and asserts at every
+level** (§1.1's error, `typeError` panic or compile error where static, at any
+depth): `['server' => ['host' => h]]` navigates, `[[a, b], c]` asserts, each mode
+keeping the personality it always had. **Tests stay match's**: statement patterns
+exclude literals and typed binders at every depth — a failed test needs a next arm —
+which is precisely what keeps the superset relation a relation rather than two
+homographs (match §4.3). `_` and `...rest` compose per level with flat rules
+unchanged (rest trailing-only within its level); streams at any depth follow §1.4's
+take-what-you-bind. Swept: `destructuring.md` §3.1 (new), §7 (the open resolved);
+`match.md` §4 (the superset note gains the back-reference).
+
+**R148 — defer on the Go backend: implementable, two lowerings ruled; three defer.md
+opens close.** The combing reaches compiler.md's hard question — Luna `defer` versus
+Go `defer`, especially around goroutines — and the answer is **yes, cleanly**, with
+the differences smaller than feared: registration-on-reach with by-value capture
+(defer §4) is *exactly* Go's argument-evaluation rule, LIFO matches, panic-in-defer
+supersession with remaining-defers-run (§6) is Go's own behavior, and return-value
+mutation never arises (we never emit named returns). The one real difference is the
+known one — **block-scoped versus function-scoped** — so Go `defer` is unusable at
+Luna-*function* granularity only. **Two sound lowerings recorded** (compiler §7.3):
+(1) *blocks become functions* — each defer-carrying block wraps in an
+immediately-invoked Go func holding real Go `defer`s, every property delivered
+natively, control-signal returns for `return`/`break`/`continue` crossing the
+wrapper; and (2) **the zero-cost hybrid, the target** — normal exit edges get inlined
+guarded cleanup (the destructor-flag lowering; the pending set is statically known),
+panic paths use a **per-task defer list with block-depth markers** drained at
+recovery sites. **The constraint that decides where to drain is `catch (p: panic)`**:
+panics are catchable mid-stack (errors §8), so defers between throw and catch must
+run before the catch body — every catch is a Go `recover` boundary anyway, so its
+handler drains to the catch's depth marker, and the goroutine-entry trampoline —
+which *already exists*, because a task panic must resolve its promise (concurrency
+§4.1) — drains the remainder. Same trampoline, one added drain. **Goroutine
+composition is free by construction**: the defer list is per-task state beside the
+cancellation flag and promise; scope-bounding and const-snapshot capture mean
+nothing crosses tasks; cancellation unwinds through the same machinery (R115), with
+the one addition R115 demands — the **shield flag**, a per-task in-defer bit
+suppressing `cancelled` delivery inside defer bodies, checked exactly where delivery
+already checks; a task leaked on an uncancellable loop runs its defers at its
+eventual suspension point, consistent not special. **The combing bonus — defer §8
+was stale on three of four bullets**: cancellation cleanup was resolved by R115 two
+eras ago (now a landed record); early stream cleanup was answered by the R121 file
+model (the owner-scope `defer close(f)` pattern — the file, not the stream, owns the
+descriptor, so abandoned short-circuited chains leave nothing unclosed; recorded
+closed); and the panicking-defer residue is **resolved by R148 with machinery that
+now exists** — supersession is *chained, not lossy*: the displaced panic rides the
+superseding one as its **`cause`** (R110's identity surface), recursively, so control
+flow moves on and the record loses nothing. The top-level-defer question stays open,
+correctly (pending the process-exit model). Also clarified: §1.6's "(defer spec,
+§7.3)" cite read as a defer-spec section that does not exist; it now says what it
+meant (compiler's own §7.3). Swept: `compiler.md` §7.3 (the lowering record), §1.6
+(the cite); `defer.md` §6 (the `cause` chain), §8 (three closures).
+
+**R149 — the build cache audited against the current language: two miscompile holes
+closed, the target dimension added, two fossil layers cleaned.** The
+incremental-compilation spec predated most of R91–R148, and its own correctness
+standard ("never serve a stale artifact") is what convicts the drift. **Fossils**:
+§1.2's protocol clause still hashed "the full meta-function surface and element
+contract" (pre-R95 — now the member surface: binding keywords, grants, types,
+required-versus-defaulted, defaults and definition-fixed values reachable as `P->m`,
+the requirement set, `identityEquality` — R129's row shape exactly), and its function
+clause claimed comptime-eligibility is "type identity" (pre-R43/R130 — eligibility is
+a value fact; the interface now lists the signature *plus the declared capability
+set*, interface because dependents observe it twice: comptime eligibility and `use`
+obligations). **The two silent-miscompile holes**, both caught by §1.2's own logic
+run against the current language: exported **const values** (a dependent
+comptime-folds them into its binary; §1.2 hashed only the types) and **attributes on
+exported declarations** (a dependent's generated serializer reads `jsonTag` at
+comptime, attributes §4/json §2) — closed under the generalized rule the corpus can
+now state precisely: **the interface is everything comptime-observable through a
+dependent**. Which also grounds §5's serialization open: the extraction *is* the
+introspection surface computed at compile time (R127–R131 — `members(p)` rows,
+signatures, `capabilitiesOf`, `fields`, `variants`), so cache, tooling, and
+introspection agree on what an interface is **by construction**, and only byte-level
+details remain open. **The missing key dimension**: R138 made platform facts target
+facts that fold at comptime, so per-target artifacts differ *by design* — the cache
+namespace (§3) and the run-cache key (compiler §0.1) now carry **compiler version
+and compile target**, with "version" noted to cover bundled data (the tzdb R133, the
+PCG pin R139); latent while one target exists, recorded so the second target finds
+it waiting. **The R136 coupling cost gains its build face**, noted in §1.3: a bare
+or bare-assigned import couples a dependent to the whole export surface, so adding
+any export recompiles every bare-importing dependent — correct, and a real argument
+for selective imports in hot dependency cones. **Sibling fossils in compiler.md**:
+"protocol devirtualization" survived R144 in three places (the load-bearing-choices
+intro, the §1 pipeline diagram, §5's pass list — all now "protocol-member
+resolution"; §4's IR note respelled onto applied-set facts) and §7.3's "the full
+concurrency model is pending" was four eras stale (the model completed R115–R119 and
+R142; the bullet now enumerates the per-task runtime state the defer lowering
+already fixed). Eviction tuning stays open, correctly. Swept:
+`incremental-compilation-build-cache.md` §1.2 (both clauses, the new
+comptime-observable bullet), §1.3 (the coupling note), §3 (version-and-target), §5
+(the grounded open); `compiler.md` intro, §1 diagram, §0.1 (the key), §4, §5, §7.3.
+
+**R150 — the escape table lands; lexer G4 closes, G5 is superseded; two lexical
+opens settle.** The lexical-structure combing: block-comment nesting **reaffirmed
+deferred** (do not implement — the depth counter is cheap but the failure-mode
+change has still not earned its keep), the error-casing bullet closed as stale
+(resolved by R122; this file missed that sweep), and **the escape-sequence table is
+ready and ruled** — the corpus had already fixed most rows piecewise (bytes §7's
+enumeration, strings §13's single-quote rule, regex's own language, the COMMAND
+mode's "unescaped `` ` ``" terminator), and assembling them surfaced the three
+decisions now blessed. **The authoritative table is strings §13.1**, per context:
+`"…"` gets `\n` `\t` `\r` `\\` `\"` `\$` and **`\u{H…}`**; `'…'` keeps its ruled
+pair; `b"…"` gets the shared set plus `\xNN`, minus `\$` and `\u{}`; `` `…` `` gets
+`` \` `` `\\` `\$`; `/…/` passes RE2's language through. **The three rulings**: (1)
+the **`\xNN`/`\u{…}` split is safety, not taste** — a raw byte in a string could
+break the UTF-8 validity guaranteed at ingress, so `\xNN` is bytes-only, while
+`\u{…}` encodes valid UTF-8 by construction (surrogates and >`10FFFF` are lex
+errors; without it, control characters would be unwritable in strings since the
+raw-byte door is correctly closed); (2) **an unknown escape is a lex error**, never
+PHP's silent pass-through; (3) **no `\0` shorthand, no octal** — `\u{0}` spells NUL,
+and §13's exemplified `"\0"` is retired by the table. **Two internal contradictions
+resolved en route**: lexer G4 closes (span unaffected — `\\.` covers any pair, and
+`\u{…}`'s braces ride the existing depth machinery; decoding reads §13.1), and
+**lexer G5 is superseded** — its no-command-escapes resolution (a literal backtick
+via the ``${'`'}`` interpolation workaround) was ceremony where one escape pair
+suffices, and the mode table's "unescaped `` ` ``" terminator had implied the escape
+reading all along; `COMMAND` mode gains `ESCAPE_PAIR`, `CMD_TEXT` excludes the
+backslash. Swept: `strings.md` §13 (the example list de-`\0`'d) and §13.1 (new, the
+authority); `bytes.md` §7 (repointed, the bytes-only rationale in place);
+`command.md` §2 (the three escapes, G5's supersession noted); `lexer.md` §4 (two
+rows), G4/G5 (records); `lexical-structure.md` §2 (casing), §4 (three bullets:
+closed, reaffirmed-R150, stale-closed).
+
+**R151 — modules §11: two opens become decisions.** The combing reaches modules.md,
+and both bullets convert from questions to directions-fixed deferrals. **Packaging
+and distribution: source-based, ruled** — packages will distribute as source trees,
+not compiled artifacts, and the direction costs nothing to fix now because the
+corpus already leans on it three ways: comptime folds imported bodies and const
+values into dependents (R149's interface rule — a binary package would carry the
+source-equivalent anyway), artifacts are per-version-and-per-target (R149 — binary
+distribution would be a version × target matrix where source is one tree), and the
+capability audit is a *source* audit. What stays deferred, deliberately: mounting
+and rooting (likely a project-marker root file), and the standard library's
+organization under `std`. **Dynamic loading: excluded and deferred, not open** — the
+exclusion is what makes the import graph fully static, which the DAG, the
+interface-hash cache, and the comptime sandbox all lean on; a standing decision,
+revisited only if a concrete need survives contact with those three dependents.
+Swept: `modules.md` §11 (retitled "Deferred by decision", both bullets rewritten).
+
+**R152 — tooling §7: four deferrals marked, and the trivia question dissolves.** The
+formatter, LSP, finer-grained incrementality, and debugger designs are **deferred by
+decision** to their own dedicated specs — tooling.md fixes the foundations they slot
+into (the pass library, the lossless CST, error tolerance), not their surfaces. **The
+trivia-in-interface-extraction question dissolves** on a stance the corpus already
+held: it assumed a doc-comment subset of trivia, and **no such class exists** — Luna
+deliberately has no doc-comment syntax (lexical-structure §3), so comments are
+uniformly ordinary trivia, uniformly excluded from the extracted interface and its
+hash (build-cache §1.3), never semantic. Hover documentation, when tooling wants it,
+arrives through the one declaration-metadata mechanism the language has — attributes —
+and **the question's sharp residue is recorded at that future feature's home**
+(attributes §6.3): a documentation attribute must pick its **observability class**,
+because R149 made comptime-observable attributes interface-hash-bearing, so a doc
+edit under today's one attribute class recompiles every dependent — the exact cascade
+§1.1 exists to fight; a tooling-only class avoids it but is a new attribute category.
+The constraint is fixed now so the eventual design chooses knowingly. Swept:
+`tooling.md` §7 (retitled, four deferrals, the dissolution record);
+`attributes.md` §6.3 (the doc-attribute constraint).
+
+**R153 — channels §7: nothing open, confirmed and marked.** The combing verifies the
+user's read exactly: select was resolved by R142 (the dissolution record already in
+place), and the remaining three are deferrals with directions fixed — **MPMC /
+work-stealing** deferred by decision (one consumer per stream is the model's grain,
+ownership-follows-readability; fan-out has `spawn`/`await`; revisited only if a real
+workload outgrows the owner-task pattern), **channel-of-channels** deferred to
+practice (nothing forbids them; idioms documented as they prove out, never
+pre-specified), and **the stdlib patterns layer** deferred as library work, fully
+unblocked since R142, pending write-up only. Section retitled "Resolved and
+deferred — nothing open." Swept: `channels.md` §7.
+
+**R154 — attributes §6.3: duplicates are a compile error; the two deferrals
+reaffirmed.** **Duplicate application of one attribute on one declaration is
+rejected outright** — the alternatives each fail a house rule: last-wins silently
+discards data (the no-silent-drop instinct), and a list forces every consumer to
+handle multiplicity nobody asked for; the declaration is malformed, so say so.
+Trivial, and ruled as such. **Attributes on other declaration forms** stay deferred
+by decision pending a concrete need, with the likeliest first customer named (the
+`jsonTag`-on-proto-members rider, json §4); **the documentation attribute** stays
+deferred with its R152 observability-class constraint standing. Section retitled
+"Ruled and deferred." Swept: `attributes.md` §6.3.
+
+**R155 — constraints §11: three ruled, one deferred; stacking lands as §6.1.**
+**Predicate expressiveness ruled full**: any expression whose calls are all
+capability-free — the statically decidable meaning of *pure* (R43's theorem), with
+R79's value-alone requirement discharged by machinery already on the books
+(capability-freedom bars ambient effects; const-snapshot capture freezes referenced
+environments, so nothing a legal predicate reads can go stale) — and **no cost
+carve-out** (the runtime-checked stance already accepts per-entry cost; an expensive
+predicate is the user's code costing what it costs). **Static elision deferred by
+decision** (the §9.5 mechanism is fixed; the provable-case catalogue is compiler
+work). **Constrained bases ruled yes** (new §6.1) — the user's bottom-up instinct
+upgraded to a *typing necessity*: `constraint i: byte where i <= 127` binds `i: byte`,
+so the predicate may assume base membership, which is only honest if the base chain
+ran first; the spelling desugars to §6's own conjunction (`… where byte where …`),
+**delta checking falls out of the fact model** (a value already typed `byte` skips
+`byte`'s predicate — `b as asciiByte` runs one conjunct, not two), representation was
+already ready (nested intervals §9.1; chain-implicit widening §5; `baseOf` answers
+the immediate parent, R131), and the base-match rule reads through the chain.
+**Other bases confirmed by shipping practice** — the open never closed while the
+corpus filled with its answers (`json`, `path`, `probability`, `finiteDouble`); §7
+already splits machinery by base mutability. Swept: `constraints.md` §6.1 (new), §11
+(retitled, four records).
+
+**R156 — protocols §10: nothing open, confirmed.** The user's read verified: four of
+the six bullets were already closure records (R123 removal, R108 initializer grammar,
+R125 serialization nesting, R126 `@@` totality); the two stragglers convert — the
+**`?->` token bullet was stale** (R101 landed `OPT_PROTO_ACCESS` with the
+`??` › `?->` › `?.` munch order two eras before the bullet stopped saying "the
+build-spec sweep's concern") and **bound functions** is marked the standing rejection
+it always was (§3.4; no concrete need has survived the explicit-closure idiom). The
+list retitled "Resolved and rejected — nothing open." The protocol spec — the
+conversation's first major redesign — now carries no open question at all. Swept:
+`protocols.md` §10.
+
+**R157 — serialization §3: `fromJson` was never still open, and formats get one
+generator each.** The user's recall question exposed a doubly stale bullet:
+`fromJson` landed eras ago as `fn (j: json): table!` (json §3), but serialization.md
+still listed it deferred *and* remembered a drifted signature (`: any`). The bullet
+is now a record pointing at the one genuinely deferred piece — the read-side
+generator, json §4. **One generator per format, ruled**: `toJson`, `toCsv`, `toYaml`
+each their own comptime generator; the format-parameterized alternative rejected
+because formats legitimately differ in semantics (flat-tabular csv,
+attributes-versus-elements xml, yaml anchors) — one parameterized signature would
+express the union of every format's semantics, the same argument that made
+`toJson`/`toJsonDynamic` deliberately two names, and the ruling matches the
+per-format module layout already on the books (one format, one module, one
+generator). Swept: `serialization.md` §3 (retitled, both records).
+
+**R158 — associativity: `apply` and `declared` join the table; the stale heading
+retitles.** The make-sure pass found the table current on every existing row (the
+R95–R101 tier 1, the R146 tombstone, the R112/R108/R137 prose) — and **two operators
+missing entirely**. **`apply` gets its own tier, 1a**: keywords §3's "tier 12 unless
+noted" default mis-implied a prefix word, but `apply` is *infix* — and half its
+precedence question does not exist, because the right side is the operator's own
+closed grammar (a proto name plus initializer list, never an expression, protocols
+§4.2), so only the left edge needed a rule: a complete tier-1 postfix expression,
+chaining left (protocols §7's own `[] apply person(...) apply employee(...)`),
+binding tighter than every comparison so `x apply P is @P` needs no parens; the
+keywords row now notes the tier. **`declared` joins tier 12** as the degenerate
+member: a word prefix whose operand is exactly one binding name (type §4), so
+precedence barely bites, but it lives where it belongs. And §4's heading — "Resolved
+drift, and open questions" — promised opens it did not contain; retitled "nothing
+open." Swept: `associativity.md` §1 (two rows), §4 (the heading); `keywords.md` (the
+`apply` row's tier note).
+
+**R159 — postfix modifiers get their exclusions; unused bindings and imports become
+errors.** The user's gap (`let x = 5 if (cond);` desugars to a binding scoped inside
+the sugar block — nonsense) is closed **at the grammar, not by a lint**: declarations
+take no postfix modifier, compile error — a conditional declaration is nonsense by
+construction, so it is unrepresentable, while the line sits one notch over exactly
+right (assignment with a modifier is legal and useful: `x = 5 if (cond);` writes the
+outer `x`). **The analysis found a trap worse than the nonsense case**: `defer f() if
+(cond);` would desugar to defer inside the sugar block, whose exit *is* the
+trigger — the cleanup would run **immediately**, silently, at the wrong time — so
+`defer` takes no postfix modifier either, and the conditional-cleanup idiom is the
+same syntax one level in (`defer { f() if (cond); };` — registration unconditional,
+execution conditional, captured at registration per defer §4). Pins completing the
+form: no `else` on postfix; postfix `if` is statement grammar, never an expression
+(conditional values are `match` and `??`); the desugar-is-the-semantics and
+one-modifier rules were already ruled (R46) and stand. **The unused rules, and Luna
+was forced to rule them**: compiler §1.7's no-ICE contract ("valid IR implies valid
+Go; a Go compile failure is always a compiler bug") meets Go's rejection of unused
+locals and imports — so Luna either errors at its own level or launders dead code
+through emitted silencers. Ruled: **an unused local binding is a compile error**
+(variables §4.1 — the discard is explicit, `_` or don't bind), **an unused import is
+a compile error** (modules §5 — earning its keep independently: a phantom import is a
+phantom dependency edge the interface-hash cache would rehash against), **unused
+parameters are not an error** (signature conformance is legitimate; `_`-name them),
+and module-level unexported-unused stays legal for alpha (dead-code elimination's
+territory). Swept: `control-flow.md` §4.1 (new), `variables.md` §4.1 (new),
+`modules.md` §5.
+
+**R160 — defer §8 fully closes: the last bullet resolves by composition.** The
+validation pass confirms R148's three closures and finds the fourth — top-level
+defer, "pending the program-entry and process-exit model" — **now answerable, because
+the model it waited on landed since**: module top level admits only declarations
+(modules §1; execution enters through `main`), so the program's entry block *is*
+`main`'s body and a defer there is §1's own function-scoped case, running at `main`'s
+return before the process exits with its `int!` code; and R134 sealed the other
+path — no `exit()` exists, nothing unwinds the process past pending defers — so
+every process end is either `main` returning (defers run, §1/§5) or a panic/`die`
+unwinding through `main` (defers run, §2). The honest residue is external and out of
+any language's scope (`SIGKILL` runs nothing; signals generally are their own future
+question, not defer's). Section retitled "Resolved — nothing open." Swept:
+`defer.md` §8.
+
+**R161 — `decimal` specced: exact arithmetic, policy-explicit division, the Java
+traps killed by construction.** The committed tower member gets its spec (new
+decimal.md; delivery stays post-alpha with the extended tower, §6 unchanged). **The
+model**: `unscaledInteger × 10⁻ˢᶜᵃˡᵉ` with an arbitrary-precision integer —
+string-like exactness without string storage; the user's arbitrary-vs-fixed question
+was already answered by the tower's committed row ("grows, no overflow"), and the
+*real* question underneath was division. **The centerpiece ruling**: `+`/`-`/`*` are
+exact operators, always; **`/` and `%` are omitted from the operator table** —
+compile error naming `div` — because `1/3` has no finite decimal expansion, so
+decimal division *is* a rounding decision, and a rounding decision hidden in an
+operator is what R106's policy-verb discipline exists to prevent:
+`div(a, b, scale, rounding: roundingMode = {halfEven})`, scale required, banker's
+rounding the default, `{halfUp}`/`{trunc}`/`{floor}`/`{ceiling}` completing the
+closed enum. The exact-division desire has a committed home that is not this type —
+`rational` — the family split doing the work. **Python's ambient context rejected
+permanently** (frame-dependent arithmetic, the R79-family violation, comptime
+poison): every rounding is written at its site. **Equality is normalized value
+equality** (`1.10 == 1.1` true — scale is representation; Java's
+`equals`-vs-`compareTo` split, the industry's most infamous decimal footgun, is
+unrepresentable; display scale is formatting, never identity). **Boundaries**:
+`parseDecimal(s): decimal!` is primary (text is how exact decimals arrive), and
+**comptime dissolves the literal question** — `const price = parseDecimal("19.99")`
+folds, literal ergonomics with zero grammar; `int as decimal` stands (R124);
+**`double as decimal` rejected**, resolving R124's hedge to *no* — it would embed
+the double's true dyadic value (`0.1` → `0.1000000000000000055…`, the
+`new BigDecimal(0.1)` trap), and the deliberate crossing is
+`parseDecimal(toString(d))`, the `valueOf` behavior with the lossy moment visible;
+`decimal as int` stays nonexistent with the R124 promise honored (the policy verbs
+widen to `double | decimal` on landing). **Serialization is the canonical string**
+(the R132 duration precedent — a JSON number would round-trip through doubles and
+destroy the point), `parseDecimal(toString(d)) == d` the round-trip law.
+**Deliberately absent**: transcendentals (an exact type cannot hold inexact results
+honestly — that is `double`'s arithmetic), contexts, scale-preserving display.
+Swept: `decimal.md` (new), `numeric-tower.md` §3.1 (the `double as decimal`
+rejection), §6 (specced note), §7 (the rounding-and-context open resolved),
+`index.md` (the row), `keywords.md` §5 (`decimal` predeclared, post-alpha noted).
+
+**R162 — `rational` specced: exact division, the mirror table, and the
+two-integers-not-two-decimals model.** The tower's second exact type gets its spec
+(new rational.md; delivery post-alpha, §6 unchanged), closing decimal's hole exactly
+as R161's family split promised: **decimal is exact radix-10 arithmetic; rational is
+exact division — now a theorem, not a pointer**, because the operator tables are
+deliberate mirror images: rational **owns `/`** (all four operations exact, always,
+re-reducing to canonical form; `/0` panics per the committed row) and **omits `%`**
+with the shortest rationale in the tower — *exact division leaves no remainder*.
+**The representation question the user probed lands precisely**: a rational is *not*
+two decimals — it is **two of the thing inside a decimal**, two arbitrary-precision
+integers on the same internal bignum decimal's unscaled value needs (no user-facing
+`bigint`, still), held in **canonical form as an invariant** (gcd-reduced,
+denominator positive, sign on numerator) — two-decimals could not even be the
+semantics, since the scales are redundant degrees of freedom canonicalization
+immediately clears, and one-representation-per-value is what makes equality
+structural and `1/2`-vs-`2/4` unrepresentable; the tower §7 normalization-and-
+overflow open resolves with it (the wide option won, cheaply — the committed row
+said "grows" all along). **The crossing trio** (the user's decimal-from-rational
+question, R106-clean): `toRational(d): rational` total and exact (a decimal already
+*is* rational-shaped, `n/10ˢ`); **`exactDecimal(r): decimal!`** the errorable demand
+(finite expansion iff the reduced denominator's primes are only 2 and 5), shelved
+beside the policy verbs outside the prefix families; and **`toDecimal(r, scale,
+rounding = {halfEven}): decimal`** — total *because* scale is required, so the
+`to*`-means-total contract survives untouched — decimal's `div` philosophy arriving
+from the other side. The policy verbs widen once more (`double | decimal |
+rational`, completing R124's promise through R161's extension). **Boundaries**:
+`parseRational!` (`"2/3"`, integer and decimal text; `"1/0"` is a parse *error*, not
+a panic — no division was attempted), comptime-folded literals (the R161 story
+verbatim), `int as rational` lossless (R124), and **`double as rational` rejected**
+with the trap sharper than decimal's — the embedding would be *mathematically exact*
+(every finite double is a dyadic rational), which is precisely the problem;
+`parseRational(toString(d))` is the visible crossing. Canonical-string
+serialization, third application of the R132 precedent; integral rationals print
+without `/1`. Deliberately absent: accessors for alpha (their honest return type is
+the nonexistent `bigint` — recorded, not forgotten), reciprocal (three tokens),
+transcendentals (decimal §7's argument verbatim). `complex` is now the tower's last
+unspecced member. Swept: `rational.md` (new), `numeric-tower.md` §3.1 (the
+symmetric rejection), §6, §7 (the open resolved), `conversion.md` §2/§5 (the
+widening completed, the trio pointed), `index.md`, `keywords.md` §5.
+
+**R163 — the exact types map onto `math/big`: recorded, with the three wrapper
+divergences named.** The implementation question answered and pinned (compiler §7.5,
+the R148 backend-record pattern): the shared internal bignum is **`big.Int`** (pure
+Go, platform-deterministic — what keeps comptime folds and R149's cache keying
+sound); **`big.Rat` backs `rational` nearly wholesale** — its always-normalized
+invariant is verbatim rational §1's canonical form, `SetString` accepts
+`parseRational`'s text forms, `RatString` matches the no-`/1` display; **`decimal`
+has no Go counterpart** (`big.Float` is arbitrary-precision *binary*, a semantic
+mismatch never to be touched) and is a thin runtime struct
+`{unscaled: big.Int, scale: int32}` — the shape of Go's dominant third-party
+decimal, well-trodden. Three divergences, all wrapper-level, none semantic:
+zero-denominator `Rat` panics in Go where `parseRational("1/0")` is a Luna error
+(one validation); `FloatString` rounds half-away-from-zero only, so the
+`roundingMode` enum is implemented over quotient/remainder primitives;
+`math/big`'s mutable receiver API is emitter plumbing that becomes an
+allocation-reuse optimization where uniqueness is proven. Consequence worth the
+record: the exact-types implementation cost is far lower than the specs'
+sophistication suggests — relevant to post-alpha scheduling. Swept: `compiler.md`
+§7.5 (the mapping bullet).
+
+**R164 — `complex` specced: a pair of doubles, IEEE per component, and the tower's
+one unordered member.** The last unspecced tower member exists (complex.md): the
+one-sentence model is **`double`'s semantics on a plane** — unlike its shelf-mates
+it is *inexact*, and what it adds is closure (roots for negatives), not precision.
+Component type is **always `double`, permanently** (numeric-tower §7's last
+tower-open resolved): `float`-component complex is an array-storage optimization
+for an audience Luna does not serve, exact-component (Gaussian rational) complex
+has none at all, and no parameterization mechanism exists to express either — and
+one component type makes the backend **Go's native `complex128`, boxed**, zero
+wrapper divergences, the cheapest tower member to deliver (compiler §7.5). All
+four arithmetic operators, `/` included — the deliberate anti-mirror of decimal:
+decimal banished `/` because rounding is a policy decision hidden in an exact
+type; complex is already inexact, so `/` hides nothing `double`'s own does not,
+and division by complex zero is IEEE inf/nan per component, never a panic (the
+float family's rule, not `rational`'s `divisionByZero`). `%` omitted (no meaning
+on the plane). **No ordering: `<`/`<=`/`>`/`>=` are compile errors — a theorem,
+not taste** (were `i > 0`, `i·i = -1 > 0`; were `i < 0`, the same), making
+`complex` the tower's first type without comparison operators, noted in
+operators §2's ordering row. `==` is componentwise IEEE, nan-contagious,
+non-reflexive like `double`. Accessors `real`/`imag`/`conj`/`magnitude` —
+**`magnitude` deliberately not `abs`**: math's `abs` contract is
+kind-follows-the-operand (R92), which complex-in-double-out cannot honor. The
+literal story is the R161 story verbatim: the pure constructor
+`complex(re, im)` comptime-folds; an `i`-suffix literal is deferred, with the
+finding recorded that numeric-operators §1.1's illustrative `-3-4i` could never
+typecheck under the family rules (`int` minus `complex`) — a literal form means
+untyped-constant machinery (rejected as a mechanism) or a fused lexical form, and
+the constructor makes the question idle; that passage now reads
+`-complex(3.0, 4.0)`. Crossings: **`double as complex` legal** — the asymmetry
+against R161/R162's rejections is the point, the component is carried bit-for-bit,
+not reinterpreted, so R124's lossless criterion is met with no trap; explicit
+because it allocates (§3.1's rule). No `complex as double` (a projection is an
+accessor, `real(z)`, never a narrowing); **no exact-type interop, ever**
+(rational §6's parked item resolved as *never*): components are doubles, and
+`double`'s exact-type crossings are already ruled string-mediated — a direct path
+would smuggle the lossy moment out of sight, twice. `toString` canonical
+(`"3+4i"`, both components always, `i` always); `toJson` is the canonical string,
+fourth application of the R132 precedent; `parseComplex!` at the boundary.
+Transcendentals and polar form deferred (not decimal §7's exactness argument —
+an inexact type could hold them honestly; the surface waits for its audience).
+Two stale sites found and fixed en route: numeric-tower §1.4's backend paragraph
+still recommended `big.Float` (contradicting R163's never-used ruling — now
+points at compiler §7.5), and decimal §7 still called rational interop "deferred
+with `rational` itself" (delivered by R162's trio). Swept: `complex.md` (new),
+`numeric-tower.md` §1.4 ×2, §3.1, §6, §7 (the open resolved), `operators.md` §2
+(the ordering row's exception), `numeric-operators.md` §1–§3 (the per-type
+operator-table exclusions stated in §1 — an omitted operator is a compile error;
+the §1.1 rewrite, including the fix of `complex` mislabeled an *exact* type; §2's
+violation taxonomy completed from two shapes to four — the exact types are "safe
+by growth", `rational`'s `/0` alone panics, `complex` is IEEE per component; §3's
+opens resolved, the pointed-at type-set questions having landed with
+R161/R162/R164), `rational.md` §6,
+`decimal.md` §7, `conversion.md` §5 (verbs do not widen to complex; `parseComplex`
+joins the family), `compiler.md` §7.5, `index.md`, `keywords.md` §5, and the
+`divisionByZero` naming made uniform — `int.md` §5 now names the panic (it said
+only "a panic") and the errors §2 panic-tree annotation widened from int-only to
+tower-wide (int `/` `%`, rational `/`, decimal `div`).
+
+**R165 — operators.md catalogue validated against the corpus: no new decisions,
+ten repairs.** A full row-by-row pass of the master catalogue (§0) against
+everything ruled through R164, requested as validation; every fix applies an
+existing ruling, none makes a new one. The finds: **`await` appeared twice**
+(two rows, drifted independently — merged into one, which now also names the
+`doubleAwait` second-await panic, R142); **the compound-assign row contradicted
+the coalescing rows** — it glossed `??=` as "assigns only when null", but `??=`
+is *absent*-assign and `???=` (which the row omitted entirely) is null-assign;
+**two `&`-intersection rows** — the older protocol-only row predated the general
+type meet (type §3.1) and was absorbed into it; **the `@@` row still cited the
+retired `reflection` spec** and used the retired read-write word ("reflect",
+R127's whole point) — now "applied protocols", protocols §8/introspection; **the
+spread row called variadics "unspecified"** (resolved by R108, functions §3.3);
+**the `?->` token was missing outright** (landed R101, present in five specs,
+absent from the table claiming every operator); **`try`, `throw`, `comptime`,
+and `yield` had no rows** though the catalogue includes their siblings (`match`,
+`defer`, `copy`, `comptype`) and keywords §2–§3 lists all four — added;
+**`comptype`'s kind said "reflection"** — now "introspection", and the §0 intro's
+kind enumeration was reconciled with the kinds the table actually uses (it
+promised "bitwise", which has no rows — deferred, int §8 — and omitted
+structure/introspection/comptime); **the `/` and `%` rows** gained the extended
+tower's exclusions (decimal has no `/`; `%` omitted for the exact types and
+complex) and their `duration` arms (std.time §2); **§2's tail** still called
+`decimal`'s representation an open question (R161) — rewritten to point at the
+tower's real remainders (literal forms, bitwise). Not touched deliberately:
+"green thread" in the `spawn` row is corpus-legitimate terminology (overview,
+compiler §7), not drift. Swept: `operators.md` §0 (the catalogue and intro),
+§2 (the tail) — single-file by nature; the catalogue is a mirror, and the
+corpus it mirrors was already consistent.
+
+**R166 — range.md validated; its "opens" reclassified as defers; one summary
+fossil and one cross-spec slicing contradiction fixed.** The §8 items were never
+open questions — nothing in them awaits a decision; each waits on a trigger — so
+the section is now "Deferred by decision" (more positions: pending experience;
+character ranges: deferred with the char/codepoint treatment, §6; a reified
+bounds pair: for want of a need — match reads endpoints syntactically). The
+validation's finds: **§7's summary bullet said "descending when `lo > hi`"** —
+the bounds-implied descending that §4 itself headline-rejects (R28, R48; empty,
+never descending) had survived in the file's own summary; the bullet now states
+the actual rules (sign is direction, `0` panics, `lo > hi` empty, descending
+explicit). And **bytes §4 spelled slicing `b[start..end]`** — inclusive `..`
+inside brackets — contradicting the ruled corpus-wide convention that `:` slices
+half-open and `..` ranges inclusive, the two never mixing (tables §2.5, range
+§2.1, which itself cites `bytes[2:]` as the example). bytes.md never engaged
+the question — casual notation predating the convention — and now reads
+`b[start:end]`, half-open, with the convention cited. The rest of range.md
+checked clean: the §4a desugar, the R93 implicit-keys bullet, R105
+restartability, the match §5 membership split, int-only elements. Flagged for a
+future bytes.md pass, not fixed here (an API-naming call, not mechanical
+drift): `asList(b)` **copies** — under R106's prefix contract a copying total
+conversion is `to*`-shaped, so the `as*` name is suspect. Swept: `range.md` §7,
+§8; `bytes.md` §4 ×2.
+
+**R167 — `asList` renamed `toList`: the last live `as*`-prefixed function falls
+to the R106 prefix contract.** R166's flag, ruled: `asList(b: bytes): list`
+**copies** the packed buffer into boxed `lval`s — a total, value-to-value
+conversion, which is `to*` by R106's own table, and the `as*` spelling was
+worse than merely old: `as` means lossless re-typing without a new value (as
+spec, R124), so the name falsely suggested a free view over what is an O(n)
+expanding copy — precisely the cost-visibility the prefix contract exists to
+carry. The name was pre-R106 convention (its own parenthetical defended
+`asList`-vs-`values`, a question from before the prefixes were unified), the
+same fossil class as `asStream` → `toStream` (R102). `toList` was unclaimed, so
+it lands as *the* `toList`, one name, one signature (functions §3.4); no
+collision with `collect`, since `bytes` is deliberately not `iterable` (R104).
+The grep confirms this was the **last** live `as*` function — the only surviving
+mention is iterable-functions §3's retired-spellings guard table, where it
+belongs. Swept: `bytes.md` §2, §4 ×2 (the signature, the bullet — its naming
+note now states the R106 rationale), `conversion.md` §5 (the canonical summary
+gains the `toList` row beside `toTable`).
+
+**R168 — spread.md validated; §7 reclassified as one resolution and one
+deferral; one intro fossil fixed.** §7 was never open: the variadic item is
+R108's resolution (already marked so in place) and the `bytes`/`string`-spread
+item waits on a use case, not a decision — the section is now "Resolved and
+deferred," and the deferral's pressure is noted as low since `toList(b)` (R167)
+already spells the explicit form, so deferring costs a name, not a capability
+(the Still-open tail's tracking line reworded to match). The validation's one
+find: **the intro's own parenthetical still said the parameter-list `...name`
+position "is not yet specified"** — contradicting §7's R108 resolved marker
+three sections down, the same fossil class R165 caught in the operators
+catalogue; it now cites functions §3.3.3. Everything else checked clean against
+the corpus: the §1 fold and its `merge` agreement (iterable-functions §2.7,
+`preserveKeys = false`), the §2 stream-spread/`collect` distinction (§2.11,
+R93), the `flatten` signature (verbatim match, §2.5), §4's list-only rule and
+R108 named-argument rejection, §5's lexer claims verified against lexer §6
+(`INTERP_IDENT` is `DQ_STRING`-only; `${...expr}` is `INTERP_OPEN` + `SPREAD`
+in commands and literals), and §6's "Amendment A" cite (live in tables.md).
+Swept: `spread.md` intro, §7; the CHANGES tail line.
+
+**R169 — string internals brought current; the allocator review recorded (three
+optimizations rejected, one theorem kept); the R27 concat leaks swept.** The
+user proposed four immutability-driven optimizations; the review's outcomes are
+now §11.1 of the string-representation spec. **Inline-in-`lval`** (8 bytes + a
+flags bit) was already the ruled spec verbatim — tier 1, the string-inline field
+of value-representation §2.2 — a proposal and its prior acceptance meeting. **A
+separate string heap** is rejected: the expensive-to-GC premise mostly dissolves
+on the Go backend (pointer-free `[]byte` buffers live in noscan spans — the
+collector never scans string bytes, it marks the 16-byte descriptor and
+sweeps), and a real private heap means stalled arena experiments or `unsafe`
+manual memory — reintroducing exactly the two problems §3 records deleting, as
+the first unsafe memory in the system. The Java analogy corrected in place: no
+modern JVM has a separate string heap (the interned pool moved to the ordinary
+heap in Java 7); the live feature, G1 string deduplication, is GC-time
+invisible interning — the spec's existing §4 stance. **Deliberate close
+packing** is rejected as riding on the same allocator ownership while degrading
+§7: an arena-packed slice pins the whole arena, promoting `copy` from
+optimization to memory-correctness obligation. **Naive-refcount completeness is
+a true theorem, kept and rejected**: the string reference graph is acyclic by
+construction (inline and owned reference nothing; a borrowed slice references
+exactly one pre-existing buffer; immutability adds no edge after birth), so
+naive RC is *complete* — no cycle collector ever — recorded for a hypothetical
+self-hosted backend; rejected today because it buys nothing under Go's GC and
+costs an inc/dec on every `lval` copy/drop, **atomic** ones, since immutable
+strings are precisely the values shared by reference across tasks —
+cross-core contention purchased for a collector we do not need. The fossil
+pass on the same file: `bytes`-doesn't-exist-yet claims ×3 (§1, §8, §9 — bytes
+exists; the bridge is `toBytes()`), §9's `stream | table` return shape (R102:
+producers produce streams; restartable free off an immutable source, R105),
+§10's "repeated `+` in a loop" (no concat operator exists — R27; joining is
+interpolation/`join`/builder), §11's builder open (resolved — stringBuilder.md
+exists in full). One vocabulary reversal from the pre-bless analysis, checked
+and kept deliberately: "views" stays — strings §9 is *titled* "UTF-8 views",
+live usage; R95 retired the table-view model, a different thing. And the
+en-route discovery swept: **R27 (F10) removed `.` concatenation, but three
+files still spoke it as live** — conversion §3.1 ("`.` concatenation, strings
+§11" — citing as definition the very section that denies it) and
+stringBuilder.md ×4 (the intro's "concatenation operator", §3.1's "`.`
+concatenation operator uses", §6's "`join` or concatenation", §7's
+"reallocating `.` concatenations") — all now name interpolation/`join`/pairwise
+joining, with the operator's absence cited where load-bearing. Grep confirms
+the only surviving "concatenation operator" mentions are denials and strings
+§11's own tombstone. Swept: `internal-representation-of-strings.md` §1 ×2, §8,
+§9 ×2, §10, §11 (+ new §11.1), `conversion.md` §3.1, `stringBuilder.md` §0,
+§3.1, §6, §7.
+
+**R170 — the 24-byte `lval` confirmed forced under stock Go; the escape hatches
+pressure-tested and recorded; the GC fork scoped and declined; the
+value-representation fossil layer cleared.** The question was whether any way
+around the three-word hosted `lval` exists; the answer is no, and §1.1 now
+carries the review so no hatch is re-attempted piecemeal: scalars in an
+`unsafe.Pointer` word (actively fatal — `invalidptr` throws, and bit patterns
+aliasing live spans silently retain arbitrary objects); pointers in `uintptr`
+(freed under you; non-moving-today is non-contractual); NaN-boxing/tagging (the
+same two rows in costume — they need a collector that reads the tag); Go's own
+`any` (a 16-byte tagged union whose payload word is always a pointer — every
+stored scalar allocates, and 48-bit typeid + flags + string-inline don't fit a
+Go type word); handle/slab indirection (the slab pins everything — a memory
+manager built to avoid one, plus a double-hop per read); off-heap cgo/mmap
+(off-heap-to-heap pointers are GC-invisible). Two stock-Go recoveries recorded
+beyond static unboxing: **traced-word-first physical order** (`ptrdata` = 8 —
+the GC scans one word in three; 24 is an exact size class) and **homogeneous
+table-storage specialization** (a provably-scalar list stores as noscan
+parallel words, 16 or even 8 bytes per element with zero scanning — beating
+the C layout where bulk data lives; Amendment A is the compile-time version;
+the honest residue is 2.67-vs-4 lvals per cache line on genuinely mixed data
+only). **The fork verdict**: a conditional-pointer slot permeates gcdata,
+`typePointers`/`scanobject`, the write barrier (a *conditional* barrier is
+compiler codegen, not runtime), stack maps, and span classes — a permanent
+fork of Go's most safety-critical code, damaging the Go-source-to-Go-toolchain
+premise and R149's determinism. Ruling: **forking the GC is the self-hosted
+runtime on an installment plan** — declined now, reserved beside R169's string
+refcount-completeness theorem for a future self-hosted backend that would take
+the 16-byte union and string RC together. En-route finds, both fixed:
+**compiler §7's error-model bullet claimed an "error bit"** on the errorable
+`lval` — contradicting value-representation §2.1's ruling that error-ness is
+never a flag (derived, `currentType <: error`, the §4.2 interval test) — now
+states the derived check; and the value-representation file carried an
+**11-site `IOError` PascalCase layer** (R122-missed; the corpus-wide grep now
+returns zero live PascalCase error names). The four unqualified "16-byte
+`lval`" sites (value-representation §1, string-representation §3/§10, compiler
+§7) now defer to §1.1's logical/physical split. Checked and left standing:
+`let v!: string` (the binder-suffix errorable form) is specified in errors
+§463, not drift. Swept: `internal-representation-of-variables.md` §1, §1.1
+(the review), casing ×11; `compiler.md` §7 (error model);
+`internal-representation-of-strings.md` §3, §10.
+
+**R171 — the orientation layer brought current: both overview files, same
+fossil classes, swept together.** high-level-overview.md and overview/types.md
+each still carried a **`view` row in the structured-types table** — the R95
+retirement's most visible survivors, types.md's even pointing its Spec column
+at the retired `views` file — both replaced with the missing **`sink`** row
+(the send end of a channel, channels §3), which had never been added when
+channels landed. The other repairs, applied to whichever file carried them:
+the wider-numeric sentence updated from "committed but deferred" to committed
+**and fully specced** (R161/R162/R164, delivery post-alpha) in both;
+**`duration`/`instant` rows added** to both value-type tables (committed with
+std.time, R132 — alpha types absent from the orientation layer the whole
+time); `constraint` added to high-level-overview's declaration-forms list (it
+was the one form missing); the stale multi-apply example `[] apply proto1,
+proto2` corrected to the ruled chaining form `apply proto1 apply proto2`
+(R158's grammar — the comma form was this file's alone, corpus-wide); the
+"how a table composes *capabilities*" phrase de-collided to "roles"
+(capability means the effect token, R43 vocabulary, nothing protocol-shaped);
+types.md's `Shape` enum example re-cased to `shape` (the corpus's enum names
+are camelCase: `roundingMode`, `weekday`, `kind`); the `float` row's cite
+moved to numeric-tower §1.3; the `any` row's Spec pointer fixed to the `any`
+spec (it pointed at value-representation); and types.md's closing "Deferred
+types" section — which still deferred the module system, destructuring,
+spread-into-calls, and operator precedence, all long since ruled (R136, R147,
+spread §4, R28/R158) — rewritten to the honest remainder: the extended tower
+is delivery-not-design, and only need-gated `bytes` API surface stays later.
+Verified live before citing: `moduleof` (modules §7.1), the slice/range rows
+(already R166-consistent). Swept: `high-level-overview.md` ×5,
+`overview/types.md` ×6.
+
+**R172 — exec is `std.exec`: the module home ruled, the file moved, the
+`exec.run` wrinkle dissolved by construction.** exec.md lived in
+`concurrency/`, which was never its subject; the question was std module
+versus built-in capability + free functions. Ruled: **`std.exec`**, on three
+converging precedents — every capability in the corpus is an std-module
+export, none predeclared (`reveal` ← std.secret, `time` ← std.time, `entropy`
+← std.random, `filesystem` ← std.filesystem, `egress`/`ingress` ← std.net,
+`env` ← std.process), and a built-in `exec` would be the lone exception while
+deleting the import-as-audit signal (`import { exec, run } from std.exec` is
+the grep-able "this file can run programs" line); the **built-in type,
+std-module effect** split is exactly `secret`/`reveal`'s shape (`command`
+stays types/command.md with literals and `pipe()`; the effect moves); and the
+backend itself splits `os` from `os/exec` — std.process (R134, process-self)
+plus std.exec mirrors it. Folding into std.process was rejected (children are
+a third concern; importing std.process for `argv` must not look exec-capable).
+The placement dissolves the parked spelling wrinkle: with free `run`/`capture`
+and the capability co-exported, `exec.run` cannot arise — an assigned import
+collects the functions but never the capability (the slot-inhabitant rule,
+R135/R136), so the file's own internal contradiction (free-function
+signatures beside `exec.run(...)` examples) is resolved on the free-function
+side, with `use (exec)` now on both signatures (the R143 std convention). The
+rewrite's other repairs: "like `io` and `system`" — `system` died in R134 —
+now `filesystem`; §2's broken example (element access on `string | error`
+plus `is`-as-narrowing, violating the file's own §4 note) replaced with
+propagation + a catch pointer; **`commandResult` re-expressed as the
+`commandResult` protocol** (`@commandResult`, const-get members) — the
+declaration used a record syntax Luna does not have, and R135's `@fileInfo`
+is the ruled pattern for typed read-only results (access is `->`, examples
+fixed) — flagged for review as the one substantive re-expression; §5's
+internal naming drift (`shellExec` vs `unsafeShellExec`) unified on
+`unsafeShellExec`, and the three generic `unsafeExec` illustrations of the
+prefix rule (keywords §6, lexical-structure, functions §5.6's table) aligned
+to the real planned name. Swept: `git mv concurrency/exec.md → std/exec.md`
+(history preserved), the full rewrite, `index.md` (row moved from Concurrency
+& effects to the std section), `capabilities.md` §9 (the grid row's home →
+std.exec), `keywords.md` §6, `lexical-structure.md`, `functions.md` §5.6.
+Command.md's seven "(exec spec)" cites are name-based and stand unchanged.
+
+**R173 — `toCsv` committed: csv.md's writing side lands as the R157-family
+comptime generator.** The bless completes what R157 already ruled at the
+serialization level — one generator per format, each its own comptime
+generator, `toCsv` named in that ruling's own list — so csv.md now carries its
+member of the family, shaped exactly as json §2's canonical generator:
+`export const toCsv = comptime fn (ct: comptype): fn (any): csv;` — `comptype`
+in, runtime serializer out, specialization in `const`-captured plain data
+(attributes §4), the result entering `csv` typed because a writer produces
+valid CSV by construction. Deliberately *not* committed with it: the column
+story (field-to-column mapping, header-row emission, the `jsonTag`-analog tag
+vocabulary) — folded into the headers open as one question shared by both
+directions — and a dynamic walker (`toCsvDynamic`, the `toJsonDynamic`
+mirror), deferred pending use since a runtime `any`-walker needs the headers
+and dialect answers first. The remaining opens (dialects, headers) stand as
+valid, per direction: both now noted as applying to reader and writer alike.
+The rest of the file validated clean: `fromCsv` is R106-conformant
+(typed-carrier `from*`, always `!`), the constraint-boundary pattern matches
+std.json §1.1, the bare `import std.csv;` is the R136 form. Swept: `csv.md`
+§3 (new)/§4 (renumbered opens), `index.md` (the per-format row notes the
+writer).
+
+**R174 — io.md validated: current except its own §9, which had gone stale
+against §4 and the io-errors spec; one cross-spec contradiction discovered
+and left for ruling.** The finds, fixed: §9's taxonomy bullet asked about
+"the exact **`fileError`** children (disk full on write? interrupted?)" —
+the family is `ioError`, named by this file's own §4, whose list already
+contains `outOfSpace`, and "interrupted" is answered by io-errors' fates
+partition (`EINTR` absorbed by the runtime, never surfaced); the bullet is
+now a resolved marker, with the one genuinely-open remainder promoted to its
+own bullet — **write-side failures** (whether disk-full *during* a write ever
+warrants a declarable arm instead of the §8 mid-operation panic; io-errors'
+kept revisit flag). §9's filesystem-boundary bullet stated R134/R135's own
+answer while sitting under "Open questions" — now a resolved marker. The
+encoding-set and buffering opens stand as valid. Everything else checked
+current: the R121 layer (no-`&`, creation-authorized lazy reads, canRestart
+false), the R138 platform defaults, `defer close(fd)`, the §2.1 sink-naming
+note (already channels-aware), §7.1's composition example, the §8 category
+table, camelCase error names throughout. **Discovered and NOT ruled — the
+`@P` value-position contradiction** (added to the still-open tail): type.md
+§1.1 says `let t = @stringBuilder` (value position) is introspection on the
+proto value "and so yields `proto`", while type.md §5, protocols §7's tail,
+introspection §5, and io §2 all bless `export const file = @fileDescriptor`
+as binding the **application refinement** — the same spelling, two claimed
+meanings; §5's is the load-bearing one (a public type must alias), and the
+static-protohood steer §1.1 already applies *within* type position extends
+naturally to value position, but that is a ruling, not a sweep. Swept:
+`io.md` §9 ×2. *(Ruled the next day: R175.)*
+
+**R175 — `@P` in value position yields the induced refinement: the
+static-protohood steer extended, the §1.1/§5 contradiction resolved on §5's
+side.** The ruling: `@X` in an expression, where `X` is **statically a proto
+binding**, yields the **application refinement as a first-class `type` value**
+— the same interned typeid type position denotes — and introspection
+otherwise; never an error in value position. The unifying story is stated in
+§1.1: `@` hands over *the type associated with the operand* — for an ordinary
+value the type it **has**, for a proto the type it **induces**; a proto is a
+type-maker, and `@` on a type-maker hands over the made type. This is the
+steer §1.1 already used *within* type position ("@X is a refinement only when
+X is a protocol — a static fact"), now applied on both sides of the position
+split, so for protos the two positions **agree** and the disambiguation
+remains fully static (closed universe, value-representation §4.1 — the
+existing semantic-analysis paragraph gains the value-position arm). What it
+buys: the alias idiom is legal by construction (`export const file =
+@fileDescriptor;` — an initializer is value position), and §5's `@P == @P`
+one-typeid comparison means what it says. What it forecloses: the `@`
+spelling for "the type the proto value itself has" — near-useless, its real
+content being proto-membership, already spelled `x is proto`. The rejected
+alternative — uniform value-position introspection — would have broken the
+aliasing idiom at four blessed sites and demanded a new refinement-as-value
+spelling. En-route: §1's example block gains the proto line, and its
+`@someShape // Shape` comment was re-cased to `shape` (the R171 enum-casing
+class). Swept: `type.md` §1 (intro sentence, examples, the reflects-a-value
+note), §1.1 (both bullets, the agreement paragraph, the semantic-analysis
+paragraph), §5 (the alias parenthetical); `overview/types.md` (the
+value-position bullet's new arm). protocols §7, introspection §5, and io §2
+already spoke the ruled side and stand unchanged; the still-open tail item
+is discharged.
+
+**R176 — as.md validated: one unwritable example, one internally-contradictory
+rationale, and the R124 criterion brought up to its own later sharpenings.**
+The finds, fixed: §1's subtype-narrowing examples included **`capability as
+reveal`** — the corpus's only occurrence, and unwritable since R135: the
+slot-inhabitant rule means no `capability`-typed value slot can exist, so the
+wider operand of that narrowing can never be held (replaced with `ioError as
+fileNotFound`, a real mid-tree narrowing). §6's secret bullet called `"text"
+as secret` "**widening** a string into a secret… a coercion" — contradicting
+this file's own §1 (widening is implicit; `as` is reserved for narrowing) and
+R124's vocabulary; the spelling itself was verified current (secret §3 rules
+`as secret`, with `secret(...)` a separate R79 *gated* constructor, now also
+noted), and the bullet is rewritten as what it is: a **lossless entry** of the
+`int as decimal` class, explicit-though-infallible because the crossing should
+be seen (secret §3's own searchability argument). §3's criterion paragraph
+predated the exact types: it now carries the **R161/R162 sharpening** —
+lossless is *necessary, not sufficient*; the preserved value must be the value
+the source type presents, so `double as decimal`/`double as rational` are
+rejected though mathematically lossless (the faithful-embedding trap) while
+`double as complex` (R164) is the accepted contrast (bit-for-bit, nothing
+reinterpreted) — and §6's tower bullet gains the same three moves. §8 marked
+none-open. Checked and clean: the §5.1 function-narrowing model (matches
+functions §3.2/§3.2.1, both cites verified), the §7 no-flow-narrowing story,
+the §4 pattern-position note, the R106 conversion split. Swept: `as.md` §1,
+§3, §6 ×2, §8.
+
+**R177 — is.md validated: the semantics sentence overclaimed subtype, exactly
+as suspected; the dispatch paragraph self-contradicted on constraints; one
+wrong cite.** The user's instinct ("`is` is subtype membership, but only
+sometimes") named the defect precisely. §2's opening sentence said `x is T`
+"reports whether `x`'s current type is a **subtype** of `T`" — **false for
+constraints**: `200 is byte` is `true` while `int` is not a subtype of `byte`
+(the relation runs the other way, `byte <: int`); the test runs the predicate.
+The ruled meaning, now stated: `is` answers **membership in `T`'s value set**
+("would `x` seat in a `T`-declared position") — one question, answered by
+whichever mechanism the type's shape requires: typeid-subtype *coincides* with
+membership for nominal tree types, constraints answer by **predicate over the
+base** (constraints §7's own "admits exactly the base-type values that satisfy
+the predicate"), and `@P` answers by the applied-set test, a value property
+never in the typeid (type §5, the same axis R175 just walked). The dispatch
+paragraph had the matching internal contradiction — it listed "a constraint"
+among the **interval-check** tree nodes while its own tail said "a constraint
+runs its predicate"; the constraint arm is now stated correctly (valueBase +
+predicate, with an in-interval current typeid as the fast path that skips the
+re-run, entry-only checking having already paid it). And the applied-set cite
+pointed at **protocols §9** ("Extensions are functions") — now §6, the section
+that actually holds `x is @P`. Verified real before letting them stand:
+`isSubtype` (introspection §4.1 — exists, with introspection's own §0 stating
+the value-vs-type-question split verbatim), the fn-ladder interval and
+signature pairwise-table claims (value-representation §4.2), the §3
+no-narrowing story (compiler §1.4.1). A corpus grep confirms the
+subtype-overclaim phrasing existed nowhere else. Swept: `is.md` §2 ×2.
+
+**R178 — `is` soundness recorded: static dispatch proven, the never-panics
+contract given its honest asterisk, predicate non-totality ruled at the
+predicate's home.** The soundness probe, answered and pinned (is §2.1): the
+mechanism is chosen at **compile time**, never by runtime inspection of `T` —
+the right operand is a type expression (associativity tier 6), type position
+resolves statically (closed universe; every binding's kind statically fixed,
+type §1.1), so the compiler emits the mechanism and no shape falls through;
+the corollary stated: `x is t` with `t` a **`var` holding a `type` value** is
+not writable (a `var`'s kind is *value*, unusable in type position) — dynamic
+membership belongs to introspection, the R127 operators-are-language split.
+Termination: decomposition cannot recurse (canonical pre-flattening),
+intervals/pairwise loads constant, applied-set runs no user code — **the one
+unbounded cell is the constraint predicate**, and that is not `is`-specific
+(the identical predicate runs at every entry; a diverging predicate breaks
+its constraint everywhere equally). The genuine gap found by the probe, now
+ruled in both homes: **purity is not totality** (new constraints §2.1) — a
+predicate can panic *ambiently* (`i * i > 0` overflows at large `i`:
+`overflowError` from inside the predicate, arriving before any membership
+answer and, at entry sites, before any `typeError`), and such a panic
+**propagates from every checking site, never swallowed into `false`/"check
+failed"** — suppression would hide the bug and make the answer a silent
+wrong value; and a predicate can **diverge** (pure function calls, §11; no
+termination checker exists). Both are authoring bugs in the constraint, not
+holes in the checking model, whose guarantee is *where* checks run and that
+verdicts are durable — never that an arbitrary pure computation is cheap,
+terminating, or panic-free. is §1's "never panics" now carries the
+conversion-§2-pattern precision: no `is`-**specific** failure, not "nothing
+can panic while the test runs." Swept: `is.md` §1, §2.1 (new);
+`constraints.md` §2.1 (new).
+
+**R179 — conversion.md aligned to the R157 writer split and completed; and
+the validation uncovered a two-headed json spec, flagged for merge.** The
+alignment: §2's `to*` exemplar row listed **`toJson`** as a value→value total
+conversion — post-R157 `toJson` is the *comptime generator*
+(`comptype → fn (any): json`); the value→value writer is `toJsonDynamic` —
+the row now names `toJsonDynamic` (and `toList`, R167's own row, was missing
+from its own file's exemplars), with the generator noted as honoring the
+contract through its *product*; the §2 precision paragraph and §3's
+flagged-call parenthetical (`toJson(v, includeProtocols: true)` — a call
+shape `toJson` cannot take, its first parameter being a `comptype`) fixed the
+same way. §5 gains the two missing family rows — **`toBytes(src: string |
+iterable)`** (strings §9, the R107 per-element panic cross-noted) and
+**`toStream(src: iterable | bytes)`** (the lazy O(1) bridge, R102) — and the
+deferred bullet now names the full landing `parse*` family
+(`parseDecimal`/`parseRational`/`parseComplex`), not just complex's. Checked
+clean: §1's dividing line, §2's naming principle and policy-verb paragraph,
+§3's stringify machinery (protocols §3.1 *is* the qualified-form section,
+§3.4 *is* fn-typed-member-on-proto — both verified), §3.1/§3.2, §4's
+open/closed split, §6's three opens (all valid). **The discovery**: the
+corpus carries **two diverged `json.md` files** — `std/json.md` (181 lines,
+the R125 flag signatures, R146-touched; most "json §" cites resolve here:
+§2.1 what-serializes, §3 reading) and `types/json.md` (142 lines, untouched
+since the R145 rename, **but holding unique content other specs cite**: the
+§1.2 entry-cost rules and §1.3 predicate-dependency-on-constraints-§11) —
+with **both** indexed (index.md rows 125 and 180, each claiming
+`toJson`/`toJsonDynamic`). Divergence in the flesh: types' `toJsonDynamic`
+signature lacks the R125 flags std's carries. Not resolved here — a merge is
+structural surgery awaiting direction (tracked in the still-open tail).
+Swept: `conversion.md` §2 ×2, §3, §5 ×2.
+
+**R180 — the two-headed json spec collapsed: `std/json.md` is the one json
+spec; the orphan retired with a was→is map.** R179's flag, executed. The
+merge carried types/json.md's unique, still-true content into std/json.md as
+**new subsections of §1 — so no existing "json §" cite renumbers**: §1 gains
+the value-carried and equality-erases constraint-rule bullets (constraints
+§9.2, equality §1 — `@s` reports `json` through widening, `someJson == "{}"`
+compares contents), §1.1 gains the boundary-idiom block, and **§1.2 "The
+cost, precisely"** (once per value then free; the O(n) entry parse as the
+honest price; §9.5 elision; O(1) `is`/`@` after entry) and **§1.3 "Predicate
+dependency"** (`isValidJson` as constraints §11's motivating instance) are
+carried whole. §4's opens absorb the orphan's two extra details: the strict
+RFC 8259 expectation, and a promoted **number-fidelity** open (`nan`/inf
+have no JSON representation — sharpened, not settled, by the exact types'
+canonical-string rulings). Everything else was subsumed: std's §2 already
+carried the generator and walk with the R125 flags the orphan's signatures
+lacked, its §2.1/§3 the what-serializes and reading stories the orphan
+deferred. The orphan's §5 "parsing deliberately not specified here" bullet
+was simply obsolete (std §3 specifies `fromJson`). Mechanics: `git mv
+types/json.md → retired/json-duplicate.md` (history preserved), content
+replaced with the R146-pipeline-style tombstone (what it was, why retired,
+a was→is table); index.md's types-section JSON row removed (the std.json
+row remains, the one row); greps confirm zero external cites to the folded
+§1.2/§1.3/§5 (they were internally cited only), zero dangling `types/json`
+path references. Swept: `std/json.md` §1 ×2, §1.1, §1.2 (new), §1.3 (new),
+§4; `retired/json-duplicate.md` (new tombstone); `index.md`.
+
+**R181 — equality.md validated: two types had no ruled equality at all
+(`bytes`, `sink` — both now ruled by §2's own dividing principle), the alpha
+types `duration`/`instant` and `proto` were missing from the summary table,
+the capability rows described an unwritable comparison, and the
+non-reflexive census predated `complex`.** The two rulings, made loudly and
+flagged for review: **`bytes == bytes` is content equality** (length then
+bytes, a `memcmp`; the shared-storage fast path applies) — nothing had
+specified whole-buffer equality anywhere; §2's principle answers mechanically
+(contents finite, comparable, meaningful), and it is the already-ruled
+element rule (`byte`-vs-`int` erasure, bytes §6) bulked. **`sink == sink` is
+identity** — also specified nowhere; channels §3's own "no readable surface"
+principle decides it (contents are not a coherent question for a write end),
+and the rule is now recorded at both homes. The mechanical repairs:
+**`duration`/`instant` rows added** (value equality on the payload; ruled in
+time §2's operator table since R132, never mirrored); a **`proto` row added**
+(§2 already ruled identity, R126 — the table just lacked the row, with the
+`@P == @P`-compares-refinement-typeids distinction noted, R175); the
+**`capability` rows** (§5 bullet, §6 row) gained the R176-class honesty note
+— the comparison is *unwritable in user code* (tokens never enter a value
+slot, capabilities §3.1/R135, and `==`'s operands are value positions), kept
+because the relation is real internally (the dynamic grant check is a subset
+test over capability identities); and the **extended tower's equality is now
+forward-noted** after the table (decimal normalized, R161; rational
+structural-because-canonical, R162; complex componentwise IEEE, R164), with
+the closing census corrected: the non-reflexive set is `double`, `secret`,
+**and `complex` when it lands** — "the two non-reflexive rows" was true when
+written and wrong since R164. Checked clean: §1's erasure story
+(value-representation §4 verified), §4's structural rules and the §4.1
+acyclicity argument, §4.4/§4.5's protocol surfaces (json §2.1 cite still
+valid post-R180), §5's string/error/secret/command/regex bullets. §7,
+holding only resolved markers, retitled "Resolved" (the R166/R168
+reclassification class). Swept: `equality.md` §2, §5 ×2, §6 (five rows + the
+tower note + the census), §7; `bytes.md` §6; `channels.md` §3.
+
+**R182 — match.md validated: two mechanical gaps fixed; two semantic finds
+raised for ruling, not decided.** The load-bearing core checked clean against
+every ruling it leans on: §2's typed-binding dispatch already speaks R177's
+corrected mechanism list verbatim (interval, union decomposition, applied-set,
+constraint predicate, signature table); §2.2/§2.3's `is`-not-`as` machinery
+and the signature-discharge argument match as §5.1 and functions §3.2; §2.1's
+type-terminator set carries R137's `where` property; §4's destructuring
+consistency holds at both ends (destructuring §2.1 has its half of the
+absent-key note, §3.1 the R147 back-flow); §9.1's no-coverage-analysis rule is
+exactly what numeric-tower §6 requires of exhaustiveness under a growing
+universe; §7's total-order literals, §10, and the `@int`-in-patterns rule
+(unchanged by R175 — `int` is not a proto) all stand. The mechanical fixes:
+§2's prose literal list lacked **`inf`** (its own §2.1 grammar row has it, and
+keywords §4's reserve-them-to-match-them argument covers it identically), and
+§2's pattern-kind bullets lacked the **enum-variant pattern** outright — the
+grammar row existed, the prose enumeration skipped it; added with the enum §4
+cite. The two finds, parked in the still-open tail: **negative numeric
+literals are unwritable as patterns** (literals are non-negative and the sign
+is an operator, numeric-operators §1.1 — so `match (x) { -5 => ... }` has no
+grammar; yet `-inf` is a blessed lexical pair, keywords §4, suggesting
+sign-folding in pattern position is nearly forced); and **§11's match-capture
+model is anomalous** — `match use (io)` appears nowhere else in the corpus,
+keywords §3's `use` inventory has no match position, no other non-callable
+construct owns a grant frame, and deep-const snapshot capture for an
+immediately-evaluated expression diverges observably from inline evaluation
+(live reads during guard sequences). Both need rulings. Swept: `match.md`
+§2 ×2. *(Both ruled the same day: R183, R184.)*
+
+**R183 — signed numeric literal patterns: the leading `-` folds in pattern
+position.** R182's first flag, ruled *admit*: a match pattern's numeric
+literal takes an optional leading `-` — `-5`, `-1.5`, `-inf`, range endpoints
+(`-10..-1`), alternation members (`-1 | 1`) — folded by the **parser** from
+`MINUS` + literal into one signed-literal pattern node; no lexer change, no
+negative-literal token, numeric-operators §1.1's sign-is-an-operator rule
+untouched everywhere expressions live. The parsability question was raised
+and answered: the fold is unambiguous **because patterns admit no
+operators** — pattern position is its own closed grammar, so a leading `-`
+has no competing reading, and one token of lookahead (must be `INT`,
+`DOUBLE`, or `inf`) decides; LL(1)-clean, and the mechanism is exactly the
+`MINUS KW_INF` pair keywords §4 already blessed for `-inf`, generalized.
+Three edges inherited rather than invented: the most-negative-`int` literal
+form is recognized as at the expression boundary (numeric-operators §1.1's
+special case); `-0.0` as a pattern matches both zeros (the total order
+merges them, match §7 — the sign adds no distinction); **no `-nan`** (a nan
+carries no meaningful sign at the language level). Swept: `match.md` §2 (the
+literal bullet), §2.1 (the grammar's literal row), §5 (range endpoints);
+`numeric-operators.md` §1.1 (the fold noted beside the operator rule);
+`keywords.md` §4 (the `inf` row generalizes its own precedent).
+
+**R184 — match is inline: no capture, no `use` clause, the enclosing frame's
+grant; §11's lambda-capture model retired as a fossil.** R182's second flag,
+ruled as recommended: a match expression evaluates **immediately, inline, in
+the enclosing frame** — it captures nothing (guards and arm bodies read
+surrounding bindings **live**, so a write-back between guard evaluations is
+visible to later guards, exactly as in an `if` branch), and it takes no
+`use` clause: authority is the enclosing frame's grant, covering arm bodies
+precisely as it covers any inline branch (capabilities §5). `match use (...)`
+is **retired** — no non-callable construct owns a grant frame, and keywords
+§3's two-position `use` inventory (header; call-site delegation, R112) is
+complete without it. The old §11 (deep-`const` snapshots plus a match-level
+`use`) was a fossil of treating the arms as a deferred closure; the
+distinction that mattered survives untouched — a `fn` literal *inside* an
+arm body is an ordinary closure and captures by snapshot (functions §2): the
+function captures, never the match. Grep confirms no other spec referenced
+match-capture or `match use`, so the rewrite is single-file. Swept:
+`match.md` §11 (rewritten).
+
+**R185 — any.md validated: the F22 answer stands; the universal and excluded
+lists each gained the entries the corpus had since ruled around them.** The
+core checked clean — the surgical rule (universal operations work,
+type-specific narrow first), §3's rejection rationale, §4's honest-signature
+note, the R126 `@@` line, and `@v` unchanged by R175 (an `any` binding is a
+value binding, so introspection applies). The completions, each derived from
+the file's own criterion rather than new policy: §1 gains **`??` / `???`
+coalescing** (the absence/null tests read the per-value flags every `lval`
+carries, value-representation §2 — a flag test is defined for every value)
+and **the introspection runtime tier** (`typeName`/`kindOf`, introspection
+§4.3 — whose own text says "the runtime tier makes `any` inspectable,"
+aligning this spec with the overview's inspectable-not-a-dead-end claim);
+§2 gains **protocol access** (`v->name`, `v?->name`) beside element access —
+protocol space belongs to tables (protocols §3), so an `any` receiver is a
+compile error by §2's own meaning-depends-on-type rule, previously stated
+only for `.`/`[]`. Swept: `any.md` §1, §2.
+
+**R186 — bool.md: `parseBool`'s spellings ruled, the bitwise open deferred,
+and a prefix/postfix fossil caught.** The spellings: **exactly the two words
+`true` and `false`, case-insensitively** — `"tRue"`, `"FALSE"` parse; one
+word, any case, because booleans arrive from a casing zoo (JSON `true`,
+Python `True`, SQL/INI `TRUE`) and the value set is two unambiguous words.
+Two rejections, each deliberate: **`"1"`/`"0"` error** — ints inside strings;
+accepting them would be the truthiness policy this spec refuses arriving at
+the text boundary, and the spelling is the visible composition
+(`parseInt(s)`, then the comparison you mean) — the no-int-to-bool rule (§3)
+holding at parse time; and **surrounding whitespace errors** — parsing is
+exact, trimming is the caller's explicit `s.trim()`, stated as the `parse*`
+family's general stance (the function parses the text it is given, never a
+cleaned-up version). **Non-short-circuit boolean operators: deferred**,
+alongside the integer bitwise design (int §8, operators §0.4) — most code
+wants short-circuit, explicit sequencing spells the rest. The validation
+find, fixed: §2 illustrated logical not as **`true!`** — the *postfix*
+spelling, which is the errorable-type suffix position; logical not is prefix
+(`!true`), ruled corpus-wide, and the bullet now names the position split
+(operators §0, type §1.1). Also aligned: the intro's "value word" → "scalar
+word" (the R170 three-word layout's vocabulary). §5 retitled Resolved and
+deferred. Swept: `bool.md` intro, §2, §3, §5.
+
+**R187 — typed multi-byte reads land as `std.binary`: the exported `endian`
+enum, six named reads, the size enum rejected, and five tower typeids pulled
+into alpha.** The reviewed sketch (`readIntFromBytes(b, endianness,
+size: enum { b16, b32, b64 }): i16|i32|int`) was sound in type but rejected
+in shape, on three grounds now recorded in the module: it lacked an
+**`offset`** (a positionless read parses nothing); its **union return
+couples the result type to an argument value** the type system cannot see,
+forcing a narrowing at every call site — resolved by the policy-verb/R157
+two-names discipline, the width living in the *name*
+(`readI16`/`readU16`/`readI32`/`readU32`/`readI64`/`readU64`, each
+`(b, offset: int, endianness: endian)`); and it was **signed-only**, when
+lengths and magic numbers read unsigned at least as often. Placement ruled
+std, not bytes surface: endianness is an *encoding* concern, not a property
+of the buffer — the std.math pure-domain precedent (R141), the module name
+the backend's own (`encoding/binary`, the R172 mirror move), and `std.bytes`
+rejected for the type-name shadow. **`endian` is a named export** (the
+bless's caveat): `export const endian = enum { little, big };` — its own
+small type so libraries and user functions can share the vocabulary; call
+sites unchanged (fenced literals target-type). **No endianness default,
+anywhere**: a default bakes a silent portability bias. Bounds panic (the
+bytes indexing-misuse class); reads are pure and comptime-eligible.
+**Option (a) ruled on the tower coupling**: `u64` and the
+`i16`/`u16`/`i32`/`u32` constraints are **pulled into the alpha surface** —
+scheduling, not design (numeric-tower §6's own "new typeids under existing
+rules"); widened-then-tightened signatures rejected as a compatibility wart,
+and `readU64` must not ship broken. Deferred deliberately: the write family
+(its own pass — it touches the mutation surface), `readI8` (`b[i]` covers
+unsigned; signed-8 reinterpretation cannot be `as` and is rare), varints.
+Swept: `binary.md` (new), `bytes.md` §9 (the bullet resolved), 
+`numeric-tower.md` §6 (the carve-out), `overview/types.md` (the deferred
+paragraph), `index.md` (the std.binary row), `keywords.md` §5.
+
+**R188 — command.md validated: a nonexistent "command module," a real name
+collision, an untyped JSON return, and a mangled open — all fixed.** The
+younger layers checked clean (§4's `pipe` is R146-current with the R158/R146
+rationale intact; §2's escapes are the R150 table; the `unsafeShellExec`
+references are R172-consistent; §3's interpolation and spread semantics match
+spread §5). The finds: §5 claimed introspection "lives with the `command`
+module," reached "module-qualified (`command.args(c)`)" — **no command module
+exists**; `command` is a built-in type, and the spelling would be key access
+on a type value. The functions are **builtin free functions** via UFCS, the
+type-catalogue convention, with std.exec owning only the effect (R172). **The
+`args` collision, forced and fixed**: std.process has exported
+`args() use (argv)` since R134, and one name has one signature (functions
+§3.4), so the command reader is **`argsOf(c)`** — the `*Of` suffix being the
+established introspection vocabulary (`kindOf`, `baseOf`, `capabilitiesOf`),
+which command introspection is; `program`/`stages`/`stageCount`/`isPipeline`
+collide with nothing and keep bare names (the asymmetry accepted as minimal
+change). **`debugJson` now returns `json`, not `string`**: a JSON-producing
+function returning an untyped string is the exact footgun json §1.1 closes,
+the output is valid by construction so the entry check elides, and the
+connection to conversion §6's deferred general debug-rendering is noted.
+`stages`/`argsOf` return types tightened `table` → `list` (their keys are
+exactly `0..n-1`). §7's first bullet was **textually mangled** (an orphaned
+fragment missing its head) and had *become* resolved — `${...expr}` is fully
+specified (spread §5, lexer §6) — restored as the resolution; the
+environment/cwd and stdin bullets re-pointed at std.exec §6, named as the
+same opens recorded there from the effect side. secret §158's `debugJson`
+mention verified unaffected by the return-type fix. Swept: `command.md`
+§5 ×2, §5.1, §5.2, §7.
+
+**R189 — double.md: the four opens sorted into their real states, and §6's
+float-conversion claim corrected against the tower.** The opens, as
+suspected, were largely-but-not-fully resolved — now each is placed: **a
+total-equality operator resolves as *no*** (`===`/`!==` are dead, R27's F11,
+associativity §4 — no second equality operator ever; the total order's
+explicit form is the §2.2 comparator function, used implicitly by
+`match`/`sort`, and the nan-scrutinee subtleties were settled by match §7);
+**`float`: the spec deferred, the rules ruled** (the family and both
+conversion directions are the tower's, §1.3/R124; only the type's own spec
+and delivery wait); **the rounding functions resolved** (`trunc`/`round`/
+`floor`/`ceil` are the core policy verbs, §7/R106 — never a library
+question) with **fma and explicit rounding modes staying deferred** (math §5
+omits them today, a std.math extension when the audience arrives); and **the
+decimal bullet resolved by R161, its lean wrong twice** — `decimal` exists
+and is *built-in*, not the "likely a library type" the bullet guessed
+(operators need the built-in line, numeric-tower §1.4). The body fix: **§6
+claimed double/float conversion is "explicit and lossy" in both directions**
+— contradicting tower §1.3, where `float` → `double` widens *implicitly and
+losslessly* (every binary32 value embeds exactly) and only the downward
+direction is the `toFloat` function; §6 now states the split. Also
+sharpened: §3's "library round-trip stringification" named — it is
+`toString`, ruled the shortest round-trip rendering (the property the
+exact-type crossings lean on, decimal §5). The rest checked clean: §1/§1.1
+IEEE-vs-int-panic (numeric-operators §2's shapes), §2/§2.2 (the
+equality/match passes verified these from the other side, R181/R182), §5
+`finiteDouble`, §7's verbs, §8's literal-grammar deferral (tower §7's open).
+§9 retitled Resolved and deferred. Swept: `double.md` §3, §6, §9.
+
+**R190 — the pipeline's bootstrap resolved: a discovery stage 0
+(imports-only lexing), import validation split from it, and the prelude rule
+(imports precede all other top-level declarations).** The tension named and
+fixed: compiler §1 ordered `lex → module resolution` without saying which
+files the lexer had — but the file set is written in imports, which only
+lexing can read. Ruled (the user's option 3, refined): **stage 0 discovery**
+— from the source roots, an **imports-only mode of the real lexer** reads
+each file's imports, BFS with a visited set, yielding the file set *and*,
+as a free byproduct, the raw edge list (following an edge and retaining it
+cost the same, which dissolves the option's one stated con). The rejected
+alternatives recorded in place: "import analysis before lexing" is this
+stage under another name (reading a path *is* lexing), and lex-and-follow
+interleaving serializes on graph depth and entangles the R149 cache with
+traversal order. Three soundness rules pinned: **discovery shares the
+lexer's implementation** (a second scanner is a miscompilation seed — naive
+scans false-positive in comments and interpolation-nested strings; Go's
+`parser.ImportsOnly` shares for the same reason); **the stage is sound by
+module-system construction** — imports static, top-level, literal-pathed
+(modules §4, R136, R151), so the file set is decidable by lexing alone,
+recorded as a fence any dynamic-import proposal must answer to; and **the
+prelude rule** — imports precede all other top-level declarations, so
+discovery scans O(file-head), with a violating late import a **parse
+error**, which is what licenses the early stop (an under-scanned file
+cannot survive to analysis). The motivation recorded at modules §4: no use
+for a late import besides hurting readability. The old "module resolution"
+phase becomes **§1.2 import validation** — discovery *finds*, validation
+*judges* (path resolution, cycle diagnosis with the full path from the
+retained edges, topological order) — and the parallelism model now names
+its two gating artifacts: the **file set** unlocks lex+parse (unordered
+parallel — the context-free-parser investments paying off), the **DAG**
+orders only semantic layering. Swept: `compiler.md` §1 (diagram), §1.0
+(new), §1.1, §1.2 (rewritten), §1.3, §2; `modules.md` §4. Grep confirms no
+outside spec cited the old phase name.
+
+**R191 — the back half of the pipeline ordered phase by phase, and the
+emitted program is one Go package per Luna module, built by one `go build`.**
+The validation questions answered and pinned. **The three middle phases are
+not uniform** (each now states its ordering): semantic analysis is
+DAG-layered on *signatures* (unchanged, §1.4); **lowering is unordered and
+pipelined** — every §1.5 transformation is local to the module's own typed
+AST, so a module lowers the moment its own analysis finishes, no layer
+barrier (the pleasant surprise: the rich-AST phase parallelizes freely,
+because the unit is the module and per-module ASTs are disjoint); and
+**optimization is DAG-ordered on *bodies*** — the constraint the spec had
+never stated: comptime evaluation *executes* imported pure functions
+(`sqrt(2.0)` folds by running `sqrt`), needing the dependency's IR, one
+notch stronger than signatures — exactly why R149's cache interface includes
+const values — with the local passes (elision, DCE) free within each module.
+Emission softens from its all-modules barrier to per-module pipelining
+(cross-module facts were resolved *into* the IR by §1.6). **The mapping
+ruled**: one Go package per Luna module, the module DAG mirrored as Go's
+package graph (legal by theorem — Luna acyclic, Go requires acyclic), one
+`go build` invocation, never per-package driving — Go's scheduler
+parallelizes along the graph and its **per-package build cache** makes an
+unchanged Luna module a skipped native compile: **maximal incremental
+builds, the deciding argument**, two cache layers composing (R149 above,
+Go's below), neither ours to build. The flat-package alternative rejected
+with the Go fact recorded for the non-Go-fluent reader: Go has no file-level
+imports — the package is the unit, same-package files share one namespace —
+so "flat" means one compilation unit, dead caching, whole-program compiler
+memory. Clarified in place: Go *modules* (go.mod) are versioning machinery,
+not packages — the emitted program is exactly one, static, networkless.
+Mechanical consequences named: capitalization mangling for cross-package
+identifiers; §7.4's explicit init sequence unchanged. Swept: `compiler.md`
+§1.5, §1.6, §1.7, §1.8, §2.
+
+**R192 — the comptime engine confirmed as the IR evaluator, the evaluator
+doubled as the conformance oracle, generate-and-run rejected in full, and
+the FMA landmine recorded.** The implementation question re-derived what §6
+already ruled (interpret the IR, never generate-and-run Go mid-compile) —
+and the discussion surfaced three things the spec lacked, now §6.1/§6.2.
+**The oracle** (previously living only in out-of-corpus planning notes): the
+IR evaluator has two duties, one artifact — comptime engine and **reference
+implementation for differential testing** of the compiled path — which turns
+§6's phase-invariance requirement into a *test harness by construction*; its
+unoptimizedness is a feature twice (rich unreordered comptime errors; an
+oracle you optimize is an oracle you doubt), and the two-implementations
+cost is bounded by the shared lowered IR — the divergence surface is two
+backends' data operations, never two readings of Luna. **Generate-and-run's
+four rejection grounds recorded** so the option is never half-reopened: the
+marshaling wall (a comptime-produced `fn` — the generator pattern's product
+— is a code pointer plus const environment, unserializable across a process
+boundary, so that path contains an evaluator anyway); cross-compilation (a
+second toolchain configuration mid-build, where the evaluator runs
+in-process with target facts injected — R138's story assumes it); pipeline
+serialization (a toolchain invocation inside §1.6's DAG loop, R191); and
+sandbox by construction (the evaluator does not implement effect operations
+— structural unreachability, not a property to prove of an artifact).
+**§6.2, the genuinely evil one**: Go permits FMA contraction within single
+expressions on some architectures (arm64, ppc64) — fused rounds once,
+unfused twice — so single-expression evaluator float paths would fold the
+same Luna expression to different bits on different *host* machines,
+silently poisoning §8 determinism and R149 cache keys. The Go spec
+guarantees rounding at explicit assignments, so: the evaluator's float
+arithmetic is written fusion-proof (explicit intermediates), and the
+emitter's per-node emission — which already prevents contraction — is
+promoted from accident to **load-bearing invariant**: phase invariance
+requires runtime floats to equal comptime folds, so no future emitter
+optimization may merge float operations into single Go expressions without
+answering to §6.2. Swept: `compiler.md` §6.1 (new), §6.2 (new).
+
+**R193 — comptime host-independence audited channel by channel; targets ruled
+64-bit only; cross-compilation recorded with its cgo/FFI fence.** The
+question — can comptime folded on an x86 host be trusted by an arm64 build —
+answered with the audit now standing as compiler §6.3, and the striking fact
+recorded: **most channels were closed by rulings made for other reasons**.
+Integer width — closed by the spec (no platform-sized integer exists in the
+surface; `int` is i64, Go computes it identically everywhere: the 32-vs-64
+poison has no channel). Float arithmetic — IEEE + §6.2 (correctly-rounded ops
+bit-identical; amd64 is SSE2, Go removed x87). Endianness — **R187's
+no-default rule turns out to carry a second leg**: no endian-implicit read
+exists, so the host's byte order is simply unobservable (recorded at both
+homes, with a **permanent fence** in std.binary §3: a native-endian
+read/write may never be added). Word-size observables — R138 (no `sizeof`;
+`platform.*` are injected target facts). Iteration order — insertion-ordered
+tables, plus the evaluator discipline rule (no bare Go-map iteration where a
+result could observe it). **The one genuinely remaining channel**:
+non-correctly-rounded math functions (transcendentals) — pure-Go math is
+identical everywhere, but Go carries per-arch assembly overrides on exotic
+ports (s390x), so the determinism contract is **scoped to the ruled target
+set**, with re-audit required per future port. **Targets: 64-bit only,
+`amd64` and `arm64` at alpha** (§1.8), with the honest rationale relocated:
+comptime arithmetic does *not* force this (i64 is spec-fixed; Go emulates it
+on 32-bit correctly — recorded so nobody later "fixes" comptime to enable
+32-bit, which would not help); the value representation does (8-byte words
+throughout — the three-word `lval`, 48-bit typeids, string-inline), plus
+audit scope. **Cross-compilation recorded** (§1.8): two environment
+variables (`GOOS`/`GOARCH`), no toolchains, trivial exactly as long as the
+program is pure Go — which it is by construction — with the fence named:
+cgo breaks it, the future FFI surface rides cgo, so FFI forfeits trivial
+cross-compilation, a recorded cost, not a surprise. Swept: `compiler.md`
+§1.8, §6.3 (new); `binary.md` §1 (the second leg), §3 (the fence).
+
+**R194 — the table representation recorded: the third internals sibling
+(`internal-representation-of-tables.md`), from the hashmap brainstorm.** The
+shape: **one ordered entries array plus key→index Go maps** — values never
+enter a map; the maps hold `int32` indexes only, split `map[int64]`/
+`map[string]` because Luna's two key types hit Go's specialized fast paths
+exactly; deletion tombstones with lazy compaction — **the zend_array design**,
+the layout validated for decades by the same workloads Luna's table semantics
+descend from. The Go-map assessment recorded so it is not re-litigated: C++'s
+`unordered_map` is slow *by API contract* (pointer stability forces node
+chaining); Go's opposite bet (no interior pointers) bought open addressing
+and, in Go 1.24, Swiss Tables over extendible hashing — the restrictive-API
+lesson being the language's own. Structural wins recorded: **the map is never
+iterated** (iteration is the entries array), so §6.3's no-bare-map-iteration
+discipline is satisfied by construction; the never-shrinks gotcha is defused
+(index-sized residue); tiny tables may skip the maps for linear scan (a
+measurement knob). **Protocol state: structs, never hashmaps** — `->` is
+compile-time resolved, no dynamic protocol index exists, so each applied
+proto's state is a fixed field block with **unboxed** fields per declared
+member types (the ~24-byte `datetime` sizing, R133, falls out); the three
+dynamic surfaces (dynamic apply/unapply R123, `@@` serialization R125,
+introspection read R129) are all served by **one shared static descriptor
+per proto**, never per-value structures; the honest refinement — the applied
+*set* is dynamic, a small `(protoId, ptr)` vector, O(#applied) ≈ O(1).
+**Const tables: the struct-vs-perfect-hash dichotomy dissolved** — a PH map
+storing *offsets* is the struct viewed from the dynamic path: one
+insertion-ordered data block (unboxed slots where the shape pins types), one
+key array (required regardless — a minimal PH accepts any input, so
+membership needs stored keys), one small index; static path devirtualizes to
+a field read, dynamic path runs PH → verify → offset → box-on-read, the
+boxing cost accepted on the by-definition-rare path. Two open knobs, both
+measurement-driven: compaction ratio, tiny-table threshold. Swept:
+`internal-representation-of-tables.md` (new), `index.md` (the internals row).
+
+**R195 — the table capacity cap stated as contract: at most 2³¹ − 1 entries
+(tables §1.1).** R194's `int32` indexes had written a hard limit implicitly;
+ruled explicit and *guaranteed*, in both directions — programs may rely on
+the limit being this and no smaller, the runtime on it being this and no
+larger, which contractualizes the 4-byte index width (half the memory of an
+8-byte scheme, table-representation §1). Sharpened en route: the cap is
+**one `INT32_MAX` total, not 2× across key spaces** — both maps index the
+one shared entries array, so key mix never changes the limit. Precisions
+pinned: the cap is on **entry count, never key magnitude** (keys remain full
+`int64`; `[5_000_000_000 => x]` is one legal entry; a list's largest index is
+bounded by consequence); **insertion past the cap panics `outOfMemory`** —
+resource-exhaustion-shaped, the structure cannot allocate another slot —
+flagged for reversal if a dedicated arm is preferred; and the sanity anchor:
+≥85 GB for one table at the cap — a database's or a stream's job — with the
+cap industry-normal (JVM, .NET, V8 all near 2³¹). Swept: `tables.md` §1.1
+(new), `internal-representation-of-tables.md` §1 (the contractual note).
+
+**R196 — the three storage modes, the two header flags, and the free
+tombstone: table-representation §1.1.** The mode ladder: **list** (`isList`
+⇒ `isContiguous`; maps *unallocated*; `t[i]` is `entries[i]` — zero hashing,
+which is what "lists are stored contiguously" means operationally; the flag
+is tables §2.2's ruled O(1) property implemented), **contiguous-with-holes**
+(the invariant pinned: live key ≡ entries index, holes are tombstones,
+iteration order ≡ index order — deleting from a list lands here with
+identity addressing intact, the filter-by-delete workload staying fast), and
+**mapped** (the general shape). The flip triggers found by challenge, not
+threshold alone: **re-inserting a previously deleted key breaks the mode
+immediately** — insertion order demands the re-add iterate *last*, so
+refilling its old slot would iterate it mid-order — as do string-key and
+out-of-order int inserts; the hole-ratio threshold flips lazily; the flip is
+one O(n) compact-and-populate. PHP's packed arrays are the precedent a
+second time (`IS_UNDEF` holes, hash on violation). **Flag placement ruled by
+the corpus's own principle in disguise**: value-representation §2.1's
+"one shared fact must not have per-slot copies that can disagree" (written
+for `taken`) applies verbatim — the flags are referent facts on the table
+header, beside sharing count, live count, hole count, next-append index.
+**The tombstone design**: in-line, zero-cost, no list — the marker is the
+entry value's own `isUndefined` flag, unambiguous *because* `undefined` is
+unstorable in a table (a semantic rule doing representation work); the
+closure recorded: in contiguous mode **the tombstone is its own correct
+return value** (`t[k]` on a holed key reads the undefined-flagged slot, and
+absent keys are supposed to read `undefined` — no special case exists on the
+read path); and a free-list is purposeless **by semantics** — insertion
+order makes slot reuse illegal (a new entry can only append), so which slots
+are dead is never needed, only how many (the header counter feeding the
+threshold). Honest cost kept: one predicted branch per slot and dead
+cache-line pollution until compaction, bounded by the knob. Swept:
+`internal-representation-of-tables.md` §1.1 (new).
+
+**R197 — the layout's cost story closed: contiguous iteration, and sorting's
+honest price (table-representation §1.2).** The crown jewel recorded:
+in-order iteration is a **linear memory walk** (~48-byte in-line entries,
+one to two per cache line), dereferencing **nothing at all** for the hot
+element types — inline scalars, and ≤8-byte strings being
+string-representation's tier-1 inline, so a table of ints or short strings
+iterates as one sequential stream (contrast: node-per-element maps miss
+cache per element). The flip side accepted with its accounting sharpened
+three ways beyond the original framing: sort was **never cheap here**
+(order is the load-bearing axis — every index changes, so the key→index
+maps rebuild wholesale; entry movement is a constant factor on an O(n)
+rebuild); the **common case dodges even that** (list sort renumbers
+`0..n-1`, maps are nil — pure permutation; and a COW-produced sort result
+is ordinary construction in sorted order); and the **standard escape is
+free until needed** (sort an index permutation, apply in one pass — each
+entry moves exactly once; sort-internals, no representation change). The
+rejected `[]*entry` double-boxing gets its indictment: the `unordered_map`
+disease imported voluntarily — per-entry allocation, GC scan pressure,
+a miss per access, paid on every iteration forever to subsidize the rare
+sort — and it kills the homogeneous noscan path besides. Swept:
+`internal-representation-of-tables.md` §1.2 (new).
+
+**R198 — key representation closed: the general key cannot shrink (two doors
+closed by our own rulings), and the common key costs zero bytes
+(table-representation §1.3).** The can-keys-be-smaller question answered
+with reasons stronger than the obvious one: **16 bytes is the forbidden
+union** — a `{meta, word}` key needs word to be sometimes-scalar,
+sometimes-pointer, R170's precise-GC theorem striking a second time (the
+inline-string argument was never what closed the door) — and **8 bytes died
+by R195's own precision**: "never key magnitude" means full-range `int64`
+keys, so a tagged word has not one bit to steal. One genuine shrink recorded
+and deferred to the §6 knobs: the 16-byte side-array-index scheme (payload
+word holds the int value, inline bytes, or a scalar *index* into a
+heap-string-descriptor side array — an index, not a pointer, so the GC
+objection vanishes; costs an extra hop and a lifecycle, saves 8B per stored
+key). **The real optimization**: in the keyless modes (list, contiguous —
+R196), key ≡ index is the invariant, so the key column is *derivable* —
+entries split into values + keys columns with the keys column **nil** in
+those modes, the third instance of the allocate-on-flip pattern (maps ×2,
+now keys). A list entry is **24 bytes, not 48** — iteration density doubles
+for the most common table shape — `foreach` yields the index as `k` (R93's
+own shape), the flip's compact-and-populate pass materializes the column,
+and the **homogeneous-noscan composition completes**: a scalar list is one
+pointer-free block, no key column to spoil the classification. Swept:
+`internal-representation-of-tables.md` §1.3 (new), §1.2 (the sizing), §6
+(the key-scheme knob).
+
+**R199 — the header in one cache line, and the empty-table singleton
+(table-representation §1.4).** The overhead accounting corrected twice and
+then closed: slice headers are 24 bytes (not 8), and the sketch had omitted
+R198's keys column and §3's sharing count — but both dissolve: the keys
+column becomes an 8-byte pointer allocated at the flip (the pattern's fourth
+instance), and the flag word genuinely holds everything *because two header
+fields are derivable* (live count = len − holes; next-append = len, since
+contiguous mode only ever appends), the packed counts fitting because R195
+caps entries at 2³¹. Result: **56 bytes → size class 64 → the whole header
+is one cache line**; a list entry is 24 bytes against PHP 7.4's 32-byte
+packed buckets, the pre-7.4 disaster excluded by construction. **The empty
+singleton formalized**: `[]` points at one global immortal empty block —
+zero allocations until first write, `[] == []` instant via the shared-storage
+fast path, PHP's own precedent — with the load-bearing subtlety recorded:
+the singleton is shared by every task and therefore **may not carry a
+maintained sharing count** (§3's counts are non-atomic because mutable
+tables are task-confined), so it joins value-representation §6.1's
+count-free class (const tables): flagged always-shared, splitting
+unconditionally on write, no count write ever. Considered-not-taken:
+small-table inline storage (smallvec) — complicates the COW split for one
+saved allocation. Swept: `internal-representation-of-tables.md` §1.4 (new).
+
+**R200 — the small-table state needs no representation: nil-ness is the
+mode, the mode bits are dropped, and the sharing count is specified
+precisely (table-representation §1.5, §3).** The ≤8 design landed as the
+maps' allocation gate **decoupling** from the mode flip: an order violation
+materializes the keys column, the maps materialize only at len > 8, and the
+dominant shape (a small string-keyed record) lives its whole life between —
+where the scan wins by the **swiss-group argument** (a ≤8 table is one
+swiss group; the hash exists to pick a group, and with one group scan-only
+is the degenerate swiss table minus the pointless half), word-shaped besides
+(inline keys are single 64-bit words, §1.3 — eight masked compares against
+contiguous memory). The dispatch pseudocode recorded verbatim; the `len`
+gate noted as resolving the nil-map ambiguity ("no such keys" vs "not yet
+indexed") and as hysteresis-proof (the scan is always correct). **Zero mode
+bits, ruled derive-don't-cache**: all four rungs are functions of nil-ness
+and two counts (list = keys nil ∧ holes 0; contiguous = keys nil ∧ holes >
+0; small = keys ≠ nil ∧ len ≤ 8; mapped = otherwise) — cached bits that can
+disagree with the pointer are value-representation §2.1's smell in
+miniature, a bug class that cannot exist when the pointer *is* the mode;
+§1.4's flag word empties to immortal bit + 31-bit share + 32-bit holes.
+Transitions and hysteresis pinned (violation: allocate + identity-fill +
+apply; insert #9: populate only existing key spaces' maps; compaction:
+rebuild non-nil maps; maps never freed). **§3 rewritten as the sharing
+count's precise contract**: the COW discriminator, not GC — alias++/drop−−,
+count-1 writes in place, shared writes split — with the **asymmetric
+failure directions** recorded as its most important property (overcount =
+spurious split, safe; undercount = aliased in-place write, unsound — the
+emitter's discipline is a one-directional soundness obligation, "count
+high" always legal; the sticky-flag degenerate is the all-safety extreme;
+31-bit saturation degrades to exactly it, safe), the non-atomic rationale
+(task confinement via the transitively-deep spawn copy), and the two
+count-free citizens (const, the R199 singleton). The fingerprint word
+joined the §6 knobs. Swept: `internal-representation-of-tables.md` §1.1
+(the header enumeration de-staled), §1.4 (the flag word), §1.5 (new), §3
+(rewritten), §6 (the knob). *(The fingerprint knob was short-lived: ruled
+against the same day, R201.)*
+
+**R201 — the fingerprint word ruled against: a knob demoted to a rejection
+with a narrow revival condition.** R200 had shelved it as a measurement
+knob; ruled instead as **rejected now** (table-representation §1.5), on the
+economics: the swiss control word filters comparisons that are *expensive*
+(dereference + memcmp on distant lines), while the small-state scan compares
+single words on prefetched lines — a three-op SWAR filter in front of
+~1-cycle compares saves approximately nothing, and it adds a parallel
+structure maintained on every insert and delete: real complexity and a real
+bug surface for a hypothetical win. Recorded as a textbook
+**mis-optimization shape** — an optimization imported from a context whose
+economics do not transfer. The narrow revival condition pinned: only if
+measurement ever shows small tables dominated by heap (>8-byte) string keys,
+where the filtered compare is genuinely a dereference plus memcmp — and the
+one preserved sweetener: the header's 64-byte size class holds a spare word
+of allocation slack (§1.4 is 56 bytes), so revival would cost cycles only,
+zero marginal memory. Honestly noted in the spec's own words: not expected
+to be implemented. §6's knob shelf now carries an explicit non-entry (a knob
+implies an expected experiment; this one has a rejection instead). Swept:
+`internal-representation-of-tables.md` §1.5, §6.
+
+**R202 — interleaved entries considered and rejected: the parallel columns
+stand (table-representation §1.3).** The proposal — two entry layouts,
+values-only for lists and key-beside-value for mapped tables, motivated by
+keyed iteration — reviewed and rejected on a corrected premise plus an
+accounting table now in the spec. The premise: the keys column is **not an
+indirection** (`keys[i]` is direct parallel indexing), and the only real
+pointer-follow — a heap string key reaching its descriptor — is
+**layout-invariant**, so interleaving changes nothing but stream count for
+one operation. The accounting: one marginal win (keyed mapped iteration,
+two prefetch streams → one, and prefetchers eat two streams) against two 2×
+losses — mapped value-only iteration (keys dragged through cache) and the
+§1.5 small-state scan (packed keys ≈ 3 lines vs 48-byte-stride ≈ 6). Since
+iteration was the stated first priority, the columns win on the proposer's
+own criterion. The structural cost seals it: two entry layouts fork every
+value-touching operation by mode (equality walk, COW split, serialization,
+spread's fold — all mode-blind today over the uniform values column) and
+spoil noscan classification by mixing key representations into the value
+block — the two-representations smell §1.5's derive-don't-cache ruling
+already guards against. The layout question is now closed the way §1.2
+closed double-boxing and R201 closed the fingerprint: with the rejected
+alternative's full grounds on the record. Swept:
+`internal-representation-of-tables.md` §1.3.
+
+**R203 — the boxing policy named and bounded: type-directed boxing, with
+escape analysis rejected as the alternative (compiler §7.1.1).** The
+brainstorm's two options resolved into the third the corpus had implied:
+**representation follows the static type, nothing else** — the box boundary
+is **entry into a dynamically-typed slot**, never a function call as such
+(an `int` through `fn (n: int)` travels raw forever; the same `int` into an
+`any` slot boxes there, greedily). Four clarifications recorded with it:
+**boxing is not allocation** (the Java instinct does not transfer — an
+`lval` is a value; boxing is two-three stores with the tag half a
+compile-time constant, no heap object, no indirection added — which is why
+the greedy boundary needs no cleverness); **escape analysis as boxing
+policy rejected**, chaining §1.4.1's standing "no Luna-level escape
+analysis" — Luna does type-directed representation, Go does escape, and a
+Luna escape pass would duplicate downstream machinery to shave stores off a
+boundary that costs stores, with results neither local nor obviously
+deterministic (R149 keying and §6.1 evaluator-emitter agreement both prefer
+the type rule's locality); **the reflection worry dissolved as a theorem** —
+introspection never forces a box the type system didn't already force
+(`@x` on a static binding folds to a constant typeid; runtime-typeid reads
+happen only on `any` values, boxed by the type rule before introspection
+arrived — reflection consumes boxes, never creates them); and **the honest
+residue** named (`any`-heavy code mass-materializes lvals inherently, with
+the table representation carrying the mitigation). Swept: `compiler.md`
+§7.1.1.
+
+**R204 — the function representation recorded: the fourth internals sibling
+(`internal-representation-of-functions.md`).** The brainstorm's value-rep
+sketch landed with its two corpus-forced corrections and the structural
+split that reshaped it. **A fn value is one pointer** to a closure block
+`{desc, captures…}` — Go's own `funcval` shape adopted deliberately: boxes
+into `lval.ptr` trivially, `==`-identity is a pointer compare (equality §2),
+R203 applies with nothing fn-specific. **The per-literal/per-value split**
+(the shared-static-descriptor pattern's third use, after protocol
+descriptors and const-table metadata): names→positions, arity and defaults,
+the capability set, and flags are facts of the *literal*, living once in an
+emitted-const `fnDescriptor` — which is simultaneously **introspection's
+backing store** (`params`/`paramTypes`/`capabilitiesOf`, R130, read exactly
+these fields: one source of truth by construction). The corrections:
+**capabilities are a bitmask, not a list** (the closed capability universe;
+match §2.3's own "one bitmask compare" — and grants store nothing, tokens
+erasing per compiler §7.5: the value carries requirements, the frame carries
+grants); and **comptime eligibility needs no runtime flag** (comptime never
+runs at runtime — the flag is evaluator-facing). Captures: the functions §2.1
+const-snapshot model with R203 inside the block (captured ints are `int64`
+fields), placement deferred to Go's escape analysis (§1.4.1's standing
+division), capability captures costing zero bytes. **The two ABIs** — R203's
+two-tier economics applied to calls: a typed **native entry** (statically
+resolved calls are plain Go calls, the devirtualization target) and a
+generated **dynamic trampoline** (capability bitmask check → positional bind
+of `paramCount` → defaults fill the deficit or `arityError` → named binding
+via the descriptor table or `namedArgumentError`, R108 → unbox, call native,
+box). **Surplus arguments drop by never being consulted** — callee-driven
+binding needs no drop mechanism, compile-time truncation being the same rule
+statically — with the semantic line pinned: surplus argument *expressions*
+still evaluate (dropping is a binding fact, never an evaluation fact, so
+effects cannot vanish based on callee arity). Signature tests read the
+descriptor typeid into the R131 machinery (ladder interval; pairwise
+leaves). Swept: `internal-representation-of-functions.md` (new), `index.md`
+(the internals row).
+
+**R205 — capture-free literals are static singletons, and the capability
+check is one masked compare against a lexical constant (function-rep §1.1,
+§4).** The two deeper questions, answered and recorded. **Capture-free
+literals** (`const somefn = fn () => {};`): nothing is per-value, so the
+closure block is emitted as **const data** — one static block, every use the
+same pointer, **zero allocations ever** (Go's own static-`funcval` trick),
+joining the immortal class. The observable consequence ruled, not left as
+accident: **identity canonicalizes per literal** — N evaluations of a
+capture-free literal are pointer-equal, hence `==`-equal, where a capturing
+literal mints per evaluation — with the clinching argument being **phase
+invariance** (a comptime-folded capture-free literal and its runtime
+evaluation are trivially the same value under canonicalization, awkwardly
+different otherwise; Go behaves identically; the equality spec promises no
+per-evaluation minting). One line: *a capture-free literal denotes one
+value; its evaluations are identical.* §5's identity note amended to match.
+**The capability check**: the questioner's premise corrected first — the
+runtime check exists **only for fn-slot calls** (a direct by-name call from
+an ungranted frame is a compile error, capabilities §5) — and then the
+pretty theorem: **the executing frame's granted set is a lexical constant**
+(its function's `use` clause plus R112 site delegation, both static; no
+runtime grant state exists, tokens erasing per §7.5), so the emitter
+materializes each dynamic site's grant as an immediate and the entire
+runtime capability system compiles to `reqMask &^ SITE_GRANT != 0 → panic`
+— one load, one and-not, one branch, at dynamic sites only. The check moved
+**out of the trampoline to the call site** (the site owns the constant; the
+trampoline takes no grant argument — R204's §4 amended). Recorded with its
+philosophical due: the audit backbone costs one masked compare on the rare
+path, free precisely because grants were designed lexical (no `implicit`,
+R33; no dynamic capability creation) — which is what lets the constant
+fold. Swept: `internal-representation-of-functions.md` §1.1 (new), §4
+(the check relocated, the theorem), §5 (identity note).
+
+**R206 — defaults ruled comptime-known constants (with fn values expressly
+legal); the descriptor's fields ruled, with five derivations and two live
+flag bits.** The semantic ruling, at its home (functions §3.3.1): **a
+default is a comptime-known constant, never a per-call expression** — the
+grounds recorded: dynamic defaults are trivially expressible where they
+belong (`p?: T` + coalesce-and-call in the body, under the function's own
+capabilities, visibly); the classic traps cannot exist (Python's
+mutable-default dead by value semantics — a table default is COW-copied per
+call; capability-in-default-position never arises; phase-invariant by
+construction); and the representation falls out (const values in the
+descriptor, not prologue code). **Fn-valued defaults deliberately legal**
+(PHP forbids this and it is legitimately annoying): the default is the fn
+*value*, nothing is called — and the ruling composes with R205: a named
+top-level function is a const binding to a static closure block, literally
+a RODATA constant; capability-requiring fn defaults fine (the value carries
+requirements; the eventual call checks). The representation rulings
+(function-rep §2): **`names` is a positional slice, never a Go map** — the
+R200 small-scan lesson applied to our own runtime (a map for three
+parameters), and disqualifying alone: Go maps cannot be emitted as static
+data, breaking descriptor-as-RODATA; the position mapping is the index
+itself. **Five derived fields are not stored** (derive-don't-cache, five
+times): `paramCount` = len(names); `minArity` = len(names) − len(defaults);
+**comptime eligibility ⇔ requirementMask == 0 — the R43 theorem doing
+representation work** (ineligibility sources are exactly capabilities; `use`
+propagates transitively, so the mask carries transitive effect-freedom);
+errorability in the typeid; post-variadic named-only-ness by rule. **Flags:
+two live bits** — `generator`, and `hasVariadic`, the latter load-bearing:
+§4's surplus-drop rule amended — a variadic callee's surplus positional
+args are not surplus, the binder branches on the flag and collects the
+trailing rest list (functions §3.3.3), which is exactly why that bit is
+stored rather than derived. Thirty bits honestly reserved. Swept:
+`functions.md` §3.3.1 (the ruling), `internal-representation-of-functions.md`
+§2 (the descriptor), §4 (the variadic branch).
+
+**R207 — streams: generator defers ruled (exhaustion, mark-first, two
+riders), and the representation recorded as the fifth internals sibling —
+state machines, with goroutines and range-over-func rejected in full.** The
+semantic ruling (stream §1.3): **a generator body's top-level defers run on
+exhaustion**, where exhaustion is every body-exit path (completion, early
+`return`, body panic), during the final pull, synchronously with
+consumption — and the before-vs-on question answered precisely: the
+orderings are observable in **exactly one corner** (a panicking defer whose
+pull site catches with `try`), and that corner forces **mark-exhausted
+first, then defers, then unwind** — the only order leaving the stream
+coherent (done, defers run exactly once, re-pull reporting exhausted rather
+than resuming a finished frame; a panicked body likewise marks done before
+unwinding — a broken generator is never resumable). The riders:
+**`yield` in a defer body is a compile error** (runs at exhaustion when
+yielding is definitionally over; lexically claims the generator while never
+legally executing); **an abandoned stream never runs its defers — a stated
+contract** (no finalizers, the backstop-is-not-a-contract discipline), with
+the idiom recorded: resources belong to the consumer's defer, which the
+R121 creation-authorization model already enforces structurally (the fd is
+the owner's). defer §2 cross-notes the host-special-cased exit path. **The
+representation** (`internal-representation-of-streams.md`): the stream
+block (state; flags; the **one-`lval` peek slot** — nothing in the API
+demands more lookahead; `taken` referent-side per value-rep §2.1's own
+ruling; the R206 generator bit's native entry constructing the block);
+**generator bodies compile to state machines** on lowered IR — lazy start
+*is* `state == 0`, abandonment is just garbage, **restart is two stores**
+(R105's replay, gated by canRestart — impossible under goroutines, which
+cannot be killed), chains are uniform pull-through stages, and
+defer-on-exhaustion costs one hoisted store. **Goroutine-per-generator
+rejected on four grounds** (the unfixable-politely leak — abandonment is
+normal usage and Go cannot kill a blocked sender; 10–20× per-element cost;
+confinement fragility — one-task-one-thread soundness resting on a
+lockstep accident any buffering breaks; and the pinning escape does not
+exist — Go has no co-scheduling primitive). **Range-over-func rejected as
+the representation** (push cannot serve a pull surface — `peek`, `zip`,
+`merge` pull from multiple sources alternately), allowed as a possible
+foreach-boundary emission detail. Swept: `stream.md` §1.3 (new),
+`defer.md` §2 (the cross-note),
+`internal-representation-of-streams.md` (new), `index.md`.
+
+**R208 — the state-machine lowering pinned pre-IR: the Go-goto constraint
+forces the shape, the algorithm is five steps, and two interactions with
+existing rulings were uncovered (stream-representation §2.1).** The
+hypothetical question paid concretely. **The shape is forced, not chosen**:
+Go's `goto` may not jump into a block, so the textbook Duff-style
+switch-into-loops emission is illegal Go — the general form is the
+**flattened dispatch loop** (every basic block a case, every jump a state
+assignment; regenerator's same forced move for JS), with the honest cost
+(Go's loop optimizations die in the dispatch loop) recovered by
+**structured islands**: only the yield spine flattens; maximal yield-free
+subtrees emit as real structured Go. The algorithm pinned in five steps
+(CFG; cut suspension edges; **liveness → hoist only locals live across a
+suspension**, hoist-all as the correct v1 knob; regions + pc-loop; append
+the R207 exhaustion tail), its inputs small *because* §1.5's lowering
+already desugared everything. **The two discoveries**: (1) **R148's defer
+machinery relocates for generator frames** — the per-task defer list
+assumed frames that do not outlive their activation, and a generator frame
+suspends, so its pending defers live in the **stream block**, surviving
+pulls and handoffs, drained by the exhaustion states (compiler §7.3 carries
+the carve-out); (2) **`try` spanning a `yield` is the transform's hardest
+corner** — a Luna `try` around a yield spans multiple resume invocations
+while Go's `recover` is per-frame, so protection re-establishes from state
+via a *handler-range table* (C#'s iterator exception design,
+known-implementable) — with the cheap alternative (**forbid `yield` inside
+`try`**, a parse restriction) recorded, and the choice **parked in the
+still-open tail awaiting ruling** (handler table the default
+recommendation). Also recorded: the **push-can't-suspend theorem**
+sharpening §3's range-over-func rejection (early stop is not
+suspend-resume; delivery-after-stop is resume-by-replay, O(n²), restartable
+sources only); and the R192 parity closure — **the evaluator needs none of
+this** (a suspended generator is a saved interpreter frame), so the
+transform is emitter-only, sitting exactly on the divergence surface the
+oracle patrols, with comptime generator folding running transform-free.
+Swept: `internal-representation-of-streams.md` §2.1 (new), §3 (the
+theorem); `compiler.md` §7.3 (the carve-out).
+
+**R209 — generator `return` must be bare; `getReturn` refused; and
+generator-ness confirmed unreadable-off-the-type by design (stream §1).**
+The returning-a-stream analysis validated against R33's standing rule —
+classification is a parse-time lexical scan per literal, never the return
+type, and *couldn't* be the type: a generator `fn (): stream` and an
+ordinary function returning streams built elsewhere (a stored stream; an
+invoked nested generator, where the invocation is what constructs — the PHP
+shape) are **observably identical to callers**, both handing back an
+unstarted lazy stream — generator-ness is a private descriptor bit (R206),
+and the `stream|table` mixed-return example proves the typeid could never
+carry it. The safety note recorded: forgetting the IIFE invocation is a
+compile error (`fn` does not fit `stream`), the trap static types close.
+**The ruling the example was one brace away from**: in a generator body,
+**`return` must be bare** — `return;` ends the stream (the early end,
+without `break` shenanigans through enclosing loops, taking the R207
+exhaustion path: mark done, run defers), while `return expr;` is a
+**compile error** — the caller already received the stream at construction,
+so a returned value has **no recipient**. PHP's `getReturn()` (the
+out-of-band second result channel you must know to poll) deliberately
+refused; the lexical rule kept airtight (a body mixing `yield` with valued
+`return` is rejected, never ambiguously classified); the diagnostic
+teaches the structural fix (decision in an outer ordinary function,
+construction in the nested generator). Swept: `stream.md` §1 (the two new
+passages), §1.3 (the bare-return cross-precision).
+
+**R210 — `yield` inside a `try` block ruled out at parse: option B in full,
+on the abandonment argument; the transform's hardest corner deleted rather
+than built.** The R208 parked item, ruled. The decisive argument, found by
+costing the rewrite: **a spanning catch never had power, only grouping** —
+after any catch runs, the rest of its try body is abandoned (that is what
+catch means, in every language), so "recover and *continue* yielding" was
+never expressible with a spanning try under either option; per-element
+recovery always required per-element trys. What the restriction forbids is
+one spelling of "shared recovery for a prefix-run that then ends," and both
+replacement spellings are already-ruled idioms: the **per-element
+try-expression** with the R209 bare return (`let v = try parse(x);` — the
+try-expression cannot contain a yield *structurally*, expressions not
+containing statements, so the workhorse is untouched) and the
+**consumer-side supervisor** (a resume panic propagates out of the pull;
+`try` around consumption is the boundary errors §8.2 and io §6 already
+designate). The rule's edges pinned: **catch blocks are unrestricted**
+(post-recovery code is pc-shaped — `catch (e) => { yield fallback; }` is
+legal, and a yielding catch inside an outer try is rejected transitively by
+the same rule, self-consistent); **defer bodies are the parallel ban**
+(R207) — the two places a yield can never run are the two rejected at
+parse, in the same lexical walk that classifies the generator, one
+try-depth counter, near-zero cost. Stream-representation §2.1's
+handler-range passage rewritten as **the road not taken** (the C#-style
+table, multiplied by nested trys, per-state defer-drain depths, and
+rethrow — deleted rather than built); every resume frame's protection stays
+ordinary R148 machinery. Swept: `stream.md` §1 (the ruling),
+`internal-representation-of-streams.md` §2.1 (the passage rewritten); the
+still-open tail item discharged.
+
+**R211 — enum.md: the variant syntax gains its `:`, the payload shape ruled
+the deliberate exception with constraints composing not competing, the
+PascalCase field re-cased, and §9 sorted.** **The syntax**: a variant is
+`name: payloadType` — the earlier juxtaposition (`circle ['radius' => int]`)
+was the grammar's lone name-then-type-by-adjacency, every other
+type-introducing position using `:` (parameters, bindings, proto members,
+the constraint binder, match's typed binders); parses with no new machinery
+(`,`/`}` already terminate types, R137). The proposed `=` rejected with the
+proposer's own model turned around: **protocols use `:` for member types**
+(`=` there is initializers/values, the corpus-wide split), and
+`= ['radius' => int]` would even parse as a table *value* holding a type —
+a misreading inviting defaults semantics variants do not have. Construction
+and patterns unchanged (inside the brace fence the adjacent thing is a
+value/pattern — a closed own-grammar). **The shape-vs-constraint question
+ruled as composition** (new §2.3): the shaped payload is the one place
+shape-typed tables exist — variant-scoped, justified not tolerated, because
+two consumers *read* the contract rather than run it (the construction
+checker's field-level diagnostics; the match binder inheriting declared
+field types — `r: int` in `{circle ['radius' => r]}` *because* the shape
+says so). A constraint cannot replace it — any shape *check* is expressible
+but as an **opaque boolean**: static field types die (binders at `any`),
+diagnostics collapse to "constraint failed," closedness becomes discipline,
+and R137's const-only rule makes per-variant ceremony — while constraints
+**compose within it** (field types may be constraints,
+`['radius' => positiveInt]`, §2.1's own rule: shape owns structure,
+constraints own value refinement, each doing what the other cannot) and the
+whole-payload predicate contract stays available as explicit opt-in
+(`circle: circleTable`). **The casing field**: ~30 PascalCase sites re-cased
+(`shape`, `event`, `expr`, `direction`, `hand`, `tree`, `loggable`, `foo` —
+the R171 class, now at the source), with the four outside stragglers swept
+(introspection's `baseOf(@shape.circle)`, type.md ×3). **§9 retitled
+Resolved and deferred**: parameterized enums reworded from "out of scope"
+to *deferred with generics* (it *is* parametric typing; no enum-local
+answer exists); the R131 marker already stood. Swept: `enum.md` §0, §1,
+§2 (examples, prose, the ruling note), §2.1, §2.2, §2.3 (new), §8, §9,
+casing throughout; `overview/types.md` (the declaration example's colon);
+`introspection.md`; `type.md` ×3.
+
+**R213 — functions.md's close audit: ten findings, all fixed — three
+internal contradictions (one a whole fossil model), three stale
+representation claims, three internals-compatibility gaps, and the `!=>`
+spelling normalized out of existence.** The contradictions: **§7's opening
+was the pre-R43 fossil** — it still claimed comptime-eligibility
+"encoded into the typeid" with "comptime-eligible variants [as] distinct
+typeids," flatly against §3/§5.2/R43; rewritten as the two-placement story
+(errorability in the typeid — not per-value, type-derivable; eligibility on
+the value — per-value, derived from the requirement set, never cached).
+**§5.1's whole-program fixpoint was a fossil contradicting R33 itself**:
+with no inference tier — every capability explicitly declared, propagation
+by declaration (capabilities §5, verified) — the transitive information is
+already in each function's own declared set, so eligibility is a **local
+read**, the same shape as errorability's check; the §5 rule's redundant
+second conjunct ("every callee eligible") deleted, slot-calls noted as
+sound via the comptime-empty-grant panic (§5.4), and §4's parenthetical —
+which cited the fossil as its contrast — now records all three checks
+(errorability, capabilities, eligibility) sharing the
+local-against-declarations shape. **§5.2 misstated the binding ladder**
+("a `let` that could be reassigned" — `let` never rebinds, keywords §1):
+the rule and example now say `var`, with `let` noted as coinciding with
+`const` for functions (§8). The stale claims: §1's "16-byte value" (the
+R170 sweep's fifth missed site — now the logical/physical split), §1's
+"everything lives in the type" (wrong §6 cite, and imprecise post-R43 —
+now type-or-descriptor, never lval flags), §3.3.2's "function values pay a
+small fixed metadata cost" (names ride the shared per-literal descriptor;
+a value pays one pointer, R204/R206). The compatibility gaps closed at
+both ends: **the eligibility formula refined** in function-representation
+§2 — comptime capabilities exist (§5.5) and occupy mask bits, so the test
+is `mask & NON_COMPTIME_CAPS == 0`, a link-time constant, still one
+compare (R206's `mask == 0` had forgotten them); **the optimistic-`as`
+claim shown representable for free** (function-representation §5): the
+claimed signature rides the lval typeid — re-typing the lval is what `as`
+*is* — the real one stays in the descriptor, and §3.2's two-sided checks
+read their natural sources; **R205's per-literal identity folded into
+functions.md §2.1** (observable `==` semantics were living only in an
+internals file): a capture-free literal denotes one value, its evaluations
+identical, phase invariance the clinching ground. And **`!=>` is ruled a
+non-token**: the errorability `!` belongs to the return type
+(`: int! => {`), the detached `int !=>` habit recorded as a drafting
+accident — technically the same parse, stylistically wrong — and all six
+corpus sites normalized (functions §4, exec, capabilities ×3,
+stringBuilder). Swept: `functions.md` §1, §2.1, §3 (the R45 note), §3.3.2,
+§4 (the example + the parenthetical), §5, §5.1 (rewritten), §5.2, §7
+(rewritten); `internal-representation-of-functions.md` §2, §5;
+`exec.md`, `capabilities.md` ×3, `stringBuilder.md` (the spelling).
+
+**R212 — general shape types deferred, with the full design recorded in a
+new home: `deferred-constructs/`, for deferred core-language constructs.**
+The brainstorm's outcome, recorded so it is never re-derived
+(`deferred-constructs/shape-type.md`): **the sharpened case for** (the real
+payoff is not sealing — expressible today as a table constraint plus §7's
+mutation machinery — but *static field access*, a contract accessors and
+binders read, enum §2.3's two-readers lesson generalized); **the sharpened
+case against, which currently wins** (the corpus's records trajectory is
+protos — `@fileInfo`, `@commandResult`, `datetime`, and json §4's planned
+generated read side all reached for them — so shapes would open a second
+record mechanism beside one in motion, the abuse vector made concrete);
+**the impossibility result** (static-only checking cannot exist: dynamic
+data — `fromJson` output, the flagship case — has nothing static to check,
+so any shape type is forced onto the constraint model, static-when-provable
+plus runtime entry plus mutation class — the distinction from constraints
+being only *what the compiler reads*, never *when it checks*); **the forced
+design if revived** (`const circle = shape ['radius' => int];` — const-only
+per R137's discipline, sugar over a table constraint plus retained readable
+structure, exact and closed with width subtyping refused, inline anonymous
+shapes rejected permanently); and **the revival condition** (only if
+post-alpha experience shows protos too heavy for plain data records — the
+apply ceremony, nominal identity, or serialization split proving a real
+tax). The new folder's charter stated in the index: deferred *language*
+constructs, distinct from deferred std libraries (recorded in modules) and
+deferred decisions (recorded where they arose). Swept:
+`deferred-constructs/shape-type.md` (new), `index.md` (the new section).
+
+**R214 — never.md validated: the `die` contradiction resolved (R134 forces
+always-throws), `die` given its ruled home, and two fossils fixed.** The
+finds: **never.md contradicted itself about `die`** — §1 called it "the
+primitive case" of `fn (): never` (the exit form) while §2 defined it
+`never!` (always-throws), and `die` was defined *nowhere* (errors.md
+silent; usage only in examples). **R134 decides it**: a `die` that exited
+the process would *be* the abolished `exit()`, while `die` as `never!`
+composes exactly — "exit with a message" *is* "throw an error nobody
+catches," unwinding through pending `defer`s (structured teardown, R134's
+own requirement), reaching `main`, the runtime reporting and terminating
+(functions §4's `main` story); a *caught* `die` is an ordinary handled
+error — both correct, chosen by the caller, which no true process-exit
+could offer. Ruled and homed: **`fn die(msg: string): never!` ≡
+`throw error(msg)`**, a builtin free function beside the throwaway it
+sugars (errors §5.2). The corollary recorded in never §1: since users
+cannot construct panic values (errors §9), `fn (): never`'s only honest
+user-written inhabitants are **divergers** (event loops) — §1's `fatal`
+example, which called the throwing `die` from a non-`!` function (a
+functions-§4 containment violation besides), moved to §2 as the `never!`
+wrapper it must be. The fossils: **§2.1 said errorability "is propagated
+over the call graph"** — the exact phrasing functions §4 refuses (declared,
+locally verified, never propagated) — fixed; and **§3's lattice example
+called `exit()`**, the R134-dead function, contradicting §1's own
+parenthetical two sections up (the earlier combing fixed §1's mention and
+missed §3) — now `die("no x")`, with the value-arm/error-channel split
+noted. Checked clean: §1.1/§1.2's unverified-claim-plus-runtime-trap
+design, §3's algebra, §4's asymmetry, §5's both resolutions. Swept:
+`never.md` §1, §2, §2.1, §3; `errors.md` §5.2 (the `die` ruling).
+*(The `die` half is superseded the same day: R215.)*
+
+**R215 — `die` re-ruled: a true panic, `fn die(msg: string): never` with no
+`!` — superseding R214's declarable-thrower answer, whose R134 argument
+conflated *must unwind* with *must be declarable*.** The correction owned in
+the entry: both channels unwind through defers with structured teardown, so
+R134 never forced the declarable form — it forbids only non-unwinding
+process exit. What decides the channel is die's **use profile**, and it is
+panic-shaped on every axis: assertions, impossible states, and usage-bail
+are exceptional conditions *outside the caller's contract*, so the
+declarable form would have spread **`fn!` contagion** through every
+die-using codebase (exactly what the panic exemption exists to prevent,
+functions §4); as a true panic, `die` is **catchable at deliberate
+boundaries** (a bare `catch (e)` catches everything by the single-root
+design; supervisors catch `panic`-typed) so die-using code survives
+supervised contexts without systematic deletion; and the `!` is not merely
+unnecessary but **false** — `!` names the declarable channel, and a
+panic-raiser has nothing on it. Mechanically: `die` raises the new **`died`
+panic type** (carrying the message; joins the tree beside `cancelled`,
+whose non-`*Error` name is the precedent — rename open to the user),
+runtime-minted on the caller's behalf, so "users construct no panic values"
+stands unbroken. The pleasant reversal recorded: never §1's *original*
+text ("die is itself the primitive case") was right all along — R214's
+restructure swung the wrong way — and `fn (): never`'s inhabitants are now
+two kinds, divergers *and* always-panickers, the latter existing because
+`die` does; `fatal` returns to §1 as an always-panicker, §2's example
+renamed (`rejectAll`) as the deliberately-not-die declarable shape, and
+errors §5.2 now pairs **the two one-line failure forms, one per channel**:
+`throw error('msg')` (declarable, `fn!` required) and `die('msg')` (panic,
+no signature change). R214's fossil fixes (the §2.1 propagation phrasing,
+§3's `exit()`) stand. Swept: `errors.md` §5.2 (rewritten), the panic tree
+(the `died` arm); `never.md` §1, §2, §3.
+
+**R216 — numeric-tower.md closed out: the last two opens deferred, §7
+retitled, and §6's stale status sentence corrected.** The file was indeed
+mostly correct (the R164/R187 sweeps had kept it current); the remainders:
+**literals for the wider types — deferred**, cheaply, because the standing
+answer already covers the need (R161's comptime-folded-constructor ruling,
+applied three times since: `parseDecimal`, `parseRational`,
+`complex(re, im)` all fold at build time — a suffix would buy spelling, not
+capability, and waits until it earns grammar); **bit operations —
+deferred** with the bitwise spec as a whole (int §8, operators §0.4 — `&`
+and `|` are spoken for, the surface needs its own pass, nothing in alpha
+demands it). §7 retitled Resolved and deferred: three resolved markers
+(R161/R162/R164) stand, nothing open. The one staleness found: §6's opener
+"the current specced primitives are `int`, `double`, and `byte`" — stale
+twice, since the exact types *are* specced (specced ≠ delivered) and R187
+pulled five typeids into alpha — now states the **alpha-delivered core**
+(int, double, byte, plus the R187 five) with the carve-out below it
+unchanged. Swept: `numeric-tower.md` §6, §7.
+
+**R217 — named captures ruled (canonical `(?<name>...)`, the PHP-shaped
+both-key-space match table), and the `regex.escape` module fossil normalized
+to the one `regexEscape`.** The brainstorm's outcome. **Syntax** (regex
+§5.4): `(?<name>...)` canonical — the form JavaScript, .NET, and Go 1.22+
+share — with RE2's classic `(?P<name>...)` an accepted engine synonym; the
+feature costs the language nothing (the literal passes its interior as
+pattern source; the only literal-special characters are `/` and `${`), works
+identically in plain literals, verbose mode, and `regex()`, and a bad group
+name in a literal errors at the literal per §2's standing rule. **The match
+table** (string-api §5): one table, **both key spaces** — int keys the
+positional groups (0 the whole match), a named group under **both** its
+number and its name — PHP's `preg_match` shape, proven by the lineage
+Luna's tables descend from; `m['year']` is the access path, keyed
+destructuring composes for free, and no accessor function exists or is
+needed (the proposed `.regexCaptures()` reinterpreted: regex-side
+introspection, deferred as `captureNames(r): list` until need). Positions
+deliberately not in the table (a position-returning variant deferred).
+Named backreferences (`\k<name>`) ride the `b` engine's deferral. **The
+fossil** (R188's class, regex edition): §7 spelled `regex.escape` "in the
+regex module," and string-api §5's entry was a "delegating alias"
+(`const regexEscape = regex.escape`) — but `regex` is a built-in type, no
+module exists, and there was never anything to delegate. Ruled as the user
+spelled it: **`fn regexEscape(str: string): string`**, one builtin free
+function, one name one signature, pure and comptime-eligible (which is what
+lets it run inside literal interpolation, regex §7) — both files rewritten
+onto it. regex §9's named-captures open resolved; the b-engine, step-budget,
+and delimiter opens stand. Swept: `regex.md` §5.4 (new), §7, §9;
+`strings.md` §5 (the match-shape ruling; the `regexEscape` entry rewritten).
+
+**R218 — secret.md closed out: `reveal` stays a name, mark-preserving operations
+dead, never-equal confirmed; two missed sweep sites fixed.** The three opens,
+ruled. **`reveal` is not a keyword**: the guarantee never lived in the name — it
+lives in the gate ⊆ frame-grant check at the effect site, which no aliasing can
+launder (the laundering theorem, secret §5). Keyword-ness would harden the wrong
+half: `reveal` the default gate is an ordinary capability const, deliberately
+aliasable and delegatable like every capability (capabilities §5.2), so freezing
+the extractor's spelling while the authority it checks stays a value protects
+nothing; the audit that matters is `use (reveal…)` in signatures, not `reveal(`
+at call sites — and keywords.md never listed it, so the ruling formalizes the de
+facto corpus. **No mark-preserving operations** — concatenation specifically is
+dead, and the invariant is stated positively: **`reveal` is the sole consumer of
+a secret's payload**. Three grounds: the combined gate set is invented policy no
+matter how it is chosen, while reveal-then-rewrap (`secret(reveal(a) .
+reveal(b), @g)`) already requires the combined authority at the site, proven by
+machinery that exists (the re-gating shape, §3.2); admitting even one string
+operation for secret operands is the flagged-string failure mode §1 refuses; and
+payloads are `string | bytes | table`, so "concatenation" is meaningless for a
+third of the set. **Never equal, including the same secret** — confirmed, not
+newly ruled: equality §5 already carried the full position (constant `false`,
+non-reflexive beside IEEE nan, the same contagion, `command` identity-equal
+precisely to avoid dragging secret comparison in); secret §7 had simply gone
+stale behind it. Stated on the record: the payloads are never consulted at all,
+so `==` is not a timing oracle either; token checking is reveal-and-compare
+inside the granted frame, with the constant-time form named in std.crypto's
+deferred scope (R140), which inherits "key material is `secret`-shaped." **Two
+missed sweep sites fixed in passing**: §3.2's constructor still read `raw:
+string|bytes` — R79's signature, missed by R111's widening, and
+self-contradictory since R113 made the stacktrace a gated *table* secret
+(`@revealStackTrace`) that the runtime itself constructs; now
+`string|bytes|table`. And §6 still promised per-kind extractors "checked at
+compile time" — R111's plural-extractor language, superseded by R113's one union
+`reveal`, contradicting §3.1 and §5 in the same file; rewritten onto the union
+story. Swept: `secret.md` (§3.2 two sites, §6, §7 → Resolved).
+
+**R219 — the default gate renamed `revealSecret`; the capability/extractor
+collision dissolved and the namespacing deferral retired.** The default gate was
+spelled `reveal`, the same identifier as the extractor it keys, and capabilities
+§1 held the pair apart with "different namespaces (the exact namespacing
+mechanism is the module system's, deferred)" — a two-namespace resolution rule
+(`use`-position vs expression position) the module system would have owed, since
+both names are exports of `std.secret` and both appear bare in one signature
+(`use (reveal)` over a body calling `reveal(s)`). Renamed: the capability is
+**`revealSecret`**; the function stays `reveal`. Grounds. **The family already
+names authorities apart from the functions they gate** — `env` gates
+`envVars()`, `argv` gates `args()`, `egress` gates `dial`/`send` — and the
+`reveal`/`reveal` pair was the lone exception, so the rename joins the standing
+style instead of inventing one. **The R113 `reveal*` convention survives
+verbatim**, being prefix-anchored: `grep "use (reveal"` still returns every
+revelation authority, and `revealSecret` is the convention's own shape, reveal +
+the material opened (default-gated secrets are exactly the ones that are just "a
+secret"). The name is the default gate's key, not a skeleton key — R113's
+demotion stands, restated against the new spelling at secret §5. **The rejected
+alternative** — keeping `reveal` for the capability and renaming the function
+(`expose`) — would orphan the convention's verb (capabilities named for an act
+the language no longer spells), drag `canReveal` with it, and churn every
+example call site in the corpus, for no audit gain: R218 already placed the
+audit in `use (reveal…)` signatures, not call-site spellings. Beyond the
+collision, the rename buys a real deletion: capabilities §1's deferral dies —
+capability names are chosen distinct from the functions they gate, so no
+namespacing rule is owed anywhere. Adjacency noted and accepted: json's
+`revealSecrets` revealer parameter (json §2.1) is plural, a delegated closure,
+not a capability. Swept: `capabilities.md` (intro, §1 declarations + the
+coexistence passage rewritten, §2 subtype example, §3.1 illegal-forms ×4, §4
+export line + example, §5 absence example + honest-limit, §7.2 impersonation,
+§9 table — `reveal` and `env` rows), `secret.md` (§3.2 default set ×2, §5
+default-gate key + convention list, §7 header + R218 bullet + new bullet),
+`overview/types.md` (capability bullet ×2 + subtype line), `index.md` (std.exec
+row), `exec.md` (§0 shape cite), `process.md` (§2 double gate),
+`constraints.md` (§2 purity list). The extractor's own mentions (`reveal(`,
+`canReveal`, prose verbs) stand unchanged throughout, as does
+`revealStackTrace`. One misstatement fixed in passing: secret §7's R218 bullet
+called the default gate "deliberately aliasable and delegatable like every
+capability" — capability aliasing is illegal (nocopy, capabilities §3.1);
+aliasable-without-laundering describes the *extractor*, delegatable the
+capability, and the bullet now says which is which (R218's entry above stands
+as written, frozen history).
+
+**R220 — the gate-naming constraint re-shaped exact and compiler-blessed;
+§3.3's elision claim made sound; `secret use (…)` rejected as syntax.** The
+question was compiler legibility: the constraint idiom (R111) names a gate
+through a runtime predicate the compiler treats as opaque, and a dedicated form
+was proposed — `const dbSecret = secret use (dbCred)`. **Rejected, three
+grounds.** *Grammar*: `use (` after a completed postfix expression *is*
+call-site delegation, decided at one token (R112, associativity §1), and
+`secret` is a predeclared identifier, not a keyword (keywords §5), so
+`secret use (dbCred)` already parses today as delegation over the expression
+`secret`; discriminating a second meaning needs either reserving `secret` or
+value-dependent parsing — two settled principles spent on one form. *Keyword
+semantics*: `use`'s two positions share one meaning, capture — capabilities
+flow where `use` names them (keywords §3); a gate stamp captures nothing and
+demands rather than holds, which is why gates are spelled as typeid *data*
+(`@dbCred`, secret §3.2) in the first place — and it would dilute the
+`use (dbCred)` audit (capabilities §5) with hits that neither exercise nor
+extend authority. *And it would not buy the analysis*: the blocker was never
+predicate opacity. R111's conventional predicate,
+`gatesOf(s).exists(@dbCred)`, is a lower bound — a
+`{@dbCred, @prodAccess}`-gated value satisfies it, enters, and panics at
+`reveal` under `use (dbCred)` — so §3.3's claim that the compiler "can prove
+the gate check passes and elide it" was **unsound as written**, on exactly that
+counterexample, under any surface syntax. **Ruled instead: the blessed shape is
+exact** — `constraint s: secret where gatesOf(s) == [@dbCred]`, superseding
+R111's `exists` convention. An upper bound is what elision needs: a frame's
+grant is a superset of its declared `use` (delegation only adds, capabilities
+§5.2), so pinned-gates ⊆ declared-`use` proves gates ⊆ grant and the
+reveal-site check is provably redundant — elided in constraints §9.5's
+meaning-preserving sense (the comptime corner is unreachable: a frame declaring
+a non-comptime capability is comptime-ineligible, functions §5.5). The exact
+predicate also moves the wrong-material failure to the entry boundary, where
+the mismatch is legible; the `exists` shape admitted values that were doomed to
+panic mid-body. Mechanics: list `==` is strict structural equality (equality
+§4) and type values compare by identity, so the predicate is one identity
+compare per gate; `gatesOf` order is now pinned as **construction order**
+(secret §5, previously unstated and newly load-bearing), knowable by the
+predicate's author through the pairing convention — the module that constructs
+the material writes its constraint beside it. A set-semantics probe
+(`gatesAre`) was considered and **deferred** until a real order mismatch shows
+up. The sugar `constraint secret use (dbCred)` — keyword-introduced,
+second-token-decided against the binder form, desugaring to the exact
+predicate — is recorded as **considered and deferred**: grammatically clean,
+sugar over one existing mechanism, but the blessed predicate alone serves
+until demand exists. Fixed in passing: `secret` was missing from keywords §5's
+predeclared-names list while every other builtin type is present; added.
+Swept: `secret.md` (§3.3 heading, predicate, example comment, all three
+bullets, §5 `gatesOf` order note), `keywords.md` (§5).
+
+**R221 — inline streams ruled: the `gen` block, a keyword-introduced literal;
+`stream {}` rejected.** The stream spec's oldest open, closed. The form:
+`gen { body }`, an expression, optionally `gen use (io) { body }` — **pure
+sugar** over the immediately-invoked anonymous generator
+(`(fn () => { body })()`, the exact shape §1's R209 discussion already
+exhibited), so lazy-start, const-snapshot capture, creation-site capability
+check (the R121 carrier story), R207/R209/R210, and §1.1 keys all inherit with
+zero new semantics. One strengthening: a `gen` block is a generator **by
+form** — the keyword is the lexical marker, no yield-scan, and a yield-free
+`gen {}` is the canonical empty stream. The spelling question was decided by
+parse cost. `stream {}` — the blessed candidate — fails twice: in
+return-annotation position it collides with the generator's own canonical
+spelling (`fn (): stream { ... }` — the brace must be the body), and
+`stream use (io) {` re-runs the delegation-grammar objection R220 just
+sustained against `secret use (…)`, with `stream` a predeclared identifier
+whose shadowability is a standing flag (keywords §6) — contextual parsing
+would hang on an unresolved question. `gen` is a full keyword and only ever
+the literal former: **one-token decision, zero carve-outs**, `use (` after a
+`gen` head joining `fn`/`test` in R112's list verbatim. The former≠type split
+is not new doctrine but the house pattern: backticks construct a `command`,
+slashes a `regex`, `gen` a `stream` — and the corpus already names the concept
+(generator functions, generator bodies; fn : function :: gen : generator; the
+same spelling Rust chose for the same construct). Also rejected: `yield { }`
+(one keyword meaning construct at the head and suspend inside, two lines
+apart), compound formers (`fn stream`), a sigil literal (command and regex
+earned theirs from universal outside precedent; generators have none to
+borrow). Swept: `stream.md` (§1 intro, §1.4 new, §8), `keywords.md` (§1 new
+row, §6 classification note), `internal-representation-of-streams.md` (the
+parity note's example generator was named `gen()` — now a keyword; renamed
+`naturals()` in passing).
+
+**R222 — single-pass enforced everywhere; the `useAfter` panic family;
+granularity-via-subtyping recorded as a standing convention.** §8's
+consistency review ran, and the empty second pass lost: **re-consuming an
+exhausted stream panics** (`useAfterConsumed`) — the silent empty pass hid
+exactly the double-consumption bugs single-pass exists to surface, and every
+neighboring construct (`spawn`, `await`, `close`, every catalogue call)
+already enforced its move. Consumption means `foreach`, destructuring, spread,
+and the catalogue; the panic is about **handle reuse, never emptiness** (a
+first pass over an empty stream is ordinary and zero iterations). Probes stay
+total — the hard/soft pairing: `isConsumed` now answers "can this handle still
+produce?" (true on exhausted **and** taken, the exact guard for the panic),
+joining `taken()` as a query-not-a-use, legal on taken handles; `peek`/
+`isEmpty` panic on a taken handle (they must run a body another owner holds)
+and stay honest on an exhausted one. The panic taxonomy: parent **`useAfter`**
+(use of a spent handle — the use-after-free of a language without free), the
+prefix naming the family exactly as `reveal*`/`unsafe*` do (R113, R219), with
+children **`useAfterTaken`** (moved — naming what was previously a bare
+`panic`, concurrency §2.3) and **`useAfterConsumed`** (ended; the participle
+pair matches the probes: `taken()` / `isConsumed()`). Siblings, not a chain: a
+prospective `useAfterClose` (file after close, today a plain io failure) fits
+a family of siblings but not a chain rooted at taken — recorded as a deferred
+candidate. `doubleAwait` **reparented** under `useAfterTaken` (a second await
+is precisely a taken use; the name survives as the finer instance) — the new
+convention applied to an existing type on day one. The convention itself,
+recorded at errors §2: **granularity via subtyping** — one recovery boundary,
+several causes ⇒ finer panic types under a catchable parent, never one coarse
+type; catch the parent for the family, a child for the cause; new runtime
+panics join or found a family rather than widening a catch-all. Swept:
+`stream.md` (§2 rewritten, §3 probes, §7.3, §8, §2.1/§6.1 stale "discipline"
+cites), `errors.md` (§2 tree + convention paragraph), `concurrency.md` (§2.3 —
+the "consumed yields empty, no panic" sentence, the direct casualty),
+`spread.md` (§2), `stream-api.md` (§2 — `isConsumed`/`isEmpty` probe wording),
+`index.md` (the stream row refreshed across R221–R223).
+
+**R223 — `yield from` ruled: one compound token, pure sugar; the implicit key
+unified as the running next-integer-index.** Delegation:
+`yield from src;` ≡ `foreach (k => v in src) { yield k => v; }` — the desugar
+*is* the spec, so table iteration, laziness (one element per outer pull), the
+R210/R207 bans (the desugar contains `yield`), and stream-taking (a stream
+operand transfers, iterable-functions §1.5 extended to the syntax) all
+inherit. Lexing: `yield from` is a single compound token; `from` stays
+unreserved, exactly as contextual as import's `from` — the one casualty,
+bare-yielding a binding named `from`, parenthesizes (`yield (from);`). What
+makes pure sugar *possible* is the key ruling: §1.1's implicit key is
+redefined as a **running next-integer-index over the whole yield sequence** —
+a bare yield emits at the counter; an explicit or delegated integer key is
+emitted verbatim and advances the counter past it (`max(counter, k+1)`);
+string keys never touch it. This is the table-literal fold's counter
+(spread §1) minus its renumbering, and the divergence is principled: a table's
+keys are an index and must be unique, a stream's keys are **flowing data**
+(duplicates representable, passing through), with uniqueness enforced only at
+materialization by `collect` applying the table's own write rules. PHP's
+delegation key-collision wart dies as a corollary of the counter rule, not as
+a carve-out on delegation. Swept: `stream.md` (§1.1 rewritten, §1.5 new),
+`keywords.md` (§2 yield row).
+
+**R224 — stream.md's remaining opens closed: bidirectional axed, element
+typing is the table rules, cleanup is R207.** **Bidirectional generators:
+axed.** `channel()` already returns the two-way pair (`[sink, stream]`,
+channels §1); a value-returning yield would be a second, *implicit* channel
+mechanism — against small-surface — and it composes wrong: a sent-back value
+cannot thread through `map`/`filter`, the wart PHP's `send()` and Python's
+both carry into every pipeline. Corollary banked immediately: **`yield` is a
+statement**, never an expression — `let x = yield v` is unrepresentable rather
+than forbidden, the hole closed by construction. **Element typing:** a stream
+carries no static element typing; elements and keys are per-element dynamic
+exactly as table members (the §6 sentence stood; the open closes onto it), no
+generics by doctrine (secret §3.3), transformers track nothing, narrowing is
+the consumer's `is`/`as`/`match`. One precision added: keys are **`int` or
+`string` and nothing else** — the table key rule verbatim, enforced at
+`yield k => v` (`typeError`; compile error where statically evident) — without
+which `collect` and the stream↔table parallel (list : keyed table :: implicit
+: explicit, §1.1) break. **Cleanup:** no scoped-cleanup convenience rides the
+stream; R207 is complete — defers on exhaustion at the final pull, abandoned
+streams run nothing by stated contract, resources belong to the consumer's
+`defer` (io §6). Swept: `stream.md` (§1.1 key rule, §1.5 statement note, §8 →
+Resolved).
+
+**R225 — the fused lowering (stream-representation §2.2): the as-if license
+and the syntax-directed catalogue.** Streams that cannot be observed *as
+values* need never exist: producer and consumer compile into one loop — no
+streamBlock, no dispatch — `foreach (x in (1..n).filter(p).take(k))` emitting
+the counting loop a programmer would write. The license extends elision's
+doctrine (constraints §9.5, "never changes meaning") from checks to
+representation, and it is *sound because the semantics already paid for it*:
+pull-driven single-pass **is** loop semantics (the observable order — steps
+alternating per pull, defers at the final pull, panics from the pull site —
+is the loop's own), and the language outlaws observation exactly where fusion
+would show (stream §7.3's enforced move; R222's exhausted-handle upgrade).
+Identification respects the compiler's refusal of flow-sensitivity (compiler
+§1.4.1): a **syntax-directed catalogue** in the §9.5 shape — mechanism fixed,
+catalogue pending implementation. Tier 1: the chain wholly visible at its
+consumption site (a `foreach` head, spread, or `collect` argument), source a
+range / `toStream` / `gen` block / generator call, stages catalogue
+transformers with literal arguments — nothing bound, nothing escapes, nothing
+observes, decided from the parse tree alone; the bound-once tier is deferred.
+Fusion is a fast path, never load-bearing. The name: "flattening" was already
+taken in the same file (§2's flattened dispatch loop), "stream elision" would
+stretch a term the corpus uses precisely for check-removal — **fusion** is the
+literature-exact word (the Haskell lineage) under the file's own §2.1 word,
+**lowering**. Distinct from comptime generator folding (same file), which
+evaluates rather than emits. Swept:
+`internal-representation-of-streams.md` (§2.2 new), `stream.md` (§7.2
+cross-reference).
+
+**R226 — `u64` renamed `uint`; `nat` minted as the non-negative `int`
+constraint; the two jobs of "unsigned" split by family.** The trigger was
+strings.md's sentinel review: `indexOf` wants a structurally non-negative
+index type, the obvious name was `uint`, and a full-width merge of that name
+with `u64` was proposed — one 64-bit unsigned type for both jobs. **The merge
+is rejected on the tower's own rulings.** A full-width unsigned type cannot
+subtype `int` — int §6.2's top-bit argument is representation, not policy —
+so merged-`uint` indexes would live in the *other* integer family, where the
+ruled semantics bite in sequence: `idx + 1` is an explicit-crossing compile
+error (§3; literals are int-family), `idx == 0` is *silently false* (the
+`1 == 1.0` rule — the exact silent-wrong-value class the language closes),
+`idx - 1` panics at zero (unsigned computes at its own width with no wider
+signed space for intermediates — the `size_t` footgun, panic-flavored), and
+an offset could not key a table (`int | string`) or enter any `int`-taking
+signature without ceremony. The empirical record concurs: Go — the backend —
+has a full-width `uint` and deliberately types `len()` as `int`. **Ruled
+instead, the split**: *the rename* — the unsigned primitive is **`uint`**,
+the chain `u8 <: u16 <: u32 <: uint` the exact mirror of
+`i8 <: i16 <: i32 <: int`, each family topped by its width-unsuffixed 64-bit
+primitive, so the name now promises exactly what the type delivers (`int`'s
+full-width unsigned twin — the aesthetic complaint that triggered the merge
+proposal is *dissolved*, not argued away); std.binary's `readU64` keeps the
+wire width in the function name (R187's width-in-the-name rule names what is
+read, not what is returned) and returns `uint`; `toU64` follows R106's
+target-naming to `toUint`. And *the mint* — **`nat`** =
+`constraint i: int where i >= 0` (constraints §10, predeclared, keywords §5,
+alpha beside `byte`): the signed family's one **range** refinement, range
+`0..2^63 - 1`, `nat <: int`, compute-at-`int`-width with entry checks, so a
+`nat` flows into every `int` surface with zero crossing ceremony — the
+property indexes need and the unsigned family structurally cannot offer. The
+division of labor, stated: **`uint` is the boundary type** (binary formats
+whose values need the top half), **`nat` is the domain refinement** (indexes,
+counts, sizes). The string-API adoption of `nat` that motivated all this is
+**deferred by instruction** — a follow-up ruling sweeps that surface. One
+contradiction fixed in passing: int §6.1's code block still declared
+`u8`/`u32` as constraints on *`int`* with a `u8 == byte` note — flatly
+contradicting §6.4's "`u8` is not `byte`" row and numeric-tower §1.2's
+constraints-on-the-unsigned-primitive rule; stale since the family split,
+rewritten signed-only (and its `someU8` example, now wrong-family, moved to
+`i16`). Swept: `numeric-tower.md` (§1.1 `nat` paragraph, §1.2 chain + mirror
+note, §1.4, §2/§3 examples incl. `toUint`, §4, §5 table — `uint (u64)` row
+mirroring `int (i64)`, new `nat` row, §6 + carve-out), `int.md` (§6.1
+rewritten, §6.2 renamed, §6.3, §6.4 table + `nat` row, §8), `binary.md` (§2
+signature + readU64 note, §2.1), `as.md` (×4), `overview/types.md` (×3),
+`overview/high-level-overview.md`, `constraints.md` (§10 `nat`),
+`keywords.md` (§5), `index.md` (std.binary row), `introspection.md` (comment),
+`compiler.md` (§7.5 width row), `internal-representation-of-tables.md` (R201
+note's `u64` was a machine word, reworded "64-bit word").
+
+**R227 — strings.md split: `string.md` (the type) and `string-api.md` (the
+catalogue), the stream/stream-api shape.** The corpus had already voted:
+cross-references throughout said "string-api §N" while the file was
+`strings.md`, and the file titled "String API" carried type-level content —
+immutability and binding, the units doctrine, the no-concat rule,
+interpolation and the R150 escape table — fused to the function catalogue.
+Split along that seam, mirroring the existing stream.md / stream-api.md pair.
+**string.md** takes the type: §1 immutability and binding, §2 the units
+doctrine (the count functions and offset conventions stay catalogue-side), §3
+no concatenation operator, §4 the builder's place, §5 interpolation with §5.1
+the escape table — the R150 one-authority moves with its section, and every
+pointer at it moves too. **string-api.md** keeps the catalogue with **§1–§10
+numbering preserved**, which is what made the split's direction obvious:
+every pre-existing "string-api §N" citation (regex ×8, bytes, stream,
+stringBuilder, control-flow, conversion) now lands correctly with no edit.
+§1 keeps the catalogue rules (no-overloading, UFCS, naming, return shapes)
+with pointers to the moved type facts; the opens renumber §14 → §11. **No
+function content changed** (by instruction): the review findings — `cString`'s
+R150-stale `"\0"`, the `-1` sentinels, the slice-length sentinel — stay
+recorded in §11 for their own ruling. The file rename is a git move
+(history preserved on the catalogue half). Swept (file-name and section
+fixes): `associativity.md` (×3 → string §3), `operators.md` (×2),
+`conversion.md` (×3), `lexer.md` (×6 → string §5 / §5.1),
+`lexical-structure.md`, `command.md` (§2), `bytes.md` (×2 + §9 name),
+`bool.md`, `spread.md`, `functions.md` ("strings spec" → string-api §1),
+`type.md` (same), `stringBuilder.md` (×7),
+`internal-representation-of-strings.md` (×3), `one-billion-rows.md`,
+`overview/types.md` (string row), `index.md` (one row → two).
+
+**R228 — string-api closed out: `nat` adopted across the surface, both
+sentinels retired, the three failure channels recorded; `stringBoundaryError`
+defined and homed; two R150-stale `\0` fixed; the builder's `bytes` parameter
+renamed.** The half R226 deferred by instruction, landed. **The convention,
+recorded at §1**: a **miss** is an answer — `null`, typed `T?` — a **failure**
+is the error channel (`parseInt: int!`), a **misuse** panics. The miss half's
+type-system ground: `undefined` is unspellable in a return type, so
+undefined-returners degrade to `any` (`keyOf`, `peek`), while null keeps
+`indexOf: nat?` precise; regex `find` was already `table | null`, now spelled
+`table?`, the house sugar. (`keyOf` and iterable `find` under the same
+convention: a recorded follow-up for iterable-functions' own ruling.) **The
+adoption**: `indexOf`/`lastIndexOf` return `nat?` and take `from: nat` — the
+`-1` sentinel dies structurally; the counts (`byteLength`, `codepointCount`,
+`graphemeCount`, `count`, `cStringLength`) return `nat`;
+`repeat(times: nat)` (a negative count was a silent `""`), pad widths,
+`chr(codepoint: nat)`, `split`'s `limit: nat` (its documented `0` = uncapped
+stands; a negative computed limit, formerly silently uncapped, now panics at
+entry). **`slice`**: `offset: nat`, and `length: nat? = null` — null is "to
+the end" (the `finalGlue` pattern: absence spelled as absence), retiring the
+`length <= 0` sentinel, under which a negative *computed* length silently
+returned the whole tail. **`stringBoundaryError`** — name kept — gains a real
+definition: a leaf in errors §2's panic tree (the §6 cite previously pointed
+at §10, C-string interop, and the type existed nowhere); and the hard/soft
+pair completes with the probe **`isCodepointBoundary(str, offset: int):
+bool`** — deliberately `int`, never panicking: a guard must be askable with
+exactly the arithmetic-produced offset it guards, a negative one answering
+`false` (`byteLength` itself is a boundary, the end). **`chr`** panics
+(`typeError`) on a non-scalar (surrogates, above `0x10FFFF`), compile error
+where statically evident — the runtime mirror of `\u{…}`'s lex-time rejection.
+**Two R150 sweep misses fixed**: §10 defined `cString` as exactly `"$str\0"`
+and exampled `"ab\0cd"` — `\0` is an R150 lex error whose tombstone sits in
+string §5.1; both now `\u{0}`. **The `sliceBytes` ghost deleted**: §2 named
+it beside `slice`, no catalogue entry ever existed — a fossil of the
+pre-byte-slice draft. **The builder**: `capacityHint` is **bytes** (the unit
+`reserve` already speaks) and `nat`; `reserve`'s parameter, literally named
+`bytes`, renamed **`numBytes`** — shadowing a predeclared type name in a std
+signature is legal (keywords §5, shadowability itself a standing flag) and
+terrible, so the surface will not model it. **Opens** (§11 → Resolved): the
+slice unit confirmed (byte-offset, boundary-checked, no `graphemeSlice`);
+`cString()` returns a `string` and no distinct C-string type exists
+(unnecessary — NUL is one valid codepoint, validity holds, interior-NUL
+honesty lives in `cStringLength`, the deferred FFI consumes a `string`);
+error-vs-sentinel resolved by the convention; regex interpolation resolved at
+regex §7 (comptime-only). **One newly open, held from this ruling**: the `""`
+separator — currently an error pointing at `graphemes()`; challenged in
+review: an empty separator matches at every position, so "split on `""`" *is*
+"split everywhere," and any non-error meaning must silently pick the unit
+(JS's code-unit answer severs surrogate pairs) — the silent choice string §2
+exists to refuse — against the convenience of a runtime-computed separator
+that happens to be empty; recorded at §11, pending decision. Swept:
+`string-api.md` (§1 return shapes, §2 counts + conventions ×2, §4 `repeat` +
+`chr`, §5 `indexOf`/`lastIndexOf`/`count`/`find`, §6 `slice` + the new probe,
+§8 `split` limit + pad widths, §10 ×3, §11 rewritten), `stringBuilder.md`
+(§2 signature + unit sentence, protocol sketch, member table),
+`errors.md` (§2 tree).
+
+**R229 — the `""` separator: ban kept, widened to the every-match class, and
+named `emptyNeedle`.** R228's held-open item, closed on the ground the
+challenge itself sharpened. The empty string occurs at every position, so
+"split on `""`" *is* "split everywhere," and advancing past a zero-width
+match forces a silently chosen unit — JS's code-unit answer severs surrogate
+pairs, PHP's `str_replace` answers "matches nowhere"; the cross-language
+chaos is the ambiguity's signature — exactly the silent pick string §2 exists
+to refuse. **The principled boundary is not `split`**: the disease is
+every-match *enumeration*, so the ban covers the trio — `split`, `count`,
+`replace` — and `split`'s **int arm joins** (previously unspecified): a chunk
+width `<= 0` is a zero-byte step, the same emptiness. **Single-match
+operations are defined, not banned** — a single answer needs no unit, and the
+definitions are the universal ones: `indexOf(s, "") = 0`,
+`lastIndexOf(s, "") = byteLength(s)` (both ends are boundaries),
+`contains`/`startsWith`/`endsWith` trivially `true`, `replaceFirst` inserts
+at offset 0, `before`/`after` follow `indexOf`. **The name: `emptyNeedle`** —
+a leaf beside `divisionByZero` in errors §2, the same shape: a bare
+condition-name for one argument-degeneracy, spelled in the catalogue's own
+parameter vocabulary (§5's `needle`); no family to join or found (R222's
+convention consulted). Rejected spellings: `emptySeparator` /
+`invalidSeparator` (split-only framing, and "invalid" says nothing the tree's
+names don't say better), `zeroWidthMatch` (mechanism-named, and the panic
+fires before any match exists), the `*Error` suffixes (the condition-name kin
+go bare). The diagnostic names the three explicit spellings of "every
+position" — `graphemes()`, `codepoints()`, `bytes()`. Swept: `string-api.md`
+(§5 the empty-needle rule + `count` note, §6 `before`/`after` note, §7
+`replace`/`replaceFirst`, §8 `split`, §11 open → resolved), `errors.md`
+(§2 tree).
+
+**R230 — type.md tidied: the `is` position restored, the binding ladder
+stated, §5's enumeration completed, `baseOf` reconciled, the `declared` open
+closed.** Five smalls from a review pass. **(1)** §1.1's type-position list
+omitted `is` — `x is @P` is a type position, as overview/types.md already
+states; one word restored. **(2)** §2 read "a `type` binding is `const`"
+while §1.1's own examples bind with `let` — resolved by the strings ladder
+(string §1): an inline immutable primitive has no interior for `const` to
+additionally freeze, so **`let` and `const` are equivalent and both legal**;
+`var` stays disallowed. **(3)** §5's enumeration of type-position forms
+omitted **error and capability types** — the two interval-heavy tree families
+(typed `catch` binders name one; `use` clauses and gate-set typeids name the
+other) — completed, with `nat` joining the constraint examples (R226).
+**(4)** The `baseOf` three-way wobble resolved in favor of the facts:
+introspection §4.1 **defines** `baseOf` (R131 — exported signature and full
+entry), and constraints already cites it as in place; the one stale site was
+introspection's own `kindOf` note still reading "`baseOf` pending, §7" —
+written before R131 landed in the same section and never updated; type.md
+§6's constraint-base bullet now cites `baseOf` directly. **(5)** §9's open —
+`declared` on nested and destructured bindings — closes with **zero new
+machinery**: a destructured binder is an ordinary binding with an inferred
+type, and §4 already makes written and inferred indistinguishable, so the
+answer is uniform; a table **field is not a binding**, and §4 already defines
+`declared` on bindings only, so a field is a compile error by the
+definition's own consequence, not by new rule. Swept: `type.md` (§1.1, §2,
+§5, §6, §9 → Resolved), `introspection.md` (§4.1 note).
+
+**R231 — undefined.md closed out: `any`-held undefined is uniform, `@` on
+undefined is a use, taken is neither undefined nor a type change; the
+production count made honest.** Both opens, ruled. **`undefined` in `any`**:
+`any` binds anything by definition, so an `any`-typed binding may hold
+`undefined` — and nothing changes, because the rule was never about the
+binding's type: holding is never the error, and **no operations are defined
+on an undefined value**. The sanctioned surface is exhaustive and short —
+hold, `== undefined` (equality), coalesce (`??`/`?.`/`???`), and `declared`
+on the *binding* (a compile-time binding fact, not a value use; type §4).
+Everything else is a use, panicking at runtime and rejected at compile time
+where statically evident — **including `@`**: asking the type of a value
+that is not there is a use, which settles the open's reflection half (`@u`
+panics; `declared u` answers — the binding/value split of type §4 doing the
+work). The open's "generic positions" phrase is dropped: Luna has no
+generics. **Taken vs undefined**: confirmed distinct, and sharpened with the
+type angle — a taken stream is **still a `stream`**; takenness is referent
+*state*, deliberately not type-determining (value-representation §2.1's
+discipline), read by the total queries (`taken`, `isConsumed`, R222) and
+enforced by `useAfterTaken` (errors §2). The behavioral split is the design:
+absence **coalesces away** (a routine question), taken **panics through** (a
+moved value is a bug). Productions stay closed at the two classes; a future
+producer needs its own ruling, never a quiet extension. **Fixed in passing**:
+§1 claimed exactly *two productions* (missing key, void return) while the
+corpus already produced `undefined` from the catalogue's miss and empty
+answers (`keyOf`/`find` misses, `first`/`last`/`peek` on empty,
+iterable-functions §2; a destructuring shortfall, stream §2.1) — an
+undercount, not a contradiction in meaning; reframed as two production
+**classes** (the absent read, the void return) with the catalogue family
+enumerated under the first. Also verified, no change needed: §3.2's
+`remove`/`unset` matches tables §4.1 (the static `delete` form is §4.1.1's
+recorded rejection), and §5's `var x?: T = null` is the ruled optional
+spelling (variables §1.2). Swept: `undefined.md` (§1, §7 → Resolved).
+
 ---
 
 ## Still open (out of scope of these rulings)
 
-A handful of contradictions surfaced by the review remain deliberately unresolved,
-each awaiting its own ruling: `list` drift vs panic (F4); the `as` algebra
-exceptions (F6); union subtyping vs the interval test (F9); `any` pipelines (F22);
-view interior mutability (F25); the builtin error types' casing (keywords §6); and,
-newly, **a reflection query for a function value's capability requirement set** (R88's
-tail, functions §3, reflection §3).
+The F-series is **closed** (audited by R124): F4 (`list` drift vs panic) was resolved
+by R9/R10, F9 (union subtyping vs the interval test) by R18, and F22 (`any` pipelines)
+by R34 — this list had simply gone stale while carrying them — and F6 (the `as` algebra
+exceptions) is resolved by R124 itself: **lossless is the criterion**. Also closed along
+the way: view interior mutability (F25, **mooted by R95** — views no longer exist) and
+the builtin error types' casing (**resolved by R122** — camelCase everywhere). Still
+genuinely open from that review era: *(none — the last one, R88's function-value
+capability query, is **closed by R130**: `capabilitiesOf`, introspection §4.6.)*
+
+From R89 and R90, once the largest flag in this file, now closed:
+
+- **Variadic parameter declaration and named arguments: resolved by R108** (functions
+  §3.3.1–§3.3.3). The R35 unification holds after all — the variadic is the positional
+  sublist's trailing rest, post-variadic parameters are defaulted and named-only, the
+  `*,` marker and the undefined `name?` form are retired/defined, and named arguments
+  landed on the PHP rules with `NamedArgumentError` as the binding panic. (The R90
+  audit's other half, the `preserveKeys` defaults, was discharged by R92.)
+
+And from R91–R93, the two big flagged remainders:
+
+- **The R91–R93 and R95–R98 sweeps are COMPLETE** (R99–R101). Every site the two
+  remainder lists named is done: the catalogue split and its retirements (R99: tables,
+  builder, secret, keywords, operators, spread, concurrency; R100: coalescing, toString,
+  json, functions; R101: equality, stream, stream-api, range, control-flow,
+  associativity, lexer, wildcard, regex, constraints §7's cross-ref), the `?->` token
+  landed (R101), and the examples verified clean. The retired-spelling greps
+  ("built-in protocol", "meta fn", "values-only", "asStream", "onNoGet", "canGet",
+  "ViolationError", "enumerate", the old `->` call shapes) return only deliberate
+  historical mentions. The one discovery that pass recorded — `strings.md`'s eleven
+  `asStream` flags — is **resolved by R102** (producers produce streams), which also
+  settled the string/bytes-iterability question it raised (R104: `foreach` yes for
+  `bytes`, `iterable` stays `table | stream` exact). Future edits: iterable-functions
+  §3's retired-spellings table is the guard against reintroduction.
+- **Opens from R95–R98: all closed.** (`@@`'s type surface is **closed by R126** —
+  total over `any`, `[]` off tables, protos const-declared identity-class brands; the
+  JSON nesting shape is **closed by R125** — the `"@@"` section, off
+  by default; removal/`unapply` is **closed by R123** — the free function, refusal where
+  an applied requirer still requires,
+  wrong-write checks for the rest, the §6.3 condition repaid as stated; the `?->` token landed in R101;
+  the initializer-grammar spelling closed with R108; and **mutable protocol-level state
+  closed with R119** — the task-ownership story exists now, the owner-task pattern of
+  channels §5, so "statics stay inexpressible" is an answer with a referent, not a
+  deferral.)
+- **Opens from R102–R105: all resolved.** The conversion-family unification by R106
+  (three prefixes, three contracts; the policy verbs; `parseInt` / `parseDouble`); the
+  `toBytes`-over-iterable repack by R107 (the union arm, constraint-panic-checked per
+  element and therefore `!`-free; `parseBytes` rejected by R106's own table).
+- **Opens from R111: both resolved by R113** — the trace's gate is the dedicated
+  `revealStackTrace` capability (the `reveal*` convention), and `toJson` renders secrets
+  as `'<secret>'` with explicit, call-site-delegated revealed serialization
+  (`revealSecrets` + `use` on the call, R112). No `skipSecrets` flag exists; the
+  placeholder is the graceful default.
+
+One small deferral tracked here (reclassified from "open" with the spread.md validation,
+R168): spread of `bytes` / `string` — whether `[...someBytes]` yields `byte` elements or
+errors waits on a use case, not a decision, and `toList(b)` (R167) already spells the
+explicit form (spread §7).
+
+*(The `@P` value-position contradiction R174's validation surfaced here is **ruled:
+R175** — the static-protohood steer extends to value position, `@P` on a proto yields the
+induced refinement everywhere, the alias idiom legal by construction.)*
+
+*(The two-headed json spec R179 flagged here is **resolved: R180** — merged into
+`std/json.md`, the orphan retired as `retired/json-duplicate.md`, one index row, no
+cite renumbered.)*
+
+*(R182's two match.md flags are **ruled: R183** — signed numeric literal patterns, the
+parser-level fold, LL(1)-clean because patterns admit no operators — and **R184** —
+match is inline, no capture, no `use` clause, the enclosing frame's grant; §11
+rewritten.)*
+
+*(R208's try-spanning-yield item is **ruled: R210** — the parse restriction, on the
+abandonment argument: a spanning catch never had power, only grouping; the handler-range
+table recorded as the road not taken.)*

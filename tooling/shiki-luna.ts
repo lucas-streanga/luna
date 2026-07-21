@@ -6,7 +6,7 @@
  *          then ```luna fences highlight. Astro's <Code> also accepts this
  *          object directly as `lang`.
  *
- * SOURCE OF TRUTH: docs/build/lexer.md (the lexer specification, G-rulings
+ * SOURCE OF TRUTH: specs/build/lexer.md (the lexer specification, G-rulings
  * revision) + keywords.md. This file is DERIVED from the lexer's token
  * inventory (§2 comments, §3 keywords, §4 literals, §5 operators, §6
  * interpolation, §7 identifiers); span patterns use the spec's unrolled-loop

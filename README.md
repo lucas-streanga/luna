@@ -8,6 +8,7 @@ At the time of writing, no implementation exists. Only a spec and some barebones
 ```js
 import std.io;
 import std.json;
+import std.process;
 
 const exitCode = ['success' => 0, 'usage' => 64];
 
@@ -16,7 +17,7 @@ const main = fn () use (io, argv): int! => {
   die("usage: ${arguments[0]} <config.json>") if (arguments.count() != 2);
 
   var fd = openFile(arguments[1] as path);      // file!: error propogates out of main
-  defer close(&fd);
+  defer close(fd);
 
   let config = fromJson(readAll(fd) as json);    // table!: bad JSON propagates too
 
@@ -41,10 +42,10 @@ git clone https://github.com/lucas-streanga/luna
 - You're done!
 
 # Directory Structure:
-- `docs/` - the specification, one Markdown file per topic, grouped into subdirectories by the
+- `specs/` - the specification, one Markdown file per topic, grouped into subdirectories by the
   part of the language it targets (`types/`, `expressions/`, `declarations/`, `concurrency/`,
   `build/`, `std/`, `internals/`, `type-operations/`, `bindings/`, `overview/`, `examples/`).
-  - `docs/index.md` is the authoritative map of every spec file and what it owns; start there.
+  - `specs/index.md` is the authoritative map of every spec file and what it owns; start there.
   - This is the design itself, not user-facing docs — it is deliberately in-depth.
 - `CHANGES.md` - the design-decision log: a numbered sequence of rulings, each resolving a
   contradiction or open question with its rationale and the files it swept.
