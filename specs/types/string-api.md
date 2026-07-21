@@ -39,8 +39,11 @@ than a separate name (see §3).
 **producers produce streams** (R102), the convention shared with generators, ranges, and
 `io`; retention is an explicit `collect()` (iterable-functions §2.11), and a
 string-derived stream is **restartable** for free (immutable source, stream §4). A
-function that yields one string returns `string`. Indices are byte offsets and are
-always `int` (see §2).
+function that yields one string returns `string`. Positions are byte offsets typed
+**`nat`** (the non-negative `int` constraint, constraints §10, R228), and a search
+**miss is `null`**, never a sentinel (§5): the three failure channels, each spelled as
+what it is — a **miss** is an answer (`null`, typed `T?`), a **failure** is the error
+channel (`parseInt: int!`), a **misuse** panics (R228).
 
 ---
 
@@ -50,18 +53,20 @@ The units doctrine — no `length`, no integer indexing, three explicit units, b
 silently picking one meaning is the most common source of Unicode bugs — is the
 type's (string §2). The counts:
 
-- **`byteLength(str): int`** the number of UTF-8 bytes. O(1).
-- **`codepointCount(str): int`** the number of Unicode scalar values. O(n).
-- **`graphemeCount(str): int`** the number of grapheme clusters, i.e. what a person
+- **`byteLength(str): nat`** the number of UTF-8 bytes. O(1).
+- **`codepointCount(str): nat`** the number of Unicode scalar values. O(n).
+- **`graphemeCount(str): nat`** the number of grapheme clusters, i.e. what a person
   counts as characters. O(n).
 
 Positions returned by search functions (`indexOf`, etc.) are **byte offsets**, and
-functions that take a position (`slice`, `sliceBytes`) take byte offsets too. Byte
+functions that take a position (`slice`) take byte offsets too. Byte
 offsets are the only unit that is O(1) to act on; codepoint and grapheme positions
 would each be O(n) to resolve, so the API does not pretend they are cheap. Every byte
 offset returned by the API lands on a codepoint boundary, and slicing validates that
-its arguments do, so you cannot split a multi-byte codepoint by accident (it is an
-error, see §6).
+its arguments do, so you cannot split a multi-byte codepoint by accident
+(`stringBoundaryError`, §6; the probe form is `isCodepointBoundary`, §6). (A
+`sliceBytes` this paragraph once named beside `slice` was a fossil — no such catalogue
+entry ever existed; deleted, R228.)
 
 ---
 
@@ -94,17 +99,21 @@ deliberately omitted for now; it is a larger design in its own right.)
 
 #### repeat()
 ```
-fn repeat(str: string, times: int): string
+fn repeat(str: string, times: nat): string
 ```
-`"ab".repeat(3)` is `"ababab"`. `times <= 0` yields `""`.
+`"ab".repeat(3)` is `"ababab"`; `times = 0` yields `""` (a negative count, formerly a
+silent `""`, is unrepresentable: `nat`, R228).
 
 #### chr() / parse helpers
 ```
-fn chr(codepoint: int): string             // one-codepoint string from a scalar value
+fn chr(codepoint: nat): string             // one-codepoint string from a scalar value
 fn parseInt(str: string): int!             // parse; error if not a valid integer
 fn parseDouble(str: string): double!       // parse; error if not a valid double
 ```
-`chr` is the inverse of taking a single `codepoints()` element. The parse helpers
+`chr` is the inverse of taking a single `codepoints()` element. A `codepoint` that is
+not a Unicode scalar value (a surrogate `0xD800..0xDFFF`, or above `0x10FFFF`)
+**panics** (`typeError`), a compile error where statically evident — the runtime mirror
+of `\u{…}`'s lex-time rejection (string §5.1, R228). The parse helpers
 return an errorable type (postfix `!`, the value-representation error model) and are
 named for their **target** (`parse*` acquires from bare text; `to*` is reserved for
 total conversions — the three-prefix contract, conversion §2, R106); `str.parseInt()`
@@ -130,22 +139,38 @@ O(n).
 
 #### indexOf() · lastIndexOf()
 ```
-fn indexOf(str: string, needle: string, from: int = 0, caseInsensitive: bool = false): int
-fn lastIndexOf(str: string, needle: string, caseInsensitive: bool = false): int
+fn indexOf(str: string, needle: string, from: nat = 0, caseInsensitive: bool = false): nat?
+fn lastIndexOf(str: string, needle: string, caseInsensitive: bool = false): nat?
 ```
-The **byte offset** of the first / last match, or `-1` if absent. `from` is a byte
-offset. O(n).
+The **byte offset** of the first / last match, or **`null`** if absent (R228: a miss is
+an answer, not a sentinel — `nat?` structurally rules out the old `-1`, and `??` /
+`is null` are the consuming idioms). `from` is a byte offset. O(n).
 
 #### count()
 ```
-fn count(str: string, needle: string, caseInsensitive: bool = false): int
+fn count(str: string, needle: string, caseInsensitive: bool = false): nat
 ```
-Number of non-overlapping occurrences of `needle`. O(n).
+Number of non-overlapping occurrences of `needle`. O(n). An empty `needle` panics
+(`emptyNeedle` — the rule below).
+
+**The empty needle, ruled** (R229): `""` is a *determinate* needle for single-match
+operations and a *banned* one for every-match operations. The empty string occurs at
+every position, so an operation that must enumerate **all** matches — `split` (§8),
+`count` (above), `replace` (§7) — would have to advance past each zero-width match by
+some silently chosen unit (JS's code-unit choice severs surrogate pairs), the exact
+silent pick string §2 refuses; these **panic** (`emptyNeedle`, errors §2), the
+diagnostic naming the three explicit spellings of "every position": `graphemes()`,
+`codepoints()`, `bytes()` (§9). Single-match operations need no unit and are
+**defined**: `indexOf(s, "")` is `0` and `lastIndexOf(s, "")` is `byteLength(s)` (both
+ends are boundaries), `contains` / `startsWith` / `endsWith` with `""` are `true`,
+`replaceFirst(s, "", x)` inserts `x` at offset 0 (§7), and `before` / `after` follow
+`indexOf` (§6). `split`'s **int arm joins the ban**: a chunk width `<= 0` is a
+zero-byte step — the same emptiness — and panics `emptyNeedle` (§8).
 
 #### matches() · find() · findAll() (regex)
 ```
 fn matches(str: string, pattern: regex): bool
-fn find(str: string, pattern: regex): table | null
+fn find(str: string, pattern: regex): table?
 fn findAll(str: string, pattern: regex): stream
 ```
 `regex` is its own type (a compiled pattern, kept separate so a pattern is compiled
@@ -192,12 +217,26 @@ exists, and there was never anything to delegate.)
 
 #### slice()
 ```
-fn slice(str: string, offset: int, length: int = 0): string
+fn slice(str: string, offset: nat, length: nat? = null): string
 ```
-A substring beginning at byte `offset` for `length` bytes (`length <= 0` means "to the
-end"). O(1): the result borrows the parent's buffer (string-representation §7), so a
+A substring beginning at byte `offset` for `length` bytes; **`null` means "to the
+end"**, the default (the `finalGlue` pattern, §8 — absence spelled as absence; the
+former `length <= 0` sentinel is retired, R228: a negative *computed* length silently
+returned the whole tail, the silent-wrong-value shape). O(1): the result borrows the
+parent's buffer (string-representation §7), so a
 small slice pins its parent until `copy`d. Both `offset` and `offset + length` must
-land on codepoint boundaries, or it raises `stringBoundaryError` (§10).
+land on codepoint boundaries, or it panics (`stringBoundaryError`, errors §2, R228).
+
+#### isCodepointBoundary()
+```
+fn isCodepointBoundary(str: string, offset: int): bool
+```
+The **probe form** to `slice`'s assertion — the hard/soft pairing the language uses
+everywhere (`canReveal`/`reveal`, `peek`/`foreach`; R228). True iff
+`0 <= offset <= byteLength` and `offset` does not land inside a multi-byte codepoint
+(`byteLength` itself is a boundary: the end). Deliberately takes `int`, not `nat`, and
+**never panics**: a guard must be askable with exactly the arithmetic-produced offset
+it guards, a negative one answering `false`.
 
 #### before() · after() · between()
 ```
@@ -205,7 +244,10 @@ fn before(str: string, sep: string): string     // up to the first sep, or all o
 fn after(str: string, sep: string): string       // after the first sep, or ""
 fn between(str: string, open: string, close: string): string
 ```
-Convenience extractors over `indexOf` + `slice`. All borrow.
+Convenience extractors over `indexOf` + `slice`. All borrow. An empty `sep` follows
+`indexOf`'s rule (§5): found at offset 0, so `before(s, "")` is `""` and
+`after(s, "")` is `s` — determinate, not banned (only the every-match operations
+refuse `""`, §5).
 
 #### trim() · trimStart() · trimEnd()
 ```
@@ -218,8 +260,8 @@ result borrows.
 
 #### padStart() · padEnd()
 ```
-fn padStart(str: string, width: int, fill: string = " "): string
-fn padEnd(str: string, width: int, fill: string = " "): string
+fn padStart(str: string, width: nat, fill: string = " "): string
+fn padEnd(str: string, width: nat, fill: string = " "): string
 ```
 Pad to `width` **grapheme** clusters (the visually meaningful unit for alignment) with
 `fill`. No-op if already at least `width` wide.
@@ -244,7 +286,9 @@ key.
 fn replace(str: string, target: string, with: string, caseInsensitive: bool = false): string
 fn replaceFirst(str: string, target: string, with: string, caseInsensitive: bool = false): string
 ```
-Replace all / the first occurrence. Returns a new string (immutability).
+Replace all / the first occurrence. Returns a new string (immutability). An empty
+`target` in `replace` panics (`emptyNeedle`, §5 — every-match); `replaceFirst` is
+determinate on `""` and inserts `with` at offset 0 (§5).
 
 #### reverse()
 ```
@@ -266,11 +310,13 @@ Unicode normalization. Needed so that visually identical strings built different
 
 #### split()
 ```
-fn split(str: string, sep: string | int, limit: int = 0): stream
+fn split(str: string, sep: string | int, limit: nat = 0): stream
 ```
 Split on a `string` separator, or into fixed-width chunks of `int` bytes (the union
 replaces an overload). `limit > 0` caps the number of pieces, the last holding the
-remainder. `""` separator is an error; use `graphemes()` for per-character. Pieces
+remainder. An empty `sep`, or an `int` chunk width `<= 0` (a zero-byte step), panics
+(`emptyNeedle`, §5 — the every-match ban; the diagnostic points at `graphemes()` /
+`codepoints()` / `bytes()` for per-unit splitting). Pieces
 borrow.
 
 #### lines()
@@ -355,14 +401,15 @@ the two functions below exist precisely because Luna does not do what C assumes.
 fn cString(str: string): string
 ```
 Returns a string with a single NUL byte appended. It is defined to be exactly
-`"$str\0"` (one interpolation, string §5), nothing more: no scanning,
+`"$str\u{0}"` (one interpolation, string §5; the `\0` spelling this entry once used is
+an R150 lex error — the sweep miss fixed by R228), nothing more: no scanning,
 no de-duplication of existing NULs, just an appended terminator so the result is safe
 to hand to C. Because the terminator is a real, counted byte, the result's
 `byteLength` is `str.byteLength + 1`.
 
 #### cStringLength()
 ```
-fn cStringLength(str: string): int
+fn cStringLength(str: string): nat
 ```
 The number of bytes up to and including the **first** NUL, which is the length C will
 actually see. This is an O(n) scan, not a field read, because a Luna string's
@@ -371,7 +418,7 @@ whereas C stops at the first NUL. The two disagree whenever the string has an in
 NUL:
 
 ```
-let s = "ab\0cd";
+let s = "ab\u{0}cd";
 s.byteLength;              // 5, Luna counts every byte
 s.cStringLength();         // 3, C stops at the first NUL ("ab" + terminator)
 "hi".cString().byteLength; // 3, the appended NUL is counted
@@ -384,19 +431,34 @@ in the presence of interior NULs, which is the whole reason `cStringLength` exis
 
 ---
 
-## 11. Open questions
+## 11. Resolved (R228, R229)
 
-- **Builder capacity semantics:** whether `capacityHint` is bytes or something coarser.
-  (The other half of this question — whether `build()` transfers or copies — is resolved,
+- **Builder capacity: bytes.** `capacityHint` pre-sizes in bytes — the unit `reserve`
+  already speaks (string-builder §2); both are `nat` now, and `reserve`'s parameter,
+  formerly named `bytes`, is **`numBytes`** (shadowing a predeclared type name in a std
+  signature is legal, keywords §5, and terrible; the surface will not model it). (The
+  other half of this question — whether `build()` transfers or copies — was resolved by
   R99: under COW, `build()` shares the buffer and the copy is deferred to the next
   append; string-builder §5.)
-- **`slice` unit:** confirm `slice` is byte-offset (fast, boundary-checked) and that a
-  separate `graphemeSlice` is not needed, versus offering both.
-- **Error vs. sentinel:** `indexOf` returns `-1`, `parseInt` returns `int!`. Confirm
-  this split (position-absent is ordinary and uses a sentinel; parse-failure is
-  exceptional and uses the error channel) rather than unifying on one.
-- **`cString()` return type:** it returns a `string` (bytes plus an appended NUL);
-  confirm the FFI actually consumes a `string` here rather than a distinct pointer or
-  `bytes` handle once the FFI is designed.
-- **Interpolation and `regex`:** whether regex literals interpolate is tracked in the
-  **regex** spec (its open questions), now that `regex` is specified there.
+- **`slice` unit: confirmed** — byte-offset, boundary-validated (`stringBoundaryError`,
+  a leaf in errors §2's panic tree since R228; the §6 cite previously pointed at §10,
+  C-string interop, and the type was defined nowhere), no `graphemeSlice`; the probe
+  form `isCodepointBoundary` completes the hard/soft pair (§6).
+- **Error vs. sentinel: resolved — the three channels** (§1). A miss is an answer:
+  `null`, typed `T?` (`indexOf: nat?`; the type-system ground: `undefined` is
+  unspellable in a return type, so undefined-returners degrade to `any` — `keyOf`,
+  `peek` — while null keeps the signature precise). A failure is the error channel
+  (`parseInt: int!`). A misuse panics. (`keyOf` and iterable `find` under the same
+  convention: a recorded follow-up for iterable-functions.)
+- **`cString()` returns a `string`, and no distinct C-string type exists** —
+  unnecessary: NUL is one valid codepoint, so UTF-8 validity holds; the interior-NUL
+  honesty lives in `cStringLength` (§10); the deferred FFI consumes a `string`.
+- **Interpolation and `regex`: resolved** in the regex spec (§7): literals interpolate
+  `${expr}` under the comptime-only condition; compilation stays compile-time.
+- **The `""` separator: ban kept, named, and principled** (R229). The challenge ran
+  and sharpened the ground: the disease is every-match *enumeration*, so the ban is
+  the trio — `split` (both arms: `""`, and chunk width `<= 0`), `count`, `replace` —
+  panicking `emptyNeedle` (§5, errors §2), because enumerating zero-width matches
+  forces a silently chosen unit, string §2's refused move. Single-match operations
+  are determinate on `""` and **defined** instead (§5): a boundary answer needs no
+  unit. The diagnostic names `graphemes()` / `codepoints()` / `bytes()`.

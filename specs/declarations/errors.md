@@ -50,6 +50,8 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   ├── closedChannelError (send after finish, or to a departed receiver; channels §4)
 │   ├── overflowError     (int arithmetic overflow, incl. INT_MIN / -1; int spec)
 │   ├── divisionByZero    (division/remainder by zero, tower-wide: int `/` `%`, rational `/`, decimal `div`; int spec §5)
+│   ├── stringBoundaryError (a byte offset inside a multi-byte codepoint — `slice`'s boundary check; string-api §6, R228)
+│   ├── emptyNeedle       (an empty needle where every match must be enumerated: `split` — both arms — `count`, `replace`; string-api §5, R229)
 │   ├── useAfter          (use of a spent handle, ended or moved — the family root; R222)
 │   │   ├── useAfterTaken     (access to a moved value through any stale alias; concurrency §2.3, stream §7.3)
 │   │   │   └── doubleAwait   (second await of a consumed promise — the named await instance; concurrency §3.1, R142; reparented R222)

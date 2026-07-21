@@ -43,12 +43,13 @@ A builder is a value of type `@stringBuilder` (protocols §6): a table with the
 ## 2. Construction
 
 ```
-fn builder(seed: string = "", capacityHint: int = 0): @stringBuilder
+fn builder(seed: string = "", capacityHint: nat = 0): @stringBuilder
 ```
 
 `builder()` returns a fresh empty builder. `seed` optionally starts the builder with an
 initial string (equivalent to constructing empty and appending `seed` once, but done in
-one step). `capacityHint` optionally pre-sizes the buffer to avoid early reallocations.
+one step). `capacityHint` optionally pre-sizes the buffer, in **bytes** (R228 — the
+unit `reserve` already speaks), to avoid early reallocations.
 Construction is **non-errorable**: application is pure machinery and the operator form
 never fails (protocols §4.1), so no `try` is needed.
 
@@ -79,7 +80,7 @@ const stringBuilder = proto {
   const get appendAll       = fn (b: @stringBuilder, items: iterable): self => { ... };
   const get appendCodepoint = fn (b: @stringBuilder, cp: int): self => { ... };
   const get appendUtf8Bytes = fn (b: @stringBuilder, raw: bytes): self! => { ... };
-  const get reserve         = fn (b: @stringBuilder, bytes: int): self => { ... };
+  const get reserve         = fn (b: @stringBuilder, numBytes: nat): self => { ... };
   const get byteLength      = fn (b: @stringBuilder): int => { ... };
   const get isEmpty         = fn (b: @stringBuilder): bool => { ... };
   const get clear           = fn (b: @stringBuilder): self => { ... };
@@ -93,7 +94,7 @@ const stringBuilder = proto {
 | `appendAll(items)` | Append each element of an iterable, stringified via `toString`, in order (§3.2). Returns `self`. |
 | `appendCodepoint(cp)` | Append one Unicode scalar value as UTF-8. Returns `self`. |
 | `appendUtf8Bytes(raw)` | Validate `raw` is self-contained UTF-8 and append it; **throws** otherwise (§3.3). The one errorable builder operation. |
-| `reserve(bytes)` | Ensure capacity for at least `bytes` total without reallocating. Returns `self`. |
+| `reserve(numBytes)` | Ensure capacity for at least `numBytes` total, in bytes, without reallocating (the parameter's former name `bytes` shadowed the predeclared type, R228). Returns `self`. |
 | `byteLength()` | Bytes buffered so far. O(1). |
 | `isEmpty()` | Whether nothing has been appended. O(1). |
 | `clear()` | Reset to empty, keeping the allocated capacity. Returns `self`. |

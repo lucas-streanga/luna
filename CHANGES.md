@@ -5787,6 +5787,91 @@ fixes): `associativity.md` (×3 → string §3), `operators.md` (×2),
 `internal-representation-of-strings.md` (×3), `one-billion-rows.md`,
 `overview/types.md` (string row), `index.md` (one row → two).
 
+**R228 — string-api closed out: `nat` adopted across the surface, both
+sentinels retired, the three failure channels recorded; `stringBoundaryError`
+defined and homed; two R150-stale `\0` fixed; the builder's `bytes` parameter
+renamed.** The half R226 deferred by instruction, landed. **The convention,
+recorded at §1**: a **miss** is an answer — `null`, typed `T?` — a **failure**
+is the error channel (`parseInt: int!`), a **misuse** panics. The miss half's
+type-system ground: `undefined` is unspellable in a return type, so
+undefined-returners degrade to `any` (`keyOf`, `peek`), while null keeps
+`indexOf: nat?` precise; regex `find` was already `table | null`, now spelled
+`table?`, the house sugar. (`keyOf` and iterable `find` under the same
+convention: a recorded follow-up for iterable-functions' own ruling.) **The
+adoption**: `indexOf`/`lastIndexOf` return `nat?` and take `from: nat` — the
+`-1` sentinel dies structurally; the counts (`byteLength`, `codepointCount`,
+`graphemeCount`, `count`, `cStringLength`) return `nat`;
+`repeat(times: nat)` (a negative count was a silent `""`), pad widths,
+`chr(codepoint: nat)`, `split`'s `limit: nat` (its documented `0` = uncapped
+stands; a negative computed limit, formerly silently uncapped, now panics at
+entry). **`slice`**: `offset: nat`, and `length: nat? = null` — null is "to
+the end" (the `finalGlue` pattern: absence spelled as absence), retiring the
+`length <= 0` sentinel, under which a negative *computed* length silently
+returned the whole tail. **`stringBoundaryError`** — name kept — gains a real
+definition: a leaf in errors §2's panic tree (the §6 cite previously pointed
+at §10, C-string interop, and the type existed nowhere); and the hard/soft
+pair completes with the probe **`isCodepointBoundary(str, offset: int):
+bool`** — deliberately `int`, never panicking: a guard must be askable with
+exactly the arithmetic-produced offset it guards, a negative one answering
+`false` (`byteLength` itself is a boundary, the end). **`chr`** panics
+(`typeError`) on a non-scalar (surrogates, above `0x10FFFF`), compile error
+where statically evident — the runtime mirror of `\u{…}`'s lex-time rejection.
+**Two R150 sweep misses fixed**: §10 defined `cString` as exactly `"$str\0"`
+and exampled `"ab\0cd"` — `\0` is an R150 lex error whose tombstone sits in
+string §5.1; both now `\u{0}`. **The `sliceBytes` ghost deleted**: §2 named
+it beside `slice`, no catalogue entry ever existed — a fossil of the
+pre-byte-slice draft. **The builder**: `capacityHint` is **bytes** (the unit
+`reserve` already speaks) and `nat`; `reserve`'s parameter, literally named
+`bytes`, renamed **`numBytes`** — shadowing a predeclared type name in a std
+signature is legal (keywords §5, shadowability itself a standing flag) and
+terrible, so the surface will not model it. **Opens** (§11 → Resolved): the
+slice unit confirmed (byte-offset, boundary-checked, no `graphemeSlice`);
+`cString()` returns a `string` and no distinct C-string type exists
+(unnecessary — NUL is one valid codepoint, validity holds, interior-NUL
+honesty lives in `cStringLength`, the deferred FFI consumes a `string`);
+error-vs-sentinel resolved by the convention; regex interpolation resolved at
+regex §7 (comptime-only). **One newly open, held from this ruling**: the `""`
+separator — currently an error pointing at `graphemes()`; challenged in
+review: an empty separator matches at every position, so "split on `""`" *is*
+"split everywhere," and any non-error meaning must silently pick the unit
+(JS's code-unit answer severs surrogate pairs) — the silent choice string §2
+exists to refuse — against the convenience of a runtime-computed separator
+that happens to be empty; recorded at §11, pending decision. Swept:
+`string-api.md` (§1 return shapes, §2 counts + conventions ×2, §4 `repeat` +
+`chr`, §5 `indexOf`/`lastIndexOf`/`count`/`find`, §6 `slice` + the new probe,
+§8 `split` limit + pad widths, §10 ×3, §11 rewritten), `stringBuilder.md`
+(§2 signature + unit sentence, protocol sketch, member table),
+`errors.md` (§2 tree).
+
+**R229 — the `""` separator: ban kept, widened to the every-match class, and
+named `emptyNeedle`.** R228's held-open item, closed on the ground the
+challenge itself sharpened. The empty string occurs at every position, so
+"split on `""`" *is* "split everywhere," and advancing past a zero-width
+match forces a silently chosen unit — JS's code-unit answer severs surrogate
+pairs, PHP's `str_replace` answers "matches nowhere"; the cross-language
+chaos is the ambiguity's signature — exactly the silent pick string §2 exists
+to refuse. **The principled boundary is not `split`**: the disease is
+every-match *enumeration*, so the ban covers the trio — `split`, `count`,
+`replace` — and `split`'s **int arm joins** (previously unspecified): a chunk
+width `<= 0` is a zero-byte step, the same emptiness. **Single-match
+operations are defined, not banned** — a single answer needs no unit, and the
+definitions are the universal ones: `indexOf(s, "") = 0`,
+`lastIndexOf(s, "") = byteLength(s)` (both ends are boundaries),
+`contains`/`startsWith`/`endsWith` trivially `true`, `replaceFirst` inserts
+at offset 0, `before`/`after` follow `indexOf`. **The name: `emptyNeedle`** —
+a leaf beside `divisionByZero` in errors §2, the same shape: a bare
+condition-name for one argument-degeneracy, spelled in the catalogue's own
+parameter vocabulary (§5's `needle`); no family to join or found (R222's
+convention consulted). Rejected spellings: `emptySeparator` /
+`invalidSeparator` (split-only framing, and "invalid" says nothing the tree's
+names don't say better), `zeroWidthMatch` (mechanism-named, and the panic
+fires before any match exists), the `*Error` suffixes (the condition-name kin
+go bare). The diagnostic names the three explicit spellings of "every
+position" — `graphemes()`, `codepoints()`, `bytes()`. Swept: `string-api.md`
+(§5 the empty-needle rule + `count` note, §6 `before`/`after` note, §7
+`replace`/`replaceFirst`, §8 `split`, §11 open → resolved), `errors.md`
+(§2 tree).
+
 ---
 
 ## Still open (out of scope of these rulings)
