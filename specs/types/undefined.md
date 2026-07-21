@@ -14,12 +14,17 @@ collapse into each other. The defining rule, from which everything else follows:
 
 `undefined` marks a **structural absence**, a place where the language has no value to give:
 
-- **A missing table key.** Reading a key that is not present yields `undefined` (coalescing spec):
+- **An absent read.** Reading a key that is not present yields `undefined` (coalescing spec):
   `tab['missing']` is `undefined`. Absence is a routine question for a table-as-hashmap, so it does
-  not throw; it reports `undefined`.
+  not throw; it reports `undefined`. The catalogue's miss and empty answers are the **same
+  production** (R231): `keyOf` / `find` with no match, `first` / `last` / `keyFirst` /
+  `keyLast` / `peek` on an empty source (iterable-functions §2, stream-api §2), and a
+  destructuring shortfall (stream §2.1) all report the identical "nothing is here."
 - **A void return.** A function that returns no meaningful value returns `undefined` (§4).
 
-These are the two productions, and they share one meaning: "nothing is here." `undefined` is
+These are the two production **classes**, and they share one meaning: "nothing is here." (An
+earlier count said "two productions" while the catalogue already answered misses with
+`undefined`; the class framing makes the count honest, R231.) `undefined` is
 therefore the single, unambiguous answer to "was there anything?", which is what lets the coalescing
 operators (`??`, `?.`, `???`) navigate absence unambiguously (coalescing spec).
 
@@ -239,17 +244,24 @@ storing, and checking `undefined` are all cheap.
 
 ---
 
-## 7. Open questions
+## 7. Resolved (R231)
 
-- **`undefined` in `any` and generic positions.** Whether a binding typed `any` that holds
-  `undefined` behaves uniformly with a concretely-typed one (holding is fine, using panics), and how
-  reflection reports the type of an `undefined` binding, pending use.
-- **Undefined from a partial or interrupted computation.** The productions remain **missing-key and
-  void-return only**. A *taken* stream or builder, one transferred across a spawn boundary
-  (concurrency §2.3), is deliberately **not** `undefined` but a **separate taken state on the
-  referent** (value-representation §2.1). The two are kept distinct on purpose: `undefined` is a
-  per-*binding* `lval` flag that can never live in a table (§3), whereas taken must be shared
-  across every alias of one stream, **including a table element**, so it lives on the value, not the
-  slot, and using it **panics** rather than coalescing. Whether any *further* operation produces
-  `undefined` (a reserved-but-unset slot in a future builder API) remains pending, but ownership
-  transfer does not extend `undefined`'s productions, it has its own state.
+- **`undefined` in `any`: uniform.** `any` binds anything by definition, so an `any`-typed
+  binding may hold `undefined`, and the general rule applies unchanged: holding is never the
+  error, and **no operations are defined on an undefined value**. The sanctioned surface is
+  exactly: hold it, test it (`== undefined`, §2.1), coalesce it (`??` / `?.` / `???`), and
+  read its *binding's* declared type (`declared` — a compile-time binding fact, not a value
+  use; type §4). Everything else — **including `@`**, which asks the type of a value that is
+  not there — is a use: a panic, a compile error where statically evident (§2). That settles
+  the reflection half: `@` on an undefined value panics; `declared` still answers. (The
+  open's former "generic positions" phrase is dropped — Luna has no generics.)
+- **Taken is not `undefined`, and not a type change either.** A taken stream is **still a
+  `stream`**: takenness is referent *state* (value-representation §2.1), deliberately not
+  type-determining, read by the total queries (`taken`, `isConsumed` — concurrency §2.3,
+  R222) and enforced by `useAfterTaken` (errors §2). The behavioral split is the point:
+  `undefined` **coalesces away** (`??`) because absence is a routine question; taken
+  **panics through** because a moved value is a bug. `undefined` is a per-*binding* `lval`
+  flag that can never live in a table (§3); taken must be shared across every alias of one
+  stream, including a table element, so it lives on the value, not the slot. The productions
+  stay closed at §1's two classes; a future producer (a reserved-but-unset slot in some
+  future API) would need its own ruling, never a quiet extension.

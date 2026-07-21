@@ -5872,6 +5872,65 @@ position" — `graphemes()`, `codepoints()`, `bytes()`. Swept: `string-api.md`
 `replace`/`replaceFirst`, §8 `split`, §11 open → resolved), `errors.md`
 (§2 tree).
 
+**R230 — type.md tidied: the `is` position restored, the binding ladder
+stated, §5's enumeration completed, `baseOf` reconciled, the `declared` open
+closed.** Five smalls from a review pass. **(1)** §1.1's type-position list
+omitted `is` — `x is @P` is a type position, as overview/types.md already
+states; one word restored. **(2)** §2 read "a `type` binding is `const`"
+while §1.1's own examples bind with `let` — resolved by the strings ladder
+(string §1): an inline immutable primitive has no interior for `const` to
+additionally freeze, so **`let` and `const` are equivalent and both legal**;
+`var` stays disallowed. **(3)** §5's enumeration of type-position forms
+omitted **error and capability types** — the two interval-heavy tree families
+(typed `catch` binders name one; `use` clauses and gate-set typeids name the
+other) — completed, with `nat` joining the constraint examples (R226).
+**(4)** The `baseOf` three-way wobble resolved in favor of the facts:
+introspection §4.1 **defines** `baseOf` (R131 — exported signature and full
+entry), and constraints already cites it as in place; the one stale site was
+introspection's own `kindOf` note still reading "`baseOf` pending, §7" —
+written before R131 landed in the same section and never updated; type.md
+§6's constraint-base bullet now cites `baseOf` directly. **(5)** §9's open —
+`declared` on nested and destructured bindings — closes with **zero new
+machinery**: a destructured binder is an ordinary binding with an inferred
+type, and §4 already makes written and inferred indistinguishable, so the
+answer is uniform; a table **field is not a binding**, and §4 already defines
+`declared` on bindings only, so a field is a compile error by the
+definition's own consequence, not by new rule. Swept: `type.md` (§1.1, §2,
+§5, §6, §9 → Resolved), `introspection.md` (§4.1 note).
+
+**R231 — undefined.md closed out: `any`-held undefined is uniform, `@` on
+undefined is a use, taken is neither undefined nor a type change; the
+production count made honest.** Both opens, ruled. **`undefined` in `any`**:
+`any` binds anything by definition, so an `any`-typed binding may hold
+`undefined` — and nothing changes, because the rule was never about the
+binding's type: holding is never the error, and **no operations are defined
+on an undefined value**. The sanctioned surface is exhaustive and short —
+hold, `== undefined` (equality), coalesce (`??`/`?.`/`???`), and `declared`
+on the *binding* (a compile-time binding fact, not a value use; type §4).
+Everything else is a use, panicking at runtime and rejected at compile time
+where statically evident — **including `@`**: asking the type of a value
+that is not there is a use, which settles the open's reflection half (`@u`
+panics; `declared u` answers — the binding/value split of type §4 doing the
+work). The open's "generic positions" phrase is dropped: Luna has no
+generics. **Taken vs undefined**: confirmed distinct, and sharpened with the
+type angle — a taken stream is **still a `stream`**; takenness is referent
+*state*, deliberately not type-determining (value-representation §2.1's
+discipline), read by the total queries (`taken`, `isConsumed`, R222) and
+enforced by `useAfterTaken` (errors §2). The behavioral split is the design:
+absence **coalesces away** (a routine question), taken **panics through** (a
+moved value is a bug). Productions stay closed at the two classes; a future
+producer needs its own ruling, never a quiet extension. **Fixed in passing**:
+§1 claimed exactly *two productions* (missing key, void return) while the
+corpus already produced `undefined` from the catalogue's miss and empty
+answers (`keyOf`/`find` misses, `first`/`last`/`peek` on empty,
+iterable-functions §2; a destructuring shortfall, stream §2.1) — an
+undercount, not a contradiction in meaning; reframed as two production
+**classes** (the absent read, the void return) with the catalogue family
+enumerated under the first. Also verified, no change needed: §3.2's
+`remove`/`unset` matches tables §4.1 (the static `delete` form is §4.1.1's
+recorded rejection), and §5's `var x?: T = null` is the ruled optional
+spelling (variables §1.2). Swept: `undefined.md` (§1, §7 → Resolved).
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -159,7 +159,8 @@ export const baseOf = fn (t: type): type?;
   branches on the type's category, and it is what guards the comptime-tier structural
   queries. The function is `kindOf` and the enum is `kind` — one name each (a module
   exports one binding per name), with `kindOf` joining the `*Of` query family
-  (`gatesOf`; `baseOf` pending, §7) and lowercase `kind` matching the builtin
+  (`gatesOf`, `baseOf` — below, R131; this note's former "pending" predated R131
+  landing in this very section, fixed R230) and lowercase `kind` matching the builtin
   convention (`TypeKind` was a PascalCase island — the R122 argument; R128).
 - **`isNullable(t)`**, whether the type admits null (`T?` vs `T`), a flag read
   (value-representation §2).

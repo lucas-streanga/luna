@@ -60,7 +60,7 @@ any runtime ambiguity about what `@` means.
   being value position, §5) and **compared** (`@P == @P`, one `typeid`, §5). The question this
   forecloses — "the type the proto value itself has" — has almost no use: its real content is
   proto-membership, already spelled `x is proto`.
-- **In type position** (after `:`, after `as`, in a match pattern head), `@P` is a **type
+- **In type position** (after `:`, after `is` / `as`, in a match pattern head), `@P` is a **type
   expression**: a protocol-application refinement (§6), "a table guaranteed to have `P` applied." It does not
   reflect a value (§6, §5).
 
@@ -106,8 +106,10 @@ type = string | int` names a type. This is the same act the declaration forms al
 `const name: type = <type expression>` generalizes it to any type expression, including unions and
 the primitive types themselves.
 
-A `type` binding is `const` (a type is immutable); binding a type to `var` is not meaningful and is
-not allowed.
+A `type` binding is `let` or `const` — **equivalent here**, as for any interior-free immutable
+(the strings ladder, string §1): an inline primitive has nothing for `const` to additionally
+freeze, and §1.1's `let t = @x` is ordinary (R230). Binding a type to `var` is not meaningful
+and is not allowed.
 
 ---
 
@@ -222,7 +224,10 @@ operator, written prefix on a binding.
 ## 5. Every type-position form is a `type` value, including `@P`
 
 Everything that can appear in **type position** is a `type` value with an interned `typeid`
-(§3): scalars, `table`, `fn`, `stream`, `promise`, enums, constraints (`byte`, `list`),
+(§3): scalars, `table`, `fn`, `stream`, `promise`, enums, constraints (`byte`, `list`,
+`nat`), **error and capability types** (the interval-heavy tree families — a typed `catch`
+binder names one, a `use` clause and a gate set's typeids name the other; errors §2,
+capabilities §1; completed R230),
 unions (`int | double`), intersections (§3.1), and **protocol-application refinements** (`@P`,
 `@P & @Q`). The last of these follows the pattern unions established (value-representation
 §4.2): **identity from interning, membership from a test that is not the interval check.** A
@@ -273,7 +278,8 @@ per-value introspection cost.
 - **Union members**, for a union type, the set of member types (`(int | double)` yields `int` and
   `double`), which is what makes `declared n` returning a union useful: you can enumerate what it
   admits.
-- **Constraint base**, for a constrained type (`byte`), its base type (`int`); the predicate itself
+- **Constraint base**, for a constrained type (`byte`), its base type (`int`) — `baseOf`
+  (introspection §4.1, R131); the predicate itself
   is comptime-only.
 
 **Comptime-only (the deeper introspection surface, the `comptime fn` tier of the introspection spec):**
@@ -386,11 +392,14 @@ compiler's `typeinfo`/IR, not by any runtime structure.
 
 ---
 
-## 9. Open questions
+## 9. Resolved (R230)
 
-- **`declared` on nested and destructured bindings.** How `declared` behaves for a binding reached
-  through destructuring or for a field of a declared table (whether it reports the enclosing
-  declaration's element type or something finer), pending use. The written-vs-inferred case is
-  resolved (§4: `declared` reports the binding's type either way); only nested and destructured
-  forms remain open. (The comptime introspection surface itself, `fields`, `variants`, `attributes`,
+- **`declared` on nested and destructured bindings: no special case exists.** A destructured
+  binder (`let [a, b] = pair`) **is an ordinary binding** with an inferred type, and §4
+  already rules that written and inferred declared types are indistinguishable — so
+  `declared a` answers uniformly, the binding's type. A table **field is not a binding**
+  (`t['k']` is an element, not a slot with a declared type), and §4 already defines
+  `declared` on bindings only — so `declared` on a field is a **compile error**, the
+  definition's own consequence, not a new rule. Both halves fall out of §4 as written.
+  (The comptime introspection surface itself, `fields`, `variants`, `attributes`,
   `constraintPredicate`, is specified in the introspection spec.)
