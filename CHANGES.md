@@ -5931,6 +5931,51 @@ enumerated under the first. Also verified, no change needed: §3.2's
 recorded rejection), and §5's `var x?: T = null` is the ruled optional
 spelling (variables §1.2). Swept: `undefined.md` (§1, §7 → Resolved).
 
+**R232 — lexer.md brought current: `gen` and `yield from` land, `meta` and
+`from` leave, `get`/`set` ruled identifiers; the keyword count made honest.**
+The pre-implementation audit of lexer.md against its authorities found four
+rulings that never reached it — the token inventory is the first thing an
+implementation consumes, so the sweep debt came due. **In**: `KW_GEN`
+(`\bgen\b`, R221 — keywords.md §1 had the row, the lexer did not) and
+`KW_YIELD_FROM` (R223's compound token), pattern `\byield[ \t\r\n]+from\b`,
+attempted before `KW_YIELD` exactly as `KW_MATCH_BANG` precedes `KW_MATCH`;
+the two words separate by whitespace only, the regex normative — a comment
+between them defeats the fold — which is the lexical fact behind stream
+§1.5's parenthesize-to-bare-yield-`from` casualty. **Out**: `KW_META`
+(retired R96, its keywords.md row deleted in R99 — but R101's lexer sweep
+landed `?->` without removing the row, a missed site standing since) and
+`KW_FROM` with its "reserved everywhere" note (G1's first resolution,
+superseded by R223: `from` is unreserved, `IDENT` to the lexer, contextual
+to the import grammar; the lexer's G1 bullet now records both halves of the
+history). **Ruled here**: `get` / `set` — R99 added them to keywords §4 as
+contextual modifiers without fixing their lexing, and the lexer was silent;
+they follow the `panic` pattern, **identifiers, never reserved**, recognized
+positionally by the parser in proto member heads
+(`<const|let|var> [get] [set] name`), which keeps `get` and `set` usable as
+ordinary member and binding names. The alternative — reserving them like
+`in`/`by`/`self` — was rejected: those three sit where expressions do and
+must stay unbindable, while `get`/`set` occupy one closed declaration head
+where position already disambiguates, and reserving two catalogue-plausible
+names buys nothing. **The count**: §3 claimed "47 patterns" over a 49-row
+table; the inventory is now stated as 47 word-shaped keywords plus the two
+compound tokens, 49 in all, matching keywords.md §1–§4 exactly. Discovered
+in the same pass and fixed: operators.md's `yield` row predated R223 and
+showed only suspension — delegation added, with the §1.5 cite. Import,
+deliberately, gets **no** compound-token analogue: after a braced import
+list the from-clause is the only legal continuation, so the parser matches
+the identifier by spelling (the ECMAScript mechanism — `from` is unreserved
+there too), whereas `yield` is followed by an arbitrary expression, which is
+exactly why delegation alone needed the fold and carries the parenthesize
+casualty; the mechanism is now stated at the syntax it governs (modules §5).
+Not swept:
+the tooling grammars (shiki-luna.ts, the vscode tmLanguage, tree-sitter) —
+their keyword alternation is R85-era (`meta`, `from`, `view`; no `gen`) and
+stale across many rulings, not just these; derived artifacts, regenerated as
+a batch when the grammar is next published, not per-ruling. Swept:
+`lexer.md` (§3 intro, table, notes, §8 ordering, G1 bullet), `keywords.md`
+(§4 `get`/`set` row), `operators.md` (§0 yield row), `modules.md` (§5
+selective bullet).
+
 ---
 
 ## Still open (out of scope of these rulings)

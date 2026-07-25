@@ -155,6 +155,10 @@ import { parse as strParse } from text.strings      // with a rename (collisions
   nothing called `filesystem` — this is not Python's `import os`; namespacing is exclusively
   the assignment form's job (§6).
 - **Selective** (`{ names } from`): brings exactly the named exports. The precise form.
+  `from` is **not reserved** (R223, lexer §3): it lexes as an ordinary identifier and the
+  parser matches its spelling here, unambiguous because after a braced import list the
+  from-clause is the only legal continuation — so `from` stays usable as a binding or
+  module name (`import { parse as from } from m;` parses).
 - **Aliased** (`{ name as newName }`): renames on import, the collision tool (§8).
 
 There is deliberately **no `*`**: bare-path already means "everything," so a glob sigil would

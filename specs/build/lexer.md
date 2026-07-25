@@ -59,9 +59,11 @@ appears solely in `#[` (attributes §3, §5).
 
 ## 3. Keywords
 
-Reserved words per keywords.md §1–§4. Recommended implementation: lex an `IDENT`
-(§7) and promote via a lookup table, rather than running 47 patterns; the per-word regex
-is given for completeness. All follow the shape `\bword\b`.
+Reserved words per keywords.md §1–§4: 47 word-shaped keywords plus two compound tokens,
+`match!` and `yield from` (R223). Recommended implementation: lex an `IDENT` (§7) and
+promote via a lookup table, with the one-token peeks of §8 for the compounds, rather
+than running 49 patterns; the per-word regex is given for completeness. The word-shaped
+keywords all follow `\bword\b`; the two compounds carry their own patterns below.
 
 | Token | Name | Go regex (RE2) |
 |-|-|-|
@@ -69,6 +71,7 @@ is given for completeness. All follow the shape `\bword\b`.
 | `let` | `KW_LET` | `\blet\b` |
 | `const` | `KW_CONST` | `\bconst\b` |
 | `fn` | `KW_FN` | `\bfn\b` |
+| `gen` | `KW_GEN` | `\bgen\b` |
 | `constraint` | `KW_CONSTRAINT` | `\bconstraint\b` |
 | `proto` | `KW_PROTO` | `\bproto\b` |
 | `enum` | `KW_ENUM` | `\benum\b` |
@@ -76,10 +79,8 @@ is given for completeness. All follow the shape `\bword\b`.
 | `capability` | `KW_CAPABILITY` | `\bcapability\b` |
 | `attribute` | `KW_ATTRIBUTE` | `\battribute\b` |
 | `test` | `KW_TEST` | `\btest\b` |
-| `meta` | `KW_META` | `\bmeta\b` |
 | `export` | `KW_EXPORT` | `\bexport\b` |
 | `import` | `KW_IMPORT` | `\bimport\b` |
-| `from` | `KW_FROM` | `\bfrom\b` |
 | `if` | `KW_IF` | `\bif\b` |
 | `else` | `KW_ELSE` | `\belse\b` |
 | `foreach` | `KW_FOREACH` | `\bforeach\b` |
@@ -88,6 +89,7 @@ is given for completeness. All follow the shape `\bword\b`.
 | `break` | `KW_BREAK` | `\bbreak\b` |
 | `continue` | `KW_CONTINUE` | `\bcontinue\b` |
 | `return` | `KW_RETURN` | `\breturn\b` |
+| `yield from` | `KW_YIELD_FROM` | `\byield[ \t\r\n]+from\b` |
 | `yield` | `KW_YIELD` | `\byield\b` |
 | `match!` | `KW_MATCH_BANG` | `\bmatch!` |
 | `match` | `KW_MATCH` | `\bmatch\b` |
@@ -116,11 +118,18 @@ is given for completeness. All follow the shape `\bword\b`.
 | `self` | `KW_SELF` | `\bself\b` |
 
 Notes. `in`, `by`, and `self` are contextual per keywords.md (foreach heads, range steps,
-protocol bodies) but reserved everywhere, so the lexer treats them uniformly. `from` is
-reserved for the import-source clause (keywords §1, modules §4) — gap G1, now resolved.
-`match!` is listed as its own form in operators §0 and is tokenized as one unit here,
-confirmed as the ruling (G7). `panic`, `_`, and every builtin type name (`int`, `string`, `table`, …) are
-**not** keywords (keywords.md §4–§5); they lex as `IDENT`.
+protocol bodies) but reserved everywhere, so the lexer treats them uniformly. `gen` is the
+inline-generator former (R221), an ordinary full keyword. `from` is **not** reserved
+(R223, superseding G1's first resolution): it lexes as `IDENT`, and its two consumers —
+the import-source clause (`import { x } from m`, modules §4) and delegation — are handled
+by the parser and by the compound token respectively. `match!` is listed as its own form
+in operators §0 and is tokenized as one unit here, confirmed as the ruling (G7).
+`yield from` is the same shape (R223): one compound token, the two words separated by
+whitespace only (the regex is normative — a comment between them defeats the fold), which
+is why bare-yielding a binding named `from` parenthesizes (`yield (from);`, stream §1.5).
+`panic`, `_`, the proto grant modifiers `get` / `set` (keywords §4 — recognized
+positionally by the parser in proto member heads, R232), and every builtin type name
+(`int`, `string`, `table`, …) are **not** keywords (keywords.md §4–§5); they lex as `IDENT`.
 
 `nan` and `inf` are **keywords, not predeclared identifiers**, and this is load-bearing rather
 than cosmetic: a bare identifier in a pattern is always a fresh binding (match §2.1), so if `nan`
@@ -273,8 +282,10 @@ Attempt order within `DEFAULT` / `INTERP_EXPR`:
 5. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?->` › `?.` › `?`; `...` ›
    `..<` › `..` › `.`; `||` › `|`; `&&` › `&`; `=>` and `==` › `=`; `->` and
    `-=` › `-`; `@@` › `@`; `!=` › `!`; `<=` › `<`; `>=` › `>`; `#[` before any bare `#`.
-6. Keywords (with `KW_MATCH_BANG` before `KW_MATCH`), then `WILDCARD`, then `IDENT` — or,
-   equivalently, `IDENT` first with a keyword lookup, plus a one-token peek for `match!`.
+6. Keywords (with `KW_MATCH_BANG` before `KW_MATCH`, and `KW_YIELD_FROM` before
+   `KW_YIELD`), then `WILDCARD`, then `IDENT` — or, equivalently, `IDENT` first with a
+   keyword lookup, plus a one-token peek for `match!` and a whitespace-only peek for
+   `yield from`.
 
 ---
 
@@ -342,9 +353,11 @@ requirements, not style: `???=`/`??`/`?.`, `...`/`..<`/`..`, `||`/`|`, `@@`/`@`,
 
 Seven gaps surfaced during cross-referencing; six are now ruled, one stays open.
 
-- **G1 — resolved.** `from` was required by the import grammar (`import { x } from m`,
-  modules §4) but missing from the keywords.md inventory. It is now listed there (§1) as
-  the import-source clause, contextual to `import` statements but reserved everywhere.
+- **G1 — resolved, then superseded (R223).** `from` was required by the import grammar
+  (`import { x } from m`, modules §4) but missing from the keywords.md inventory; the
+  first resolution reserved it everywhere. R223 re-ruled it **unreserved**: `from` lexes
+  as `IDENT`, the import grammar treats it contextually, and delegation is the compound
+  token `KW_YIELD_FROM` (§3), so the keywords.md inventory carries no `from` row.
 - **G2 — deliberately deferred.** The numeric literal grammar remains open (int §7–§8,
   double §8) by choice. This file's working assumptions stand until it is ruled: `_` only
   between digits, lowercase `0x`/`0b` only, no octal, no leading or trailing point (the

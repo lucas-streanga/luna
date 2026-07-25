@@ -67,7 +67,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `defer stmt` | control flow | defer | run `stmt` on scope exit | defer |
 | `try expr` / `try {} catch (e) {}` | control flow | try | error recovery: the error arm becomes a value (word prefix) or is handled by the `catch` block | errors §8 |
 | `throw e` | control flow | throw | raise an error (word prefix) | errors §4 |
-| `yield v` / `yield k => v` | control flow | yield | generator suspension; a literal whose own body contains `yield` is a generator (lexical, per literal) | stream §2 |
+| `yield v` / `yield k => v` | control flow | yield | generator suspension; a literal whose own body contains `yield` is a generator (lexical, per literal); delegation is `yield from src` — one compound token (R223), pure sugar over the foreach-yield loop | stream §2, §1.5 |
 | `t apply P(name: v)` | structure | apply | static protocol application: `@P`-typed result, initializers checked at compile time, never errorable; dynamic application is the free function `apply()`, removal its inverse `unapply()` (protocols §4.6) | protocols §4 |
 | `spawn f()` | concurrency | spawn | start a green thread, yielding a `promise` | concurrency |
 
