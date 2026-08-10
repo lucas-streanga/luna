@@ -369,9 +369,15 @@ lexical-structure §1 refuses to strip a BOM precisely to keep byte offset 0 mea
 
 **Line and column are computed, never stored.** Diagnostics report a **rune** column, which is
 what a person counts, but nothing on the common path pays for it: a table of line-start offsets
-is built once per file, a byte offset becomes a line by binary search, and the column is a rune
-count over that line's prefix alone — bounded by line length, never file length. A compile that
-emits no diagnostic never runs the conversion at all.
+is built **lazily, on the first diagnostic that needs one**, a byte offset becomes a line by
+binary search, and the column is a rune count over that line's prefix alone — bounded by line
+length, never file length. A compile that emits no diagnostic builds no table and runs no
+conversion; one that does emit is already about to do IO, so the scan is off the path that
+matters. Line starts are the offsets **just after each `\n`**, with `\r` left as ordinary
+content on the preceding line, so CRLF needs no special case. Newlines accordingly need no token
+of their own: folding them into a `WHITESPACE` run (§2) loses nothing, the run's bytes being
+recoverable from its span, and splitting runs at newlines would roughly double the trivia count
+for a fact no consumer reads — the parser least of all, statements being `;`-terminated.
 
 **The pure-ASCII fast path falls out of a pass that already exists.** The UTF-8 validation of
 lexical-structure §1 visits every byte before tokenizing, establishing validity "exactly once, up
@@ -381,9 +387,13 @@ and the conversion is subtraction. Even in a file that has non-ASCII, lexical-st
 confines it to string, `command`, `regex`, and comment content, so the counting path only ever
 runs for a diagnostic on a line carrying such content.
 
-**Tab handling is open.** Whether a tab advances one column or to the next tab stop is a
-rendering question for the diagnostics spec to settle, and it does not reach the lexer: byte
-spans are unaffected either way, and the renderer holds the source line.
+**Tabs need no decision.** For the reported *location* a tab is one column, already implied by
+the rune count above since a tab is one scalar (R236) — which is also what keeps diagnostic
+tests free of any tab-width setting (testing-strategy §2). For *rendering*, a caret line built
+by copying the source prefix and replacing every non-tab character with a space, tabs left as
+tabs, aligns under any tab width without one ever being chosen; only wide characters (one rune,
+two cells) need more than that, and they are a renderer refinement rather than a language
+decision.
 
 ---
 
