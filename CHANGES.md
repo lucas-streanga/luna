@@ -5976,6 +5976,65 @@ a batch when the grammar is next published, not per-ruling. Swept:
 (§4 `get`/`set` row), `operators.md` (§0 yield row), `modules.md` (§5
 selective bullet).
 
+**R233 — the Go toolchain is bundled, not required: one pin serves as both
+build toolchain and emitted-`go.mod` floor, three components are dropped
+from the shipped bundle, and Go's build cache moves under
+`$HOME/.lunalang/`.** The implementation's first decision forced a spec
+question the corpus had left unstated: "the backend is Go source handed to
+the Go toolchain" (compiler §0) never said *whose* toolchain, and the answer
+decides whether installing Luna means installing Go. **It does not** — the
+pinned toolchain ships inside the `luna` binary. That is what makes the
+single-binary claim (index, "the whole toolchain, runner, compiler,
+formatter, and language server") true rather than nearly true, and it is the
+difference between a language that emits Go and a language whose users must
+know that it does. **The pin is dual-purpose**, which is what promotes it
+from packaging to design: it is simultaneously the toolchain that builds a
+program and the language floor of the single static `go.mod` the emitter
+writes (compiler §1.8), and because the toolchain travels with it that
+floor has **no user-facing version to negotiate** — nobody downstream can be
+too old. Pinned at **Go 1.26.5**, matching the sandbox that builds the
+compiler (claude-agent-plan §A.1), bumped deliberately, never by drift.
+**Licensing, checked rather than assumed**: Go is BSD-3-Clause, which
+permits redistribution in binary form inside a closed product, with an
+attribution notice in the accompanying materials and no endorsement implied
+— but a stock distribution ships **33 license files**, not one, and three
+components carry terms the rest do not. All three are **excluded from the
+bundle**: `cmd/vendor/github.com/google/pprof` (Apache-2.0, reachable only
+through `go tool pprof`), `crypto/internal/boring` (an
+OpenSSL/SSLeay/ISC/Intel-BSD composite whose SSLeay half carries the
+advertising clause, inert unless built with `GOEXPERIMENT=boringcrypto`),
+and the race detector's `.syso` blobs (built from LLVM `compiler-rt`, dual
+NCSA/MIT, and the one component Go ships with no license file beside it).
+None is reachable when emitting machine code, so each would attach an
+obligation to every `luna` distribution in exchange for code that never
+runs. The rejected alternative was **shipping the tarball intact**, and its
+argument is real and was weighed: an unmodified tree carries its own 33
+license files and satisfies the source-redistribution clause automatically,
+where a curated bundle must curate notices to match. It loses anyway,
+because the notice artifact is required either way — intactness buys
+convenience, not compliance — and convenience is a poor reason to ship an
+advertising clause and an unlicensed-in-tree binary blob. The exclusions are
+a *distribution* boundary, not a development one: the sandbox keeps all
+three, so testing-strategy §7's `-race` gate is untouched. **The consequence
+that reaches the cache**: current Go distributions ship **no precompiled
+standard library**, so the bundle must carry Go's `src/` (which R193's
+two-environment-variable cross-compilation needs regardless) and the first
+build on a user's machine compiles the standard-library packages it touches
+before anything is warm. That cost is paid once and cached — and the cache
+is **Luna's**, rooted under `$HOME/.lunalang/` rather than the user's
+default `GOCACHE`, so the two layers compiler §1.8 already composes are
+evicted by one owner; a bundled toolchain writing to a cache Luna does not
+own would leak build state the eviction model cannot see. Root only: the
+layout beneath it, and whether Go's cache ages out on the incremental
+spec's §4.2 schedule, stay open and are recorded there. **Not ruled here**,
+deliberately: the notice artifact's contents, and the trademark question
+(the Go marks may be retained on substantially unmodified redistribution,
+but the exclusions above make this bundle modified — a `trademark@go`
+question before any binary ships, not a spec question). Swept: `compiler.md`
+(§0.1 new bundled-toolchain paragraph, §1.8 assemble-and-build), `index.md`
+(distribution paragraph, Backend, Using the compiler),
+`incremental-compilation-build-cache.md` (intro, §5 open question).
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -6037,6 +6096,13 @@ One small deferral tracked here (reclassified from "open" with the spread.md val
 R168): spread of `bytes` / `string` — whether `[...someBytes]` yields `byte` elements or
 errors waits on a use case, not a decision, and `toList(b)` (R167) already spells the
 explicit form (spread §7).
+
+Two R233 deferrals sit outside the corpus and are tracked here so they are not lost, both
+pre-ship rather than pre-freeze: the **contents of the third-party notice artifact** that
+must accompany the `luna` distribution, and **trademark clearance** — the Go marks may be
+retained on a substantially *unmodified* redistribution, and R233's three exclusions make
+this bundle modified, so it is a `trademark@go` question to settle before any binary is
+published, not one the spec can answer.
 
 *(The `@P` value-position contradiction R174's validation surfaced here is **ruled:
 R175** — the static-protohood steer extends to value position, `@P` on a proto yields the

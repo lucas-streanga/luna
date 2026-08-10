@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "WebSearch",
       "Bash(read f *)",
@@ -48,7 +49,11 @@
       "Bash(awk 'NR<1345 && /^\\\\*\\\\*R[0-9]+/ {last=NR\": \"$0} END {print last}' /luna/CHANGES.md)",
       "Bash(awk *)",
       "Bash(fail)",
-      "Bash(pub)"
+      "Bash(pub)",
+      "Bash(go version *)",
+      "Bash(podman --version)",
+      "Bash(command -v sudo dnf)",
+      "Bash(sudo -n true)"
     ]
   }
 }

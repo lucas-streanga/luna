@@ -7,6 +7,11 @@ version namespacing, and the eviction and sharing model. It is a companion to th
 (which defines the phase pipeline the cache plugs into); section references of the form "compiler
 spec §N" point there.
 
+The **bundled** Go toolchain's own build cache is rooted **under the same `$HOME/.lunalang/`
+directory** (R233, compiler spec §0.1), not the user's default `GOCACHE`: the two layers compose
+(compiler spec §1.8) and are Luna's to evict together, and a bundled toolchain writing to a cache
+Luna does not own would leak build state the eviction model below cannot see.
+
 The design turns on the cache key, which must be **correct** (never serve a stale artifact) and
 **cheap** (avoid `open()` on the hot path).
 
@@ -265,4 +270,8 @@ decision ever rests on a frail timestamp guess.
   the same extraction. What remains open is only the byte-level serialization details.
 - **Eviction tuning and cache-directory layout.** The exact default size cap, the on-disk layout
   of the version-namespaced cache directory, and whether the age threshold and size cap adapt to
-  available disk, pending implementation experience.
+  available disk, pending implementation experience. R233 fixes the *root* only — the bundled
+  toolchain's `GOCACHE` lives under `$HOME/.lunalang/` — leaving open where it sits relative to
+  the version-namespaced artifact tree and whether Go's cache is evicted on the same schedule as
+  Luna's (§4.2's age threshold was designed against artifacts this cache writes, not against a
+  second cache written by a tool it invokes).

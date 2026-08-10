@@ -50,13 +50,14 @@ section, and `_` because this match chooses to be exhaustive. First matching arm
 bottom.
 
 The intended distribution is a single `luna` binary that is the whole toolchain, runner, compiler,
-formatter, and language server, and a static library for embedding. No implementation exists yet;
-this repository is the language's design.
+formatter, and language server, and a static library for embedding. The Go toolchain that compiles
+the emitted source ships **inside** that binary (R233, compiler §0.1), so installing Luna never
+means installing Go. No implementation exists yet; this repository is the language's design.
 
 ## Backend
 
-Luna compiles to **Go source**, which the Go toolchain then compiles to a native binary. Go is the
-chosen backend because:
+Luna compiles to **Go source**, which a bundled, pinned Go toolchain then compiles to a native
+binary. Go is the chosen backend because:
 
 - Its semantics are close enough to Luna's that little is lost in translation.
 - It is a well-performing language with a high-quality garbage collector, which Luna uses directly.
@@ -74,7 +75,8 @@ $ luna myprogram.luna
 ```
 
 Runs the program. Imports are filesystem-based, so one file may pull in many Luna modules. Build
-artifacts are cached under `$HOME/.lunalang/`, and rebuilds are incremental, so after the first run
+artifacts are cached under `$HOME/.lunalang/` — the bundled Go toolchain's own build cache included,
+so one directory holds everything (R233) — and rebuilds are incremental, so after the first run
 there is no start-up cost, which is what keeps direct execution scripting-fast.
 
 ```

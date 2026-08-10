@@ -45,6 +45,24 @@ One binary, the complete suite. Known flags:
 | `-l` | `--lsp` | run the language server on stdio |
 | `-d` | `--debugger` | run the program under the debugger |
 
+**The bundled Go toolchain (R233).** The `luna` binary ships the pinned Go toolchain *inside* it,
+so a user compiling a Luna program **never installs Go**. This is what completes the one-binary
+claim: the backend emits Go source (§1.7) and the toolchain that consumes it is Luna's own, not a
+prerequisite discovered on the host — and Go's BSD-3-Clause license permits the redistribution,
+the attribution notice it requires shipping alongside. Two consequences are load-bearing. The pin
+is **dual-purpose** — both the toolchain that builds a program and the language floor of the
+`go.mod` the compiler emits (§1.8) — and because it ships with `luna`, that floor is an internal
+detail with no user-facing version to negotiate. And current Go distributions carry **no
+precompiled standard library**, so the bundle carries Go's `src/` (which cross-compilation needs
+anyway, §1.8) and the first build on a machine compiles the standard-library packages it touches
+before the cache is warm; that cache is **Luna's**, under `$HOME/.lunalang/`
+(incremental-compilation spec), never the user's default `GOCACHE`. Three parts of a stock Go
+distribution are **excluded** from the bundle — `cmd/vendor/.../pprof` (Apache-2.0),
+`crypto/internal/boring` (an OpenSSL/SSLeay/ISC composite, inert without
+`GOEXPERIMENT=boringcrypto`), and the race detector's `.syso` blobs (LLVM compiler-rt) — none
+reachable when emitting machine code, each carrying an attribution obligation that would otherwise
+attach to the `luna` distribution for code that never runs.
+
 **Run mode and the binary cache.** `luna someProgram` compiles (if needed) and runs. Builds
 are **content-addressed**: the cache key is a hash over the resolved module set's sources
 plus the compiler version **and the compile target** (R149 — platform facts are target
@@ -324,8 +342,10 @@ so stack traces report Luna file and line.
 The emitted Go modules are assembled into a Go program: the **deterministic module-init order**
 (modules spec §2) is emitted as an explicit ordered init sequence (not left to Go's package-init
 order, §7.4), the **builtin runtime** is included, and **only the opted-in `std` modules** that
-the program actually references are linked (tree-shaken, modules spec §10). The Go toolchain then
-compiles and links the program to a binary. Linking of the native code is the Go toolchain's job;
+the program actually references are linked (tree-shaken, modules spec §10). The **bundled** Go
+toolchain (§0.1, R233) — pinned and shipped inside `luna`, never the host's — then compiles and
+links the program to a binary, and the emitted program's single static `go.mod` carries that same
+pinned version as its language floor. Linking of the native code is the Go toolchain's job;
 the compiler's job is to emit a correct, self-contained Go program with the right init order and
 the right std subset.
 
