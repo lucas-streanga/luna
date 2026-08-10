@@ -6035,6 +6035,83 @@ question before any binary ships, not a spec question). Swept: `compiler.md`
 (distribution paragraph, Backend, Using the compiler),
 `incremental-compilation-build-cache.md` (intro, §5 open question).
 
+**R234 — Luna self-hosts, and that splits R192's one artifact in two: the
+comptime evaluator follows the compiler into Luna, the oracle stays Go,
+test-only and permanent, and the compiler may never import it.** The
+decision is to **self-host** — the production compiler written in Luna —
+taken for a reason stronger than dogfooding: testing-strategy §1 concedes
+that the alpha front-end is shared between oracle and backend and therefore
+*not* differential-tested, "closable later by an independent front-end," and
+a Luna-written front-end **is** that front-end. Self-hosting also puts the
+language's own performance on the critical path of every build, which is the
+point: the overflow-enforcement tax and the cost of tree-walking over tagged
+unions stop being speculation and become findings. **Bootstrap late, not
+early**, and the rejected alternative is recorded with its argument intact —
+bootstrapping early on a minimal subset, to avoid translating a large Go
+compiler later. It fails on its premise: nothing is ever *translated*,
+because the **spec** is the source of truth and the differential harness
+grades a from-scratch Luna implementation automatically, so the cost being
+avoided does not exist, while the cost incurred — every ruling applied to two
+implementations through the churn years — is real and recurring. It also
+fights itself, since a compiler written in a deliberately minimal subset
+dogfoods the subset, not the language. So: idiomatic full Luna, after the
+surface is frozen and std has grown what a compiler needs (filesystem, exec,
+process, a hash, platform — `claude-agent-plan` §F's "io, stringBuilder, and
+perhaps 1–2 others" is about a third of it). **Vocabulary, fixed before it
+collides**: this corpus already uses **self-hosted backend** for *native
+codegen replacing Go* (R170, string-representation §11.1), a different axis
+entirely. **Self-hosting** is the compiler being written in Luna, and it
+removes no Go whatever — the backend still emits Go source and R233 still
+bundles the Go toolchain. **The split.** R192 gave one artifact two duties.
+Self-hosting cannot hold both: the **evaluator** is a component of the
+compiler, in-process, producing values that land in the compiler's own IR and
+typetable, so it follows the compiler into Luna; the **oracle's** entire
+value is being an implementation the compiler under test did not produce, so
+it stays Go. R192's four grounds against generate-and-run survive untouched —
+they concern comptime being in-process — but its economy does not: "the
+two-implementations cost is bounded by structure" was the argument for one
+artifact, and the duplication is now the product, bought deliberately for
+independence. **The oracle is a test instrument that ships exactly once**: it
+is alpha v0, the first shippable Luna, and stops shipping when a stable
+Luna-written compiler exists. It is nonetheless **permanent**, because after
+self-hosting testing-strategy §3's script-vs-compiled pair degenerates — one
+compiler drives both paths, so it tests the run/cache path, not two readings
+of the semantics — leaving oracle-vs-compiled as the only pair with two
+independent implementations behind it; retiring the oracle would end
+differential testing outright. **"Frozen" is re-read, not relaxed**: frozen
+*to the agent loop*, the `:ro` mount that stops an agent editing its way past
+a failing differential, never feature-complete — a reference that cannot
+track rulings drifts from the spec on the first one after it is written, and
+then every divergence is ambiguous, compiler bug or stale oracle. **The
+compiler may never import the oracle**, gated on the build graph rather than
+on intention. The **Go-FFI route** — a Luna compiler calling the Go oracle
+for comptime — is rejected in full, first because it would convert the oracle
+from a check on the compiler into a dependency of it, making an oracle bug a
+*production miscompilation* and paying for two implementations to get one's
+worth of testing; and on three mechanical grounds besides: `unsafeFfi` is a
+**C** FFI riding cgo, forfeiting R193's two-environment-variable
+cross-compilation for the one program that most needs both targets; it is not
+even a foreign boundary, since Luna compiles *to* Go and both sides would
+share one runtime and one GC; and `unsafeFfi` is deferred to its own spec,
+which would put an unwritten spec on self-hosting's critical path.
+**Bifurcated into §6.2/§6.3**, both of which were written as hand-discipline
+about *Go* code: fusion-proof float arithmetic stays a discipline for the Go
+oracle and becomes **structural** for a Luna evaluator (per-node emission
+never puts two float operations in one Go expression), and the
+no-bare-Go-map-iteration fence becomes *unviolatable* for a Luna evaluator,
+which has no Go map to reach for. One requirement replaces what the
+unification gave free: evaluator and oracle must fold floats **to the same
+bits**, a disagreement there being indistinguishable from a real differential
+failure. Transcendental agreement survives — a Luna evaluator reaches Go's
+`math` through `std.math`, longer chain, identical callee. Swept:
+`compiler.md` (§6.1 rewritten, §6.2 float fence, §6.3 order fence and the
+transcendental channel), `internal-representation-of-streams.md` (§2.1's R192
+parity note, §2.2's folding-vs-fusion bullet — both said "oracle" where they
+meant the evaluator). Also swept, outside the spec corpus:
+`testing-strategy.md` (§1, §3), `claude-agent-plan.md` (Phase 0.2). **Not
+ruled here**: when the bootstrap happens, and whether Phase 1's Go-written
+compiler is kept alongside the interpreter as a second reference.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -6103,6 +6180,13 @@ must accompany the `luna` distribution, and **trademark clearance** — the Go m
 retained on a substantially *unmodified* redistribution, and R233's three exclusions make
 this bundle modified, so it is a `trademark@go` question to settle before any binary is
 published, not one the spec can answer.
+
+R234's two deferrals, likewise tracked: **when** the bootstrap happens (the ruling fixes the
+order — after the oracle, after the surface freezes, after std grows — not a date), and
+**whether Phase 1's Go-written compiler is kept alongside the interpreter** as a second
+independent reference. The second is a real choice with a real cost: it is the faster and more
+complete of the two Go artifacts and the more expensive to maintain, and R234 commits only to
+keeping the interpreter.
 
 *(The `@P` value-position contradiction R174's validation surfaced here is **ruled:
 R175** — the static-protohood steer extends to value position, `@P` on a proto yields the

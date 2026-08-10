@@ -25,7 +25,11 @@ implementation. Two artifacts must exist before Phase 1 runs, and neither is bui
    a real refinement-aware structural checker, stop — nothing downstream rescues that.
 2. **Oracle / alpha interpreter — naive, slow, obvious, end-to-end.** Lex → parse → (1's checker) →
    desugar to LIR → tree-walk eval; bignum-then-bound-check for overflow; zero optimization. This is
-   **alpha v0** and the **oracle** (`testing-strategy.md` §1). Frozen, mounted `:ro`.
+   **alpha v0** and the **oracle** (`testing-strategy.md` §1). Frozen, mounted `:ro` — where frozen
+   means *the agent loop may not edit it*, not feature-complete; it tracks rulings by human edit
+   (R234). It ships as alpha v0 and **stops shipping** once a stable Luna-written compiler exists,
+   but is maintained for the life of the language: post-self-hosting it is the only implementation
+   the production compiler did not produce. The compiler may never import it (compiler §6.1).
 3. **Independence discipline.** Detailed in `testing-strategy.md` §1. **Alpha choice:** Phase 1
    reuses the human front-end (lex/parse/check/**desugar → LIR**) and builds only the **backend**
    (Go emission from LIR + runtime + incremental cache); the shared front-end is not

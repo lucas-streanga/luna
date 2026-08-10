@@ -550,19 +550,42 @@ constants.
   comptime and const-table specialization compose: comptime builds the table, specialization lays
   it out.
 
-### 6.1 The evaluator is also the oracle; generate-and-run is rejected in full (R192)
+### 6.1 Evaluator and oracle: two duties, two artifacts (R192, split by R234)
 
-The IR evaluator has **two duties, one artifact**. Beside comptime evaluation, it is the
-**conformance oracle**: the reference implementation of Luna semantics, used for
-**differential testing** of the compiled path — any capability-free, deterministic program can
-be run through the evaluator and through its emitted Go, and the results diffed. This turns
-§6's phase-invariance requirement from a hoped-for property into a **test harness by
-construction**: the oracle duty patrols exactly the surface where the two executions could
-drift. It is **unoptimized on purpose**, and that is a feature twice over: simple evaluation
-gives comptime errors rich, unreordered positions, and an oracle you optimize is an oracle you
-doubt. The two-implementations cost is bounded by structure: evaluator and emitter consume the
-**same lowered IR** (§1.5) — every semantics-bearing desugaring happens once, upstream — so
-the divergence surface is two backends' data operations, never two readings of Luna.
+The IR evaluator has **one duty**: comptime evaluation (§6). It is a **component of the
+compiler** — in-process, consuming and producing the compiler's own IR and typetable — and when
+the compiler is written in Luna (R234) the evaluator is written in Luna with it. It is
+**unoptimized on purpose**: simple evaluation gives comptime errors rich, unreordered positions.
+
+The **conformance oracle** is a *separate artifact*: a Go tree-walk interpreter over the same
+lowered IR, the reference implementation of Luna semantics, used for **differential testing** of
+the compiled path (testing-strategy §3) — any capability-free, deterministic program runs through
+the oracle and through its emitted Go, and the results are diffed. It too is unoptimized on
+purpose, for a different reason: an oracle you optimize is an oracle you doubt.
+
+R192 made these **one artifact with two duties**, and bounded the two-implementations cost by
+structure: evaluator and emitter consume the **same lowered IR** (§1.5), so the divergence surface
+was two backends' data operations, never two readings of Luna. **R234 splits the artifact**,
+because a self-hosted compiler cannot hold both — the evaluator follows the compiler into Luna,
+while the oracle's entire value is being an implementation the compiler under test did not
+produce. What survives unchanged is §6's phase-invariance requirement as a **test harness by
+construction**: evaluator and emitter must still agree, and that agreement is still patrolled by
+running the same program both ways. What does not survive is the cost bound — the duplication is
+now deliberate, purchased for **independence**, and it carries a permanent obligation. Once the
+compiler is self-hosted the oracle is the *only* surviving independent implementation
+(testing-strategy §3's script-vs-compiled pair degenerates when both paths run one compiler), so
+the oracle is maintained for the life of the language, never retired.
+
+**The compiler may never import the oracle** — gated mechanically on the build graph, not left to
+intention. An oracle the compiler depends on is not a check on the compiler: a bug in it would
+become a *production miscompilation* instead of a failed test, and the project would pay for two
+implementations while getting one implementation's worth of testing. The **Go-FFI route** — a
+Luna-written compiler calling the Go oracle for comptime — is rejected on that ground first, and
+on three mechanical ones: `unsafeFfi` is a **C** FFI riding cgo, so it would forfeit §1.8's
+two-environment-variable cross-compilation (R193) for the one program that most needs both
+targets; it is not even a foreign boundary, since Luna compiles *to* Go and both sides would share
+one runtime and one GC; and `unsafeFfi`'s design is deferred to its own spec (functions spec),
+which would put an unwritten spec on the critical path of self-hosting.
 
 The alternative — generate Go for comptime subtrees and run it mid-compile — is rejected on
 four grounds, recorded so it is never half-reopened:
@@ -594,9 +617,15 @@ host machines* — silently poisoning §8's determinism and the R149 cache keyin
 reproducible-across-machines bullet). The Go spec's escape is exact: rounding is **guaranteed
 at explicit assignments and conversions**. So:
 
-- **The evaluator's float arithmetic is written fusion-proof** — an explicit intermediate
-  assignment between every multiply and add — so every comptime float fold is bit-identical
-  on every host.
+- **The evaluator's float arithmetic is fusion-proof, by discipline in Go and by construction in
+  Luna (R234).** While the evaluator is Go, this is a hand-discipline: an explicit intermediate
+  assignment between every multiply and add. A Luna-written evaluator inherits it *structurally*
+  from the bullet below — per-node emission never places two float operations in one Go
+  expression — so the rule stops being something to remember and becomes something the emitter
+  guarantees. The **oracle**, permanently Go (§6.1), keeps the hand-discipline permanently.
+  Either way every comptime float fold is bit-identical on every host, and evaluator and oracle
+  must fold **to the same bits**: a float disagreement between them is indistinguishable from a
+  real differential failure, so it is a defect in the harness, not a finding.
 - **The emitter is fusion-proof by shape, and the shape is now load-bearing.** Per-node
   emission (one IR operation, one Go operation, explicit intermediates) already prevents
   contraction, since Go fuses only within one expression — but that is now a *recorded
@@ -620,7 +649,9 @@ it — and the striking fact is that most were closed by rulings made for other 
 
 **The one genuinely remaining channel: non-correctly-rounded math functions.**
 Transcendentals (`sin`, `exp`, `ln`, `pow`) are implementation-defined in the last bit. Both
-the evaluator and emitted programs call Go's `math` package, and *pure-Go* math produces
+the evaluator and emitted programs call Go's `math` package — a Luna-written evaluator (R234)
+reaches it through `std.math`, which lowers to the same calls, so the chain is longer but the
+callee identical — and *pure-Go* math produces
 identical float64 results on any architecture (same algorithm, same IEEE ops, §6.2) — but Go
 carries **per-architecture assembly overrides on some exotic ports** (s390x notably), which
 could split a comptime fold from the same call at runtime there. The determinism contract is
@@ -633,7 +664,10 @@ Two fences, permanent:
 - **No endian-implicit byte function may ever be added** (an "int to native-order bytes"
   would reopen the endianness channel; std.binary §3 records the same fence from its side).
 - **The evaluator's own data structures may not leak order**: no bare Go-map iteration where
-  a comptime result could observe it.
+  a comptime result could observe it. R234 splits this fence by artifact: it binds the **oracle**
+  (permanently Go) as a standing discipline, and becomes *unviolatable* for a Luna-written
+  evaluator, which has no bare Go map to reach for — Luna tables are insertion-ordered by spec
+  (tables §2.2). The safe-by-construction stance applied to the compiler's own internals.
 
 Emission maps the optimized IR onto Go source. The mapping is direct because the language was
 designed against a Go runtime.

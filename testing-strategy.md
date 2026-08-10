@@ -9,8 +9,20 @@ outputs.
 
 ## 1. The oracle (keystone)
 
-The frozen Phase-0 tree-walk interpreter, mounted `:ro`. For any program it yields the gold
+The Phase-0 tree-walk interpreter, mounted `:ro`. For any program it yields the gold
 result (stdout, or error/panic type). Slow by design — a test instrument, not the product.
+
+**"Frozen" means frozen to the agent loop, not feature-complete** (R234). The `:ro` mount is what
+stops an agent editing its way past a failing differential; it is not a claim that the oracle stops
+changing. A reference that cannot track rulings drifts from the spec on the first one after it is
+written, and then every divergence is ambiguous — compiler bug or stale oracle? So the oracle has a
+**human edit path outside the loop**, and language changes land in it like anywhere else.
+
+**It is permanent, and it ships exactly once** (R234). The oracle is *alpha v0* — the first
+shippable Luna, slow but complete — and stops shipping once a stable Luna-written implementation
+exists. It never stops being maintained: after self-hosting it is the only implementation the
+production compiler did not produce, so retiring it would end differential testing (§3). The
+production compiler **may never import it** (compiler §6.1), gated on the build graph.
 
 **Independence discipline** (what gives it power): a differential test only bites if the two
 sides fail *differently*. Tree-walk vs Go-emission is structurally different code → implementation
@@ -41,6 +53,11 @@ Two independent runs must agree:
 - **oracle vs compiled binary** (tree-walk vs emitted-Go semantics), and
 - **script-mode vs compiled binary** — Luna's own "same source runs or compiles, identical
   semantics" claim, a differential oracle the language hands you free.
+
+**The second pair degenerates after self-hosting** (R234), and this is why the first is
+load-bearing forever: once one Luna-written compiler drives both paths, script-vs-compiled tests
+the run/cache path rather than two readings of the semantics. Oracle-vs-compiled is then the only
+pair with two independent implementations behind it.
 
 **Failure routing** (this is effectively a fourth human touchpoint, unmetered): a divergence is
 **human-adjudicated** → *compiler bug* (loop back to `implement`, pipeline step 11) or *spec gap*
