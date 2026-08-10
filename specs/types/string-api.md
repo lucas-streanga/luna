@@ -177,7 +177,7 @@ fn findAll(str: string, pattern: regex): stream
 once and reused, rather than recompiled from a string on every call). `matches` tests
 for any match; `find` returns the first match as a table of capture groups (or `null`
 if none); `findAll` yields one such table per match. A `replace` variant that takes a
-`regex` target rides on the union already in §7. The `regex` type, its `/.../ ` literal,
+`regex` target rides on the union already in §7. The `regex` type, its `~"…"` literal,
 flags, engine guarantees (linear-time by default, opt-in backtracking under `/b`), and
 runtime construction are specified in **regex** (its own document); this section only
 fixes how strings consume one.

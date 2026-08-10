@@ -30,7 +30,7 @@ pattern (see flags F1–F3). The lexer therefore runs a small mode stack:
 |-|-|-|
 | `DEFAULT` | start of file | — |
 | `DQ_STRING` | `"` (`DQ_OPEN`, §6) | unescaped `"` (`DQ_CLOSE`) |
-| `REGEX_BODY` | `/` in regex-allowed context (`REGEX_OPEN`, F2) | unescaped `/`, then flags (`REGEX_CLOSE`) |
+| `REGEX_BODY` | `~"` (`REGEX_OPEN`, R237) | unescaped `"`, then flags (`REGEX_CLOSE`) |
 | `COMMAND` | `` ` `` (`CMD_OPEN`) | unescaped `` ` `` (`CMD_CLOSE`) |
 | `INTERP_EXPR` | `${` inside any of the three modes above | the `}` that returns brace depth to zero (depth counted by the lexer) |
 
@@ -164,16 +164,18 @@ are lowercase; the reserved set has no capitalized member.
 
 | Token | Name | Go regex (RE2) |
 |-|-|-|
-| `42`, `1_000` | `INT_DEC` | `[0-9](?:_?[0-9])*` |
+| `42`, `1_000` | `INT_DEC` | `0\x7c[1-9](?:_?[0-9])*` |
 | `0x1F`, `0xdead_beef` | `INT_HEX` | `0x[0-9a-fA-F](?:_?[0-9a-fA-F])*` |
 | `0b0100_0001` | `INT_BIN` | `0b[01](?:_?[01])*` |
-| `3.14`, `2.5e10` | `DOUBLE` (point form) | `[0-9](?:_?[0-9])*\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?` |
-| `6.022e23`, `1e-9` | `DOUBLE` (exponent form) | `[0-9](?:_?[0-9])*[eE][+-]?[0-9]+` |
+| `0o755`, `0o1_7` | `INT_OCT` | `0o[0-7](?:_?[0-7])*` |
+| `3.14`, `2.5e10` | `DOUBLE` (point form) | `(?:0\x7c[1-9](?:_?[0-9])*)\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?` |
+| `6.022e23`, `1e-9` | `DOUBLE` (exponent form) | `(?:0\x7c[1-9](?:_?[0-9])*)[eE][+-]?[0-9]+` |
+| `0755`, `0_1` | *(error production)* | `0[0-9_]+` — a leading zero is a **lex error** (R238), never silent decimal and never C-style octal |
 | `'literal'` | `STRING_SQ` | `(?s)'[^'\\]*(?:\\.[^'\\]*)*'` |
 | `"text $x ${e}"` | `STRING_DQ` | `(?s)"[^"\\]*(?:\\.[^"\\]*)*"` — **only valid when the literal contains no `${`**; otherwise mode-lex (F1) |
 | `b"GET \x89"` | `BYTES` (dq) | `(?s)b"[^"\\]*(?:\\.[^"\\]*)*"` |
 | `b'GET '` | `BYTES` (sq) | `(?s)b'[^'\\]*(?:\\.[^'\\]*)*'` |
-| `/\d+/im` | `REGEX` | `(?s)/[^/\\]*(?:\\.[^/\\]*)*/[imsxb]*` — context-gated and interpolation-limited (F2) |
+| `~"\d+"im` | `REGEX` | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2) |
 | `` `grep ${x} f` `` | `COMMAND` | ``(?s)`[^`]*` `` — **only valid when the literal contains no `${`**; otherwise mode-lex (F3). `\` is an ordinary byte, by ruling (command §2.2) |
 
 All span patterns use the alternation-free "unrolled loop" form
@@ -192,8 +194,38 @@ of words. They **denote** literal values all the same; the distinction is lexica
 `MINUS KW_INF` (unary minus, tier 2; `0..-1` parses as `0..(-1)`, associativity §4). There is no
 unary `+`, so positive infinity is written `inf`, never `+inf`. Regex flags are exactly `i m s x b` (regex §3). The `x`-flag verbose
 form spans lines and contains `#` comments; the `REGEX` span pattern is unaffected since
-it only seeks the unescaped closing `/`. Several of the exact numeric rules are open in
-the spec and were resolved by assumption here — see G2.
+it only seeks the unescaped closing `"`.
+
+**The numeric grammar, ruled in full (R238, closing G2).** Four rules, each chosen against a
+known footgun rather than for taste:
+
+- **Radix prefixes are `0x`, `0b`, `0o`, lowercase only.** `0X`/`0B`/`0O` are lex errors —
+  there is nothing to gain from two spellings of a prefix. Hex *digits* stay either case
+  (`0xDEADBEEF` is idiomatic), and the exponent marker stays either case (`1E10`); where two
+  spellings do carry idiom, the formatter canonicalizes rather than the lexer forbidding.
+- **Leading zeros are a lex error**, with an explicit error production (`0[0-9_]+`) rather than
+  a gap in the grammar, because §1.1 collects lexical errors and a gap would silently yield
+  adjacent `INT` tokens for `007` instead of a diagnosis. `0755` means octal to a C or Python-2
+  reader and 755 to a machine that allows it; Luna admits neither reading, and `0o755` is how
+  the intent is spelled. Bare `0`, `0.5`, and `0x0` are unaffected.
+- **`_` separates digits and nothing else.** One underscore, strictly between two digits, in
+  any radix and on either side of a point: `1_000`, `0b0100_0001`, `3.141_592`. Rejected
+  everywhere else — `_1` (an identifier), `1_`, `1__0`, and `0x_FF` (Go permits that last one;
+  Luna does not, a digit must follow the prefix). A doubled or dangling separator is a typo,
+  not an intent.
+- **No leading or trailing point.** `.5` is written `0.5` and `5.` is written `5.0`. The
+  trailing ban is load-bearing, as above; the leading ban is symmetry, and `0.5` reads better.
+
+Exponents take an optional sign and **plain digits only** — no separators inside an exponent,
+and no hex-float form (`0x1p3` is not Luna). **Literal magnitude is not the lexer's business**
+(R238): the lexer accepts any digit string, and a value too large to be an `int` is caught in
+parsing, which can decide it without type information precisely because there are no
+wider-type literals — every integer literal is an `int` (numeric-tower R216, reaffirmed).
+Assigning an in-range `int` literal to a narrower target (`let b: byte = 300;`) is a separate,
+later check that belongs to analysis. A `double` literal whose value **overflows to infinity**
+(`1e400`) is likewise a compile error, since `inf` is the explicit spelling and a silent
+finite-to-infinite jump is a wrong value, not a rounding; ordinary rounding — including
+underflow — is normal IEEE behaviour and is not diagnosed.
 
 ## 5. Operators and punctuation
 
@@ -256,8 +288,10 @@ no unary `+`, no `===`/`!==`, no ternary, no bitwise tokens, and no `&&=`
 (`x: int`), slice bounds (`xs[1:3]`, `xs[:]`, tables §3), and default-bearing signatures.
 `#` occurs only as part of `ATTR_OPEN` (attributes §3), or as the leading `#!` of a
 first-line shebang (§2) — a bare `#` anywhere else is a lex error. (`*` was the import glob until R136 retired it; bare-path imports mean "everything" now.) `SLASH` and `SLASH_ASSIGN`
-compete with `REGEX` and comments; F2 resolves it and enumerates the 25-token division set that
-decides which (R235).
+compete only with the two comment forms, and the **next** byte decides between them (`//`, `/*`,
+`/=`, `/`) — no context, no lookbehind. `~` is not an operator: its sole appearance is opening a
+`REGEX` literal (`~"…"`, R237, F2), and a `~` not followed by `"` is a lex error, exactly as a
+bare `#` is.
 
 ## 6. Interpolation sub-tokens (modes `DQ_STRING`, `REGEX_BODY`, `COMMAND`)
 
@@ -268,22 +302,20 @@ decides which (R235).
 | `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, string §5.1 (R150) |
 | text run (dq) | `DQ_TEXT` | `[^"\\$]+` |
 | lone `$` | text (fallback, all modes) | `\$` — a `$` not starting an interp form is literal text (in commands: `$` not followed by `{`, command §2.2) |
-| text run (regex) | `REGEX_TEXT` | `[^/\\$]+` |
+| text run (regex) | `REGEX_TEXT` | `[^"\\$]+` |
 | text run (command) | `CMD_TEXT` | ``[^`\\$]+`` (backslash excluded since R150 — commands have escapes) |
 | `${...expr}` | `INTERP_OPEN` + `SPREAD` + … | spread-splice in commands and literals (command §3, spread §5); the `...` lexes as `SPREAD` inside `INTERP_EXPR` |
 
 **Opening delimiters are tokens in their own right** (R235, closing an inventory gap this file
-carried: the closers were named, the openers only described): `"` (`DQ_OPEN`), `/` in a
-regex-allowed context (`REGEX_OPEN`, F2), `` ` `` (`CMD_OPEN`). They are emitted in `DEFAULT` or
+carried: the closers were named, the openers only described): `"` (`DQ_OPEN`), `~"`
+(`REGEX_OPEN`, R237), `` ` `` (`CMD_OPEN`). They are emitted in `DEFAULT` or
 `INTERP_EXPR`, push their mode, and are **mode-path only** — where §4's span regex applies, the
 whole literal is one `STRING_DQ` / `REGEX` / `COMMAND` token and no opener or closer is emitted.
 So the same source construct reaches the parser in one of two shapes, single token or delimited
-sequence, and the parser accepts both; the split is F1/F3's fast path, not two grammars. None of
-the three is a division position (literal content follows, never an operator).
+sequence, and the parser accepts both; the split is F1/F3's fast path, not two grammars.
 
-Closing delimiters end the mode: `"` (`DQ_CLOSE`), unescaped `/` plus `[imsxb]*`
-(`REGEX_CLOSE`), `` ` `` (`CMD_CLOSE`) — all three **are** division positions (F2), being where
-an interpolated literal's value ends. Inside `INTERP_EXPR` the lexer counts `LBRACE` /
+Closing delimiters end the mode: `"` (`DQ_CLOSE`), unescaped `"` plus `[imsxb]*`
+(`REGEX_CLOSE`), `` ` `` (`CMD_CLOSE`). Inside `INTERP_EXPR` the lexer counts `LBRACE` /
 `RBRACE`; the `RBRACE` that returns the count to zero is emitted as `INTERP_CLOSE` and
 pops back to the enclosing literal mode.
 
@@ -308,10 +340,13 @@ Attempt order within `DEFAULT` / `INTERP_EXPR`:
 1. `SHEBANG` (only at byte offset 0), then `WHITESPACE`, `LINE_COMMENT`, `BLOCK_COMMENT` —
    comments before anything `/`-initial.
 2. `BYTES` — before `IDENT`, or `b"…"` lexes as `IDENT(b)` + string.
-3. `REGEX` — only when the regex-allowed flag is set (F2); before `SLASH`/`SLASH_ASSIGN`.
-4. `DOUBLE` (both rows), then `INT_HEX`, `INT_BIN`, then `INT_DEC` — doubles first so
-   `1.5` is one token; hex/bin before decimal so `0x10` doesn't lex as `INT(0)` +
-   `IDENT(x10)`.
+3. `REGEX` — `~"`-initial and self-identifying (R237): `~` is a token in no other
+   position, so no ordering constraint applies and no context is consulted.
+4. `DOUBLE` (both rows), then `INT_HEX`, `INT_BIN`, `INT_OCT`, then the leading-zero error
+   production, then `INT_DEC` — doubles first so `1.5` is one token; the radix prefixes
+   before decimal so `0x10` doesn't lex as `INT(0)` + `IDENT(x10)`; and the error
+   production before `INT_DEC` so `0755` is diagnosed rather than split into adjacent
+   integers (§4, R238).
 5. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?->` › `?.` › `?`; `...` ›
    `..<` › `..` › `.`; `||` › `|`; `&&` › `&`; `=>` and `==` › `=`; `->` and
    `-=` › `-`; `@@` › `@`; `!=` › `!`; `<=` › `<`; `>=` › `>`; `#[` before any bare `#`.
@@ -370,80 +405,30 @@ braces require counting. Use the `DQ_STRING` / `INTERP_EXPR` modes of §1/§6: t
 regex in §4 may be used only as a fast path when a scan finds no `${` before the closing
 quote.
 
-**F2 — `/` is three-way ambiguous, and regex literals interpolate.** A leading `/` can be
-division (`SLASH`, `SLASH_ASSIGN`), a comment (`//`, `/*`), or a `REGEX` literal. Comments win
-outright (§8 order). The remaining choice needs the **previous significant token** (the
-JavaScript problem), and RE2 has no lookbehind, so this is lexer state, not a pattern.
+**F2 — regex literals are prefixed, and they interpolate.** A regex literal is `~"…"` (R237,
+regex §2). The sigil is what keeps this simple: `~` is a token in no other position, so
+`REGEX` is self-identifying, `/` is unconditionally division-or-comment (decided by the
+*next* byte, never by context), and the lexer carries **no** regex-allowed state at all.
 
-**The rule is stated inverted (R235): `/` is division exactly when the previous significant
-token can end a value; otherwise it opens a regex.** The regex-allowed side is open-ended —
-every operator, every declaration keyword, every opener — which is why the earlier phrasing of
-this flag trailed off into "and the other prefix positions" and left `}` unclassified
-altogether. The division side is small and closed, so it is the side written down. *Significant*
-excludes the four **trivia** tokens of §2 — `WHITESPACE`, `SHEBANG`, `LINE_COMMENT`,
-`BLOCK_COMMENT` — which since R236 are emitted rather than skipped, so the flag looks *through*
-them to the last non-trivia token rather than never seeing them.
+This flag now records history, because the alternative is a well-known trap that should not
+be re-proposed. A bare `/…/` literal makes `/` three-way ambiguous — division, comment, or
+regex — resolvable only from the **previous significant token**, which RE2 cannot express (it
+has no lookbehind) and which therefore becomes lexer state. R235 specified that state exactly:
+a 25-token "division set" of everything that can end a value, consulted on every `/` and
+threaded per-frame through the mode stack. **R237 superseded the entire apparatus** by
+changing one character of surface syntax. The decisive cost was never the table's size but
+its failure mode — a misclassification toward regex sent the scanner hunting for the next
+unescaped `/`, swallowing arbitrary source into one token, where the opposite error merely
+produced a parse error in the right place.
 
-| Group | Tokens |
-|-|-|
-| identifier | `IDENT` |
-| discard | `WILDCARD` |
-| numeric literals | `INT_DEC`, `INT_HEX`, `INT_BIN`, `DOUBLE` |
-| text / binary literals | `STRING_SQ`, `STRING_DQ`, `BYTES` |
-| pattern / process literals | `REGEX`, `COMMAND` |
-| mode-path closers (§6) | `DQ_CLOSE`, `REGEX_CLOSE`, `CMD_CLOSE` |
-| value keywords (§3) | `KW_TRUE`, `KW_FALSE`, `KW_NULL`, `KW_UNDEFINED`, `KW_NAN`, `KW_INF` |
-| receiver | `KW_SELF` |
-| closers | `RPAREN`, `RBRACKET`, `RBRACE` |
-| optional marker | `QUESTION` |
-
-Twenty-five tokens. The other 85 allow a regex, as do two positions with no predecessor at all:
-the start of file, and immediately after `INTERP_OPEN` (a splice begins a fresh expression).
-
-Notes on the entries that are not obvious:
-
-- **`RPAREN` is unconditional**, and Luna earns that where JavaScript cannot. There, `)` is
-  undecidable from the token alone because a brace-less body lets an expression follow
-  (`if (c) /re/.test(x)`). Luna has no such form: every control-flow construct is either block
-  (`if (ready) { go(); }`, so `{` follows) or postfix (`go() if (ready);`, so `;` follows), per
-  control-flow's opening. No `)` is ever followed by an expression.
-- **`RBRACE` is unconditional too**, which is a consequence of tables being bracket-delimited
-  (`['name' => 'Lucas']`, tables §1). The braces that close a *value* are enum-variant literals
-  (`{point}`, `{circle ['radius' => 5]}`, enum §5) and `match`, both common; the brace that
-  closes a *block* is a statement boundary where a regex could in principle begin, but the
-  no-discard rule (errors §540) makes a statement leading with a regex unreachable — the legal
-  spelling is `_ = /re/…`, which begins with `_`. Tracking block-vs-value on the brace stack was
-  considered and rejected as **not lexer-decidable**: `{point}` and `{point;}` differ arbitrarily
-  far past the `{`, and §1.1 grants no parser feedback.
-- **The three mode-path closers are easy to miss and matter most.** An interpolated literal does
-  not end at a §4 token — §4's span regexes are the no-`${` fast path only (F1, F3) — it ends at
-  `DQ_CLOSE` / `REGEX_CLOSE` / `CMD_CLOSE`. Omit them and `"a${x}b" / 2` opens a regex.
-- **`KW_SELF` is a value-ender not named in §3's value-keyword list**, which enumerates the six
-  literal-denoting words. In a proto body `self` is the receiver value; in return position it is
-  a type (protocols §3). Neither admits a following regex.
-- **`WILDCARD` and `QUESTION` sit here on the safe side of an asymmetry**, not because a regex
-  could plausibly follow them (`_` precedes `=`/`=>`; bare `?` is only the optional-type marker
-  `T?`). Misclassifying toward division is benign — one `SLASH`, a parse error in place, and
-  §1.1's collect-don't-abort recovery works. Misclassifying toward regex is destructive: the
-  scanner hunts the next unescaped `/` and swallows arbitrary source, turning one bad byte into a
-  ruined token stream. Anything genuinely indifferent belongs on the division side.
-- **`BANG` must stay regex-allowed**, and unlike the other dual-role tokens (`&`, `@`, `?`) that
-  is a requirement, not a preference: `!` is prefix logical-not and a regex literal is an
-  expression, so `!` directly followed by a regex is grammatically constructible.
-- **The flag is per-frame state on the mode stack, not a global.** `INTERP_EXPR` lexes with the
-  full `DEFAULT` rule set, so the question recurs inside a splice; entering one resets the flag
-  to regex-allowed, and popping back restores the enclosing frame's. A single global boolean gets
-  either `"${x}" / 2` or `"${/re/.source}"` wrong, depending on which way it leaks.
-
-Additionally, `${expr}` inside a regex
-literal (regex §7, comptime-only) can itself contain `/` — division inside the splice —
-which would falsely terminate the §4 span regex; the `REGEX_BODY` mode handles it. The
-span regex is otherwise sound, including multi-line `/x` verbose patterns, since it only
-hunts the unescaped closing `/`. Note `//` (an empty pattern) is also a line comment,
-which the §8 ordering resolves in favor of the comment — so `//` is **always** a comment,
-never an empty regex; an empty pattern is written `/(?:)/` (regex §2) or built with
-`regex("")`. Moving comments to `#` to free `//` was weighed and rejected (R85): it leaves
-this regex-vs-division state machine untouched and costs a corpus-wide sweep.
+The interpolation half stands. `${expr}` inside a regex literal (regex §7, comptime-only) may
+itself contain a `"` — inside a nested string in the splice — which would falsely terminate
+the §4 span regex; `REGEX_BODY` mode handles it, and §4's pattern is a no-`${` fast path
+exactly as for strings (F1) and commands (F3). The span pattern is otherwise sound, including
+multi-line `x`-verbose patterns, since it only hunts the unescaped closing `"`. Two collisions
+the old delimiter forced are simply gone: `//` is now unambiguously a line comment with no
+empty-regex reading — retiring regex §2's `/(?:)/` workaround, an empty pattern being `~""` —
+and a `#` comment inside an `x`-verbose pattern can no longer terminate the literal.
 
 **F3 — Command literals with `${expr}` are not regular**, for the same reason as F1: the
 splice is a full expression (command §3) and may contain backticks inside nested strings
@@ -474,17 +459,21 @@ requirements, not style: `???=`/`??`/`?.`, `...`/`..<`/`..`, `||`/`|`, `@@`/`@`,
 
 ## Cross-reference notes: gaps found, and their resolutions
 
-Seven gaps surfaced during cross-referencing; six are now ruled, one stays open.
+Seven gaps surfaced during cross-referencing; **all seven are now ruled** (G2, the last, by R238).
 
 - **G1 — resolved, then superseded (R223).** `from` was required by the import grammar
   (`import { x } from m`, modules §4) but missing from the keywords.md inventory; the
   first resolution reserved it everywhere. R223 re-ruled it **unreserved**: `from` lexes
   as `IDENT`, the import grammar treats it contextually, and delegation is the compound
   token `KW_YIELD_FROM` (§3), so the keywords.md inventory carries no `from` row.
-- **G2 — deliberately deferred.** The numeric literal grammar remains open (int §7–§8,
-  double §8) by choice. This file's working assumptions stand until it is ruled: `_` only
-  between digits, lowercase `0x`/`0b` only, no octal, no leading or trailing point (the
-  trailing-point ban is also what makes ranges lex cleanly), plain digits in exponents.
+- **G2 — resolved (R238).** The numeric literal grammar is ruled in §4: `0x`/`0b`/`0o`
+  lowercase-only prefixes with **octal added**, leading zeros a lex error with an explicit
+  error production, `_` strictly between digits, no leading or trailing point, plain digits in
+  exponents. The working assumptions this file carried were adopted almost unchanged — octal
+  is the one addition, the leading-zero ban the one thing that was genuinely open — and the
+  magnitude question the assumptions never addressed is answered too: a literal too large for
+  `int` is caught in **parsing**, not lexing. Nothing here needed a wider-type literal form,
+  so numeric-tower's R216 deferral is reaffirmed rather than spent.
 - **G3 — resolved.** Comments are now specified (lexical-structure §3): `//` line comments
   and C-style `/* … */` block comments that do **not** nest, so §2's regex is the complete
   rule. There is no doc-comment syntax — attributes carry documentation — and the corpus's

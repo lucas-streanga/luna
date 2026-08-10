@@ -122,7 +122,7 @@ table is a map.
 | String | `string.md` | The immutable UTF-8 `string` type: binding, the units doctrine, no concat operator, the builder's place, interpolation + the R150 escape table. |
 | String API | `string-api.md` | The function catalogue over `string`: construction, search, slicing, transformation, splitting, views, C-interop. |
 | Bytes | `bytes.md` | The packed, mutable, growable byte buffer type. |
-| Regex | `regex.md` | The compiled regular-expression type and its `/.../` literal. |
+| Regex | `regex.md` | The compiled regular-expression type and its `~"…"` literal (R237). |
 | Command | `command.md` | The structured, inert program/pipeline type built from a backtick literal. |
 | Secret | `secret.md` | The self-redacting sensitive-payload type, read only via `reveal`. |
 | Type | `type.md` | The `type` type: a type as a first-class, comparable value. |

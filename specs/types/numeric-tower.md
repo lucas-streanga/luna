@@ -310,13 +310,16 @@ Nothing here is open: three questions are resolved, and the two remainders are
   held in **canonical form as an invariant** (reduced, denominator positive), which
   makes equality structural and `1/2`-vs-`2/4` unrepresentable. There is still no
   user-facing `bigint`; the bignum stays internal, with two public faces.)*
-- **Literals for the wider types — deferred** (R216). Whether `decimal` and the
-  unsigned/float types ever get literal forms (suffixes, or context-driven) rides the
-  literal grammar, and the deferral is cheap because the standing answer already covers
-  the need: **the comptime-folded constructor is the literal story** (R161's own ruling,
+- **Literals for the wider types — deferral reaffirmed, not spent** (R216, reaffirmed R238).
+  This rode "the literal grammar", and the literal grammar has now been ruled (lexer §4)
+  **without** adding a suffix or a context-driven form, so the standing answer stands
+  unchanged: **the comptime-folded constructor is the literal story** (R161's own ruling,
   applied three times since — `parseDecimal("19.99")`, `parseRational("1/3")`,
   `complex(3.0, -4.0)` all fold at build time). A dedicated suffix would buy spelling,
-  not capability; it waits until it earns grammar.
+  not capability; it waits until it earns grammar, and may still be considered later.
+  One consequence is now load-bearing elsewhere: because no wider-type literal exists,
+  **every integer literal is an `int`**, which is exactly what lets a too-large literal be
+  diagnosed in parsing with no type information (int §7, R238).
 - **Bit operations — deferred** (R216). Bitwise `and`/`or`/`xor`/`not` and shifts on the
   integer types (arithmetic vs logical shift, shift-amount edges) wait for the bitwise
   spec as a whole (int §8, operators §0.4): the natural tokens `&` and `|` are spoken

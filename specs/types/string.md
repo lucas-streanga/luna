@@ -121,7 +121,7 @@ their shared rows):
 | `'…'` single-quoted string | `\'` `\\` only (above — literal strings stay literal) |
 | `b"…"` bytes literal | `\n` `\t` `\r` `\\` `\"` `\xNN` (one raw byte) — no `\$` (no interpolation), no `\u{}` (bytes §7) |
 | `` `…` `` command literal | `` \` `` `\\` `\$` |
-| `/…/` regex literal | the regex spec's own escape language (`\/` plus RE2's), passed through undecoded (regex §2) |
+| `~"…"` regex literal | the regex spec's own escape language (RE2's), passed through undecoded; Luna decodes exactly one escape, `\"`, so a quote can appear inside the delimiters (regex §2, R237) |
 
 Three rules, each ruled (R150):
 

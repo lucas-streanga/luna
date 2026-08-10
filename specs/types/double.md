@@ -221,8 +221,19 @@ visible at every crossing, consistent with the language's conversion-is-a-functi
 
 Decimal floating-point literals are written with a point or exponent (`3.14`, `1.0`, `6.022e23`,
 `1e-9`). A literal with neither a point nor an exponent is an `int` (§7 governs crossing between
-them). The exact literal grammar (exponent form, digit separators, whether a trailing or
-leading point is allowed) is specified with the literal grammar.
+them). The exact grammar is **now ruled** in lexer §4 (R238), and three of its answers are
+double-side facts worth stating here:
+
+- **Neither a leading nor a trailing point.** `.5` is written `0.5`, `5.` is written `5.0`. The
+  trailing ban is load-bearing rather than stylistic — requiring a digit on both sides is what
+  lets `1..5` lex as `INT RANGE INT` and `1.toDouble()` as `INT DOT IDENT` with no lookahead.
+- **Exponents take an optional sign and plain digits**, at least one; `_` separators are legal
+  in the significand (`3.141_592`) but never inside an exponent, and there is no hex-float
+  form (`0x1p3` is not Luna).
+- **A literal that overflows to infinity is a compile error.** `1e400` does not silently become
+  `inf`, because `inf` is a keyword and the explicit spelling exists (§2); a finite literal
+  turning infinite is a wrong value, not a rounding. Ordinary rounding, underflow included, is
+  normal IEEE behaviour and is not diagnosed — `1.1` is inexact too.
 
 ---
 

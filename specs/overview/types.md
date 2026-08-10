@@ -15,7 +15,7 @@ overview, not a definition; each type's spec is authoritative.
 | `string` | Immutable, valid-UTF-8 text | string, string-api |
 | `bool` | `true` or `false`, inline; no truthiness; conversions are functions | bool |
 | `null` | The explicit "present nothing" value | value-representation, coalescing |
-| `regex` | Compiled regular expression (own type, `/.../ ` literal) | regex |
+| `regex` | Compiled regular expression (own type, `~"…"` literal) | regex |
 | `command` | Structured, inert program/pipeline (own type, backtick literal) | command |
 | `secret` | Sensitive `string`/`bytes` payload, redacts everywhere, `reveal` to extract | secret |
 | `bytes` | Packed, mutable, growable byte buffer (own type, not a table) | bytes |

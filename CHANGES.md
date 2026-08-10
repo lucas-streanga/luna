@@ -6238,6 +6238,137 @@ which is a rendering question for the diagnostics spec and reaches neither
 byte spans nor the lexer; recorded as open in §9 so it is not decided by
 whatever the first implementation happens to do.
 
+**R237 — regex literals take a sigil: `~"…"` replaces bare `/…/`, which
+deletes F2's context rule and supersedes R235's division set outright.** A
+bare `/…/` literal is the single most expensive piece of surface syntax in
+the lexer: it makes `/` three-way ambiguous — division, comment, or regex —
+resolvable only from the **previous significant token**, which RE2 cannot
+express (no lookbehind), so it becomes lexer state threaded per-frame
+through the mode stack. R235 had just specified that state precisely, as a
+closed 25-token division set. **R237 deletes the mechanism rather than the
+specification of it**: `~` is a token in no other position in the language,
+so `~"` is self-identifying, `/` is unconditionally division-or-comment
+decided by the *next* byte, and the lexer consults no context whatsoever.
+R235 is superseded on this point and kept in the log; its other half —
+naming the mode openers `DQ_OPEN`/`REGEX_OPEN`/`CMD_OPEN` — stands. **The
+decisive argument was the failure mode, not the table size.**
+Misclassifying toward division is benign: one `SLASH`, a parse error in the
+right place, §1.1's collect-don't-abort recovery unharmed. Misclassifying
+toward regex is destructive: the scanner hunts the next unescaped `/` and
+swallows arbitrary source into a single token. A design whose worst case is
+"swallow the rest of the file" sits badly beside safe-by-construction, and
+the fix costs one character. **Two rejected alternatives, both with real
+arguments, recorded so neither is re-proposed.** An **identifier-shaped
+prefix** (`r/…/`, on the `b"…"` precedent) fails outright, and the reason
+is worth stating because the precedent looks exact and is not: `b"…"` is
+safe because `"` cannot follow a value, so juxtaposition is unavailable and
+the prefix reading is the only reading — but `/` *can* follow a value, that
+being division itself. So `let a = r/2; let b = s/3;` lexes `r/2; let b =
+s/` as one regex, and worse, whether it does depends on whether a `/`
+appears later in the file. Non-local lexing is strictly worse than the
+ambiguity it was meant to cure. **Arbitrary or multiple delimiters**
+(`~#…#`, Perl-style) were considered more seriously and declined on three
+grounds: RE2 has no backreferences, so "the same byte that opened it" is
+not expressible as a pattern and the file's table idiom would break (a
+restricted set of N delimiters would mean N static rows, which does work);
+`#` specifically collides with the `x` flag's comment syntax (regex §3–4),
+so the most natural alternate delimiter is the one that cannot be used; and
+a canonical formatter (`luna -f`) would be forced either to normalize —
+rewriting the author's pattern text and re-escaping — or to preserve,
+leaving the corpus permanently heterogeneous. Reversibility settles the
+rest: `~#…#` is a lex error today, so a second delimiter can be added
+compatibly later and can never be removed once used. **The delimiter is `"`
+and the pattern is near-raw.** Luna decodes exactly one escape, `\"`, which
+is what lets a quote sit inside; every other backslash sequence — `\d`,
+`\w`, `\n`, `\\`, `\p{L}` — reaches the engine verbatim. This is not a new
+concept: R150's escape table already ruled the regex context "passed
+through undecoded", so only the delimiter escape changed, `\/` becoming
+`\"`. The trade is deliberate and favourable — `/` is common in patterns
+(paths, URLs) and now needs no escaping at all, while `"` is rare and costs
+`\"`. Consequences that fall out and were swept: an **empty pattern is
+`~""`**, retiring the `/(?:)/` workaround that existed only because `//`
+was a line comment; **`#` comments in `x`-verbose patterns can no longer
+terminate a literal**; **lexical-structure §3.1's "comments never collide
+with regex" invariant is moot**, comments and regex literals no longer
+sharing a starting character; and regex §9's **alternate-delimiter open
+question is dissolved rather than answered**, since slash-heavy patterns no
+longer pay anything. A bare `~` not followed by `"` is a lex error, as a
+bare `#` is. Swept: `regex.md` (§1–§5, §7 examples and prose throughout,
+§9's open question), `lexer.md` (§1 mode table, §4 `REGEX` row, §5 slash
+and sigil notes, §6 opener/closer, §8 ordering item 3, F2 rewritten to
+history), `lexical-structure.md` (§3.1), `string.md` (§5.1's regex row),
+`string-api.md` (§7 cross-reference), `index.md` (spec table),
+`overview/types.md` (type table). Not swept: the tooling grammars, on
+R232's precedent — their alternation is stale across many rulings and
+regenerates as a batch. **Not ruled here**: whether a second delimiter is
+ever admitted, which regex §9 now carries, reversibility note attached.
+
+**R238 — the numeric literal grammar, ruled in full: octal joins hex and
+binary, leading zeros become a lex error, and literal magnitude is
+parsing's problem, not lexing's.** G2 was the last gap lexer.md carried
+open, deferred "by choice" behind a set of working assumptions the file had
+been running on unratified. Six of them are adopted as they stood; two
+questions were genuinely open and are decided here. **Octal `0o` is
+added**, and the honest accounting is that its only modern constituency —
+Unix file modes — is a *deferred* consumer: filesystem §5 defers the
+permission model whole (chmod, chown, mode bits), with `exec` running
+`chmod` as the standing escape hatch. What earns octal a place now anyway
+is entanglement, not need: the leading-zero question had to be answered
+regardless, and its answer is only coherent once `0o` exists. **Leading
+zeros are a lex error**, and specified as an explicit **error production**
+(`0[0-9_]+`) rather than as a hole in the grammar — the distinction matters
+because §1.1 collects lexical errors rather than aborting, so a mere hole
+would silently lex `007` into three adjacent `INT` tokens and hand the
+parser garbage instead of handing the author a diagnosis. The substance:
+`0755` means octal to a C or Python-2 reader and 755 to a language that
+permits it, which is a silent wrong value of exactly the class Luna exists
+to close, and `0o755` now spells the intent unambiguously. Bare `0`, `0.5`,
+and `0x0` are untouched. **Prefixes are lowercase only** — `0X`/`0B`/`0O`
+are lex errors, since two spellings of a prefix buy nothing — while hex
+*digits* stay either case (`0xDEADBEEF` is idiomatic) and the exponent
+marker stays either case (`1E10`); where two spellings genuinely carry
+idiom, the formatter canonicalizes rather than the lexer forbidding, which
+is the general principle this file should follow whenever the question
+recurs. **`_` separates digits and nothing else**: one underscore, strictly
+between two digits, in any radix and on either side of a point. `_1` is an
+identifier, `1_` and `1__0` are typos rather than intents, and `0x_FF` is
+rejected too — Go permits that one, Luna does not, a digit must follow the
+prefix. **No leading or trailing point**: `.5` is written `0.5` and `5.` is
+written `5.0`. The trailing ban was already load-bearing and merely gets
+ratified — requiring a digit on both sides is what makes `1..5` lex as `INT
+RANGE INT` and `1.toDouble()` as `INT DOT IDENT` with no lookahead, which
+RE2 could not supply anyway — and the leading ban is symmetry plus
+legibility. **Exponents take an optional sign and plain digits**, at least
+one, with separators legal in the significand and never inside the
+exponent, and no hex-float form. **Literal magnitude is not lexical** (the
+question the working assumptions never reached): the lexer accepts any
+digit string, and a value too large for `int` is caught in **parsing**.
+That this needs no type information is a consequence of the last decision
+rather than an accident — because **no wider-type literal form exists**,
+every integer literal is an `int` and its range is always i64. Assigning an
+in-range literal to a narrower target (`let b: byte = 300;`) is a different
+check and belongs to analysis, where the target type is known. Extended by
+symmetry to doubles: a literal that **overflows to infinity** (`1e400`) is
+a compile error, because `inf` is a keyword and the explicit spelling
+exists, so a finite literal turning infinite is a wrong value rather than a
+rounding; ordinary rounding, underflow included, stays undiagnosed, `1.1`
+being inexact too. **R216's deferral is reaffirmed, not spent.** It rode
+explicitly on "the literal grammar", which has now happened — and happened
+*without* adding suffixes or context-driven forms, so the standing answer
+holds unchanged: the comptime-folded constructor is the literal story
+(`parseDecimal("19.99")`, `parseRational("1/3")`, `complex(3.0, -4.0)`), a
+suffix would buy spelling rather than capability, and it may still be
+considered later. Recording the reaffirmation matters because a deferral
+whose trigger has fired and gone unmentioned is indistinguishable from an
+oversight. Swept: `lexer.md` (§4 table gains `INT_OCT` and the error
+production, `INT_DEC` and both `DOUBLE` rows re-anchored against leading
+zeros, §4 notes gain the four-rule grammar, §8 ordering item 4, G2 marked
+resolved and the gaps preamble corrected to seven of seven), `int.md` (§7
+literals, §8's separator bullet), `double.md` (§8 literals),
+`numeric-tower.md` (§9's R216 bullet). Not swept: the tooling grammars, on
+R232's precedent. **Not ruled here**: tab handling in a column count, which
+is lexer §9's remaining open item and belongs to the diagnostics spec.
+
 ---
 
 ## Still open (out of scope of these rulings)

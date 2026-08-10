@@ -104,21 +104,19 @@ file can be marked executable and run directly, matching Luna's run-a-file-like-
 `#!`; a bare `#` is otherwise a lex error, and `#` appears elsewhere solely in `#[` attribute
 application (R85, lexer §2/§5).
 
-### 3.1 Comments never collide with `regex`
+### 3.1 Comments cannot collide with `regex` (R237)
 
-The comment forms and the `regex` literal all start with `/`, but they do not conflict in a
-well-formed program. The lexer decides on the two-character prefix — `//` and `/*` are
-comments **before** the regex-vs-division context rule (lexer F2, §8) is consulted — from
-which one invariant follows:
+They no longer share a starting character. A regex literal is `~"…"` (regex §2), so a leading
+`/` is only ever a comment (`//`, `/*`) or division — decided by the **next** byte, with no
+context consulted — and a regex pattern may begin with any character at all, `/` and `*`
+included.
 
-> A `regex` literal can never **begin** with `/` or `*`.
-
-A leading `/` is a line comment (so the empty pattern is written `/(?:)/`, or `regex("")`,
-regex §2); a leading `*` is a block comment (and a leading `*` is an invalid quantifier
-target in RE2 regardless). Every well-formed regex opens with some other character, so the
-comment reading and the regex reading never contend over the same source. `/**/` in
-particular is an empty block comment, not a regex — its would-be pattern `**` does not
-compile.
+This subsection previously carried an invariant and a workaround, both now retired with the
+delimiter that forced them: a regex literal "can never begin with `/` or `*`", and the empty
+pattern spelled `/(?:)/` because a bare `//` was a line comment. Under `~"…"` the empty
+pattern is `~""`, and `~"/usr/local"` needs no escaping. The history is kept because the
+collision is the standard argument for moving comments to `#` — an exchange R85 already
+declined, and one this ruling makes moot from the other side.
 
 ---
 

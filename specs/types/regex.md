@@ -1,7 +1,7 @@
 # Regex
 
 A regular expression in Luna is its **own type**, `regex`, not a string. It is written
-with a dedicated literal, `/.../ `, compiled once, and passed and stored as a first-class
+with a dedicated literal, `~"…"` (R237), compiled once, and passed and stored as a first-class
 value. Making it a distinct type gives better ergonomics (a function that wants a pattern
 declares `regex`, not `string`), compile-time validation of literal patterns, and a hard
 guarantee about matching cost. This document specifies the type, its literal and flags, the
@@ -15,7 +15,7 @@ side.
 
 `regex` is a distinct type: a compiled matcher, not a string. The benefits follow directly:
 
-- **Compiled once.** A `/.../ ` literal is compiled to a matcher at compile time, not
+- **Compiled once.** A `~"…"` literal is compiled to a matcher at compile time, not
   recompiled from a string on each use.
 - **Type-enforced.** A function taking `regex` cannot be handed an arbitrary string; "this
   is a validated pattern" is guaranteed by the type. A malformed literal is a **compile
@@ -23,7 +23,7 @@ side.
 - **First-class.** A `regex` is bound, passed, stored, and returned like any value.
 
 ```
-let year = /\d{4}/;          // year : regex, compiled once
+let year = ~"\d{4}";         // year : regex, compiled once
 matchYear(text, year);       // passed as a regex, not a string
 ```
 
@@ -32,33 +32,48 @@ or `int`, with its own literal.
 
 ---
 
-## 2. The `/.../ ` literal
+## 2. The `~"…"` literal (R237)
 
-A regex literal is delimited by `/`, and its type is inferred as `regex`:
+A regex literal is written `~"…"` — the sigil `~`, then a double-quoted pattern — and its
+type is inferred as `regex`:
 
 ```
-let digits = /\d+/;
-let word   = /[A-Za-z_]\w*/;
+let digits = ~"\d+";
+let word   = ~"[A-Za-z_]\w*";
+let path   = ~"/usr/local/bin";      // slashes need no escaping
 ```
 
-- A literal `/` inside the pattern is escaped as `\/`. Patterns heavy in slashes are
-  usually more readable in verbose mode (§4).
-- The pattern between the delimiters is the regex source; escapes (`\d`, `\w`, `\/`, and
-  the rest) follow the engine's syntax (§5).
-- A malformed pattern (`/[/`) fails to compile **at the literal**, a compile error, because
+- **The pattern is near-raw: it reaches the engine undecoded.** Luna performs exactly one
+  transformation, `\"` → `"`, which is what lets a quote appear inside. Every other backslash
+  sequence — `\d`, `\w`, `\n`, `\\`, `\p{L}` — passes through to the engine verbatim and means
+  what the regex language says it means (§5), never what a Luna string escape would say. This
+  is the point of the sigil: a regex is not a string and does not inherit string escaping
+  (string §5.1's regex row).
+- **`/` is an ordinary character.** No escaping, no leaning-toothpick problem — which is why
+  the alternate-delimiter question §9 used to carry is now moot rather than answered.
+- **`"` inside the pattern is written `\"`**, the one cost of the delimiter choice, and a
+  cheap one: quotes are rarer in patterns than slashes.
+- A malformed pattern (`~"[" `) fails to compile **at the literal**, a compile error, because
   the literal is compiled at compile time.
-- An **empty pattern** is written `/(?:)/`, not `//`: a bare `//` is a line comment (lexer
-  §2, §8), so the empty matcher uses an explicit empty group — the spelling JavaScript
-  adopted for the same reason. `regex("")` is the runtime equivalent (§6).
+- An **empty pattern is simply `~""`.** The old `/(?:)/` workaround is retired with the
+  delimiter that forced it — `//` was a line comment, so an empty slash literal was
+  unwritable; `~""` collides with nothing. `regex("")` remains the runtime equivalent (§6).
 
-Flags follow the closing delimiter (§3).
+Flags follow the closing quote (§3).
+
+**Why the sigil.** A bare `/…/` literal makes `/` three-way ambiguous — division, comment, or
+regex — decidable only from the preceding token, which forces the lexer to carry a
+regex-allowed flag through every mode-stack frame and to consult a table of every token that
+can end a value. R237 retired that: `~` is a token nowhere else in the language, so `~"` is
+self-identifying, `/` is unconditionally division-or-comment, and the lexer needs no context
+at all. `~` alone, not followed by `"`, is a lex error.
 
 ---
 
 ## 3. Flags
 
-Flags are letters after the closing `/`, and they modify how the pattern is compiled or
-which engine runs it. They compose (`/.../im`).
+Flags are letters after the closing `"`, and they modify how the pattern is compiled or
+which engine runs it. They compose (`~"…"im`).
 
 | Flag | Meaning |
 |-|-|
@@ -69,9 +84,9 @@ which engine runs it. They compose (`/.../im`).
 | `b` | Backtracking engine: enables backreferences and lookbehind, at the cost of the linear-time guarantee (§5.2). |
 
 ```
-/hello/i             // case-insensitive
-/^\d+$/m             // multiline anchors
-/(\w+)\s+\1/b        // backreference: requires b (§5.2)
+~"hello"i            // case-insensitive
+~"^\d+$"m            // multiline anchors
+~"(\w+)\s+\1"b       // backreference: requires b (§5.2)
 ```
 
 Global-versus-single matching is **not** a flag: it is a call choice in the string API
@@ -86,26 +101,29 @@ The `x` flag makes a pattern readable by ignoring whitespace and allowing `#` co
 long pattern can be spelled out across lines instead of packed onto one:
 
 ```
-let isoDate = /
+let isoDate = ~"
   \d{4}    # year
   -
   \d{2}    # month
   -
   \d{2}    # day
-/x;
+"x;
 ```
 
 This is the same regex language, not a second syntax: `x` only changes how whitespace and
 `#` are treated during compilation. Literal whitespace in a verbose pattern is matched with
-`\ ` (escaped space) or a class like `[ ]`. Verbose mode is the intended way to write long
-or slash-heavy patterns legibly.
+`\ ` (escaped space) or a class like `[ ]`. Note that `#` comments work inside a `~"…"`
+literal without qualification — the delimiter is `"`, so a comment cannot terminate the
+pattern, which is a collision any `#`-delimited form would have had (R237). Verbose mode is
+the intended way to write long patterns legibly; it is no longer needed for slash-heavy ones,
+since `/` is now an ordinary pattern character (§2).
 
 ---
 
 ## 5. Engines and the matching guarantee
 
 The `regex` type is backed by an engine that is an **opaque implementation detail**: the
-programmer writes `/.../ ` and consumes matches, never sees the engine, and the engine may
+programmer writes `~"…"` and consumes matches, never sees the engine, and the engine may
 be swapped without any language-surface change. Two engines exist, selected by the `b` flag.
 
 ### 5.1 The default engine: linear-time, safe
@@ -146,7 +164,7 @@ pattern is meant to match "one character."
 
 The `b` flag opts into a **backtracking engine** that adds the features the automaton cannot
 express: **backreferences** (`\1`) and **lookbehind**. Backtracking engines have an
-exponential worst case, so `b` gives up the O(n) guarantee, and a `/b` pattern therefore
+exponential worst case, so `b` gives up the O(n) guarantee, and a `"…"b` pattern therefore
 runs under a **deterministic step budget** (§5.3) so that even a pathological match aborts
 with an error rather than hanging.
 
@@ -159,7 +177,7 @@ The `b` engine is bound by a strict **semantic-compatibility contract**:
 
 This is deliberate: `b` looks like a small addition to a pattern (one letter), so it must
 *be* a small addition. Adding `b` to enable a backreference must not silently alter how the
-rest of the pattern matches. A `/re/` and `/re/b` that share the pattern `re` must produce
+rest of the pattern matches. A `~"re"` and `~"re"b` that share the pattern `re` must produce
 the same result on the same input whenever `re` is expressible without `b`.
 
 The contract constrains engine choice: an off-the-shelf backtracking engine (PCRE, Perl)
@@ -167,11 +185,11 @@ whose semantics diverge from the default's (in alternation order, empty-match ha
 capture semantics, and the like) does **not** satisfy it as-is. Meeting the contract may
 require a purpose-built backtracking engine that matches the default engine's semantics and
 adds only the backtracking features. That cost is accepted; silent semantic divergence
-between `/re/` and `/re/b` is not, because it would make `b` a footgun.
+between `~"re"` and `~"re"b` is not, because it would make `b` a footgun.
 
 ### 5.3 The step budget on `b`
 
-A `/b` pattern's match runs under a **deterministic step budget**: a ceiling on backtracking
+A `b`-flagged pattern's match runs under a **deterministic step budget**: a ceiling on backtracking
 work, counted in steps, not wall-clock time (so it is machine-independent and reproducible,
 the same reasoning as the comptime budget, functions §5.5). A match that exceeds the budget
 **throws** rather than hanging the process. The budget is a backstop, not a correctness
@@ -185,7 +203,7 @@ A capture group may be named: **`(?<name>...)` is the canonical spelling** — t
 JavaScript, .NET, and Go (1.22+) share — with the engine's classic `(?P<name>...)` accepted
 as a silent synonym (an RE2 fact, not a second documented form). The feature costs the
 language nothing: the literal passes its interior through as pattern source (the only
-literal-special characters are `/` and `${`), so named groups work in plain literals,
+literal-special characters are `\"` and `${`), so named groups work in plain literals,
 verbose mode, and the runtime `regex()` path identically, and a malformed group name in a
 literal is a **compile error at the literal**, per §2's existing rule.
 
@@ -201,7 +219,7 @@ which are backtracking-only and ride the `b` engine's own deferral (§9).
 
 ## 6. Building a regex from a runtime string
 
-A `/.../ ` literal is compiled at compile time. To compile a pattern known only at runtime
+A `~"…"` literal is compiled at compile time. To compile a pattern known only at runtime
 (from configuration, or from user input), use the constructor:
 
 ```
@@ -228,7 +246,7 @@ backtracking engine and its step budget like any other `b` pattern.
 
 ## 7. Interpolation into a literal
 
-A `/.../ ` literal may interpolate `${expr}`, but only under one condition that preserves the
+A `~"…"` literal may interpolate `${expr}`, but only under one condition that preserves the
 literal's defining guarantee (it always compiles at compile time):
 
 > `${expr}` in a regex literal is allowed **iff `expr` is comptime-evaluable to a string**
@@ -236,7 +254,7 @@ literal's defining guarantee (it always compiles at compile time):
 > compiles at compile time.
 
 If `expr` is not comptime-known, the literal is a **compile error** directing the author to
-`regex()` (§6), the runtime path. This keeps the two paths cleanly exhaustive: `/.../ ` is
+`regex()` (§6), the runtime path. This keeps the two paths cleanly exhaustive: `~"…"` is
 always compile-time-compiled (never errorable at runtime), and `regex()` is the runtime path
 (errorable). Interpolation never blurs that line, because it is permitted only up to the
 point where the literal would still compile at compile time.
@@ -245,14 +263,14 @@ point where the literal would still compile at compile time.
 regex source**, so patterns can be assembled from comptime pieces:
 
 ```
-const DIGITS = /\d+/.source;           // comptime-known pattern fragment
-let ipPart   = /${DIGITS}\.${DIGITS}/; // composed at compile time, compiled once
+const DIGITS = ~"\d+".source;           // comptime-known pattern fragment
+let ipPart   = ~"${DIGITS}\.${DIGITS}"; // composed at compile time, compiled once
 ```
 
 Two properties follow, and both are why the comptime restriction is worth it:
 
 - **Regex injection is impossible through a literal.** User input is by definition not
-  comptime-known, so it can never be interpolated into a `/.../ ` literal. Any runtime or
+  comptime-known, so it can never be interpolated into a `~"…"` literal. Any runtime or
   untrusted pattern must go through `regex()`, the explicit, errorable, visible path. So
   "regex injection" can only happen deliberately and visibly, never by accident through
   interpolation.
@@ -268,7 +286,7 @@ string as **literal text to match** (escaping metacharacters) rather than as sou
 fn regexEscape(str: string): string     // builtin free function; escapes all regex metacharacters
 ```
 
-`regexEscape("a.b")` returns `"a\.b"`, so `/${regexEscape(name)}/` matches the literal text
+`regexEscape("a.b")` returns `"a\.b"`, so `~"${regexEscape(name)}"` matches the literal text
 of `name` rather than treating its metacharacters as pattern syntax. `regexEscape` is pure,
 so it stays comptime-evaluable and preserves the compile-time-compilation guarantee
 inside a literal. It is also the tool for escaping a runtime string before `regex()`, e.g.
@@ -308,5 +326,10 @@ captures, positions) is specified with those functions in the string API.
   constrained by the contract.
 - **Step budget default and override:** the default value of the `b` step budget (§5.3) and
   whether it is tunable per match or only globally.
-- **Alternate delimiters:** whether a slash-heavy pattern may use an alternate delimiter, or
-  whether `\/` plus verbose mode (§4) is sufficient (current assumption: sufficient).
+- *(**Alternate delimiters — dissolved, not answered, by R237.** The question existed because
+  `/` delimited the literal, so slash-heavy patterns drowned in `\/`. Under `~"…"` a slash is
+  an ordinary pattern character and the pressure is gone. A second delimiter could still be
+  added later — `~#…#` and friends are lex errors today, so admitting one would break no
+  existing program — but nothing currently argues for it, and `#` specifically is disqualified
+  by the `x` flag's comment syntax (§4). Note the reversibility runs one way: a delimiter can
+  be added compatibly and never removed.)*
