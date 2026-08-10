@@ -6112,6 +6112,132 @@ meant the evaluator). Also swept, outside the spec corpus:
 ruled here**: when the bootstrap happens, and whether Phase 1's Go-written
 compiler is kept alongside the interpreter as a second reference.
 
+**R235 — F2's predecessor set enumerated, inverted: the division side is the
+closed one, `}` and the three mode-path closers join it, and the mode openers
+finally get names.** The pre-implementation pass over lexer.md found F2's
+regex-vs-division rule stated as a list of *regex* positions — "after
+operators, `(`, `[`, `{`, `,`, `;`, `=>`, `=`, `return`, **and the other
+prefix positions**" — which is not a rule an implementation or a test can
+consume, and which had left `}` unclassified in either direction. The defect
+is structural, not sloppiness: the regex-allowed side is open-ended (every
+operator, every declaration keyword, every opener), so any enumeration of it
+trails off. **Inverted, the rule closes**: `/` is division exactly when the
+previous significant token can end a value, otherwise it opens a regex — and
+the division side is **25 tokens**, written out in F2 as a table. The other
+85 allow a regex, as do the two no-predecessor positions, start-of-file and
+just after `INTERP_OPEN`. *Significant* excludes what §2 skips. **`RPAREN` is
+unconditional, and Luna earns that where JavaScript cannot**: there, `)` is
+undecidable from the token alone because a brace-less body lets an expression
+follow it (`if (c) /re/.test(x)`), which is parser knowledge. Luna has no
+such form, every control-flow construct being either block (`{` follows) or
+postfix (`;` follows), so no `)` precedes an expression. **`RBRACE` is
+unconditional as a consequence of tables being bracket-delimited** (`['name'
+=> 'Lucas']`): the braces that close a *value* are enum-variant literals
+(`{point}`) and `match`, both ordinary, while the brace that closes a *block*
+is a statement boundary where a regex could begin in principle — except the
+no-discard rule (errors §540) makes a regex-leading statement unreachable,
+since the legal spelling is `_ = /re/…`. Tracking block-vs-value on the brace
+stack was **considered and rejected as not lexer-decidable**: `{point}` and
+`{point;}` diverge arbitrarily far past the `{`, and §1.1 grants the lexer no
+parser feedback, lexing being a complete phase over all files in parallel.
+**The three mode-path closers are the entries most easily missed**, because
+the two halves of the fact live in different sections: §4's span regexes are
+the no-`${` fast path only (F1, F3), so an interpolated literal ends not at
+`STRING_DQ`/`REGEX`/`COMMAND` but at `DQ_CLOSE`/`REGEX_CLOSE`/`CMD_CLOSE` —
+omit them and `"a${x}b" / 2` opens a regex. **`KW_SELF` likewise**: a
+value-ender that §3's value-keyword list does not name, that list enumerating
+the six literal-denoting words. **`WILDCARD` and `QUESTION` are placed on the
+safe side of an asymmetry** rather than on a semantic argument, neither being
+plausibly followed by a regex: misclassifying toward division is benign — one
+`SLASH`, a parse error in place, §1.1's collect-don't-abort recovery
+unharmed — while misclassifying toward regex is destructive, the scanner
+hunting the next unescaped `/` and swallowing arbitrary source into a ruined
+token stream. Anything genuinely indifferent therefore belongs on the
+division side. The one token where this reasoning does **not** license
+conservatism is `BANG`: `!` is prefix logical-not and a regex literal is an
+expression, so `!` directly followed by one is grammatically constructible,
+and unlike the other dual-role tokens (`&`, `@`, `?`) its
+regex-allowed classification is a requirement. Recorded with it: **the flag
+is per-frame state on the mode stack, not a global** — `INTERP_EXPR` lexes
+with the full `DEFAULT` rule set, so entering a splice resets it to
+regex-allowed and popping restores the enclosing frame's; one global boolean
+gets either `"${x}" / 2` or `"${/re/.source}"` wrong depending on which way
+it leaks. **The opener gap, closed in the same pass**: §6 named the three
+mode *closers* and only described the openers, in a file otherwise exact
+enough about its inventory to have caught a 47-vs-49 keyword discrepancy
+(R232). They are now `DQ_OPEN`, `REGEX_OPEN`, `CMD_OPEN` — mode-path only,
+none a division position — and the consequence is stated where it was
+previously implicit: the same source construct reaches the parser as
+**one token or a delimited sequence** depending on whether the fast path
+applied — F1/F3's optimization, not two grammars.
+Swept: `lexer.md` (§1 mode table, §5 slash note, §6 openers and
+closers, F2 rewritten). Not swept: the tooling grammars, on R232's precedent:
+their alternation is stale across many rulings and is regenerated as a batch
+when the grammar is next published. **Not ruled here**, both live and both
+touching this file: whether comments and whitespace are *retained* for the
+formatter (§2 still marks all four trivia forms "skipped", which a formatter
+cannot work from), and the position model (byte offsets in tokens versus rune
+columns at the diagnostic boundary, with LSP wanting UTF-16 regardless).
+
+**R236 — the two lexer opens closed together: whitespace and comments
+become emitted *trivia* tokens, and tokens carry byte spans with line and
+rune column computed on demand.** Both were flagged unruled by R235 and
+both are settled here, because they are the same question asked twice —
+what a token stream must carry for consumers the compiler itself is not.
+**Trivia.** §2's four forms (`WHITESPACE`, `SHEBANG`, `LINE_COMMENT`,
+`BLOCK_COMMENT`) were marked *skipped*; they are now **emitted**,
+collectively the **trivia** tokens. The forcing argument is the formatter:
+`luna -f` (compiler §0.1) cannot reproduce text the lexer discarded, and it
+is the sole consumer that needs it — the parser filters trivia out with one
+predicate over the stream. The rejected alternative was a
+**trivia-suppressing lexer mode**, off for compilation and on for the
+formatter and language server. It buys a shorter stream and costs the thing
+this file just spent R235 arguing against: two token streams for one source
+construct, hence two behaviours to test and a standing risk that formatter
+and compiler disagree about what a file contains. One stream, one filter.
+Two consequences recorded where they land: **spans now tile the source
+exactly** — monotonic, gapless, summing to file length — promoting a
+partial invariant into a total one for any consumer checking positions; and
+**trivia attachment is deliberately left undecided**, the stream staying
+flat with no leading/trailing binding of a comment to a neighbouring token,
+because whether a trailing `// …` belongs to the line above or below is
+formatting policy and the formatter spec is pending. A flat stream lets
+that spec choose; an attached one would freeze the answer before the
+question is asked. One interaction swept in passing: `KW_YIELD_FROM`'s fold
+**consumes** the run between the two words, so its span covers them both
+and no `WHITESPACE` token is emitted inside the compound — the same fact
+R223's "a comment between them defeats the fold" states from the other
+side. **Positions.** Tokens carry a **byte offset and length** — a span,
+not a copy, the source buffer being retained for anyone wanting the lexeme
+— and line/rune column are **computed, never stored**. Bytes win on four
+counts, none of them convenience: the scanner is byte-native over text the
+ingress check has already validated (lexical-structure §1); the tiling
+invariant above is exact in bytes and only approximate in anything else;
+slicing a line out for an error snippet needs byte indices regardless; and
+the language server wants **UTF-16 code units**, a third encoding, so a
+conversion layer exists no matter what and is cheapest with one canonical
+origin to convert from. The corpus already leaned this way without saying
+so: lexical-structure §1 refuses to strip a BOM *precisely* to keep byte
+offset 0 meaningful for the shebang rule. Diagnostics nonetheless report a
+**rune** column, being what a person counts, and it stays off the common
+path — a line-start table built once per file, binary search to the line,
+then a rune count over that line's prefix alone, bounded by line length
+rather than file length, and never run at all by a compile that emits no
+diagnostic. **The pure-ASCII fast path costs nothing** because the pass
+that enables it already exists: lexical-structure §1's validation visits
+every byte "exactly once, up front", so recording whether any byte was ≥
+`0x80` is free, and in a file where none was the rune column *is* the byte
+column. Even where non-ASCII appears, §1 confines it to string, `command`,
+`regex`, and comment content, so the counting path runs only for a
+diagnostic on a line carrying some. Swept: `lexer.md` (§2 retitled and
+rewritten, §3's `yield from` note, F2's *significant* definition, new §9
+Token positions), `lexical-structure.md` (§1 pure-ASCII record, §3's "both
+skipped"), `compiler.md` (§1.1 Lex output). **Not ruled here**: tab
+handling in a column count — one column or advance to the next tab stop —
+which is a rendering question for the diagnostics spec and reaches neither
+byte spans nor the lexer; recorded as open in §9 so it is not decided by
+whatever the first implementation happens to do.
+
 ---
 
 ## Still open (out of scope of these rulings)

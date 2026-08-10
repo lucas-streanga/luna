@@ -15,6 +15,9 @@ A Luna source file is a sequence of bytes that **must be valid UTF-8**. Invalid 
 rejected **before** tokenizing — a compile error at ingress, not a runtime surprise and not
 a silent substitution. Validity is established exactly once, up front, so every downstream
 pass operates on known-good text (the same discipline strings use, string-representation §8).
+That pass visits every byte, so it also records whether the file is **pure ASCII** — free here,
+and what lets rune columns be computed from byte offsets by subtraction in the common case
+(lexer §9, R236).
 
 All of Luna's lexical **syntax** is ASCII: keywords, operators, punctuation, identifiers,
 and every literal delimiter are ASCII bytes, so after the UTF-8 check the lexer matches on
@@ -73,7 +76,9 @@ ruled R122, keywords §6) are style, not grammar.
 
 ## 3. Comments and shebang
 
-Two comment forms, both skipped by the lexer (lexer §2):
+Two comment forms. Both are **emitted as trivia tokens** and dropped by every consumer except
+the formatter (R236, lexer §2) — the lexer no longer discards them, because a formatter cannot
+reproduce text it never received:
 
 | Form | Syntax | Ends at |
 |-|-|-|
@@ -93,9 +98,9 @@ Two comment forms, both skipped by the lexer (lexer §2):
 - **No doc-comment syntax.** Documentation is carried by **attributes** (attributes spec),
   deliberately — one declaration-metadata mechanism, not a second parallel one.
 
-**Shebang.** A `#!` beginning the **first line** of a file (byte offset 0) is skipped through
-the next newline, so a `.luna` file can be marked executable and run directly, matching
-Luna's run-a-file-like-a-script model. It is recognized **only** at offset 0 and **only** as
+**Shebang.** A `#!` beginning the **first line** of a file (byte offset 0) runs through
+the next newline as one trivia token (R236, lexer §2) and carries no meaning, so a `.luna`
+file can be marked executable and run directly, matching Luna's run-a-file-like-a-script model. It is recognized **only** at offset 0 and **only** as
 `#!`; a bare `#` is otherwise a lex error, and `#` appears elsewhere solely in `#[` attribute
 application (R85, lexer §2/§5).
 

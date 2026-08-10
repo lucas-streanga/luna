@@ -163,7 +163,10 @@ is incremental for free: the graph recomputes from cached lists.
 Tokenizes each file in the discovered set, **all files in parallel** — no symbol knowledge
 exists at this phase, so nothing orders it (§2). Invalid tokens are **collected**, not aborted
 on individually (§3): the lexer scans the whole file, accumulates every lexical error, and the
-compile aborts at the phase boundary if any occurred. Output is a token stream per file.
+compile aborts at the phase boundary if any occurred. Output is a token stream per file —
+including the **trivia** tokens (whitespace, comments, shebang; lexer §2, R236), which §1.3's
+parser filters out and only the formatter reads. Tokens carry **byte spans**; line and rune
+column are computed on demand at the diagnostic boundary, never stored (lexer §9).
 
 ### 1.2 Import validation
 
