@@ -6369,6 +6369,46 @@ literals, §8's separator bullet), `double.md` (§8 literals),
 R232's precedent. **Not ruled here**: tab handling in a column count, which
 is lexer §9's remaining open item and belongs to the diagnostics spec.
 
+**R239 — the lone `$` gets a name, `DOLLAR_TEXT`, and the mode-internal
+attempt order is written down.** Compiling §10's inventory surfaced a row
+in §6 carrying a pattern and no token name: a `$` that starts no
+interpolation form, described only as "text (fallback, all modes)". It is
+not an edge case — `$` is the regex end-of-line anchor (`~"^\d+$"m` is the
+spec's own example), `"costs $5"` is an ordinary string, and `INTERP_IDENT`
+is `DQ_STRING`-only so `` `echo $HOME` `` hits it too. And it cannot be
+absorbed silently, because §2's spans tile the source with no gaps while
+`DQ_TEXT`, `REGEX_TEXT`, and `CMD_TEXT` all **exclude** `$` from their
+classes — an exclusion that is itself load-bearing, since a text run able
+to swallow `$` would consume `${` before `INTERP_OPEN` saw it. The rejected
+alternative was to emit the byte **as the enclosing mode's own text
+token**, which adds no name and keeps the inventory at 125; it loses
+because the emitted token would not match its own documented pattern,
+forcing all three text classes to become `[^X\\$]+\x7c\$` with an
+order-dependent branch apiece. In a file whose method is one token, one
+name, one readable pattern, three smuggled alternations cost more than one
+honest row. **`ESCAPE_PAIR` settles the shape**: it is already one name
+with one pattern shared across `DQ_STRING`, `REGEX_BODY`, and `COMMAND`, so
+a single `DOLLAR_TEXT` across the same three modes follows precedent rather
+than breaking symmetry, and the three-per-mode alternative (`DQ_DOLLAR` and
+friends) is what nobody wants. Ruled out first, and recorded because it
+looks attractive: **requiring `\$` for a literal dollar**, deleting the
+case entirely. It is fatal to regex under R237's near-raw rule — Luna
+decodes only `\"`, so `~"^\d+\$"` would hand the engine `\$`, which *is* a
+literal dollar to the engine, leaving the end-of-line anchor unwritable —
+and it would break `"costs $5"` for nothing, string §5.1's `\$` already
+being available and optional. **Swept in with it**: §6 now states the
+**mode-internal attempt order** (closing delimiter, `ESCAPE_PAIR`,
+`INTERP_OPEN`, `INTERP_IDENT`, `DOLLAR_TEXT`, text run), which §8 never
+covered — §8 is explicitly the `DEFAULT`/`INTERP_EXPR` order — and which
+`DOLLAR_TEXT` makes necessary to state, its pattern `\$` being correct only
+because the two interpolation forms are attempted ahead of it. **Unaffected
+by construction**: single-quoted strings and `b"…"` bytes literals do not
+interpolate and are matched by one span regex with no mode (§1), so `$` is
+ordinary content in `[^'\\]` there, `\$` is correctly absent from their
+escape rows (string §5.1), and neither ever reaches this decision. Swept:
+`lexer.md` (§6 row and new ordering paragraph, §10 inventory —
+literal content 4 → 5, total 125 → **126**).
+
 ---
 
 ## Still open (out of scope of these rulings)

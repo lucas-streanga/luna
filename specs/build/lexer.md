@@ -19,6 +19,145 @@ Conventions used throughout:
 - Longest match wins. Where patterns overlap, the attempt order in §8 is normative.
 - Newlines are not significant; statements are `;`-terminated (every spec example).
 
+## 0. The token table
+
+Every token, in one place: what it looks like, its name, its category, and its RE2 pattern.
+The sections that follow keep the **notes** that explain each group — the rationale, the
+orderings, the flagged hazards — but not a second copy of these rows. `§n` in the category
+column points at the section that owns the explanation. Attempt order is **not** given by this
+table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the literal modes.
+
+| Token | Name | Category | Go regex (RE2) |
+|-|-|-|-|
+| spaces, tabs, newlines | `WHITESPACE` | trivia §2 | `[ \t\r\n]+` — one token per maximal run |
+| `#!…` (first line only) | `SHEBANG` | trivia §2 | `\A#![^\n]*` |
+| `// …` | `LINE_COMMENT` | trivia §2 | `//[^\n]*` |
+| `/* … */` | `BLOCK_COMMENT` | trivia §2 | `(?s)/\*.*?\*/` |
+| `var` | `KW_VAR` | keyword §3 | `\bvar\b` |
+| `let` | `KW_LET` | keyword §3 | `\blet\b` |
+| `const` | `KW_CONST` | keyword §3 | `\bconst\b` |
+| `fn` | `KW_FN` | keyword §3 | `\bfn\b` |
+| `gen` | `KW_GEN` | keyword §3 | `\bgen\b` |
+| `constraint` | `KW_CONSTRAINT` | keyword §3 | `\bconstraint\b` |
+| `proto` | `KW_PROTO` | keyword §3 | `\bproto\b` |
+| `enum` | `KW_ENUM` | keyword §3 | `\benum\b` |
+| `error` | `KW_ERROR` | keyword §3 | `\berror\b` |
+| `capability` | `KW_CAPABILITY` | keyword §3 | `\bcapability\b` |
+| `attribute` | `KW_ATTRIBUTE` | keyword §3 | `\battribute\b` |
+| `test` | `KW_TEST` | keyword §3 | `\btest\b` |
+| `export` | `KW_EXPORT` | keyword §3 | `\bexport\b` |
+| `import` | `KW_IMPORT` | keyword §3 | `\bimport\b` |
+| `if` | `KW_IF` | keyword §3 | `\bif\b` |
+| `else` | `KW_ELSE` | keyword §3 | `\belse\b` |
+| `foreach` | `KW_FOREACH` | keyword §3 | `\bforeach\b` |
+| `in` | `KW_IN` | keyword §3 | `\bin\b` |
+| `while` | `KW_WHILE` | keyword §3 | `\bwhile\b` |
+| `break` | `KW_BREAK` | keyword §3 | `\bbreak\b` |
+| `continue` | `KW_CONTINUE` | keyword §3 | `\bcontinue\b` |
+| `return` | `KW_RETURN` | keyword §3 | `\breturn\b` |
+| `yield from` | `KW_YIELD_FROM` | keyword §3 | `\byield[ \t\r\n]+from\b` |
+| `yield` | `KW_YIELD` | keyword §3 | `\byield\b` |
+| `match!` | `KW_MATCH_BANG` | keyword §3 | `\bmatch!` |
+| `match` | `KW_MATCH` | keyword §3 | `\bmatch\b` |
+| `where` | `KW_WHERE` | keyword §3 | `\bwhere\b` |
+| `defer` | `KW_DEFER` | keyword §3 | `\bdefer\b` |
+| `by` | `KW_BY` | keyword §3 | `\bby\b` |
+| `try` | `KW_TRY` | keyword §3 | `\btry\b` |
+| `catch` | `KW_CATCH` | keyword §3 | `\bcatch\b` |
+| `throw` | `KW_THROW` | keyword §3 | `\bthrow\b` |
+| `copy` | `KW_COPY` | keyword §3 | `\bcopy\b` |
+| `spawn` | `KW_SPAWN` | keyword §3 | `\bspawn\b` |
+| `await` | `KW_AWAIT` | keyword §3 | `\bawait\b` |
+| `comptime` | `KW_COMPTIME` | keyword §3 | `\bcomptime\b` |
+| `comptype` | `KW_COMPTYPE` | keyword §3 | `\bcomptype\b` |
+| `is` | `KW_IS` | keyword §3 | `\bis\b` |
+| `as` | `KW_AS` | keyword §3 | `\bas\b` |
+| `apply` | `KW_APPLY` | keyword §3 | `\bapply\b` |
+| `declared` | `KW_DECLARED` | keyword §3 | `\bdeclared\b` |
+| `use` | `KW_USE` | keyword §3 | `\buse\b` |
+| `true` | `KW_TRUE` | keyword §3 | `\btrue\b` |
+| `false` | `KW_FALSE` | keyword §3 | `\bfalse\b` |
+| `null` | `KW_NULL` | keyword §3 | `\bnull\b` |
+| `undefined` | `KW_UNDEFINED` | keyword §3 | `\bundefined\b` |
+| `nan` | `KW_NAN` | keyword §3 | `\bnan\b` |
+| `inf` | `KW_INF` | keyword §3 | `\binf\b` |
+| `self` | `KW_SELF` | keyword §3 | `\bself\b` |
+| `42`, `1_000` | `INT_DEC` | literal §4 | `0\x7c[1-9](?:_?[0-9])*` |
+| `0x1F`, `0xdead_beef` | `INT_HEX` | literal §4 | `0x[0-9a-fA-F](?:_?[0-9a-fA-F])*` |
+| `0b0100_0001` | `INT_BIN` | literal §4 | `0b[01](?:_?[01])*` |
+| `0o755`, `0o1_7` | `INT_OCT` | literal §4 | `0o[0-7](?:_?[0-7])*` |
+| `3.14`, `2.5e10` | `DOUBLE` (point form) | literal §4 | `(?:0\x7c[1-9](?:_?[0-9])*)\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?` |
+| `6.022e23`, `1e-9` | `DOUBLE` (exponent form) | literal §4 | `(?:0\x7c[1-9](?:_?[0-9])*)[eE][+-]?[0-9]+` |
+| `'literal'` | `STRING_SQ` | literal §4 | `(?s)'[^'\\]*(?:\\.[^'\\]*)*'` |
+| `"text $x ${e}"` | `STRING_DQ` | literal §4 | `(?s)"[^"\\]*(?:\\.[^"\\]*)*"` — **only valid when the literal contains no `${`**; otherwise mode-lex (F1) |
+| `b"GET \x89"` | `BYTES` (dq) | literal §4 | `(?s)b"[^"\\]*(?:\\.[^"\\]*)*"` |
+| `b'GET '` | `BYTES` (sq) | literal §4 | `(?s)b'[^'\\]*(?:\\.[^'\\]*)*'` |
+| `~"\d+"im` | `REGEX` | literal §4 | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2) |
+| `` `grep ${x} f` `` | `COMMAND` | literal §4 | ``(?s)`[^`]*` `` — **only valid when the literal contains no `${`**; otherwise mode-lex (F3). `\` is an ordinary byte, by ruling (command §2.2) |
+| `0755`, `0_1` | *(error production)* | error §4 | `0[0-9_]+` — a leading zero is a **lex error** (R238), never silent decimal and never C-style octal |
+| `???=` | `NULL_COALESCE_ASSIGN` | operator §5 | `\?\?\?=` |
+| `???` | `NULL_COALESCE` | operator §5 | `\?\?\?` |
+| `??=` | `COALESCE_ASSIGN` | operator §5 | `\?\?=` |
+| `??` | `COALESCE` | operator §5 | `\?\?` |
+| `?->` | `OPT_PROTO_ACCESS` | operator §5 | `\?->` |
+| `?.` | `OPT_ACCESS` | operator §5 | `\?\.` |
+| `?` | `QUESTION` | operator §5 | `\?` |
+| `...` | `SPREAD` | operator §5 | `\.\.\.` |
+| `..<` | `RANGE_EXCL` | operator §5 | `\.\.<` |
+| `..` | `RANGE` | operator §5 | `\.\.` |
+| `.` | `DOT` | operator §5 | `\.` |
+| `\|\|` | `OR` | operator §5 | `\x7c\x7c` |
+| `\|` | `BAR` | operator §5 | `\x7c` |
+| `&&` | `AND` | operator §5 | `&&` |
+| `&` | `AMP` | operator §5 | `&` |
+| `->` | `ARROW` | operator §5 | `->` |
+| `-=` | `MINUS_ASSIGN` | operator §5 | `-=` |
+| `-` | `MINUS` | operator §5 | `-` |
+| `=>` | `FAT_ARROW` | operator §5 | `=>` |
+| `==` | `EQ` | operator §5 | `==` |
+| `=` | `ASSIGN` | operator §5 | `=` |
+| `!=` | `NEQ` | operator §5 | `!=` |
+| `!` | `BANG` | operator §5 | `!` |
+| `<=` | `LE` | operator §5 | `<=` |
+| `<` | `LT` | operator §5 | `<` |
+| `>=` | `GE` | operator §5 | `>=` |
+| `>` | `GT` | operator §5 | `>` |
+| `+=` | `PLUS_ASSIGN` | operator §5 | `\+=` |
+| `+` | `PLUS` | operator §5 | `\+` |
+| `*=` | `STAR_ASSIGN` | operator §5 | `\*=` |
+| `*` | `STAR` | operator §5 | `\*` |
+| `/=` | `SLASH_ASSIGN` | operator §5 | `/=` |
+| `/` | `SLASH` | operator §5 | `/` |
+| `%=` | `PERCENT_ASSIGN` | operator §5 | `%=` |
+| `%` | `PERCENT` | operator §5 | `%` |
+| `@@` | `AT_AT` | operator §5 | `@@` |
+| `@` | `AT` | operator §5 | `@` |
+| `#[` | `ATTR_OPEN` | punctuation §5 | `#\[` |
+| `(` | `LPAREN` | punctuation §5 | `\(` |
+| `)` | `RPAREN` | punctuation §5 | `\)` |
+| `{` | `LBRACE` | punctuation §5 | `\{` |
+| `}` | `RBRACE` | punctuation §5 | `\}` |
+| `[` | `LBRACKET` | punctuation §5 | `\[` |
+| `]` | `RBRACKET` | punctuation §5 | `\]` |
+| `,` | `COMMA` | punctuation §5 | `,` |
+| `;` | `SEMICOLON` | punctuation §5 | `;` |
+| `:` | `COLON` | punctuation §5 | `:` |
+| `"` | `DQ_OPEN` | delimiter §6 | `"` — pushes `DQ_STRING`; mode-path only |
+| `~"` | `REGEX_OPEN` | delimiter §6 | `~"` — pushes `REGEX_BODY` (R237); mode-path only |
+| `` ` `` | `CMD_OPEN` | delimiter §6 | ``` ` ``` — pushes `COMMAND`; mode-path only |
+| `"` | `DQ_CLOSE` | delimiter §6 | `"` — pops `DQ_STRING` |
+| `"im` | `REGEX_CLOSE` | delimiter §6 | `"[imsxb]*` — pops `REGEX_BODY`, flags included |
+| `` ` `` | `CMD_CLOSE` | delimiter §6 | ``` ` ``` — pops `COMMAND` |
+| `${` | `INTERP_OPEN` | interp §6 | `\$\{` — pushes `INTERP_EXPR` |
+| `$name` | `INTERP_IDENT` | interp §6 | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
+| `}` | `INTERP_CLOSE` | interp §6 | the `}` returning brace depth to zero; pops to the enclosing literal mode |
+| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | content §6 | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, string §5.1 (R150) |
+| text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$]+` |
+| lone `$` | `DOLLAR_TEXT` | content §6 | `\$` — a `$` that starts no interp form is literal content; one name across all three modes, as `ESCAPE_PAIR` is (in commands: `$` not followed by `{`, command §2.2) |
+| text run (regex) | `REGEX_TEXT` | content §6 | `[^"\\$]+` |
+| text run (command) | `CMD_TEXT` | content §6 | ``[^`\\$]+`` (backslash excluded since R150 — commands have escapes) |
+| `foo`, `snake_case`, `camelCase` | `IDENT` | identifier §7 | `[A-Za-z_][A-Za-z0-9_]*` |
+| `_` | `WILDCARD` | identifier §7 | `_\b` |
 ## 1. Lexer modes
 
 Three literal forms admit `${expr}` interpolation whose body is a full Luna expression —
@@ -40,14 +179,8 @@ regex each.
 
 ## 2. Whitespace and comments — the trivia tokens
 
-| Token | Name | Go regex (RE2) |
-|-|-|-|
-| spaces, tabs, newlines | `WHITESPACE` | `[ \t\r\n]+` — one token per maximal run |
-| `#!…` (first line only) | `SHEBANG` | `\A#![^\n]*` |
-| `// …` | `LINE_COMMENT` | `//[^\n]*` |
-| `/* … */` | `BLOCK_COMMENT` | `(?s)/\*.*?\*/` |
-
-**These four are emitted, not skipped (R236)**, and collectively they are the **trivia**
+`WHITESPACE`, `SHEBANG`, `LINE_COMMENT`, `BLOCK_COMMENT` (§0, categorized `trivia §2`).
+**All four are emitted, not skipped (R236)**, and collectively they are the **trivia**
 tokens. They carry no meaning — whitespace is insignificant and comments are inert
 (lexical-structure §1, §3) — so every consumer but one drops them; the lexer emits them anyway,
 because the formatter (`luna -f`, compiler §0.1) cannot reproduce what the lexer discarded, and
@@ -66,7 +199,7 @@ formatting policy and the formatter spec is pending. A flat stream lets that spe
 attached one would freeze the answer before it is asked.
 
 Both comment forms are specified in lexical-structure §3. Block comments are C-style and do
-**not** nest, by ruling, so the non-nesting pattern above is the complete rule (F4). There
+**not** nest, by ruling, so §0's non-nesting pattern is the complete rule (F4). There
 is no doc-comment syntax; documentation rides on attributes.
 
 A **shebang** — `#!` as the first two bytes of the file — spans through the next newline as
@@ -81,60 +214,8 @@ appears solely in `#[` (attributes §3, §5).
 Reserved words per keywords.md §1–§4: 47 word-shaped keywords plus two compound tokens,
 `match!` and `yield from` (R223). Recommended implementation: lex an `IDENT` (§7) and
 promote via a lookup table, with the one-token peeks of §8 for the compounds, rather
-than running 49 patterns; the per-word regex is given for completeness. The word-shaped
-keywords all follow `\bword\b`; the two compounds carry their own patterns below.
-
-| Token | Name | Go regex (RE2) |
-|-|-|-|
-| `var` | `KW_VAR` | `\bvar\b` |
-| `let` | `KW_LET` | `\blet\b` |
-| `const` | `KW_CONST` | `\bconst\b` |
-| `fn` | `KW_FN` | `\bfn\b` |
-| `gen` | `KW_GEN` | `\bgen\b` |
-| `constraint` | `KW_CONSTRAINT` | `\bconstraint\b` |
-| `proto` | `KW_PROTO` | `\bproto\b` |
-| `enum` | `KW_ENUM` | `\benum\b` |
-| `error` | `KW_ERROR` | `\berror\b` |
-| `capability` | `KW_CAPABILITY` | `\bcapability\b` |
-| `attribute` | `KW_ATTRIBUTE` | `\battribute\b` |
-| `test` | `KW_TEST` | `\btest\b` |
-| `export` | `KW_EXPORT` | `\bexport\b` |
-| `import` | `KW_IMPORT` | `\bimport\b` |
-| `if` | `KW_IF` | `\bif\b` |
-| `else` | `KW_ELSE` | `\belse\b` |
-| `foreach` | `KW_FOREACH` | `\bforeach\b` |
-| `in` | `KW_IN` | `\bin\b` |
-| `while` | `KW_WHILE` | `\bwhile\b` |
-| `break` | `KW_BREAK` | `\bbreak\b` |
-| `continue` | `KW_CONTINUE` | `\bcontinue\b` |
-| `return` | `KW_RETURN` | `\breturn\b` |
-| `yield from` | `KW_YIELD_FROM` | `\byield[ \t\r\n]+from\b` |
-| `yield` | `KW_YIELD` | `\byield\b` |
-| `match!` | `KW_MATCH_BANG` | `\bmatch!` |
-| `match` | `KW_MATCH` | `\bmatch\b` |
-| `where` | `KW_WHERE` | `\bwhere\b` |
-| `defer` | `KW_DEFER` | `\bdefer\b` |
-| `by` | `KW_BY` | `\bby\b` |
-| `try` | `KW_TRY` | `\btry\b` |
-| `catch` | `KW_CATCH` | `\bcatch\b` |
-| `throw` | `KW_THROW` | `\bthrow\b` |
-| `copy` | `KW_COPY` | `\bcopy\b` |
-| `spawn` | `KW_SPAWN` | `\bspawn\b` |
-| `await` | `KW_AWAIT` | `\bawait\b` |
-| `comptime` | `KW_COMPTIME` | `\bcomptime\b` |
-| `comptype` | `KW_COMPTYPE` | `\bcomptype\b` |
-| `is` | `KW_IS` | `\bis\b` |
-| `as` | `KW_AS` | `\bas\b` |
-| `apply` | `KW_APPLY` | `\bapply\b` |
-| `declared` | `KW_DECLARED` | `\bdeclared\b` |
-| `use` | `KW_USE` | `\buse\b` |
-| `true` | `KW_TRUE` | `\btrue\b` |
-| `false` | `KW_FALSE` | `\bfalse\b` |
-| `null` | `KW_NULL` | `\bnull\b` |
-| `undefined` | `KW_UNDEFINED` | `\bundefined\b` |
-| `nan` | `KW_NAN` | `\bnan\b` |
-| `inf` | `KW_INF` | `\binf\b` |
-| `self` | `KW_SELF` | `\bself\b` |
+than running 49 patterns; §0 gives the per-word regex for completeness. The word-shaped
+keywords all follow `\bword\b`; the two compounds carry their own patterns there.
 
 Notes. `in`, `by`, and `self` are contextual per keywords.md (foreach heads, range steps,
 protocol bodies) but reserved everywhere, so the lexer treats them uniformly. `gen` is the
@@ -162,21 +243,7 @@ are lowercase; the reserved set has no capitalized member.
 
 ## 4. Literals
 
-| Token | Name | Go regex (RE2) |
-|-|-|-|
-| `42`, `1_000` | `INT_DEC` | `0\x7c[1-9](?:_?[0-9])*` |
-| `0x1F`, `0xdead_beef` | `INT_HEX` | `0x[0-9a-fA-F](?:_?[0-9a-fA-F])*` |
-| `0b0100_0001` | `INT_BIN` | `0b[01](?:_?[01])*` |
-| `0o755`, `0o1_7` | `INT_OCT` | `0o[0-7](?:_?[0-7])*` |
-| `3.14`, `2.5e10` | `DOUBLE` (point form) | `(?:0\x7c[1-9](?:_?[0-9])*)\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?` |
-| `6.022e23`, `1e-9` | `DOUBLE` (exponent form) | `(?:0\x7c[1-9](?:_?[0-9])*)[eE][+-]?[0-9]+` |
-| `0755`, `0_1` | *(error production)* | `0[0-9_]+` — a leading zero is a **lex error** (R238), never silent decimal and never C-style octal |
-| `'literal'` | `STRING_SQ` | `(?s)'[^'\\]*(?:\\.[^'\\]*)*'` |
-| `"text $x ${e}"` | `STRING_DQ` | `(?s)"[^"\\]*(?:\\.[^"\\]*)*"` — **only valid when the literal contains no `${`**; otherwise mode-lex (F1) |
-| `b"GET \x89"` | `BYTES` (dq) | `(?s)b"[^"\\]*(?:\\.[^"\\]*)*"` |
-| `b'GET '` | `BYTES` (sq) | `(?s)b'[^'\\]*(?:\\.[^'\\]*)*'` |
-| `~"\d+"im` | `REGEX` | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2) |
-| `` `grep ${x} f` `` | `COMMAND` | ``(?s)`[^`]*` `` — **only valid when the literal contains no `${`**; otherwise mode-lex (F3). `\` is an ordinary byte, by ruling (command §2.2) |
+The literal tokens are in §0, categorized `literal §4`; this section owns their rules.
 
 All span patterns use the alternation-free "unrolled loop" form
 (`[^X\\]*(?:\\.[^X\\]*)*`) rather than `(escape or normal)*`, for two reasons: it keeps
@@ -229,57 +296,8 @@ underflow — is normal IEEE behaviour and is not diagnosed.
 
 ## 5. Operators and punctuation
 
-Ordered longest-first within each family; §8 gives the global order.
-
-| Token | Name | Go regex (RE2) |
-|-|-|-|
-| `???=` | `NULL_COALESCE_ASSIGN` | `\?\?\?=` |
-| `???` | `NULL_COALESCE` | `\?\?\?` |
-| `??=` | `COALESCE_ASSIGN` | `\?\?=` |
-| `??` | `COALESCE` | `\?\?` |
-| `?->` | `OPT_PROTO_ACCESS` | `\?->` |
-| `?.` | `OPT_ACCESS` | `\?\.` |
-| `?` | `QUESTION` | `\?` |
-| `...` | `SPREAD` | `\.\.\.` |
-| `..<` | `RANGE_EXCL` | `\.\.<` |
-| `..` | `RANGE` | `\.\.` |
-| `.` | `DOT` | `\.` |
-| `\|\|` | `OR` | `\x7c\x7c` |
-| `\|` | `BAR` | `\x7c` |
-| `&&` | `AND` | `&&` |
-| `&` | `AMP` | `&` |
-| `->` | `ARROW` | `->` |
-| `-=` | `MINUS_ASSIGN` | `-=` |
-| `-` | `MINUS` | `-` |
-| `=>` | `FAT_ARROW` | `=>` |
-| `==` | `EQ` | `==` |
-| `=` | `ASSIGN` | `=` |
-| `!=` | `NEQ` | `!=` |
-| `!` | `BANG` | `!` |
-| `<=` | `LE` | `<=` |
-| `<` | `LT` | `<` |
-| `>=` | `GE` | `>=` |
-| `>` | `GT` | `>` |
-| `+=` | `PLUS_ASSIGN` | `\+=` |
-| `+` | `PLUS` | `\+` |
-| `*=` | `STAR_ASSIGN` | `\*=` |
-| `*` | `STAR` | `\*` |
-| `/=` | `SLASH_ASSIGN` | `/=` |
-| `/` | `SLASH` | `/` |
-| `%=` | `PERCENT_ASSIGN` | `%=` |
-| `%` | `PERCENT` | `%` |
-| `@@` | `AT_AT` | `@@` |
-| `@` | `AT` | `@` |
-| `#[` | `ATTR_OPEN` | `#\[` |
-| `(` | `LPAREN` | `\(` |
-| `)` | `RPAREN` | `\)` |
-| `{` | `LBRACE` | `\{` |
-| `}` | `RBRACE` | `\}` |
-| `[` | `LBRACKET` | `\[` |
-| `]` | `RBRACKET` | `\]` |
-| `,` | `COMMA` | `,` |
-| `;` | `SEMICOLON` | `;` |
-| `:` | `COLON` | `:` |
+§0 lists these as `operator §5` (37) and `punctuation §5` (10), grouped longest-first within
+each family; §8 gives the normative global order.
 
 Notes. The pipe tokens are written with the hex escape `\x7c` (Go regex for `|`) so the
 patterns survive markdown table rendering byte-for-byte. There is
@@ -295,21 +313,10 @@ bare `#` is.
 
 ## 6. Interpolation sub-tokens (modes `DQ_STRING`, `REGEX_BODY`, `COMMAND`)
 
-| Token | Name | Go regex (RE2) |
-|-|-|-|
-| `${` | `INTERP_OPEN` | `\$\{` — pushes `INTERP_EXPR` |
-| `$name` | `INTERP_IDENT` | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
-| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, string §5.1 (R150) |
-| text run (dq) | `DQ_TEXT` | `[^"\\$]+` |
-| lone `$` | text (fallback, all modes) | `\$` — a `$` not starting an interp form is literal text (in commands: `$` not followed by `{`, command §2.2) |
-| text run (regex) | `REGEX_TEXT` | `[^"\\$]+` |
-| text run (command) | `CMD_TEXT` | ``[^`\\$]+`` (backslash excluded since R150 — commands have escapes) |
-| `${...expr}` | `INTERP_OPEN` + `SPREAD` + … | spread-splice in commands and literals (command §3, spread §5); the `...` lexes as `SPREAD` inside `INTERP_EXPR` |
-
 **Opening delimiters are tokens in their own right** (R235, closing an inventory gap this file
 carried: the closers were named, the openers only described): `"` (`DQ_OPEN`), `~"`
 (`REGEX_OPEN`, R237), `` ` `` (`CMD_OPEN`). They are emitted in `DEFAULT` or
-`INTERP_EXPR`, push their mode, and are **mode-path only** — where §4's span regex applies, the
+`INTERP_EXPR`, push their mode, and are **mode-path only** — where the literal's span regex (§0) applies, the
 whole literal is one `STRING_DQ` / `REGEX` / `COMMAND` token and no opener or closer is emitted.
 So the same source construct reaches the parser in one of two shapes, single token or delimited
 sequence, and the parser accepts both; the split is F1/F3's fast path, not two grammars.
@@ -319,12 +326,20 @@ Closing delimiters end the mode: `"` (`DQ_CLOSE`), unescaped `"` plus `[imsxb]*`
 `RBRACE`; the `RBRACE` that returns the count to zero is emitted as `INTERP_CLOSE` and
 pops back to the enclosing literal mode.
 
-## 7. Identifiers
+**Spread-splice composes from existing tokens**, and needs no row of its own: `${...expr}` is
+`INTERP_OPEN` followed by `SPREAD` inside `INTERP_EXPR` (command §3, spread §5), the `...`
+being an ordinary operator once the splice has pushed the expression mode.
 
-| Token | Name | Go regex (RE2) |
-|-|-|-|
-| `foo`, `snake_case`, `camelCase` | `IDENT` | `[A-Za-z_][A-Za-z0-9_]*` |
-| `_` | `WILDCARD` | `_\b` |
+**Attempt order inside a literal mode** (§8 covers `DEFAULT` / `INTERP_EXPR`; this is the
+mode-internal half, and `DOLLAR_TEXT` is why it must be stated): the mode's closing delimiter,
+then `ESCAPE_PAIR`, then `INTERP_OPEN`, then `INTERP_IDENT` (`DQ_STRING` only), then
+`DOLLAR_TEXT`, then the mode's text run. The `$` chain is the load-bearing part —
+`DOLLAR_TEXT`'s pattern `\$` would match at *every* `$` if tried first, and is correct only
+because the two interpolation forms are attempted before it. This is also why the text runs
+exclude `$` from their classes: a run that could swallow `$` would consume `${` before
+`INTERP_OPEN` ever saw it.
+
+## 7. Identifiers
 
 The identifier grammar is now formal (lexical-structure §2): ASCII bytes only, no Unicode
 identifiers, source must be valid UTF-8. Hyphens are
@@ -395,6 +410,36 @@ tabs, aligns under any tab width without one ever being chosen; only wide charac
 two cells) need more than that, and they are a renderer refinement rather than a language
 decision.
 
+## 10. Token inventory
+
+Every token this file defines, by owning section. **Names and counts only — the patterns live
+in their sections and are not duplicated here**, so this table is an index rather than a second
+source of truth. Its purpose is mechanical: a count that can be asserted in a test, and a list
+that makes an omission visible. R232 fixed a "47 patterns" claim standing over a 49-row table;
+this section exists so that class of drift fails loudly instead of hiding.
+
+**126 tokens over 129 rows.** By §0's category column: **4** trivia, **49** keyword (47
+word-shaped plus the compounds `KW_MATCH_BANG` and `KW_YIELD_FROM`), **10** literal, **37**
+operator, **10** punctuation, **6** delimiter (three openers, three closers), **3** interp,
+**5** content, **2** identifier.
+
+**Rows exceed names in three places**, which is where a naive recount goes wrong. `DOUBLE`
+owns two rows (point and exponent form) and `BYTES` owns two (`b"…"`, `b'…'`), so those four
+rows are two names; and one row is not a token at all — the leading-zero **error production**,
+categorized `error §4` precisely so a count can exclude it. `STRING_SQ`/`STRING_DQ` look like
+the same case and are not: two rows, two genuine names. §3's 49 matches keywords.md §1–§4
+exactly.
+
+**Not tokens, and deliberately absent:** the five *modes* of §1 (`DEFAULT`, `DQ_STRING`,
+`REGEX_BODY`, `COMMAND`, `INTERP_EXPR` — note `COMMAND` names both a mode and a token, the one
+collision in the vocabulary), and §4's leading-zero **error production**, which is a recognized
+shape that produces a diagnostic rather than a token.
+
+`DOLLAR_TEXT` was **found by compiling this table** (R239): §6's lone-`$` row carried a pattern
+and no name, the same gap R235 closed for the openers, one row further down. Only `""`, `~"…"`,
+and `` `…` `` are affected — a single-quoted string is one span regex with no mode (§1), so `$`
+is ordinary content inside `[^'\\]` there and never reaches this question.
+
 ---
 
 ## Flagged: complex, context-sensitive, or non-regular tokens
@@ -433,7 +478,7 @@ produced a parse error in the right place.
 
 The interpolation half stands. `${expr}` inside a regex literal (regex §7, comptime-only) may
 itself contain a `"` — inside a nested string in the splice — which would falsely terminate
-the §4 span regex; `REGEX_BODY` mode handles it, and §4's pattern is a no-`${` fast path
+the span regex; `REGEX_BODY` mode handles it, and §0's `REGEX` pattern is a no-`${` fast path
 exactly as for strings (F1) and commands (F3). The span pattern is otherwise sound, including
 multi-line `x`-verbose patterns, since it only hunts the unescaped closing `"`. Two collisions
 the old delimiter forced are simply gone: `//` is now unambiguously a line comment with no
@@ -485,8 +530,8 @@ Seven gaps surfaced during cross-referencing; **all seven are now ruled** (G2, t
   `int` is caught in **parsing**, not lexing. Nothing here needed a wider-type literal form,
   so numeric-tower's R216 deferral is reaffirmed rather than spent.
 - **G3 — resolved.** Comments are now specified (lexical-structure §3): `//` line comments
-  and C-style `/* … */` block comments that do **not** nest, so §2's regex is the complete
-  rule. There is no doc-comment syntax — attributes carry documentation — and the corpus's
+  and C-style `/* … */` block comments that do **not** nest, so §0's `BLOCK_COMMENT` regex is
+  the complete rule. There is no doc-comment syntax — attributes carry documentation — and the corpus's
   doc-comment references are gone.
 - *(**G4 — resolved by R150.** The full escape table is authoritative in string §5.1:
   per-context rows for `"…"`/`'…'`/`b"…"`/`` `…` ``/`/…/`, with `\u{…}` added (the
