@@ -112,14 +112,23 @@ concern (§10), not something the single-compilation model needs to resolve.
 
 ## 4. Imports are static and top-level only
 
-An `import` is a **compile-time, top-level** statement — and imports form the module's
-**prelude**: every `import` must precede **all other top-level declarations** (R190). An
-import after any non-import declaration is a compile error, caught at parse. The motivations,
-recorded: there is no use for a late import besides hurting readability (the rule every
-formatter would impose anyway), and the prelude is what lets the compiler's **discovery**
-stage read a file's imports by scanning only its head (compiler §1.0 — imports-only lexing
-stops at the first non-import declaration, O(file-head), with the parser's error backstopping
-the early stop). It **must** appear at module top level,
+An `import` is **compile-time and top-level** — and imports form the module's **prelude**:
+every `import` must precede **all other top-level declarations** (R190). An import after any
+non-import declaration is a compile error, raised by import validation (compiler §1.2, R250).
+
+**The prelude is all four cells of §5's grid**, the assignment forms among them (R250): `const
+fs = import std.filesystem;` and `export const fs = import …;` are prelude members exactly as
+the statement forms are, and a declaration after one of them ends the prelude just the same.
+This is stated rather than inferred because the alternative reading is silently wrong — a
+`const`-assigned import taken for an ordinary declaration would end the prelude *at itself*,
+so discovery would drop its edge and never lex the module, and nothing would catch it: the
+form is legal, so the parser has nothing to reject.
+
+The motivations, recorded: there is no use for a late import besides hurting readability (the
+rule every formatter would impose anyway), and the prelude is what lets the compiler's
+**discovery** stage read a file's imports by scanning only its head (compiler §1.0 —
+imports-only lexing stops at the first non-import declaration, O(file-head), with §1.2's error
+backstopping the early stop). It **must** appear at module top level,
 never inside a function, a block, or a conditional. There are no exceptions.
 
 This is not a restriction users miss, there is no real use for conditional loading, and it is
@@ -194,7 +203,10 @@ fs.stat(p);
   access, statically checked capabilities on the call (the `platform.lineEnding`
   precedent). A `let`/`var`-assigned import would demote every call through it to the
   dynamic frontier for nothing; it is a compile error. Assignment-position imports are
-  top-level only, exactly as the statement forms (§4).
+  top-level only, exactly as the statement forms (§4) — and they are **prelude members**
+  (R250), so they sit with the other imports at the head of the file and a declaration after
+  one of them ends the prelude. `export const fs = import …;` is legal and is a prelude member
+  too: re-exporting a collected table is ordinary.
 - **Partial collection** (R136): the braced assignment form collects exactly the named
   exports; an alias **renames the key** (`const t = import { parse as jsonParse } from
   …` yields `t.jsonParse`) — §8's one mechanism, one more consumer.

@@ -7179,8 +7179,11 @@ ordered discover → validation → lex, and nothing required it: lexing needs
 the **file set**, validation's only consumer is §1.4's layering, and R190
 had already named those two as the separate gating artifacts. The diagram
 listed them in section order, which is not the same claim. Ruled: §1.2 runs
-after §1.1, and may run concurrently with §1.1 and §1.3 — its one real
-constraint is finishing before §1.4. What the move buys is the next item:
+after §1.1 and may proceed alongside §1.3, finishing before §1.4. This
+narrows §1.2's old "runs while lex and parse proceed": the DAG half still
+needs nothing beyond discovery's output and may be computed as early as the
+implementation likes, but the phase *reports* after lex, because the
+prelude check reads token streams. What the move buys is the next item:
 §1.2 then holds every token stream. The cost, accepted: a lexical error
 anywhere now suppresses cycle diagnosis, where the old order reported a
 cycle despite a typo elsewhere. That is a wash rather than a regression —

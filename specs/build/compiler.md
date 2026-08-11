@@ -102,9 +102,9 @@ the stable surface they will slot into.
 
 ```
 source roots
-  -> discover            (imports-only lexing: the file set + raw edge list)  [BFS, §1.0]
-  -> import validation   (DAG + topological order; cycles diagnosed)          (§1.2)
+  -> discover            (imports-only lexing: file set, edges, prelude ends) [BFS, §1.0]
   -> lex                 (tokens)                   [parallel per file]
+  -> import validation   (DAG + topological order; cycles, the prelude rule)  (§1.2)
   -> parse               (lossless CST -> AST)     [parallel per file]
   -> semantic analysis   (typed AST)               [parallel by DAG layer]
   -> lower to Luna IR    (typed IR)
@@ -127,11 +127,13 @@ choices made from the start because they shape the whole frontend and cannot be 
 The pipeline's bootstrap problem, resolved: full lexing cannot start without knowing *which
 files* to lex, and the file set is written in imports — which only lexing can read. The answer
 is a **stage 0**: from the source roots, an **imports-only** pass reads each file's imports,
-follows them breadth-first with a visited set, and yields the **file set** plus, as a free
-byproduct, the **raw edge list** (each `from → to` pair it followed). Rejected alternatives,
-recorded: building the full DAG "before lexing" is this stage under another name (reading an
-import path *is* lexing); and lex-and-follow interleaving serializes on graph depth, entangles
-the R149 per-file cache with traversal order, and smears two phases together.
+follows them breadth-first with a visited set, and yields the **file set** plus two free
+byproducts: the **raw edge list** (each `from → to` pair it followed) and each file's **prelude
+end**, the offset it stopped at. Both cost nothing — the walk already knows them — and §1.2
+consumes both (R250). Rejected alternatives, recorded: building the full DAG "before lexing" is
+this stage under another name (reading an import path *is* lexing); and lex-and-follow
+interleaving serializes on graph depth, entangles the R149 per-file cache with traversal order,
+and smears two phases together.
 
 Three rules make the stage sound:
 
@@ -149,14 +151,24 @@ Three rules make the stage sound:
 - **Imports precede all other top-level declarations** (the prelude rule, R190; modules §4).
   Motivation: discovery then stops at each file's first non-import declaration — O(file head),
   not O(file) — and there is no use for a late import besides hurting readability. A violating
-  late import is a **parse error** (§1.3), which is what licenses discovery's early stop: a
-  file discovery under-scanned cannot survive to analysis, because the parser independently
-  rejects it first.
+  late import is an **import-validation error** (§1.2, R250), which is what licenses
+  discovery's early stop: a file discovery under-scanned cannot survive to analysis, because
+  §1.2 rejects it from the token stream first. The prelude is **all four cells** of modules
+  §5's grid, assignment forms included (R250), so the stopping condition is a parse decision
+  rather than a token test: `const` and `export` need lookahead to `= import` before discovery
+  knows whether the prelude has ended.
 
-Cycles do not trouble discovery (the visited set terminates them); their *diagnosis*, with the
-cycle path in the error, belongs to §1.2, which holds the retained edges. Per-file discovery
-results (a file's import list) cache on the file's content hash (build-cache §1), so the stage
-is incremental for free: the graph recomputes from cached lists.
+**Discovery raises no diagnostic** (R250). It answers *which files* and nothing else: a path
+resolving to no file is skipped, not reported, and §1.2 reports it from the retained edges.
+Cycles likewise do not trouble it (the visited set terminates them); their *diagnosis*, with
+the cycle path in the error, belongs to §1.2. Keeping the cheapest phase free of a diagnostic
+surface is what lets it stay cheap — and it is what keeps a commented-out `// import
+std.experimental` from failing a valid build. An I/O failure on a file that exists is not an
+import error and is not covered by this rule.
+
+Per-file discovery results (a file's import list) cache on the file's content hash
+(build-cache §1), so the stage is incremental for free: the graph recomputes from cached
+lists.
 
 ### 1.1 Lex
 
@@ -174,18 +186,35 @@ Validates discovery's retained edge list into the **module dependency DAG** (mod
 resolves each path to a module identity (relative to the root, empty path for the root, modules
 spec §3), diagnoses **cycles** — with the full cycle path in the error, from the edges §1.0
 kept — and unresolved imports, either aborting the compile (modules spec §2), and produces the
-**topological order**. It needs nothing beyond discovery's output, so it runs while lex and
-parse proceed. The distinction from the old "module resolution" phase is deliberate: discovery
-*finds*, this phase *judges*. The DAG gates only **semantic layering** (§1.4, §2); the file
-*set* — discovery's half — is what gates lex/parse parallelism.
+**topological order**.
+
+It is also where the **prelude rule** is enforced (R250, superseding R190's placement of it in
+§1.3): any `KW_IMPORT` past a file's prelude end (§1.0) is invalid. The check needs no
+structure, because both violations modules §4 names — a late top-level import, and an import
+inside a function, a block, or a conditional — are errors, so detection never has to tell them
+apart; soundness comes from the reader, the lexer's mode machine already guaranteeing that no
+`KW_IMPORT` arrives from `// import x` or from `"import x"`. It lives here rather than in the
+parser because the rule is the module system's and codes are owned by the package that raises
+them (R240), and rather than in discovery because detecting a late import means reading past
+the prelude — spending the O(file-head) property that is the prelude rule's own dividend, in
+the one phase that gates everything.
+
+This phase runs **after §1.1** and may proceed alongside §1.3 (R250). The DAG half needs
+nothing beyond discovery's output and may be computed as early as an implementation likes, but
+the phase *reports* after lex, because the prelude check reads token streams. The distinction
+from the old "module resolution" phase is deliberate: discovery *finds*, this phase *judges* —
+and every import diagnostic is this phase's, discovery having none (§1.0). The DAG gates only
+**semantic layering** (§1.4, §2); the file *set* — discovery's half — is what gates lex/parse
+parallelism.
 
 ### 1.3 Parse
 
 A pure **context-free** pass: tokens to a syntax tree, per module, with no type knowledge and no
 name resolution. Parsing is **fully parallel** across modules (§2): each module's tokens are
-independent given only the discovered file set (§1.0) — the DAG is not needed here. The parser
-is also where the **prelude rule** is enforced (R190): an `import` after any non-import
-top-level declaration is a parse error, which is what licenses discovery's early stop (§1.0).
+independent given only the discovered file set (§1.0) — the DAG is not needed here. The
+grammar admits an `import` only in the prelude, so a misplaced one is a syntax error — but
+§1.2 enforces the prelude rule first and aborts at its boundary (R250), so that rejection is a
+structural invariant rather than a path taken, and is not dead code to be tidied away.
 Parse errors are accumulated per module; the batch driver
 aborts at the phase boundary (§3), but the parser itself is **error-tolerant** and produces a
 best-effort partial tree, which the tooling drivers consume (tooling spec §3).
