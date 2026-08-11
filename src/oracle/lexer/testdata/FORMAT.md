@@ -2,6 +2,13 @@
 
 One case per file: Luna source, a `---` line, then the token stream it must produce.
 
+**Cases that raise a diagnostic live in `error_producing/`**; everything directly in this
+directory lexes clean. So "here is what valid Luna tokenizes to" is readable without stepping
+over the error cases, and the error cases are countable. The harness checks the split rather
+than trusting it — a golden whose directory disagrees with whether it diagnoses is a failure,
+because a misfiled one is otherwise invisible: it still passes, it just stops meaning what its
+directory says.
+
 ```
 let x = 1;
 ---

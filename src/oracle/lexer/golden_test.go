@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -162,17 +163,28 @@ func sortByOffset(es []entry) {
 	}
 }
 
+// errorDir holds the cases that raise a diagnostic; everything directly under testdata
+// lexes clean. Splitting them makes "what does valid Luna tokenize to" reviewable without
+// reading past the error cases, and makes the error cases countable.
+const errorDir = "error_producing"
+
 func TestGolden(t *testing.T) {
-	paths, err := filepath.Glob("testdata/*.lex")
+	clean, err := filepath.Glob("testdata/*.lex")
 	if err != nil {
 		t.Fatal(err)
 	}
+	erroring, err := filepath.Glob(filepath.Join("testdata", errorDir, "*.lex"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths := append(clean, erroring...)
 	if len(paths) == 0 {
 		t.Fatal("no testdata/*.lex files; the corpus is the test")
 	}
 
 	for _, path := range paths {
-		t.Run(strings.TrimSuffix(filepath.Base(path), ".lex"), func(t *testing.T) {
+		name := strings.TrimSuffix(strings.TrimPrefix(path, "testdata"+string(filepath.Separator)), ".lex")
+		t.Run(name, func(t *testing.T) {
 			g := parseGolden(t, path)
 			got := actual(t, g)
 
@@ -182,7 +194,26 @@ func TestGolden(t *testing.T) {
 			}
 			compare(t, g, got)
 			checkTiling(t, g, got)
+			checkPlacement(t, g, got)
 		})
+	}
+}
+
+// checkPlacement pins the corpus's own layout, because a misfiled golden is otherwise
+// invisible: it still passes, it just stops meaning what its directory says. A split
+// maintained only by habit degrades silently, and this one is worth keeping honest —
+// "these inputs lex clean" is a claim about the language, not about the filesystem.
+func checkPlacement(t *testing.T, g golden, got []entry) {
+	t.Helper()
+
+	diagnosed := slices.ContainsFunc(got, func(e entry) bool { return e.Code != "" })
+	inErrorDir := filepath.Base(filepath.Dir(g.path)) == errorDir
+
+	switch {
+	case diagnosed && !inErrorDir:
+		t.Errorf("raises a diagnostic but sits outside testdata/%s", errorDir)
+	case !diagnosed && inErrorDir:
+		t.Errorf("raises no diagnostic but sits in testdata/%s", errorDir)
 	}
 }
 
