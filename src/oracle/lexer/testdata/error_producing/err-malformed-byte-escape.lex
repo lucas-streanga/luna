@@ -1,0 +1,32 @@
+let a = b"\x8"; let b = b"\xZZ"; let c = b"\x";
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "a"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+BYTES 8..14 "b\"\\x8\""
+!L0016 10..12
+SEMICOLON 14..15 ";"
+WHITESPACE 15..16 " "
+KW_LET 16..19 "let"
+WHITESPACE 19..20 " "
+IDENT 20..21 "b"
+WHITESPACE 21..22 " "
+ASSIGN 22..23 "="
+WHITESPACE 23..24 " "
+BYTES 24..31 "b\"\\xZZ\""
+!L0016 26..28
+SEMICOLON 31..32 ";"
+WHITESPACE 32..33 " "
+KW_LET 33..36 "let"
+WHITESPACE 36..37 " "
+IDENT 37..38 "c"
+WHITESPACE 38..39 " "
+ASSIGN 39..40 "="
+WHITESPACE 40..41 " "
+BYTES 41..46 "b\"\\x\""
+!L0016 43..45
+SEMICOLON 46..47 ";"
+WHITESPACE 47..48 "\n"

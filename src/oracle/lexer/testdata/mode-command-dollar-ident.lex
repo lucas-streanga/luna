@@ -1,0 +1,20 @@
+// INTERP_IDENT is DQ_STRING only (§0), so `$name` here is DOLLAR_TEXT + CMD_TEXT.
+let c = `$name ${x}`;
+---
+LINE_COMMENT 0..83 "// INTERP_IDENT is DQ_STRING only (§0), so `$name` here is DOLLAR_TEXT + CMD_TEXT."
+WHITESPACE 83..84 "\n"
+KW_LET 84..87 "let"
+WHITESPACE 87..88 " "
+IDENT 88..89 "c"
+WHITESPACE 89..90 " "
+ASSIGN 90..91 "="
+WHITESPACE 91..92 " "
+CMD_OPEN 92..93 "`"
+DOLLAR_TEXT 93..94 "$"
+CMD_TEXT 94..99 "name "
+INTERP_OPEN 99..101 "${"
+IDENT 101..102 "x"
+INTERP_CLOSE 102..103 "}"
+CMD_CLOSE 103..104 "`"
+SEMICOLON 104..105 ";"
+WHITESPACE 105..106 "\n"

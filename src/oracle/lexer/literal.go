@@ -12,9 +12,11 @@
 package lexer
 
 import (
+	"fmt"
 	"strings"
 
 	"luna/oracle/diagnostic"
+	"luna/oracle/escape"
 	"luna/oracle/token"
 )
 
@@ -29,7 +31,7 @@ func (s *Scanner) lexDQString() token.Kind {
 	case '\n':
 		return s.unterminatedMode("string")
 	case '\\':
-		return s.lexEscape(true, false)
+		return s.lexEscape(escape.StringDq)
 	}
 	if k, ok := s.lexInterp(true); ok {
 		return k
@@ -50,7 +52,7 @@ func (s *Scanner) lexRegexBody() token.Kind {
 		s.pop()
 		return token.RegexClose
 	case '\\':
-		return s.lexEscape(false, true)
+		return s.lexEscape(escape.Regex)
 	}
 	if k, ok := s.lexInterp(false); ok {
 		return k
@@ -70,7 +72,7 @@ func (s *Scanner) lexCommandBody() token.Kind {
 	case '\n':
 		return s.unterminatedMode("command")
 	case '\\':
-		return s.lexEscape(false, false)
+		return s.lexEscape(escape.Command)
 	}
 	if k, ok := s.lexInterp(false); ok {
 		return k
@@ -102,19 +104,14 @@ func (s *Scanner) lexInterp(ident bool) (token.Kind, bool) {
 	return token.DollarText, true
 }
 
-// lexEscape consumes one ESCAPE_PAIR.
+// lexEscape consumes one ESCAPE_PAIR and validates it against string §5.1 (R248).
 //
-// codepoint enables R245's `\u{…}` form, so the token covers the escape's whole extent —
-// legal only in `DQ_STRING`, which is the only context where string §5.1 lists it.
-// multiline allows a backslash-newline pair, which only `REGEX_BODY` has.
-func (s *Scanner) lexEscape(codepoint, multiline bool) token.Kind {
-	if codepoint {
-		if n := codepointEscape(s.src, s.pos); n > 0 {
-			s.pos = n
-			return token.EscapePair
-		}
-	}
-	if !multiline && s.peek(1) == '\n' {
+// The token is emitted either way: an illegal escape is still a backslash pair, its bytes
+// are claimed, and §2's tiling does not care whether they were legal — the diagnostic is
+// the parallel channel R243 separated. So the span comes from escape.Check, which is what
+// makes a whole `\u{1F600}` one token and a malformed `\u{` two bytes (R245).
+func (s *Scanner) lexEscape(ctx escape.Context) token.Kind {
+	if !spansLines(ctx) && s.peek(1) == '\n' {
 		// A trailing backslash cannot continue the literal (R244), so the pair does not
 		// match and nothing else claims this byte. Consuming it as the INVALID that ends
 		// the literal is what the span-regex path does too, and it keeps the newline
@@ -128,34 +125,36 @@ func (s *Scanner) lexEscape(codepoint, multiline bool) token.Kind {
 	}
 	if s.pos+1 >= len(s.src) {
 		// A backslash at end of input pairs with nothing, so it begins no token — which
-		// is L0012's condition, and §11 names a bare `\` as its own example. finish
-		// reports the unterminated literal separately; this byte is condemned on its own
-		// because nothing claims it.
+		// is L0012's condition, and §11 names a bare `\` as its own example (R248 keeps
+		// it there rather than calling it an unknown escape: there is no character to be
+		// absent from a table row). finish reports the unterminated literal separately;
+		// this byte is condemned on its own because nothing claims it.
 		return s.invalid(diagnostic.UnexpectedCharacter, 1,
 			"`\\` at end of input begins no escape")
 	}
-	s.pos += 2
+
+	n, code := escape.Check(s.src, s.pos, ctx)
+	if code != "" {
+		s.error(code, s.pos, n, "%s", describeEscape(code, s.src[s.pos:s.pos+n]))
+	}
+	s.pos += n
 	return token.EscapePair
 }
 
-// codepointEscape reports the offset just past a well-formed `\u{H…}` at i, or 0. The
-// malformed cases (`\u`, `\u{}`, `\u{XYZ}`, `\u{41`) deliberately do not match: `\\.`
-// then takes `\u` alone, which is the right span to put a caret under for L0013 (R245).
-func codepointEscape(src string, i int) int {
-	if byteAt(src, i+1) != 'u' || byteAt(src, i+2) != '{' {
-		return 0
+// describeEscape is the per-instance half of an escape diagnostic. The title is fixed to
+// the code (R240), so this names the lexeme and what it wanted instead.
+func describeEscape(code diagnostic.Code, lexeme string) string {
+	switch code {
+	case diagnostic.UnknownEscape:
+		return fmt.Sprintf("`%s` is not an escape in this literal", lexeme)
+	case diagnostic.MalformedCodepointEscape:
+		return "`\\u` needs `{`, one to six hex digits, then `}`"
+	case diagnostic.MalformedByteEscape:
+		return "`\\x` needs exactly two hex digits"
+	case diagnostic.InvalidCodepointEscape:
+		return fmt.Sprintf("`%s` names no Unicode scalar value", lexeme)
 	}
-	j := i + 3
-	for digits := 0; digits < 6; digits++ {
-		if !isHexDigit(byteAt(src, j)) {
-			break
-		}
-		j++
-	}
-	if j == i+3 || byteAt(src, j) != '}' {
-		return 0
-	}
-	return j + 1
+	return fmt.Sprintf("`%s` is not a valid escape", lexeme)
 }
 
 // textRun consumes the mode's text run: bytes up to the next one that could begin

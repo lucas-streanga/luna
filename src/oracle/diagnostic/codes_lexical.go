@@ -26,6 +26,7 @@ const (
 	UnterminatedInterpolation Code = "L0011" // §6
 	UnexpectedCharacter       Code = "L0012" // §0
 	MalformedCodepointEscape  Code = "L0013" // §0, string §5.1, R245
+	MalformedByteEscape       Code = "L0016" // bytes §7, string §5.1, R248
 	InsufficientIndentation   Code = "L0014" // §4, R246
 	ContentAfterTripleOpen    Code = "L0015" // §4, R246
 )
@@ -51,4 +52,5 @@ var lexicalTitles = map[Code]string{
 	MalformedCodepointEscape:  "Malformed codepoint escape",
 	InsufficientIndentation:   "Insufficient indentation",
 	ContentAfterTripleOpen:    "Content after a multi-line opener",
+	MalformedByteEscape:       "Malformed byte escape",
 }

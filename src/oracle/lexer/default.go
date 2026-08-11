@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"luna/oracle/diagnostic"
+	"luna/oracle/escape"
 	"luna/oracle/token"
 )
 
@@ -297,22 +298,24 @@ func scanDigitRun(src string, i int, digit func(byte) bool) int {
 // lexStringSq scans `'…'`. Single-quoted strings do not interpolate (string §5), so
 // they are one span regex with no mode and a `$` inside is ordinary content.
 func (s *Scanner) lexStringSq() token.Kind {
-	end, _, ok := spanLiteral(s.src, s.pos+1, '\'', false, false)
-	if !ok {
-		return s.unterminated("string", 1, end)
+	p := spanLiteral(s.src, s.pos+1, '\'', escape.StringSq)
+	s.reportEscapes(p.bad)
+	if !p.ok {
+		return s.unterminated("string", 1, p.end)
 	}
-	s.pos = end
+	s.pos = p.end
 	return token.StringSq
 }
 
 // lexBytes scans `b"…"` or `b'…'`. Bytes literals do not interpolate either (bytes
 // §7); the two rows of §0 differ only in their quote.
 func (s *Scanner) lexBytes() token.Kind {
-	end, _, ok := spanLiteral(s.src, s.pos+2, s.peek(1), false, false)
-	if !ok {
-		return s.unterminated("bytes", 2, end)
+	p := spanLiteral(s.src, s.pos+2, s.peek(1), escape.Bytes)
+	s.reportEscapes(p.bad)
+	if !p.ok {
+		return s.unterminated("bytes", 2, p.end)
 	}
-	s.pos = end
+	s.pos = p.end
 	return token.Bytes
 }
 
@@ -321,16 +324,19 @@ func (s *Scanner) lexBytes() token.Kind {
 // stopping at whichever of the two comes first. A splice means the literal is not
 // regular, so the delimited form is used instead and the mode stack takes over.
 func (s *Scanner) lexStringDq() token.Kind {
-	end, splice, ok := spanLiteral(s.src, s.pos+1, '"', true, false)
-	switch {
-	case !ok:
-		return s.unterminated("string", 1, end)
-	case splice:
+	p := spanLiteral(s.src, s.pos+1, '"', escape.StringDq)
+	if p.splice {
+		// The mode path walks these bytes again and validates as it tokenizes, so the
+		// probe's findings are dropped rather than raised twice (R248).
 		s.push(modeDQString, s.pos, 1)
 		s.pos++
 		return token.DqOpen
 	}
-	s.pos = end
+	s.reportEscapes(p.bad)
+	if !p.ok {
+		return s.unterminated("string", 1, p.end)
+	}
+	s.pos = p.end
 	return token.StringDq
 }
 
@@ -340,16 +346,17 @@ func (s *Scanner) lexRegex() token.Kind {
 		return s.invalid(diagnostic.UnexpectedTilde, 1,
 			"`~` opens a regex literal only as `~\"`")
 	}
-	end, splice, ok := spanLiteral(s.src, s.pos+2, '"', true, true)
-	switch {
-	case !ok:
-		return s.unterminated("regex", 2, end)
-	case splice:
+	p := spanLiteral(s.src, s.pos+2, '"', escape.Regex)
+	if p.splice {
 		s.push(modeRegexBody, s.pos, 2)
 		s.pos += 2
 		return token.RegexOpen
 	}
+	if !p.ok {
+		return s.unterminated("regex", 2, p.end)
+	}
 	// REGEX_CLOSE carries the flags (§0), so the whole-literal form covers them too.
+	end := p.end
 	for end < len(s.src) && isRegexFlag(s.src[end]) {
 		end++
 	}
@@ -360,16 +367,17 @@ func (s *Scanner) lexRegex() token.Kind {
 // lexCommand scans a backtick-delimited command literal, the third interpolating
 // form (F3).
 func (s *Scanner) lexCommand() token.Kind {
-	end, splice, ok := spanLiteral(s.src, s.pos+1, '`', true, false)
-	switch {
-	case !ok:
-		return s.unterminated("command", 1, end)
-	case splice:
+	p := spanLiteral(s.src, s.pos+1, '`', escape.Command)
+	if p.splice {
 		s.push(modeCommand, s.pos, 1)
 		s.pos++
 		return token.CmdOpen
 	}
-	s.pos = end
+	s.reportEscapes(p.bad)
+	if !p.ok {
+		return s.unterminated("command", 1, p.end)
+	}
+	s.pos = p.end
 	return token.Command
 }
 
@@ -397,26 +405,79 @@ func (s *Scanner) lexCommand() token.Kind {
 // newline-bounded form, so a trailing `\` cannot continue the literal. A trailing
 // backslash at end of input consumes past the end and falls out unterminated, which is
 // the correct reading of an unclosed literal.
-func spanLiteral(src string, i int, close byte, interp, multiline bool) (end int, splice bool, ok bool) {
+func spanLiteral(src string, i int, close byte, ctx escape.Context) probe {
+	var p probe
 	for i < len(src) {
 		switch {
-		case !multiline && src[i] == '\n':
-			return i, false, false
+		case !spansLines(ctx) && src[i] == '\n':
+			p.end = i
+			return p
 		case src[i] == '\\':
-			if !multiline && byteAt(src, i+1) == '\n' {
-				return i + 1, false, false
+			if !spansLines(ctx) && byteAt(src, i+1) == '\n' {
+				p.end = i + 1
+				return p
 			}
-			i += 2
+			if i+1 >= len(src) {
+				p.end = len(src)
+				return p
+			}
+			n, code := escape.Check(src, i, ctx)
+			if code != "" {
+				p.bad = append(p.bad, badEscape{offset: i, length: n, code: code})
+			}
+			i += n
 		case src[i] == close:
-			return i + 1, false, true
-		case interp && src[i] == '$' && byteAt(src, i+1) == '{':
-			return i, true, true
+			p.end, p.ok = i+1, true
+			return p
+		case interpolates(ctx) && src[i] == '$' && byteAt(src, i+1) == '{':
+			p.end, p.splice = i, true
+			p.ok = true
+			return p
 		default:
 			i++
 		}
 	}
-	return len(src), false, false
+	p.end = len(src)
+	return p
 }
+
+// probe is what spanLiteral found.
+type probe struct {
+	end    int  // just past the closing delimiter, or where the scan gave up
+	splice bool // a `${` arrived first, so the literal is not regular (F1)
+	ok     bool // the literal closed
+	bad    []badEscape
+}
+
+// badEscape is an illegal escape the scan passed over.
+//
+// They are *carried* rather than reported, because spanLiteral doubles as the lookahead
+// that chooses between §6's two shapes. Reporting during the probe would diagnose an
+// escape twice whenever the mode path then walks the same bytes, so the caller reports
+// only once it has committed to the single-token reading (R248).
+type badEscape struct {
+	offset, length int
+	code           diagnostic.Code
+}
+
+// reportEscapes raises what the probe carried. Called on commit, never on the splice
+// path, where the literal modes validate the same bytes as they tokenize them.
+func (s *Scanner) reportEscapes(bad []badEscape) {
+	for _, b := range bad {
+		s.error(b.code, b.offset, b.length, "%s",
+			describeEscape(b.code, s.src[b.offset:b.offset+b.length]))
+	}
+}
+
+// interpolates and spansLines are literal-form facts (string §5, bytes §7, R244) that
+// happen to be keyed exactly as escape.Context is, so they are derived from it rather
+// than passed alongside it — a call site then cannot claim a form interpolates while
+// naming one that does not.
+func interpolates(ctx escape.Context) bool {
+	return ctx == escape.StringDq || ctx == escape.Regex || ctx == escape.Command
+}
+
+func spansLines(ctx escape.Context) bool { return ctx == escape.Regex }
 
 // unterminated reports L0009 and covers what the literal consumed as one INVALID —
 // bytes to the newline that ended it, or to end of input for the file's last line and

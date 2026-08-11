@@ -1,0 +1,18 @@
+let r = ~"^a${x}b$"m;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "r"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+REGEX_OPEN 8..10 "~\""
+REGEX_TEXT 10..12 "^a"
+INTERP_OPEN 12..14 "${"
+IDENT 14..15 "x"
+INTERP_CLOSE 15..16 "}"
+REGEX_TEXT 16..17 "b"
+DOLLAR_TEXT 17..18 "$"
+REGEX_CLOSE 18..20 "\"m"
+SEMICOLON 20..21 ";"
+WHITESPACE 21..22 "\n"
