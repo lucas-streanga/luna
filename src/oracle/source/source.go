@@ -19,20 +19,18 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"luna/oracle/diagnostic"
 )
 
-// Diagnostic codes this package raises (lexer §11).
-const (
-	CodeInvalidUTF8   = "L0001"
-	CodeByteOrderMark = "L0002"
-)
-
-// Error is an ingress failure, carrying the code that names it and the offset it was
-// found at. It deliberately does not depend on a diagnostic package: rendering a
-// diagnostic needs the source line to draw a caret under, so a renderer must sit
-// above both, and source must stay a leaf.
+// Error is an ingress failure: the code that names it and the offset it was found at.
+//
+// It is not a diagnostic.Diagnostic, because at ingress there is no *File to point a
+// span at — New rejects text before returning one. The caller converts, supplying the
+// file name it already has. The dependency runs one way, source to diagnostic, which
+// is what keeps diagnostic a leaf and lets a renderer sit above both.
 type Error struct {
-	Code   string
+	Code   diagnostic.Code
 	Offset int
 }
 
@@ -70,11 +68,11 @@ func New(name, text string) (*File, error) {
 	// The BOM is checked first so that a file which is both BOM-led and later
 	// malformed reports the earlier problem.
 	if strings.HasPrefix(text, "\ufeff") {
-		return nil, &Error{Code: CodeByteOrderMark, Offset: 0}
+		return nil, &Error{Code: diagnostic.ByteOrderMark, Offset: 0}
 	}
 	ascii, bad, ok := scan(text)
 	if !ok {
-		return nil, &Error{Code: CodeInvalidUTF8, Offset: bad}
+		return nil, &Error{Code: diagnostic.InvalidUTF8, Offset: bad}
 	}
 	return &File{name: name, text: text, ascii: ascii}, nil
 }

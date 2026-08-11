@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"luna/oracle/diagnostic"
 	"luna/oracle/source"
 )
 
@@ -27,7 +28,7 @@ func mustNew(t *testing.T, src string) *source.File {
 	return f
 }
 
-func codeOf(t *testing.T, err error) string {
+func codeOf(t *testing.T, err error) diagnostic.Code {
 	t.Helper()
 	var e *source.Error
 	if !errors.As(err, &e) {
@@ -88,8 +89,8 @@ func TestRejectsInvalidUTF8(t *testing.T) {
 			if err == nil {
 				t.Fatal("accepted invalid UTF-8")
 			}
-			if got := codeOf(t, err); got != source.CodeInvalidUTF8 {
-				t.Errorf("code = %s, want %s", got, source.CodeInvalidUTF8)
+			if got := codeOf(t, err); got != diagnostic.InvalidUTF8 {
+				t.Errorf("code = %s, want %s", got, diagnostic.InvalidUTF8)
 			}
 			var e *source.Error
 			errors.As(err, &e)
@@ -118,8 +119,8 @@ func TestRejectsLeadingBOM(t *testing.T) {
 			if err == nil {
 				t.Fatal("accepted a leading BOM")
 			}
-			if got := codeOf(t, err); got != source.CodeByteOrderMark {
-				t.Errorf("code = %s, want %s", got, source.CodeByteOrderMark)
+			if got := codeOf(t, err); got != diagnostic.ByteOrderMark {
+				t.Errorf("code = %s, want %s", got, diagnostic.ByteOrderMark)
 			}
 			var e *source.Error
 			errors.As(err, &e)
@@ -138,8 +139,8 @@ func TestBOMIsReportedBeforeLaterInvalidUTF8(t *testing.T) {
 	if err == nil {
 		t.Fatal("accepted a BOM followed by invalid UTF-8")
 	}
-	if got := codeOf(t, err); got != source.CodeByteOrderMark {
-		t.Errorf("code = %s, want %s (the earlier of the two)", got, source.CodeByteOrderMark)
+	if got := codeOf(t, err); got != diagnostic.ByteOrderMark {
+		t.Errorf("code = %s, want %s (the earlier of the two)", got, diagnostic.ByteOrderMark)
 	}
 }
 

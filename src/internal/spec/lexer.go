@@ -105,7 +105,8 @@ func LoadFrom(path string) (*Inventory, error) {
 	if err != nil {
 		return nil, fmt.Errorf("spec: %w", err)
 	}
-	defer f.Close()
+	// Read-only: a Close error carries no information, nothing having been buffered.
+	defer func() { _ = f.Close() }()
 
 	inv := &Inventory{Path: path}
 	sc := bufio.NewScanner(f)
