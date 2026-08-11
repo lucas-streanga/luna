@@ -60,6 +60,10 @@ list**, not a shell string:
   dollar) — the authoritative table is string §5.1 (R150, superseding the earlier
   no-escapes ruling, lexer G5: the `${'\u{60}'}`-style interpolation workaround for a
   literal backtick was ceremony where one escape pair suffices).
+- **A command literal may not span lines** (R244, lexer §4): a raw newline ends it and raises
+  `L0009`, and a trailing `\` does not continue it. Nothing is lost — the literal is split
+  into a program and arguments by whitespace anyway, so a line break was never more than a
+  separator.
 - The literal is tokenized into a program name and arguments by whitespace, like a shell
   argument vector, but it is **never handed to a shell**. Execution uses a direct
   program-and-arguments call (exec spec), the equivalent of `execve` / Go's `exec.Command`,

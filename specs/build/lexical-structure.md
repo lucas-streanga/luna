@@ -32,8 +32,11 @@ pass through as UTF-8 and are never interpreted as syntax.
   tabs, carriage returns, and newlines (`[ \t\r\n]+`, lexer §2) carry no meaning of their
   own; there is no offside rule and no significant indentation.
 - **Newlines are not significant.** Statements are `;`-terminated (every spec example), so a
-  line break is just whitespace. A newline is load-bearing in exactly two places: it ends a
-  line comment and it ends a shebang line (§3).
+  line break is just whitespace. A newline is load-bearing in exactly three places: it ends a
+  line comment, it ends a shebang line (§3), and it ends a string, bytes, or command literal
+  (R244, lexer §4) — the regex literal being the one form that may span lines, for its `x`
+  flag. The third is why an unclosed quote costs one diagnostic on the line it was opened on
+  rather than the remainder of the file.
 - The grammar imposes **no** line-length, identifier-length, or file-size limit.
 
 Identifiers are **case-sensitive** (§2); nothing else in the source text is.

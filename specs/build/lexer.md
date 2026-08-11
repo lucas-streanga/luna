@@ -88,12 +88,12 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `0o755`, `0o1_7` | `INT_OCT` | literal §4 | `0o[0-7](?:_?[0-7])*` |
 | `3.14`, `2.5e10` | `DOUBLE` (point form) | literal §4 | `(?:0\x7c[1-9](?:_?[0-9])*)\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?` |
 | `6.022e23`, `1e-9` | `DOUBLE` (exponent form) | literal §4 | `(?:0\x7c[1-9](?:_?[0-9])*)[eE][+-]?[0-9]+` |
-| `'literal'` | `STRING_SQ` | literal §4 | `(?s)'[^'\\]*(?:\\.[^'\\]*)*'` |
-| `"text $x ${e}"` | `STRING_DQ` | literal §4 | `(?s)"[^"\\]*(?:\\.[^"\\]*)*"` — **only valid when the literal contains no `${`**; otherwise mode-lex (F1) |
-| `b"GET \x89"` | `BYTES` (dq) | literal §4 | `(?s)b"[^"\\]*(?:\\.[^"\\]*)*"` |
-| `b'GET '` | `BYTES` (sq) | literal §4 | `(?s)b'[^'\\]*(?:\\.[^'\\]*)*'` |
-| `~"\d+"im` | `REGEX` | literal §4 | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2) |
-| `` `grep ${x} f` `` | `COMMAND` | literal §4 | ``(?s)`[^`]*` `` — **only valid when the literal contains no `${`**; otherwise mode-lex (F3). `\` is an ordinary byte, by ruling (command §2.2) |
+| `'literal'` | `STRING_SQ` | literal §4 | `'[^'\\\n]*(?:\\[^\n][^'\\\n]*)*'` — newline-bounded (R244) |
+| `"text $x ${e}"` | `STRING_DQ` | literal §4 | `"[^"\\\n]*(?:\\[^\n][^"\\\n]*)*"` — newline-bounded (R244); **only valid when the literal contains no `${`**, otherwise mode-lex (F1) |
+| `b"GET \x89"` | `BYTES` (dq) | literal §4 | `b"[^"\\\n]*(?:\\[^\n][^"\\\n]*)*"` — newline-bounded (R244) |
+| `b'GET '` | `BYTES` (sq) | literal §4 | `b'[^'\\\n]*(?:\\[^\n][^'\\\n]*)*'` — newline-bounded (R244) |
+| `~"\d+"im` | `REGEX` | literal §4 | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2). **The one form that may span lines** (R244), for the `x` flag (§4) |
+| `` `grep ${x} f` `` | `COMMAND` | literal §4 | ``` `[^`\\\n]*(?:\\[^\n][^`\\\n]*)*` ``` — newline-bounded (R244); **only valid when the literal contains no `${`**, otherwise mode-lex (F3). Escapes per R150 (command §2.2) |
 | `0755`, `0_1` | `INVALID` | error §11 | `0[0-9_]+` — a leading zero is a **lex error** (R238, `L0003`), never silent decimal and never C-style octal |
 | `0X1F`, `0B1` | `INVALID` | error §11 | `0[XBO]` — radix prefixes are lowercase only (R238, `L0004`); without this production `0X1F` would split into `INT_DEC` + `IDENT` and diagnose as a syntax error instead |
 | `???=` | `NULL_COALESCE_ASSIGN` | operator §5 | `\?\?\?=` |
@@ -152,11 +152,11 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `${` | `INTERP_OPEN` | interp §6 | `\$\{` — pushes `INTERP_EXPR` |
 | `$name` | `INTERP_IDENT` | interp §6 | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
 | `}` | `INTERP_CLOSE` | interp §6 | the `}` returning brace depth to zero; pops to the enclosing literal mode |
-| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | content §6 | `(?s)\\.` — one backslash-pair; `DQ_STRING`, `REGEX_BODY`, and `COMMAND` (R150 — commands escape `` \` `` `\\` `\$`, command §2). Decoding per the authoritative table, string §5.1 (R150) |
-| text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$]+` |
+| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | content §6 | `\\[^\n]` in `DQ_STRING` and `COMMAND`, `(?s)\\.` in `REGEX_BODY` — one backslash-pair, and a backslash-newline is **not** one in a newline-bounded form (R244), so a trailing `\` cannot continue the literal. R150 gives commands `` \` `` `\\` `\$` (command §2); decoding per the authoritative table, string §5.1 |
+| text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$\n]+` — newline-bounded (R244) |
 | lone `$` | `DOLLAR_TEXT` | content §6 | `\$` — a `$` that starts no interp form is literal content; one name across all three modes, as `ESCAPE_PAIR` is (in commands: `$` not followed by `{`, command §2.2) |
-| text run (regex) | `REGEX_TEXT` | content §6 | `[^"\\$]+` |
-| text run (command) | `CMD_TEXT` | content §6 | ``[^`\\$]+`` (backslash excluded since R150 — commands have escapes) |
+| text run (regex) | `REGEX_TEXT` | content §6 | `[^"\\$]+` — newlines included, regex being the one form that may span lines (R244) |
+| text run (command) | `CMD_TEXT` | content §6 | ``[^`\\$\n]+`` — newline-bounded (R244); backslash excluded since R150, commands having escapes |
 | `foo`, `snake_case`, `camelCase` | `IDENT` | identifier §7 | `[A-Za-z_][A-Za-z0-9_]*` |
 | `_` | `WILDCARD` | identifier §7 | `_\b` |
 | any byte beginning no token | `INVALID` | error §11 | *(no pattern: the catch-all, attempted last)* — one byte, with `L0012`. What makes the lexer **total**: every byte begins a token, so §2's tiling holds on invalid input too (R242) |
@@ -170,10 +170,10 @@ pattern (see flags F1–F3). The lexer therefore runs a small mode stack:
 | Mode | Entered by | Left by |
 |-|-|-|
 | `DEFAULT` | start of file | — |
-| `DQ_STRING` | `"` (`DQ_OPEN`, §6) | unescaped `"` (`DQ_CLOSE`) |
-| `REGEX_BODY` | `~"` (`REGEX_OPEN`, R237) | unescaped `"`, then flags (`REGEX_CLOSE`) |
-| `COMMAND` | `` ` `` (`CMD_OPEN`) | unescaped `` ` `` (`CMD_CLOSE`) |
-| `INTERP_EXPR` | `${` inside any of the three modes above | the `}` that returns brace depth to zero (depth counted by the lexer) |
+| `DQ_STRING` | `"` (`DQ_OPEN`, §6) | unescaped `"` (`DQ_CLOSE`), **or a raw newline** — `L0009` (R244) |
+| `REGEX_BODY` | `~"` (`REGEX_OPEN`, R237) | unescaped `"`, then flags (`REGEX_CLOSE`) — the one mode a newline does not end |
+| `COMMAND` | `` ` `` (`CMD_OPEN`) | unescaped `` ` `` (`CMD_CLOSE`), **or a raw newline** — `L0009` (R244) |
+| `INTERP_EXPR` | `${` inside any of the three modes above | the `}` that returns brace depth to zero (depth counted by the lexer), or the enclosing literal's newline (R244) |
 
 `INTERP_EXPR` lexes with the full `DEFAULT` rule set. Single-quoted strings and `b"..."`
 bytes literals do **not** interpolate (string §5, bytes §7) and are handled by a single
@@ -264,9 +264,21 @@ recognized by a regex over an open-ended set of lexemes, while these six are a f
 of words. They **denote** literal values all the same; the distinction is lexical, not semantic
 (keywords §4). Minus is never part of a numeric token: `-7` is `MINUS INT_DEC` and `-inf` is
 `MINUS KW_INF` (unary minus, tier 2; `0..-1` parses as `0..(-1)`, associativity §4). There is no
-unary `+`, so positive infinity is written `inf`, never `+inf`. Regex flags are exactly `i m s x b` (regex §3). The `x`-flag verbose
-form spans lines and contains `#` comments; the `REGEX` span pattern is unaffected since
-it only seeks the unescaped closing `"`.
+unary `+`, so positive infinity is written `inf`, never `+inf`. Regex flags are exactly `i m s x b` (regex §3).
+
+**A raw newline ends every literal but the regex (R244).** `'…'`, `"…"`, `b"…"`, `b'…'`, and
+the backtick command literal are bounded by the line they open on; a newline before the closing
+delimiter raises `L0009` with its caret on the *opener*, and the newline itself is left to lex as
+`WHITESPACE`, so the following line lexes as code. The rule is error locality rather than
+recovery: quotes pair greedily, so an unterminated `"` in a file with more strings below closes on
+the *next* quote instead of running to end of file, mis-tokenizing every line between and
+surfacing its diagnostic — if at all — on some later, innocent literal. Bounding at the newline is
+what puts the caret on the typo. A `${…}` splice inherits its literal's rule, and a
+backslash-newline is not an escape pair (§0), so a trailing `\` cannot continue the literal
+either. **The `x`-flag verbose form is the exemption**: spelling a long pattern across lines is
+that flag's purpose (regex §4), so `REGEX` keeps `(?s)` and its span pattern is unaffected,
+seeking only the unescaped closing `"` — safe here because `~"` is a deliberate two-byte opener
+rather than the single stray byte the rule exists to contain.
 
 **The numeric grammar, ruled in full (R238, closing G2).** Four rules, each chosen against a
 known footgun rather than for taste:
@@ -468,7 +480,7 @@ per-instance and volatile. Tests pin the code and the primary span, never the pr
 | `L0006` | Invalid codepoint escape | `\u{…}` naming a surrogate (`D800`–`DFFF`) or a value above `10FFFF` | string §5.1, R150 |
 | `L0007` | Unexpected `#` | A `#` that is neither `#[` nor a first-line `#!` | §5, R85 |
 | `L0008` | Unexpected `~` | A `~` not followed by `"`; the sigil exists only to open a regex literal | §5, R237 |
-| `L0009` | Unterminated literal | End of file inside a string, regex, or command literal — the description names which | §1 |
+| `L0009` | Unterminated literal | A raw newline inside a string, bytes, or command literal (R244), or end of file inside any literal, the regex included — the description names which | §1, §4 |
 | `L0010` | Unterminated block comment | End of file with no closing `*/`; block comments do not nest, so the first `*/` would have closed it | §2, F4 |
 | `L0011` | Unterminated interpolation | End of file with `INTERP_EXPR` brace depth above zero | §6 |
 | `L0012` | Unexpected character | A byte that begins no token in the current mode (`^`, a bare `\`, a `$` in `DEFAULT`) | §0 |
@@ -516,7 +528,9 @@ example: `"${x ?? "none"}"`). The `STRING_DQ` span regex closes at the `"` befor
 and mis-tokenizes everything after. There is no regex fix — nested delimiters plus nested
 braces require counting. Use the `DQ_STRING` / `INTERP_EXPR` modes of §1/§6: the span
 regex in §4 may be used only as a fast path when a scan finds no `${` before the closing
-quote.
+quote. Since R244 that scan is **line-local** — the literal cannot outlive the line it opens
+on — so the choice between §6's two shapes is made from bounded lookahead rather than from a
+scan that may run to end of file.
 
 **F2 — regex literals are prefixed, and they interpolate.** A regex literal is `~"…"` (R237,
 regex §2). The sigil is what keeps this simple: `~` is a token in no other position, so
@@ -534,6 +548,12 @@ its failure mode — a misclassification toward regex sent the scanner hunting f
 unescaped `/`, swallowing arbitrary source into one token, where the opposite error merely
 produced a parse error in the right place.
 
+**R244 closed the other half of that indictment.** R237 removed the context-sensitivity but not
+the swallowing: an unclosed `"` still consumed the rest of the file, the failure mode above with
+a different opener. Bounding every literal but the regex at its line ends it. `~"…"` is the
+exemption — the `x` flag exists to span lines (§4) — and that is affordable for the same reason
+the sigil was: a two-byte opener is typed deliberately, where a stray `"` is the ordinary typo.
+
 The interpolation half stands. `${expr}` inside a regex literal (regex §7, comptime-only) may
 itself contain a `"` — inside a nested string in the splice — which would falsely terminate
 the span regex; `REGEX_BODY` mode handles it, and §0's `REGEX` pattern is a no-`${` fast path
@@ -545,11 +565,12 @@ and a `#` comment inside an `x`-verbose pattern can no longer terminate the lite
 
 **F3 — Command literals with `${expr}` are not regular**, for the same reason as F1: the
 splice is a full expression (command §3) and may contain backticks inside nested strings
-or nested command literals. The §4 span regex is a no-`${` fast path only; otherwise use
-the `COMMAND` / `INTERP_EXPR` modes. Command literals have **no escape
-sequences** by ruling (command §2.2, resolving G5): `\` is an ordinary byte, and literal
-`` ` `` / `${` are written via interpolation — so the span regex and `CMD_TEXT` correctly
-treat `\` as plain text, and no `ESCAPE_PAIR` token exists in `COMMAND` mode.
+or nested command literals. The §0 span regex is a no-`${` fast path only, line-local since
+R244; otherwise use the `COMMAND` / `INTERP_EXPR` modes. Command literals **do** have escape
+sequences — `` \` ``, `\\`, `\$` (command §2.2, R150 superseding G5's original no-escapes
+resolution) — so `CMD_TEXT` excludes the backslash and `ESCAPE_PAIR` is emitted in `COMMAND`
+mode exactly as in `DQ_STRING`. This paragraph asserted the opposite until R244's sweep, the
+last site where G5's retired reading survived.
 
 **F4 — Block comments.** `(?s)/\*.*?\*/` uses a lazy quantifier — a classic backtracking
 red flag in PCRE, but linear and safe in RE2. Nesting is ruled **out** (lexical-structure §3,

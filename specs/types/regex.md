@@ -98,7 +98,12 @@ want one match or every match is a property of the operation, not of the pattern
 ## 4. Verbose mode: readable patterns
 
 The `x` flag makes a pattern readable by ignoring whitespace and allowing `#` comments, so a
-long pattern can be spelled out across lines instead of packed onto one:
+long pattern can be spelled out across lines instead of packed onto one.
+
+**The regex literal is the only Luna literal that may span lines** (R244): a raw newline ends a
+string, bytes, or command literal, and `~"…"` is exempt precisely so this section's form works.
+The exemption is affordable because `~"` is a deliberate two-byte opener, where the rule exists
+to contain the stray single `"` that would otherwise swallow the rest of a file.
 
 ```luna
 let isoDate = ~"

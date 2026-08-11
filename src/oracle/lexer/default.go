@@ -297,9 +297,9 @@ func scanDigitRun(src string, i int, digit func(byte) bool) int {
 // lexStringSq scans `'…'`. Single-quoted strings do not interpolate (string §5), so
 // they are one span regex with no mode and a `$` inside is ordinary content.
 func (s *Scanner) lexStringSq() token.Kind {
-	end, _, ok := spanLiteral(s.src, s.pos+1, '\'', false)
+	end, _, ok := spanLiteral(s.src, s.pos+1, '\'', false, false)
 	if !ok {
-		return s.unterminated("string", 1)
+		return s.unterminated("string", 1, end)
 	}
 	s.pos = end
 	return token.StringSq
@@ -308,9 +308,9 @@ func (s *Scanner) lexStringSq() token.Kind {
 // lexBytes scans `b"…"` or `b'…'`. Bytes literals do not interpolate either (bytes
 // §7); the two rows of §0 differ only in their quote.
 func (s *Scanner) lexBytes() token.Kind {
-	end, _, ok := spanLiteral(s.src, s.pos+2, s.peek(1), false)
+	end, _, ok := spanLiteral(s.src, s.pos+2, s.peek(1), false, false)
 	if !ok {
-		return s.unterminated("bytes", 2)
+		return s.unterminated("bytes", 2, end)
 	}
 	s.pos = end
 	return token.Bytes
@@ -321,10 +321,10 @@ func (s *Scanner) lexBytes() token.Kind {
 // stopping at whichever of the two comes first. A splice means the literal is not
 // regular, so the delimited form is used instead and the mode stack takes over.
 func (s *Scanner) lexStringDq() token.Kind {
-	end, splice, ok := spanLiteral(s.src, s.pos+1, '"', true)
+	end, splice, ok := spanLiteral(s.src, s.pos+1, '"', true, false)
 	switch {
 	case !ok:
-		return s.unterminated("string", 1)
+		return s.unterminated("string", 1, end)
 	case splice:
 		s.push(modeDQString)
 		s.pos++
@@ -340,10 +340,10 @@ func (s *Scanner) lexRegex() token.Kind {
 		return s.invalid(diagnostic.UnexpectedTilde, 1,
 			"`~` opens a regex literal only as `~\"`")
 	}
-	end, splice, ok := spanLiteral(s.src, s.pos+2, '"', true)
+	end, splice, ok := spanLiteral(s.src, s.pos+2, '"', true, true)
 	switch {
 	case !ok:
-		return s.unterminated("regex", 2)
+		return s.unterminated("regex", 2, end)
 	case splice:
 		s.push(modeRegexBody)
 		s.pos += 2
@@ -360,10 +360,10 @@ func (s *Scanner) lexRegex() token.Kind {
 // lexCommand scans a backtick-delimited command literal, the third interpolating
 // form (F3).
 func (s *Scanner) lexCommand() token.Kind {
-	end, splice, ok := spanLiteral(s.src, s.pos+1, '`', true)
+	end, splice, ok := spanLiteral(s.src, s.pos+1, '`', true, false)
 	switch {
 	case !ok:
-		return s.unterminated("command", 1)
+		return s.unterminated("command", 1, end)
 	case splice:
 		s.push(modeCommand)
 		s.pos++
@@ -374,28 +374,38 @@ func (s *Scanner) lexCommand() token.Kind {
 }
 
 // spanLiteral walks a delimited literal's body from i, one byte past its opener, and
-// stops at the first of three things: the closing delimiter, a `${` when the form
-// interpolates, or end of input. It reports the offset just past the close, whether a
-// splice stopped it, and whether the literal was closed at all.
+// stops at the first of four things: the closing delimiter, a `${` when the form
+// interpolates, a raw newline unless the form may span lines, or end of input. It
+// reports the offset just past the close, whether a splice stopped it, and whether the
+// literal was closed at all.
 //
 // Stopping at whichever comes first is what makes the fast path exact rather than
-// optimistic. If the naive closing quote arrives before any `${`, the literal provably
+// optimistic. If the closing delimiter arrives before any `${`, the literal provably
 // holds no splice and §0's span pattern is the whole answer; if a `${` arrives first,
-// that quote may well be inside the splice — F1's example, `"${x ?? "none"}"` — and no
-// regex can settle it.
+// that delimiter may well be inside the splice — F1's example, `"${x ?? "none"}"` —
+// and no regex can settle it. Since R244 the whole question is line-local, so the
+// lookahead this needs is bounded by a line rather than by the file.
 //
-// Escapes are `\\.`, one pair whatever follows, in every delimited form. That
-// includes command literals since R150 (command §2.2, closing G5), which §0's COMMAND
-// row and F3 still contradict — they carry the pre-R150 "a backslash is an ordinary
-// byte" reading, while §0's own ESCAPE_PAIR and CMD_TEXT rows are dated R150 and say
-// the opposite. The later ruling is followed here and the conflict wants a sweep.
+// multiline is true only for `~"…"`, whose `x` flag exists to spell a pattern across
+// lines (regex §4). Everywhere else a newline ends the literal (R244) and is left
+// unconsumed, so it lexes as WHITESPACE and the next line lexes as code — which is the
+// point: quotes pair greedily, so an unbounded literal reports its failure at the last
+// unpaired quote in the file rather than at the typo.
 //
-// A trailing backslash at end of input consumes past the end and falls out
-// unterminated, which is the correct reading of an unclosed literal.
-func spanLiteral(src string, i int, close byte, interp bool) (end int, splice bool, ok bool) {
+// Escapes are one pair, in every delimited form — command literals included since R150
+// (command §2.2, closing G5) — but a backslash-newline is not one of them in a
+// newline-bounded form, so a trailing `\` cannot continue the literal. A trailing
+// backslash at end of input consumes past the end and falls out unterminated, which is
+// the correct reading of an unclosed literal.
+func spanLiteral(src string, i int, close byte, interp, multiline bool) (end int, splice bool, ok bool) {
 	for i < len(src) {
 		switch {
+		case !multiline && src[i] == '\n':
+			return i, false, false
 		case src[i] == '\\':
+			if !multiline && byteAt(src, i+1) == '\n' {
+				return i + 1, false, false
+			}
 			i += 2
 		case src[i] == close:
 			return i + 1, false, true
@@ -408,16 +418,17 @@ func spanLiteral(src string, i int, close byte, interp bool) (end int, splice bo
 	return len(src), false, false
 }
 
-// unterminated reports L0009 and swallows the rest of the file as one INVALID.
+// unterminated reports L0009 and covers what the literal consumed as one INVALID —
+// bytes to the newline that ended it, or to end of input for the file's last line and
+// for a regex (R244).
 //
 // The two spans differ on purpose. The diagnostic's primary span is a caret position
-// and belongs on the opening delimiter — pointing at everything up to end of file
-// says nothing a reader can act on — while the token records what the scanner
-// consumed. Keeping those separate is what R242 bought, and it is why §2's tiling
-// survives here.
-func (s *Scanner) unterminated(what string, openerLen int) token.Kind {
+// and belongs on the opening delimiter — that is what went unclosed — while the token
+// records what the scanner consumed. Keeping those separate is what R242 bought, and
+// it is why §2's tiling survives here.
+func (s *Scanner) unterminated(what string, openerLen, end int) token.Kind {
 	s.error(diagnostic.UnterminatedLiteral, s.pos, openerLen, "unterminated %s literal", what)
-	s.pos = len(s.src)
+	s.pos = end
 	return token.Invalid
 }
 

@@ -6673,6 +6673,80 @@ about retired *spellings* — `pub`, `caps.io`, and `use (&io)` all lex
 clean — but R237 is the one retirement that made its predecessor
 lexically **invalid**, so that class the gate does catch.)*
 
+**R244 — a raw newline ends a string, bytes, or command literal; only
+`~"…"` may span lines.** Every delimited form carried `(?s)` and a
+character class admitting `\n`, so an unclosed `"` consumed the rest of the
+file as one token. F2 named that failure exactly — "swallowing arbitrary
+source into one token" — and R237 removed only half of it: the
+context-sensitivity went, the unbounded consumption stayed, for every quote
+form rather than just the retired `/…/`. **A raw newline now terminates
+`'…'`, `"…"`, `b"…"`, `b'…'`, and a backtick command literal**, raising
+`L0009` with its caret on the opening delimiter. The newline itself is not
+consumed, so it lexes as ordinary `WHITESPACE` and the following line lexes
+as code.
+
+**The decisive argument is error locality, not recovery.** The scanner
+pairs quotes greedily, so an unterminated `"` on line 10 of a file with
+more strings below never reaches end of file — it closes on the *next*
+quote it finds, silently making one `STRING_DQ` out of `"oops;\nlet b = "`.
+No diagnostic is raised at line 10 at all. `L0009` surfaces only at the
+**last unpaired quote in the file**, which is the perfectly correct opening
+quote of some other literal, so the caret lands on innocent code and every
+line between is mis-tokenized in silence. Bounding at the newline is what
+makes the diagnosis land on the typo. **The rejected alternative was
+newline-bounded *recovery*** — keep multi-line literals legal, and on
+reaching end of file unterminated, back up and re-lex from the first
+newline after the opener. It falls to the same argument: it can only ever
+fire at that last unpaired quote, which is the one place the mistake almost
+certainly is not. A rule that repairs the symptom at the wrong site is
+worse than none, because it looks like it worked.
+
+**The corpus was measured, not guessed.** Lexing all 436 `luna`-labeled
+blocks finds exactly **one** literal spanning a newline: the `x`-verbose
+regex of regex §4. Zero multi-line strings, bytes, or commands. That is
+recorded with its weakness stated — spec examples are short by
+construction, so their silence about embedded SQL, JSON, and templates is
+weak evidence about real programs. The ergonomic question this does not
+answer belongs to the multi-line form, below.
+
+**Regex is exempt, and not as special pleading.** Spanning lines is the `x`
+flag's documented purpose (regex §4, "a long pattern can be spelled out
+across lines"), it is the corpus's only instance, and R237 made `~"` a
+deliberate two-byte opener rather than the single stray byte that is the
+realistic typo. `REGEX` keeps `(?s)`; the other five patterns lose it and
+gain `\n` in their negated classes. **Splices inherit their literal's
+rule**: `${…}` sits inside the literal, so a splice in a newline-bounded
+form may not span lines either — one sentence instead of two, and a local
+binding is the workaround. **A backslash-newline does not continue a
+literal**: the escape pair in a newline-bounded mode is `\\[^\n]`, so a
+trailing `\` cannot carry the literal onto the next line. That is
+conservative on purpose. Line continuation is a plausible feature and it
+belongs to the multi-line question; deciding it here would pre-empt that
+ruling by accident.
+
+Two consequences fall out. **The fast-path probe becomes line-local**:
+F1/F3's "is there a `${` before the closing delimiter" scan is now bounded
+by a line rather than by the file, so the choice between the single-token
+and delimited shapes (§6) is made from bounded lookahead. And `L0009` is
+**reworded, not reallocated** — a newline-terminated literal is the same
+error as an EOF-terminated one, and codes are append-only (R240). Swept:
+`lexer.md` (§0's five span patterns plus the `ESCAPE_PAIR`, `DQ_TEXT`,
+`CMD_TEXT`, and `REGEX_TEXT` rows; §1's mode table; §4, which gains the
+rule and its rationale; §11's `L0009` row; F1, F2, F3),
+`lexical-structure.md` (§1's "load-bearing in exactly two places", now
+three), `regex.md` §4 (the exemption recorded where the feature lives),
+`string.md` §5.1, `bytes.md` §7, `command.md` §2. Also swept, outside the
+spec: `oracle/lexer`'s literal scanner. Two pre-R150 survivors were
+rewritten in passing, both found by implementing the scanner: §0's
+`COMMAND` row and F3 still said command literals had no escapes and that
+`\` was an ordinary byte, the reading G5 recorded as **superseded** and
+that §0's own `ESCAPE_PAIR` and `CMD_TEXT` rows already contradicted.
+**Not ruled here**: a dedicated
+multi-line literal form, and whether `\<newline>` should later become a
+continuation — both belong to the multi-line question this ruling opens
+rather than closes. R243's open on the fast path's unterminated fallback
+survives but shrinks: the span at stake is now one line, not one file.
+
 ---
 
 ## Still open (out of scope of these rulings)

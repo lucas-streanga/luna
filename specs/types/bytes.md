@@ -165,6 +165,8 @@ let empty  = b"";                  // the empty bytes
 
 - **The value is the UTF-8 octets of the enclosed text**, as a **compile-time constant**
   `bytes`. `b"GET "` is the four octets `71 69 84 32`, known at parse time.
+- **A bytes literal may not span lines** (R244, lexer §4): a raw newline ends it and raises
+  `L0009`. Write `\n` — or `\x0a`, the two being the same octet here.
 - **Escapes** are the shared string escapes **plus `\xNN`**, a raw hex octet — the
   authoritative table is string §5.1 (R150). `\xNN` is **bytes-only by ruling**: a raw
   byte in a *string* could break the UTF-8 validity guaranteed at ingress, but bytes have

@@ -123,6 +123,12 @@ their shared rows):
 | `` `…` `` command literal | `` \` `` `\\` `\$` |
 | `~"…"` regex literal | the regex spec's own escape language (RE2's), passed through undecoded; Luna decodes exactly one escape, `\"`, so a quote can appear inside the delimiters (regex §2, R237) |
 
+**A backslash-newline is not an escape pair** (R244). A raw newline ends a string literal —
+both quote styles, and bytes and command literals with them — so a trailing `\` cannot carry
+the literal onto the next line; the newline raises `L0009` with its caret on the opening quote.
+Multi-line text is written with `\n`. The regex literal is the sole exemption, for its `x` flag
+(regex §4); whether Luna gains a dedicated multi-line form is open.
+
 Three rules, each ruled (R150):
 
 - **`\u{…}` is the strings-side codepoint escape, and the `\xNN` split is safety, not
