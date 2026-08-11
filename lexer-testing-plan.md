@@ -103,10 +103,12 @@ Every one of §11's twelve codes needs at least one case. Two deserve more than 
 A lexer is an unusually good fuzz target because the interesting properties need no reference:
 
 1. **Never panics** on arbitrary bytes — invalid UTF-8, NULs, lone `$`, unterminated everything.
-2. **Always terminates**: every iteration consumes at least one byte or emits a token. The classic
-   lexer bug is an infinite loop on an unexpected character, and example-based tests never find it.
+2. **Always terminates** — structural since R242, not merely asserted: the scanner emits exactly
+   one token per step covering at least one byte, so the classic
+   bug, looping on an unrecognized character, is unwritable rather than untested.
 3. **Spans tile the input exactly** — monotonic, gapless, summing to the input length. Total since
-   R236 and `L0012`, and the single strongest assertion available.
+   R242: bytes no production claims are covered by `INVALID`, so it holds on invalid input too,
+   which is where a fuzzer operates. The single strongest assertion available.
 4. **The mode stack is empty at EOF**, or an error explains why it isn't.
 
 Seeds: the **436 `luna`-labeled corpus blocks** — real Luna rather than generated noise — plus

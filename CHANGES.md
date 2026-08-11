@@ -6545,6 +6545,65 @@ deliberately rather than assumed. Swept: `testing-strategy.md` (§1's
 independence paragraph), `claude-agent-plan.md` (header's two-phase
 summary, Phase 0.3's alpha choice, §F's IR/desugaring and std bullets).
 
+**R242 — the lexer emits a token for every byte: `INVALID` covers what no
+real token claims, which makes §2's tiling invariant unconditional and
+leaves diagnostics purely presentational.** §2 claimed token spans "tile
+the source exactly", and §11 claimed `L0012` made that total — "every byte
+either begins a token **or** raises it". Those two do not compose: a byte
+that raises a diagnostic and produces no token is a hole, so on `let x =
+0755;` four bytes are recorded only in the diagnostic channel. The
+invariant was true of valid input and quietly false of everything else,
+which is the opposite of what a fuzz property needs. **Every byte now
+begins a token.** Bytes that no real production claims are covered by
+**`INVALID`**, a token in category `error`, emitted alongside the
+diagnostic that explains them — §0's two error productions (leading zero,
+uppercase radix prefix) name it, and a new catch-all row names it for any
+byte beginning no token at all, which is `L0012`'s shape. §0 goes to 131
+rows and **127** token names; §10's arithmetic simplifies, because the
+"rows that are not tokens at all" caveat disappears with the last nameless
+row. **The decisive argument is R240's, not convenience.** A diagnostic's
+primary span is "where the caret goes", and for `L0009` the caret belongs
+on the *opening delimiter* — that is what went unclosed — while the bytes
+consumed run to end of file. Two different spans. Requiring the diagnostic
+span to double as a coverage record forces one of those two jobs to be done
+badly, and it is always the caret that loses. Keeping coverage in the token
+stream lets the caret go where it helps, which is what makes the two
+channels genuinely separate rather than merely returned separately: the
+token stream now reconstructs what the scanner saw without consulting the
+diagnostics at all. Two consequences follow that were not the motivation
+and are worth as much. **Termination becomes structural.** The scanner's
+rule is now "every step emits exactly one token covering at least one
+byte", so the plan's progress property — never loop on an unexpected
+character, the classic lexer bug that example-based tests never find —
+holds by construction rather than by discipline, and tiling and termination
+become one invariant instead of two assertions. **The lossless CST survives
+broken input.** §1.3 builds a lossless CST and §3 has the tooling drivers
+"consume [partial results] and never abort"; a stream with holes cannot
+reconstruct a file, and a half-edited file is the only kind the language
+server ever sees. **The zero value is renamed.** Go's `token.Invalid` was
+the never-emitted zero, documented so that an uninitialized token could not
+masquerade as a real one — a distinction that would not survive sitting
+beside an emitted error kind of nearly the same name. The zero is now
+**`Unset`**, which says what it is (no kind assigned), and **`Invalid`** is
+the emitted kind, `INVALID` in §0. The rejected alternative was to leave
+the invariant conditional and assert only monotonicity and non-overlap on
+erroring input. It works, and it is what the golden harness did as a
+stopgap, but it disables the strongest property precisely where fuzzing
+operates: a fuzzer's inputs are almost all erroring, so a gaplessness check
+that only runs on clean input is a check that never runs. Precedent for the
+emitted kind is uniform — Go's `token.ILLEGAL`, rustc's
+`TokenKind::Unknown`, Swift's `tok::unknown`; every production lexer
+carries one, and none of them treats it as a lexeme of the language. Swept:
+`lexer.md` (§0's two error rows and one new catch-all row, §2's invariant,
+§10's counts and the rows-versus-names note, §11 gains `INVALID`'s own
+entry and `L0012`'s wording), `lexer-testing-plan.md` (§6's tiling
+property, now total). Also swept, outside the spec: `oracle/token` (the
+`Unset`/`Invalid` split), `oracle/lexer`'s golden harness (the tiling
+check, now unconditional). **Not ruled here**: what span each unterminated
+code carries — `L0009` spanning the opener versus the opener through end of
+file is a diagnostic-quality question, and now an independent one, since
+coverage no longer rides on it.
+
 ---
 
 ## Still open (out of scope of these rulings)

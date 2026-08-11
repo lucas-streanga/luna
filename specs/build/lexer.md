@@ -94,8 +94,8 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `b'GET '` | `BYTES` (sq) | literal §4 | `(?s)b'[^'\\]*(?:\\.[^'\\]*)*'` |
 | `~"\d+"im` | `REGEX` | literal §4 | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2) |
 | `` `grep ${x} f` `` | `COMMAND` | literal §4 | ``(?s)`[^`]*` `` — **only valid when the literal contains no `${`**; otherwise mode-lex (F3). `\` is an ordinary byte, by ruling (command §2.2) |
-| `0755`, `0_1` | *(error production)* | error §4 | `0[0-9_]+` — a leading zero is a **lex error** (R238, `L0003`), never silent decimal and never C-style octal |
-| `0X1F`, `0B1` | *(error production)* | error §4 | `0[XBO]` — radix prefixes are lowercase only (R238, `L0004`); without this production `0X1F` would split into `INT_DEC` + `IDENT` and diagnose as a syntax error instead |
+| `0755`, `0_1` | `INVALID` | error §11 | `0[0-9_]+` — a leading zero is a **lex error** (R238, `L0003`), never silent decimal and never C-style octal |
+| `0X1F`, `0B1` | `INVALID` | error §11 | `0[XBO]` — radix prefixes are lowercase only (R238, `L0004`); without this production `0X1F` would split into `INT_DEC` + `IDENT` and diagnose as a syntax error instead |
 | `???=` | `NULL_COALESCE_ASSIGN` | operator §5 | `\?\?\?=` |
 | `???` | `NULL_COALESCE` | operator §5 | `\?\?\?` |
 | `??=` | `COALESCE_ASSIGN` | operator §5 | `\?\?=` |
@@ -159,6 +159,7 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | text run (command) | `CMD_TEXT` | content §6 | ``[^`\\$]+`` (backslash excluded since R150 — commands have escapes) |
 | `foo`, `snake_case`, `camelCase` | `IDENT` | identifier §7 | `[A-Za-z_][A-Za-z0-9_]*` |
 | `_` | `WILDCARD` | identifier §7 | `_\b` |
+| any byte beginning no token | `INVALID` | error §11 | *(no pattern: the catch-all, attempted last)* — one byte, with `L0012`. What makes the lexer **total**: every byte begins a token, so §2's tiling holds on invalid input too (R242) |
 ## 1. Lexer modes
 
 Three literal forms admit `${expr}` interpolation whose body is a full Luna expression —
@@ -191,9 +192,12 @@ Fidelity rides on the **span**, not on token kinds: a trivia token carries a byt
 retained source (§9), so one `WHITESPACE` run reports its exact bytes — tabs versus spaces, `\n`
 versus `\r\n` — with no need for per-character token kinds to distinguish them.
 
-Two consequences are worth stating. **Token spans now tile the source exactly** — monotonic, no
-gaps, summing to the file length — which promotes a partial invariant into a total one for
-anything checking positions. And **trivia attachment is deliberately not decided here**: the
+Two consequences are worth stating. **Token spans tile the source exactly** — monotonic, no
+gaps, summing to the file length — and since R242 that holds on **invalid** input as well:
+every byte begins a token, bytes no real production claims being covered by `INVALID` (§0).
+So the stream reconstructs what the scanner saw without consulting the diagnostics, which is
+what leaves those purely presentational; and the scanner's rule, one token per step covering at
+least one byte, makes termination structural rather than a property to be tested for. And **trivia attachment is deliberately not decided here**: the
 stream is flat, with no binding of a comment to a neighbouring token as leading or trailing
 matter, because whether a trailing `// …` belongs to the line above or the line below is a
 formatting policy and the formatter spec is pending. A flat stream lets that spec decide; an
@@ -419,23 +423,25 @@ source of truth. Its purpose is mechanical: a count that can be asserted in a te
 that makes an omission visible. R232 fixed a "47 patterns" claim standing over a 49-row table;
 this section exists so that class of drift fails loudly instead of hiding.
 
-**126 tokens over 130 rows.** By §0's category column: **4** trivia, **49** keyword (47
+**127 tokens over 131 rows.** By §0's category column: **4** trivia, **49** keyword (47
 word-shaped plus the compounds `KW_MATCH_BANG` and `KW_YIELD_FROM`), **10** literal, **37**
 operator, **10** punctuation, **6** delimiter (three openers, three closers), **3** interp,
-**5** content, **2** identifier.
+**5** content, **2** identifier, **1** error.
 
 **Rows exceed names in three places**, which is where a naive recount goes wrong. `DOUBLE`
-owns two rows (point and exponent form) and `BYTES` owns two (`b"…"`, `b'…'`), so those four
-rows are two names; and two rows are not tokens at all — the **error productions** for a leading
-zero and an uppercase radix prefix, categorized `error §4` precisely so a count can exclude them. `STRING_SQ`/`STRING_DQ` look like
-the same case and are not: two rows, two genuine names. §3's 49 matches keywords.md §1–§4
-exactly.
+owns two rows (point and exponent form), `BYTES` owns two (`b"…"`, `b'…'`), and `INVALID` owns
+three — the two error productions and the catch-all — so those seven rows are three names.
+`STRING_SQ`/`STRING_DQ` look like the same case and are not: two rows, two genuine names. §3's
+49 matches keywords.md §1–§4 exactly.
+
+Every row now names a token (R242). The arithmetic used to carry a third case, rows that were
+not tokens at all, and it is gone: the error productions emit `INVALID` alongside their
+diagnostic rather than emitting nothing, which is what makes §2's tiling total.
 
 **Not tokens, and deliberately absent:** the five *modes* of §1 (`DEFAULT`, `DQ_STRING`,
 `REGEX_BODY`, `COMMAND`, `INTERP_EXPR` — note `COMMAND` names both a mode and a token, the one
-collision in the vocabulary), and §0's two **error productions** — the leading zero and the
-uppercase radix prefix — which are recognized shapes that produce a diagnostic rather than a
-token.
+collision in the vocabulary). Nothing else: since R242 every §0 row names a token, including
+the three that also raise a diagnostic.
 
 `DOLLAR_TEXT` was **found by compiling this table** (R239): §6's lone-`$` row carried a pattern
 and no name, the same gap R235 closed for the openers, one row further down. Only `""`, `~"…"`,
@@ -467,8 +473,17 @@ per-instance and volatile. Tests pin the code and the primary span, never the pr
 | `L0011` | Unterminated interpolation | End of file with `INTERP_EXPR` brace depth above zero | §6 |
 | `L0012` | Unexpected character | A byte that begins no token in the current mode (`^`, a bare `\`, a `$` in `DEFAULT`) | §0 |
 
-`L0012` is the catch-all that makes the lexer **total**: every byte either begins a token or
-raises it, which is what lets §2's tiling invariant hold on invalid input as well as valid.
+**Every one of these is accompanied by an `INVALID` token** covering the bytes it condemns
+(§0, R242). Diagnostics and tokens are separate channels and stay separate: the stream records
+what the scanner consumed, the diagnostic records what to tell the author, and neither has to
+do the other's job. That is what frees a primary span to be a *caret position* — `L0009` wants
+its caret on the opening delimiter, not spread across everything up to end of file — and it is
+why §2's tiling holds on invalid input.
+
+`L0012` is the catch-all that makes the lexer **total**: every byte begins a token, and any
+byte that begins no other one begins an `INVALID`. The scanner's rule is therefore one token
+per step covering at least one byte, which makes progress structural — the classic lexer bug,
+looping forever on a character it does not recognize, is unwritable rather than untested.
 None of these aborts — §1.1 collects lexical errors and the compile stops at the phase
 boundary — so each must also leave the scanner able to make progress, `L0009`/`L0010`/`L0011`
 being the ones where recovery is least obvious, since the mode stack must be unwound.
