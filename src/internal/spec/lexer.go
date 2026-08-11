@@ -99,9 +99,12 @@ func (inv *Inventory) Actual() Counts {
 	return c
 }
 
-// Load finds the repository root by walking up from the working directory and reads
-// the lexer spec from it. Tests run with the working directory set to their own
-// package, so walking is what keeps this working when a package moves.
+// Load finds the spec by walking up from the working directory and reads it. Tests run
+// with the working directory set to their own package, so walking is what keeps this
+// working when a package moves.
+//
+// The walk stops at the module root, and that is load-bearing rather than tidy — see
+// findRoot.
 func Load() (*Inventory, error) {
 	root, err := findRoot()
 	if err != nil {
@@ -255,7 +258,20 @@ func parseCounts(text string) Counts {
 	return c
 }
 
-// findRoot walks up from the working directory looking for the lexer spec.
+// findRoot walks up from the working directory looking for the lexer spec, and gives up
+// at the module root rather than continuing to the real repository root above it.
+//
+// That refusal is the point. The spec lives outside the module, and `go help test` says
+// a cached result is reused unless a file the test opened **within the package's module**
+// has changed — so reading the spec through its real path makes every pin in this
+// package silently cacheable: edit lexer.md, run `go test ./...`, get a stale `ok
+// (cached)` that verified nothing. The repository carries a `src/specs -> ../specs`
+// symlink so the spec is reachable from inside the module and Go tracks it.
+//
+// A checkout without that symlink would still *work* — the walk would simply continue
+// past the module root and find the real directory — which is exactly the failure to
+// refuse: the pins would go on passing while checking a file the cache ignores. Stopping
+// at go.mod converts a silent regression into this error.
 func findRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -264,6 +280,11 @@ func findRoot() (string, error) {
 	for {
 		if _, err := os.Stat(filepath.Join(dir, LexerSpecPath)); err == nil {
 			return dir, nil
+		}
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return "", errors.New("spec: reached the module root (" + dir + ") with no " +
+				LexerSpecPath + " — the `src/specs` symlink is missing, and without it " +
+				"Go's test cache cannot see spec edits")
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {

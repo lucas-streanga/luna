@@ -127,6 +127,7 @@ var lexicalCodes = []diagnostic.Code{
 	diagnostic.UnterminatedBlockComment,
 	diagnostic.UnterminatedInterpolation,
 	diagnostic.UnexpectedCharacter,
+	diagnostic.MalformedCodepointEscape,
 }
 
 func TestLexicalCodesAreLexicalAndDistinct(t *testing.T) {

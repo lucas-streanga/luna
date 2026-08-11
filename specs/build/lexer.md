@@ -152,7 +152,7 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `${` | `INTERP_OPEN` | interp §6 | `\$\{` — pushes `INTERP_EXPR` |
 | `$name` | `INTERP_IDENT` | interp §6 | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
 | `}` | `INTERP_CLOSE` | interp §6 | the `}` returning brace depth to zero; pops to the enclosing literal mode |
-| `\n`, `\$`, `\"`, … | `ESCAPE_PAIR` | content §6 | `\\[^\n]` in `DQ_STRING` and `COMMAND`, `(?s)\\.` in `REGEX_BODY` — one backslash-pair, and a backslash-newline is **not** one in a newline-bounded form (R244), so a trailing `\` cannot continue the literal. R150 gives commands `` \` `` `\\` `\$` (command §2); decoding per the authoritative table, string §5.1 |
+| `\n`, `\$`, `\u{1F600}`, … | `ESCAPE_PAIR` | content §6 | `\\u\{[0-9a-fA-F]{1,6}\}\x7c\\[^\n]` in `DQ_STRING`, `\\[^\n]` in `COMMAND`, `(?s)\\.` in `REGEX_BODY` — one backslash-pair, except that `DQ_STRING` matches the **whole** `\u{…}` (R245), that being the one context where the codepoint escape is legal (string §5.1); elsewhere a bare `\u` is an ordinary unknown escape and one pair is the right span for it. A backslash-newline is not a pair in a newline-bounded form (R244), so a trailing `\` cannot continue the literal. R150 gives commands `` \` `` `\\` `\$` (command §2); decoding per the authoritative table, string §5.1 |
 | text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$\n]+` — newline-bounded (R244) |
 | lone `$` | `DOLLAR_TEXT` | content §6 | `\$` — a `$` that starts no interp form is literal content; one name across all three modes, as `ESCAPE_PAIR` is (in commands: `$` not followed by `{`, command §2.2) |
 | text run (regex) | `REGEX_TEXT` | content §6 | `[^"\\$]+` — newlines included, regex being the one form that may span lines (R244) |
@@ -484,13 +484,14 @@ per-instance and volatile. Tests pin the code and the primary span, never the pr
 | `L0010` | Unterminated block comment | End of file with no closing `*/`; block comments do not nest, so the first `*/` would have closed it | §2, F4 |
 | `L0011` | Unterminated interpolation | End of file with `INTERP_EXPR` brace depth above zero | §6 |
 | `L0012` | Unexpected character | A byte that begins no token in the current mode (`^`, a bare `\`, a `$` in `DEFAULT`) | §0 |
+| `L0013` | Malformed codepoint escape | `\u` not followed by `{`, 1–6 hex digits, `}` — `\u`, `\u{}`, `\u{XYZ}`, `\u{41` (R245). Distinct from `L0006`, which is a **well-formed** escape naming an invalid scalar | §0, string §5.1 |
 
 **An `INVALID` token covers bytes no other production claims** (§0, R242) — which is a test
 about the *stream*, not about this table: a diagnostic does not oblige the lexer to emit
 anything, and several of these raise no token of their own (R243). `L0003`, `L0004`, `L0007`,
 `L0008`, and `L0012` do, nothing else claiming the bytes they condemn; `L0009` and `L0010` do
 on the span-regex fast path, where a literal or comment that never closed leaves the
-single-token reading unable to complete. `L0005` and `L0006` do **not** — an escape sits inside
+single-token reading unable to complete. `L0005`, `L0006`, and `L0013` do **not** — an escape sits inside
 a well-formed literal, already covered by its `STRING_SQ` or its `ESCAPE_PAIR`, and an `INVALID`
 over it would overlap. Nor does `L0011`, every byte of the splice having been emitted as it was
 scanned. `L0001` and `L0002` are raised at ingress, where there is no stream at all.
@@ -509,7 +510,7 @@ None of these aborts — §1.1 collects lexical errors and the compile stops at 
 boundary — so each must also leave the scanner able to make progress, `L0009`/`L0010`/`L0011`
 being the ones where recovery is least obvious, since the mode stack must be unwound.
 
-No lexical error has a runtime counterpart: all twelve are compile-time only, and none of them
+No lexical error has a runtime counterpart: all thirteen are compile-time only, and none of them
 corresponds to a catchable type in the errors §2 hierarchy.
 
 ## Flagged: complex, context-sensitive, or non-regular tokens

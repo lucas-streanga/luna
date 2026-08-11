@@ -135,9 +135,13 @@ Three rules, each ruled (R150):
   taste**: a raw byte in a *string* could break the UTF-8 validity guaranteed at
   ingress (lexical-structure §1 — a lone `\xFF` is not valid UTF-8), so `\xNN` is
   **bytes-only**, while `\u{…}` encodes a codepoint to valid UTF-8 *by construction*.
-  Surrogates (`\u{D800}`–`\u{DFFF}`) and values above `\u{10FFFF}` are lex errors.
-  Without `\u{…}`, control and invisible characters would be unwritable in strings,
-  since the raw-byte door is (correctly) closed.
+  Surrogates (`\u{D800}`–`\u{DFFF}`) and values above `\u{10FFFF}` are lex errors
+  (`L0006`). Without `\u{…}`, control and invisible characters would be unwritable in
+  strings, since the raw-byte door is (correctly) closed. **Malformed is a separate
+  error from invalid** (`L0013`, R245): `\u{D800}` is well formed and names a scalar
+  that does not exist, where `\u`, `\u{}`, `\u{XYZ}`, and `\u{41` are not escapes at
+  all. Two mistakes, two fixes, two messages — and the split is what lets the lexer
+  make the token cover the escape's whole extent (lexer §0).
 - **An unknown escape is a lex error.** Any `\` followed by a character not in its
   context's row is a compile error — never PHP's silent pass-through (`"\q"` staying
   `\q`), which is a silent-wrong-value.

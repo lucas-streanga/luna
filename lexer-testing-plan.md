@@ -32,14 +32,28 @@ Two spec artifacts are the plan's inputs: **§0**, the single token table, and *
 
 ## 1. Inventory pin (build first)
 
-Assert §10's numbers against the implementation: **126 tokens over 130 rows**, and the
+Assert §10's numbers against the implementation: **127 tokens over 131 rows** (R242), and the
 per-category counts. Then assert the correspondence both ways — every token constant has a §0
-row, every §0 row has a constant.
+row, every §0 row has a constant. The same shape pins §11's thirteen error codes and their
+titles (R240, R245).
 
 Cheapest possible first signal, and it catches a real defect class: R232 fixed a "47 patterns"
 claim standing over a 49-row table, which a count assertion would have failed on the day it
 appeared. Two of the three error productions and the `DOLLAR_TEXT` gap were both found by
 compiling the inventory rather than by reading code.
+
+**These tests read the spec, so the repository carries a `src/specs -> ../specs` symlink and
+the reader refuses to walk past `go.mod` without it.** Both halves are load-bearing. `go help
+test`: a cached result is reused unless a file the test opened *within the package's module*
+has changed — and `specs/` sits outside the module, so reading it by its real path made every
+pin here silently cacheable. Edit `lexer.md`, run `go test ./...`, get a stale `ok (cached)`
+that verified nothing; confirmed by mutating a §11 title, where the cached run passed and
+`-count=1` caught it. The symlink puts the spec inside the module so Go tracks it. The refusal
+to walk past the module root is what stops a checkout *without* the symlink from quietly
+reverting to the old behaviour — the walk would otherwise find the real directory and every pin
+would go on passing against a file the cache ignores, which is the same fail-open wearing a
+different hat. `make-archive.sh` passes `zip -y` so the link is archived as a link rather than
+resolved into a second copy of the spec tree.
 
 ## 2. Golden corpus, as data
 

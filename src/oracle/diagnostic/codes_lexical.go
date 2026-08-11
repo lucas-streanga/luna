@@ -25,6 +25,7 @@ const (
 	UnterminatedBlockComment  Code = "L0010" // §2, F4
 	UnterminatedInterpolation Code = "L0011" // §6
 	UnexpectedCharacter       Code = "L0012" // §0
+	MalformedCodepointEscape  Code = "L0013" // §0, string §5.1, R245
 )
 
 // lexicalTitles is the title fixed to each lexical code.
@@ -45,4 +46,5 @@ var lexicalTitles = map[Code]string{
 	UnterminatedBlockComment:  "Unterminated block comment",
 	UnterminatedInterpolation: "Unterminated interpolation",
 	UnexpectedCharacter:       "Unexpected character",
+	MalformedCodepointEscape:  "Malformed codepoint escape",
 }

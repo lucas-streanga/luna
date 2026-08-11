@@ -6747,6 +6747,59 @@ continuation — both belong to the multi-line question this ruling opens
 rather than closes. R243's open on the fast path's unterminated fallback
 survives but shrinks: the span at stake is now one line, not one file.
 
+**R245 — `ESCAPE_PAIR` covers `\u{…}` whole, and a malformed codepoint
+escape gets its own code, `L0013`.** §0 spelled `ESCAPE_PAIR` as `(?s)\\.`
+— exactly two bytes — so on the mode path `"\u{41}"` tokenized as
+`ESCAPE_PAIR("\u")` followed by `DQ_TEXT("{41}")`, splitting an escape at a
+boundary that is not its end. The pattern gains a first alternative,
+`\\u\{[0-9a-fA-F]{1,6}\}`, tried before the one-pair form, so the token
+covers the escape's whole extent. No new token kind and no count moves:
+`\u{…}` was always an `ESCAPE_PAIR` and still is. The alternation bar is
+written `\x7c`, as `INT_DEC`'s already is, so the cell survives markdown —
+the same constraint §4 cites for the unrolled-loop spelling.
+
+**The alternative is `DQ_STRING`-only**, which is tighter than it first
+looks and is the whole justification. `\u{…}` is a legal escape in exactly
+that context (string §5.1): commands take only `` \` `` `\\` `\$`, bytes
+literals exclude it explicitly, single-quoted strings have two escapes, and
+a regex body passes its escapes to RE2 undecoded. Everywhere else `\u` is
+an ordinary *unknown* escape, and one pair is precisely the right span to
+put a caret under. So the longer match is added where it buys a better
+diagnostic and nowhere else, rather than uniformly for symmetry.
+
+**The split token was not cosmetic.** `L0006` has to read the digits to
+decide whether a scalar is a surrogate or above `10FFFF`, so whoever raises
+it had to re-glue two tokens first — an operation that works until an
+interpolation lands between them. Worse, `"\u{41"` tokenized as a
+*perfectly well-formed* stream: `ESCAPE_PAIR`, `DQ_TEXT`, `DQ_CLOSE`,
+nothing in its shape recording that the `}` never arrived. With the
+alternation the long branch simply fails, `\\.` matches `\u` alone, and a
+bare `\u` is not a row in string §5.1's table — so the malformation becomes
+visible in the token stream instead of having to be reconstructed from it.
+
+**`L0013` is allocated because the two mistakes are different mistakes.**
+`\u{D800}` is a *well-formed* escape naming a scalar that does not exist;
+`\u`, `\u{}`, `\u{XYZ}`, and `\u{41` are not escapes at all. Different
+cause, different fix, different sentence to write. Folding both into
+`L0006` would have forced one title to cover both, and a title is fixed per
+code (R240) — so the message would have had to hedge, which is the failure
+`luna explain` exists to avoid. The rejected alternative was to let `L0005`
+absorb the malformed case: it reads badly, since "Unknown escape" is wrong
+for `\u{XYZ}` — `\u` *is* known, it is the brace group that is broken.
+
+Left standing: `L0005` for a genuinely unknown escape (`\q`), `L0013` for a
+malformed codepoint escape, `L0006` for a well-formed one naming an invalid
+scalar. §11 goes to **thirteen** codes. Swept: `lexer.md` (§0's
+`ESCAPE_PAIR` row, §11's table and its `INVALID` paragraph — `L0013` joins
+`L0005`/`L0006` in emitting no token of its own, R243, being inside a
+well-formed literal — and the "all twelve" count), `string.md` §5.1 (the
+malformed/invalid split recorded where the escape table lives). Also swept,
+outside the spec: `oracle/diagnostic`'s code constants and titles, and the
+explicit list in its test that pins them against §11 both ways. **Not ruled
+here**: which phase raises `L0005`, `L0006`, and `L0013`. R243 left the
+decode question open and this does not close it — it only makes the token
+stream carry enough shape for the answer to be cheap either way.
+
 ---
 
 ## Still open (out of scope of these rulings)
