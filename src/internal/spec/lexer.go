@@ -55,11 +55,22 @@ type Counts struct {
 	ByCategory map[string]int
 }
 
-// Inventory is lexer §0's table together with §10's claimed counts.
+// CodeRow is one row of lexer §11's error summary: the diagnostic codes the lexer
+// and its ingress raise, each with the title fixed to it (R240).
+type CodeRow struct {
+	Line      int
+	Code      string // column 1's backticked code, e.g. "L0003"
+	Title     string // column 2, verbatim — titles may contain backticks
+	When      string // column 3, the condition
+	Authority string // column 4, the ruling or section that decided it
+}
+
+// Inventory is lexer §0's table, §10's claimed counts, and §11's error summary.
 type Inventory struct {
 	Path   string
 	Rows   []Row
 	Claims Counts
+	Codes  []CodeRow
 }
 
 // Tokens returns the distinct token names in first-appearance order, paired with
@@ -112,7 +123,7 @@ func LoadFrom(path string) (*Inventory, error) {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
-	inTable := false
+	inTable, inCodes := false, false
 	// §10's summary is one wrapped paragraph, and a category can be split from its
 	// count across a line break ("**37**" ending one line, "operator" opening the
 	// next). So the paragraph is accumulated whole and parsed once.
@@ -137,20 +148,30 @@ func LoadFrom(path string) (*Inventory, error) {
 
 		switch {
 		case strings.HasPrefix(text, "| Token | Name | Category |"):
-			inTable = true
+			inTable, inCodes = true, false
 			continue
-		case inTable && strings.HasPrefix(text, "|-"):
+		case strings.HasPrefix(text, "| Code | Title |"):
+			inTable, inCodes = false, true
+			continue
+		case (inTable || inCodes) && strings.HasPrefix(text, "|-"):
 			continue // the header separator
-		case inTable && !strings.HasPrefix(text, "| "):
-			inTable = false // a blank line or prose ends the table
+		case (inTable || inCodes) && !strings.HasPrefix(text, "| "):
+			inTable, inCodes = false, false // a blank line or prose ends the table
 		}
 
-		if inTable {
+		switch {
+		case inTable:
 			r, err := parseRow(text, line)
 			if err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", path, line, err)
 			}
 			inv.Rows = append(inv.Rows, r)
+		case inCodes:
+			r, err := parseCodeRow(text, line)
+			if err != nil {
+				return nil, fmt.Errorf("%s:%d: %w", path, line, err)
+			}
+			inv.Codes = append(inv.Codes, r)
 		}
 	}
 	if inCounts { // the summary ran to end of file
@@ -158,6 +179,9 @@ func LoadFrom(path string) (*Inventory, error) {
 	}
 	if err := sc.Err(); err != nil {
 		return nil, fmt.Errorf("spec: reading %s: %w", path, err)
+	}
+	if len(inv.Codes) == 0 {
+		return nil, fmt.Errorf("spec: no §11 error summary found in %s", path)
 	}
 	if len(inv.Rows) == 0 {
 		return nil, fmt.Errorf("spec: no §0 table found in %s", path)
@@ -247,4 +271,25 @@ func findRoot() (string, error) {
 		}
 		dir = parent
 	}
+}
+
+// codeRe matches column 1 of §11: a backticked diagnostic code.
+var codeRe = regexp.MustCompile("^`([A-Z][0-9]{4})`$")
+
+// parseCodeRow splits one row of §11's error summary. Titles are taken verbatim,
+// backticks included: "Unexpected `#`" is the title, not a marked-up version of one.
+func parseCodeRow(text string, line int) (CodeRow, error) {
+	body := strings.TrimSuffix(strings.TrimPrefix(text, "| "), " |")
+	f := strings.SplitN(body, " | ", 4)
+	if len(f) != 4 {
+		return CodeRow{}, fmt.Errorf("want 4 columns, got %d: %q", len(f), text)
+	}
+	m := codeRe.FindStringSubmatch(strings.TrimSpace(f[0]))
+	if m == nil {
+		return CodeRow{}, fmt.Errorf("unrecognized code column: %q", f[0])
+	}
+	return CodeRow{
+		Line: line, Code: m[1],
+		Title: strings.TrimSpace(f[1]), When: f[2], Authority: f[3],
+	}, nil
 }

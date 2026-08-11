@@ -433,8 +433,9 @@ exactly.
 
 **Not tokens, and deliberately absent:** the five *modes* of §1 (`DEFAULT`, `DQ_STRING`,
 `REGEX_BODY`, `COMMAND`, `INTERP_EXPR` — note `COMMAND` names both a mode and a token, the one
-collision in the vocabulary), and §4's leading-zero **error production**, which is a recognized
-shape that produces a diagnostic rather than a token.
+collision in the vocabulary), and §0's two **error productions** — the leading zero and the
+uppercase radix prefix — which are recognized shapes that produce a diagnostic rather than a
+token.
 
 `DOLLAR_TEXT` was **found by compiling this table** (R239): §6's lone-`$` row carried a pattern
 and no name, the same gap R235 closed for the openers, one row further down. Only `""`, `~"…"`,
