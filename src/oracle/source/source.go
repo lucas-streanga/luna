@@ -10,13 +10,15 @@
 // Positions are computed, never stored (lexer §9, R236): tokens carry byte spans into
 // the retained text, and line and rune column derive on demand from a lazily built
 // line-start table.
-//
-// NOTE: declarations only. Bodies are unimplemented — the tests come first.
 package source
 
 import (
 	"fmt"
+	"os"
+	"sort"
+	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // Diagnostic codes this package raises (lexer §11).
@@ -65,30 +67,96 @@ type File struct {
 // New validates in-memory text and returns the file it describes. Text that is not
 // valid UTF-8, or that begins with a byte-order mark, is rejected with an *Error.
 func New(name, text string) (*File, error) {
-	panic("unimplemented")
+	// The BOM is checked first so that a file which is both BOM-led and later
+	// malformed reports the earlier problem.
+	if strings.HasPrefix(text, "\ufeff") {
+		return nil, &Error{Code: CodeByteOrderMark, Offset: 0}
+	}
+	ascii, bad, ok := scan(text)
+	if !ok {
+		return nil, &Error{Code: CodeInvalidUTF8, Offset: bad}
+	}
+	return &File{name: name, text: text, ascii: ascii}, nil
 }
 
 // Load reads and validates a file from disk. An IO failure is an ordinary error; only
 // a lexical condition is reported as an *Error.
 func Load(path string) (*File, error) {
-	panic("unimplemented")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("source: %w", err)
+	}
+	return New(path, string(b))
+}
+
+// scan makes the single pass lexical-structure §1 describes: it proves the text is
+// valid UTF-8 and, because it is visiting every byte anyway, records whether any byte
+// was non-ASCII. On failure bad is the offset of the first byte that broke validity —
+// the diagnostic points at where the text stopped being well-formed, not at the file.
+func scan(text string) (ascii bool, bad int, ok bool) {
+	ascii = true
+	for i := 0; i < len(text); {
+		if text[i] < utf8.RuneSelf {
+			i++
+			continue
+		}
+		ascii = false
+		// DecodeRuneInString reports (RuneError, 1) for a byte that begins no valid
+		// sequence, and (RuneError, 3) for a correctly encoded U+FFFD, so the size is
+		// what separates a real replacement character from a malformed one.
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if r == utf8.RuneError && size <= 1 {
+			return ascii, i, false
+		}
+		i += size
+	}
+	return ascii, 0, true
 }
 
 // Name is the file's identity, which R240 makes part of every span.
-func (f *File) Name() string { panic("unimplemented") }
+func (f *File) Name() string { return f.name }
 
 // Text is the whole validated buffer.
-func (f *File) Text() string { panic("unimplemented") }
+func (f *File) Text() string { return f.text }
 
 // IsASCII reports whether the file contained no byte >= 0x80. Recorded free during
 // validation, and what lets Position compute a rune column by subtraction.
-func (f *File) IsASCII() bool { panic("unimplemented") }
+func (f *File) IsASCII() bool { return f.ascii }
 
 // Slice returns the text of a span. This is how a lexeme is recovered: tokens carry
 // spans, not copies.
-func (f *File) Slice(offset, length int) string { panic("unimplemented") }
+func (f *File) Slice(offset, length int) string { return f.text[offset : offset+length] }
 
 // Position resolves a byte offset to a line and rune column. Offsets in [0, len] are
 // valid; len itself is the end-of-file position. An offset outside that range is a
 // caller bug, not a diagnostic, and panics.
-func (f *File) Position(offset int) Position { panic("unimplemented") }
+func (f *File) Position(offset int) Position {
+	if offset < 0 || offset > len(f.text) {
+		panic(fmt.Sprintf("source: offset %d out of range [0, %d] in %s", offset, len(f.text), f.name))
+	}
+	f.once.Do(f.buildLines)
+
+	// The last line start at or before the offset. lines[0] is 0 and offset is
+	// non-negative, so this never selects -1.
+	i := sort.Search(len(f.lines), func(i int) bool { return f.lines[i] > int32(offset) }) - 1
+	start := int(f.lines[i])
+
+	if f.ascii {
+		return Position{Line: i + 1, Column: offset - start + 1}
+	}
+	return Position{Line: i + 1, Column: utf8.RuneCountInString(f.text[start:offset]) + 1}
+}
+
+// buildLines records the offset each line begins at. Keying only on '\n' is what lets
+// CRLF need no special case: the '\r' stays ordinary content on the line it ends. A
+// trailing newline yields a final entry at len(text), which is the empty last line
+// every editor shows.
+func (f *File) buildLines() {
+	lines := make([]int32, 1, 1+strings.Count(f.text, "\n"))
+	for i := 0; i < len(f.text); i++ {
+		if f.text[i] == '\n' {
+			lines = append(lines, int32(i+1))
+		}
+	}
+	f.lines = lines
+}

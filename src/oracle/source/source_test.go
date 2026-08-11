@@ -247,9 +247,13 @@ func TestPositionOnLineWithMultiByteBefore(t *testing.T) {
 	if got := f.Text()[offsetOfSemicolon]; got != ';' {
 		t.Fatalf("test is miscalibrated: byte %d is %q, not ';'", offsetOfSemicolon, got)
 	}
+	// Eleven runes precede the ';' on line 2 — l e t ␣ s ␣ = ␣ ' é ' — so the column
+	// is 12. Twelve *bytes* precede it, because é is two, and a byte-counting
+	// implementation therefore reports 13. Counting the runes above is how this
+	// expectation stays auditable: the first draft of this test asserted 13.
 	got := f.Position(offsetOfSemicolon)
-	if got.Line != 2 || got.Column != 13 {
-		t.Errorf("Position(%d) = %d:%d, want 2:13", offsetOfSemicolon, got.Line, got.Column)
+	if got.Line != 2 || got.Column != 12 {
+		t.Errorf("Position(%d) = %d:%d, want 2:12", offsetOfSemicolon, got.Line, got.Column)
 	}
 }
 
