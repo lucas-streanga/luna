@@ -9,7 +9,7 @@ package token
 // Offset and Len are the span. Because trivia are emitted, a file's tokens tile its
 // bytes exactly: no gaps, no overlaps, summing to the file's length. That invariant
 // is the strongest property the lexer's fuzz suite has, and it holds on invalid input
-// too — every byte either begins a token or raises L0012.
+// too: bytes no production claims are covered by INVALID (R242), never dropped.
 type Token struct {
 	Kind   Kind
 	Offset int

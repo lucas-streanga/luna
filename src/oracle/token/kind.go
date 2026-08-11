@@ -15,7 +15,7 @@ package token
 type Category uint8
 
 const (
-	CategoryInvalid Category = iota
+	CategoryUnset Category = iota
 	Trivia
 	Keyword
 	Literal
@@ -25,19 +25,21 @@ const (
 	Interp
 	Content
 	Identifier
+	Error
 )
 
 var categoryNames = [...]string{
-	CategoryInvalid: "invalid",
-	Trivia:          "trivia",
-	Keyword:         "keyword",
-	Literal:         "literal",
-	Operator:        "operator",
-	Punctuation:     "punctuation",
-	Delimiter:       "delimiter",
-	Interp:          "interp",
-	Content:         "content",
-	Identifier:      "identifier",
+	CategoryUnset: "unset",
+	Trivia:        "trivia",
+	Keyword:       "keyword",
+	Literal:       "literal",
+	Operator:      "operator",
+	Punctuation:   "punctuation",
+	Delimiter:     "delimiter",
+	Interp:        "interp",
+	Content:       "content",
+	Identifier:    "identifier",
+	Error:         "error",
 }
 
 func (c Category) String() string {
@@ -47,12 +49,13 @@ func (c Category) String() string {
 	return categoryNames[c]
 }
 
-// Kind identifies a token class. The zero value, Invalid, is not a token: it is what a
-// zero-valued Kind reports, so an uninitialized token never masquerades as a real one.
+// Kind identifies a token class. The zero value, Unset, is not a token: it is what an
+// unassigned Kind reports, so an uninitialized token never masquerades as a real one. It is
+// distinct from Invalid, which IS emitted — for bytes no real production claims (R242).
 type Kind uint8
 
 const (
-	Invalid Kind = iota
+	Unset Kind = iota
 
 	// trivia
 	Whitespace
@@ -197,6 +200,9 @@ const (
 	// identifier
 	Ident
 	Wildcard
+
+	// error
+	Invalid
 )
 
 type info struct {
@@ -207,7 +213,8 @@ type info struct {
 // infos is indexed by Kind. Keyed entries, not positional, so reordering the constant
 // block above cannot silently shift a name onto the wrong kind.
 var infos = [...]info{
-	Invalid:            {"INVALID", CategoryInvalid},
+	Unset:              {"UNSET", CategoryUnset},
+	Invalid:            {"INVALID", Error},
 	Whitespace:         {"WHITESPACE", Trivia},
 	Shebang:            {"SHEBANG", Trivia},
 	LineComment:        {"LINE_COMMENT", Trivia},
@@ -349,7 +356,7 @@ func (k Kind) String() string {
 // Category reports which of §0's groups the kind belongs to.
 func (k Kind) Category() Category {
 	if int(k) >= len(infos) {
-		return CategoryInvalid
+		return CategoryUnset
 	}
 	return infos[k].cat
 }

@@ -20,9 +20,9 @@ import (
 	"luna/oracle/token"
 )
 
-// categoryCount is the number of token categories in §0. The error productions are
-// categorized "error" and are not tokens, so they are not among these.
-const categoryCount = 9
+// categoryCount is the number of token categories in §0, error included: since R242 the
+// error productions emit INVALID rather than nothing, so every category has a token.
+const categoryCount = 10
 
 func loadSpec(t *testing.T) *spec.Inventory {
 	t.Helper()
@@ -53,20 +53,27 @@ func TestSpecReaderIsArmed(t *testing.T) {
 			got, categoryCount, inv.Claims.ByCategory)
 	}
 
-	// The 130-vs-126 arithmetic depends on rows the reader must tell apart: two
-	// error productions, and four rows sharing two names. If it stops distinguishing
-	// them the totals still add up by accident, so assert the shapes directly.
-	var errRows, noted int
+	// The 131-vs-127 arithmetic depends on rows the reader must tell apart: three
+	// sharing INVALID, and four sharing DOUBLE and BYTES. If it stops distinguishing
+	// them the totals still add up by accident, so assert the shapes directly. Since
+	// R242 no row is nameless — every §0 row names a token.
+	var nameless, noted, invalid int
 	for _, r := range inv.Rows {
-		if !r.IsToken() {
-			errRows++
+		switch {
+		case !r.IsToken():
+			nameless++
+		case r.Name == "INVALID":
+			invalid++
 		}
 		if r.Note != "" {
 			noted++
 		}
 	}
-	if errRows != 2 {
-		t.Errorf("found %d error-production rows, want 2 (§0's leading zero and uppercase radix prefix)", errRows)
+	if nameless != 0 {
+		t.Errorf("found %d rows naming no token, want 0 (R242)", nameless)
+	}
+	if invalid != 3 {
+		t.Errorf("found %d INVALID rows, want 3 (two error productions and the catch-all)", invalid)
 	}
 	if noted != 4 {
 		t.Errorf("found %d rows with a name qualifier, want 4 (DOUBLE ×2, BYTES ×2)", noted)
@@ -150,19 +157,19 @@ func TestCountsAgree(t *testing.T) {
 	}
 }
 
-// TestInvalidIsNotAToken pins the zero value. Kind's zero must not name a real
+// TestUnsetIsNotAToken pins the zero value. Kind's zero must not name a real
 // token, or an uninitialized token silently reads as WHITESPACE — the first kind
 // declared — and every span check downstream inherits the lie.
-func TestInvalidIsNotAToken(t *testing.T) {
-	if got := token.Invalid.String(); got != "INVALID" {
-		t.Errorf("Invalid.String() = %q, want %q", got, "INVALID")
+func TestUnsetIsNotAToken(t *testing.T) {
+	if got := token.Unset.String(); got != "UNSET" {
+		t.Errorf("Unset.String() = %q, want %q", got, "UNSET")
 	}
-	if got := token.Invalid.Category(); got != token.CategoryInvalid {
-		t.Errorf("Invalid.Category() = %v, want CategoryInvalid", got)
+	if got := token.Unset.Category(); got != token.CategoryUnset {
+		t.Errorf("Unset.Category() = %v, want CategoryUnset", got)
 	}
 	for _, k := range token.All() {
-		if k == token.Invalid {
-			t.Fatal("All() includes Invalid")
+		if k == token.Unset {
+			t.Fatal("All() includes Unset")
 		}
 	}
 }

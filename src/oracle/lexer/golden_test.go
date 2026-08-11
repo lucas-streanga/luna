@@ -200,24 +200,23 @@ func compare(t *testing.T, g golden, got []entry) {
 	}
 }
 
-// checkTiling asserts the invariant R236 made total: with trivia emitted, a file's
-// tokens cover every byte, gaplessly and without overlap, so concatenating their
-// lexemes reproduces the input.
+// checkTiling asserts §2's invariant, which R242 made unconditional: a file's tokens
+// cover every byte, gaplessly and without overlap, so concatenating their lexemes
+// reproduces the input.
 //
-// Only for cases the golden expects to lex cleanly. What an erroring scan covers is
-// not yet ruled — §2 states the invariant over *token* spans, and a diagnostic's span
-// is not a token — so asserting it here would invent a rule rather than check one.
+// It holds on invalid input too, because bytes no real production claims are covered
+// by INVALID rather than dropped. Diagnostics take no part: they are a parallel
+// channel, and their spans are caret positions rather than coverage records — which
+// is exactly what R242 separated.
 func checkTiling(t *testing.T, g golden, got []entry) {
 	t.Helper()
-	for _, e := range got {
-		if e.Code != "" {
-			return
-		}
-	}
 
 	var rebuilt strings.Builder
 	next := 0
 	for _, e := range got {
+		if e.Code != "" {
+			continue // a diagnostic, not a token: no bytes of its own
+		}
 		if e.Lo != next {
 			t.Errorf("span gap or overlap: %s starts at %d, previous ended at %d", e, e.Lo, next)
 			return
