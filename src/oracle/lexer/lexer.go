@@ -29,10 +29,19 @@
 //
 // Scanner therefore exists for early termination, not streaming — see its doc.
 //
-// NOTE: declarations only. Bodies are unimplemented — the tests come first.
+// # Layout
+//
+// One function per mode (§1), each consuming one token's bytes and reporting its kind.
+// Next owns the span arithmetic and the progress check, so neither is repeated and
+// neither can be got wrong in only one mode. lexDefault, in default.go, serves both
+// `DEFAULT` and `INTERP_EXPR`; the three literal modes are the mode stack's half of
+// the work and are not implemented yet.
 package lexer
 
 import (
+	"fmt"
+	"strings"
+
 	"luna/oracle/diagnostic"
 	"luna/oracle/source"
 	"luna/oracle/token"
@@ -44,7 +53,19 @@ import (
 // a token stream, because §1.1 requires the scan to complete. Callers decide what to
 // do with a non-empty list; the batch driver aborts at the phase boundary, the
 // language server does not (compiler §3).
-func Lex(f *source.File) ([]token.Token, diagnostic.List) { panic("unimplemented") }
+func Lex(f *source.File) ([]token.Token, diagnostic.List) {
+	s := New(f)
+	// Real source runs a few bytes per token, trivia included. A starting point, not
+	// a bound — append handles the file that disagrees.
+	toks := make([]token.Token, 0, len(f.Text())/4+8)
+	for {
+		tok, ok := s.Next()
+		if !ok {
+			return toks, s.Errors()
+		}
+		toks = append(toks, tok)
+	}
+}
 
 // Scanner produces tokens one at a time.
 //
@@ -54,6 +75,8 @@ func Lex(f *source.File) ([]token.Token, diagnostic.List) { panic("unimplemented
 // head) rather than O(file). Draining a whole file through Lex would defeat it.
 type Scanner struct {
 	f      *source.File
+	src    string // f.Text(), hoisted: every step of the scan indexes it
+	pos    int
 	errors diagnostic.List
 	modes  []mode
 }
@@ -62,23 +85,60 @@ type Scanner struct {
 // ingress: the patterns below match ASCII bytes on the assumption that the rest is
 // well-formed UTF-8, which lexical-structure §1 establishes exactly once.
 func New(f *source.File) *Scanner {
-	return &Scanner{f: f, modes: []mode{{kind: modeDefault, depth: 0}}}
+	return &Scanner{f: f, src: f.Text(), modes: []mode{{kind: modeDefault, depth: 0}}}
 }
 
 // Next returns the next token, or ok=false at end of input.
 //
-// There is no EOF token, deliberately: §0's inventory is the 126 lexemes the language
-// has, and end-of-file is not one of them. Adding a 127th to make loops tidier would
+// There is no EOF token, deliberately: §0's inventory is the 127 lexemes the language
+// has, and end-of-file is not one of them. Adding a 128th to make loops tidier would
 // put the code out of step with the table it is pinned against.
 //
 // A lexical error does not stop the scan. Next records the diagnostic, advances by at
 // least one byte, and returns the next token it can find — so a caller that ignores
 // Errors still terminates and still sees a stream that tiles the input.
-func (s *Scanner) Next() (token.Token, bool) { panic("unimplemented") }
+func (s *Scanner) Next() (token.Token, bool) {
+	if s.pos >= len(s.src) {
+		return token.Token{}, false
+	}
+
+	start := s.pos
+	var kind token.Kind
+	switch k := s.mode().kind; k {
+	case modeDefault, modeInterpExpr:
+		kind = s.lexDefault()
+	case modeDQString:
+		kind = s.lexDQString()
+	case modeRegexBody:
+		kind = s.lexRegexBody()
+	case modeCommand:
+		kind = s.lexCommandBody()
+	default:
+		panic(fmt.Sprintf("lexer: unknown mode %d", k))
+	}
+
+	// §11's rule, checked rather than assumed: one token per step covering at least
+	// one byte. It is the whole of what makes the scan terminate, so it is asserted in
+	// the one place every mode passes through — and a violation is a compiler bug, not
+	// a condition in the program being compiled.
+	if s.pos <= start {
+		panic(fmt.Sprintf("lexer: %s consumed no bytes at %d in %s", kind, start, s.f.Name()))
+	}
+	return token.Token{Kind: kind, Offset: start, Len: s.pos - start}, true
+}
 
 // Errors returns the diagnostics collected so far. During a scan it grows; after the
 // scan completes it is the file's full set.
 func (s *Scanner) Errors() diagnostic.List { return s.errors }
+
+// The literal modes (§1, §6) are not implemented yet — they are the mode stack's half
+// of the lexer, and lexDefault reaches them only for a literal that actually contains
+// a `${`. Failing loudly there is deliberate: the alternative, letting §0's span
+// pattern close the literal at the first quote it sees, would mis-tokenize the rest of
+// the file silently, which is precisely what F1 exists to warn about.
+func (s *Scanner) lexDQString() token.Kind    { panic("lexer: DQ_STRING mode is unimplemented") }
+func (s *Scanner) lexRegexBody() token.Kind   { panic("lexer: REGEX_BODY mode is unimplemented") }
+func (s *Scanner) lexCommandBody() token.Kind { panic("lexer: COMMAND mode is unimplemented") }
 
 // mode is one frame of the lexer's mode stack (§1).
 //
@@ -100,3 +160,43 @@ const (
 	modeCommand
 	modeInterpExpr
 )
+
+// mode returns the innermost frame. The pointer is into the stack, so a caller may
+// adjust its brace depth in place; it is invalidated by the next push.
+func (s *Scanner) mode() *mode { return &s.modes[len(s.modes)-1] }
+
+func (s *Scanner) push(k modeKind) { s.modes = append(s.modes, mode{kind: k}) }
+
+func (s *Scanner) pop() { s.modes = s.modes[:len(s.modes)-1] }
+
+// has reports whether the input at the current offset begins with lit.
+func (s *Scanner) has(lit string) bool { return strings.HasPrefix(s.src[s.pos:], lit) }
+
+// peek is the byte n past the current offset, or 0 past the end. The sentinel is
+// unambiguous in practice: a real NUL satisfies no production's next-byte test, so it
+// falls through to the same catch-all it would reach anyway.
+func (s *Scanner) peek(n int) byte { return byteAt(s.src, s.pos+n) }
+
+func byteAt(src string, i int) byte {
+	if i < 0 || i >= len(src) {
+		return 0
+	}
+	return src[i]
+}
+
+// error records a diagnostic. offset and length are the *caret* span, which is not
+// always the span of the bytes consumed — see unterminated.
+func (s *Scanner) error(code diagnostic.Code, offset, length int, format string, args ...any) {
+	span := diagnostic.Span{Filename: s.f.Name(), Offset: offset, Length: length}
+	s.errors.Add(diagnostic.New(code, span, format, args...))
+}
+
+// invalid consumes n bytes, records the diagnostic condemning them, and yields the
+// INVALID token that covers them — R242's pairing, in one place so the two cannot
+// drift apart. It is for the cases where the caret and the coverage coincide; where
+// they do not, the caller writes both out.
+func (s *Scanner) invalid(code diagnostic.Code, n int, format string, args ...any) token.Kind {
+	s.error(code, s.pos, n, format, args...)
+	s.pos += n
+	return token.Invalid
+}
