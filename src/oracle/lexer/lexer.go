@@ -117,12 +117,24 @@ func (s *Scanner) Next() (token.Token, bool) {
 	start := s.pos
 	kind := s.lex()
 
-	// §11's rule, checked rather than assumed: one token per step covering at least
-	// one byte. It is the whole of what makes the scan terminate, so it is asserted in
-	// the one place every mode passes through — and a violation is a compiler bug, not
-	// a condition in the program being compiled.
-	if s.pos <= start {
+	// Two invariants about what a mode may do to the position, checked in the one place
+	// every mode passes through. Both are compiler bugs rather than conditions in the
+	// program being compiled, so both panic.
+	//
+	// **Progress** is §11's rule — one token per step covering at least one byte — and is
+	// the whole of what makes the scan terminate (R242).
+	//
+	// **Bounds** is the other half, and it is here because nothing else would notice.
+	// Overrunning s.pos indexes nothing, so it raises no runtime error; the only symptom
+	// would be a token claiming more bytes than the file has, surfacing as a tiling
+	// failure at end of input rather than at the mode that caused it. Asserting here names
+	// the culprit.
+	switch {
+	case s.pos <= start:
 		panic(fmt.Sprintf("lexer: %s consumed no bytes at %d in %s", kind, start, s.f.Name()))
+	case s.pos > len(s.src):
+		panic(fmt.Sprintf("lexer: %s at %d ran to %d, past the end of %s (%d bytes)",
+			kind, start, s.pos, s.f.Name(), len(s.src)))
 	}
 	return token.Token{Kind: kind, Offset: start, Len: s.pos - start}, true
 }

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -31,16 +32,24 @@ import (
 //  3. It terminates. Structural since R242 — Next panics unless the step covered at least
 //     one byte — so a target that returns has proved it, and one that loops is caught by
 //     the fuzzer's own timeout rather than by an assertion here.
-//  4. Spans tile the input exactly: monotonic, gapless, summing to the length, with every
-//     lexeme equal to its own slice. The strongest assertion available, and total since
-//     R242 covers unclaimed bytes with INVALID rather than dropping them — which matters
-//     precisely because a fuzzer's inputs are almost all invalid.
+//  4. Spans tile the input exactly: monotonic, gapless, summing to the length.
 //  5. Every frame still open at end of input is explained by a diagnostic, and no token
 //     carries Unset, the kind that names no token and must never be emitted.
 //
-// Property 5's second half guards a specific hazard: Unset doubles as the "no match"
-// sentinel inside the scanner, so a missing check would return it as a real token rather
-// than falling through.
+// Their strengths differ, and it is worth knowing which is which. **Tiling is now
+// tautological**, and deliberately so: Next builds every span as start..s.pos and asserts
+// that a mode both advanced and stayed in bounds, so tokens tile by construction and this
+// check survives only as a guard on that arithmetic. Nor does it see a mode consuming the
+// *wrong* number of bytes while staying in range — that still tiles perfectly and produces
+// the wrong tokens. R242's direction was to convert tested properties into structural
+// ones; the residue is the wrong-token class, which §7's differential was the only thing
+// that would have caught.
+//
+// **Property 5 is the one with teeth.** Unset doubles as the "no match" sentinel inside the
+// scanner, so a missing check returns it as a real token rather than falling through; and
+// an unreported open frame is a file that ends mid-literal and compiles clean. Both are
+// mutation-tested: emitting Unset from the catch-all, and making finish report nothing,
+// each fail within a handful of random inputs.
 //
 // A sixth property waits on the spec-literal reference lexer (§7): running both over the
 // same input and diffing catches *wrong-token* bugs, which none of the five above can see.
@@ -49,47 +58,69 @@ func FuzzLexer(f *testing.F) {
 		f.Add([]byte(seed))
 	}
 
-	f.Fuzz(func(t *testing.T, data []byte) {
-		src, err := source.New("fuzz", string(data))
-		if err != nil {
-			var e *source.Error
-			if !errors.As(err, &e) {
-				t.Fatalf("ingress failed with %T (%v), want a *source.Error", err, err)
-			}
-			if e.Code != diagnostic.InvalidUTF8 && e.Code != diagnostic.ByteOrderMark {
-				t.Fatalf("ingress raised %s, want L0001 or L0002", e.Code)
-			}
-			return
-		}
+	f.Fuzz(checkProperties)
+}
 
-		s := New(src)
-		next := 0
-		for {
-			tok, ok := s.Next()
-			if !ok {
-				break
-			}
-			if tok.Kind == token.Unset {
-				t.Fatalf("token at %d carries Unset", tok.Offset)
-			}
-			if tok.Offset != next {
-				t.Fatalf("%s starts at %d, previous ended at %d", tok.Kind, tok.Offset, next)
-			}
-			if tok.Len < 1 {
-				t.Fatalf("%s at %d covers %d bytes", tok.Kind, tok.Offset, tok.Len)
-			}
-			next = tok.End()
+// checkProperties asserts the five properties over one input.
+//
+// Shared with TestRandomStreams rather than restated there, because the properties are one
+// idea and the two callers differ only in where their bytes come from — coverage-guided
+// mutation from real Luna here, blind uniform draws there. It also matters that this runs
+// at all by default: a plain `go test` gives a fuzz target only its seed corpus, so
+// without the random caller these would be checked on 537 curated inputs and on nothing
+// else until somebody remembered to pass -fuzz.
+func checkProperties(t *testing.T, data []byte) {
+	src, err := source.New("fuzz", string(data))
+	if err != nil {
+		var e *source.Error
+		if !errors.As(err, &e) {
+			t.Fatalf("%s: ingress failed with %T (%v), want a *source.Error", brief(data), err, err)
 		}
-		if next != len(data) {
-			t.Fatalf("spans end at %d, input is %d bytes", next, len(data))
+		if e.Code != diagnostic.InvalidUTF8 && e.Code != diagnostic.ByteOrderMark {
+			t.Fatalf("%s: ingress raised %s, want L0001 or L0002", brief(data), e.Code)
 		}
+		return
+	}
 
-		// modes[0] is DEFAULT and never pops. Anything above it is a literal or a splice
-		// the input left open, which finish must have reported (§11).
-		if len(s.modes) > 1 && s.errors.Empty() {
-			t.Fatalf("%d frames open at end of input with no diagnostic", len(s.modes)-1)
+	s := New(src)
+	next := 0
+	for {
+		tok, ok := s.Next()
+		if !ok {
+			break
 		}
-	})
+		if tok.Kind == token.Unset {
+			t.Fatalf("%s: token at %d carries Unset", brief(data), tok.Offset)
+		}
+		if tok.Offset != next {
+			t.Fatalf("%s: %s starts at %d, previous ended at %d",
+				brief(data), tok.Kind, tok.Offset, next)
+		}
+		if tok.Len < 1 {
+			t.Fatalf("%s: %s at %d covers %d bytes", brief(data), tok.Kind, tok.Offset, tok.Len)
+		}
+		next = tok.End()
+	}
+	if next != len(data) {
+		t.Fatalf("%s: spans end at %d, input is %d bytes", brief(data), next, len(data))
+	}
+
+	// modes[0] is DEFAULT and never pops. Anything above it is a literal or a splice the
+	// input left open, which finish must have reported (§11).
+	if len(s.modes) > 1 && s.errors.Empty() {
+		t.Fatalf("%s: %d frames open at end of input with no diagnostic",
+			brief(data), len(s.modes)-1)
+	}
+}
+
+// brief quotes an input for a failure message, truncated: a fuzz counterexample can be
+// long, and the first bytes are what identify it.
+func brief(data []byte) string {
+	const max = 72
+	if len(data) <= max {
+		return strconv.Quote(string(data))
+	}
+	return strconv.Quote(string(data[:max])) + "…"
 }
 
 // fuzzSeeds is real Luna rather than generated noise, from two sources that complement

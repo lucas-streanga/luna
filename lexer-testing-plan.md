@@ -167,10 +167,15 @@ without anyone knowing what it should have lexed to:
 3. **Always terminates** — structural since R242, not merely asserted: the scanner emits exactly
    one token per step covering at least one byte, so the classic bug, looping on an unrecognized
    character, is unwritable rather than untested. A target that returns has proved it.
-4. **Spans tile the input exactly** — monotonic, gapless, summing to the input length, every
-   lexeme equal to its own slice. Total since R242: bytes no production claims are covered by
-   `INVALID`, so it holds on invalid input too, which is where a fuzzer operates. The single
-   strongest assertion available.
+4. **Spans tile the input exactly** — monotonic, gapless, summing to the input length. Total
+   since R242: bytes no production claims are covered by `INVALID` rather than dropped, so it
+   holds on invalid input too. It is also, now, *tautological* — deliberately. `Next` builds
+   every span as `start..s.pos` and asserts that a mode both advanced and stayed in bounds, so
+   tokens tile by construction and the check survives as a guard on that arithmetic alone.
+   R242's direction was to convert tested properties into structural ones, and this is that
+   finishing. What remains uncovered is a mode consuming the *wrong* number of bytes while
+   staying in range: it tiles perfectly and produces the wrong tokens — the class §7 would have
+   caught and nothing else does.
 5. **Every frame open at end of input is explained by a diagnostic**, and no token carries
    `Unset`. The second half guards a specific hazard: `Unset` doubles as the scanner's "no
    match" sentinel, so a missing check would return it as a real token rather than falling
@@ -190,6 +195,19 @@ than waiting for someone to fuzz. Reading them goes through `spec.LunaBlocks`, w
 with `os.ReadDir` rather than `filepath.WalkDir`: the latter does not follow the `src/specs`
 symlink, and resolving the link instead would put the files outside the module and make the
 whole corpus check silently cacheable (§1).
+
+**Alongside it, `TestRandomStreams`** in `random_test.go` asks only the simplest question —
+*does anything panic* — over 200k pseudo-random streams, in 0.1s. Deliberately the opposite
+distribution to the fuzz target: blind uniform draws rather than coverage-guided mutation from
+real Luna, reaching shapes no golden would contain. Two alphabets, and the reach of each is
+**logged rather than assumed**: only ~4% of uniform byte streams are valid UTF-8, so that half
+is really an ingress test, where the lexer-significant alphabet is all ASCII and reaches the
+scanner every time.
+
+The generator is five lines of splitmix64 written out, not `math/rand`. The linter forbids
+`rand` in tests for determinism, and `math/rand` does not promise its sequence across Go
+releases — so a fixed seed there would quietly start meaning something else after a toolchain
+bump, where this one reproduces a reported failure exactly for as long as the file exists.
 
 A **sixth property is available in principle and not taken** (§7): running a spec-literal lexer over the same input and diffing
 would catch *wrong-token* bugs, which none of the five above can see. §7 records why that is
