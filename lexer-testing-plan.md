@@ -79,22 +79,45 @@ end of input inside a single-line literal on the fast path — under R244 both n
 trailing newline, which the format cannot represent. The fuzz suite (§6) covers them; the
 regression corpus does not.
 
-## 3. Exhaustive adjacency sweep
+## 3. Exhaustive maximal-munch sweep
 
 Every ordered pair of `DEFAULT`-mode tokens, times three separators: nothing, a space, a comment.
-At ~126 kinds that is under 50k cases and runs in well under a second — **exhaustive beats
-random** at this size, and randomness would only obscure which pair failed.
+**Exhaustive beats random** at this size, and randomness would only obscure which pair failed.
 
-The expected output is `[A, B]` **except** for the fusion set, which is exactly §8's maximal-munch
-chains (`?` + `?` → `??`, `.` + `.` → `..`, `!` + `=` → `!=`, `1` + `.5` → one `DOUBLE`). Writing
-that set down as a reviewable artifact is what makes F6's "ordering is load-bearing" testable
-rather than aspirational.
+What is under test is §0's own convention — *longest match wins, and where patterns overlap the
+attempt order in §8 is normative* — which F6 calls load-bearing rather than stylistic. It is
+combinatorial and metamorphic, not mutation testing; mutation was used *on* it, below.
+
+**Built: `TestMaximalMunch`** in `munch_test.go`. 109 samples, so **11,881 pairs × 3 variants,
+about 36k lexes in 10ms**. Keyword samples are *derived* from their §0 names, and a guard fails
+if any DEFAULT-reachable kind has no sample, so a token added to the spec extends the sweep
+rather than slipping past it. `TestMunchSamples` checks the inputs first: a sample that does not
+lex to the one kind it claims would poison every one of the hundreds of pairs it appears in.
+
+The expected output is `[A, B]` **except** for the fusion set, and every fusion must fall under a
+named rule citing what makes it correct — an unclassified one fails. Six rules cover all 3,222:
+
+| rule | pairs | |
+|-|-|-|
+| word juxtaposition | 3060 | two identifier-shaped lexemes are one longer word (§7) |
+| numeric continuation | 72 | a literal absorbs a digit, radix digit, separator, or point (§4) |
+| maximal munch | 72 | §8.6's chains — and the fused lexeme must be one §0 actually lists |
+| regex flag | 12 | `[imsxb]*` is greedy, so `~"a"bar` eats the `b` (§0) |
+| comment opener | 4 | `/` before `/` or `*` is a comment, not division (§5) |
+| compound keyword | 2 | `match` + `!` is `KW_MATCH_BANG` (§3, G7) |
+
+The counts are the reviewable artifact: a shift in the *shape* of the fusion set shows up even
+when every individual pair still has a rule.
 
 The separator variants double as a **metamorphic relation**: inserting whitespace between two
-tokens never changes the token sequence — with exactly one documented exception, `yield from`,
-where §3's whitespace-only regex is normative and a comment between the words deliberately defeats
-the fold. That single exception is what makes the relation worth testing: it must hold everywhere
-else.
+tokens never changes the token sequence — with two documented exceptions, both asserted rather
+than skipped. `yield from` folds across whitespace and a comment defeats it (§0's regex is
+whitespace-only); and `/` followed by a block comment is `//`, so the pair opens a *line* comment
+and swallows the rest — §5's next-byte rule working, found by the sweep on its first run.
+
+Mutation-tested both halves. A spurious operator table entry is caught as an unclassified fusion,
+and teaching the fold to skip comments is caught by the metamorphic relation — the second being a
+regression *only* this sweep sees, since no golden pairs `yield` with a comment.
 
 ## 4. The mode stack is the real surface
 
@@ -167,18 +190,37 @@ with `os.ReadDir` rather than `filepath.WalkDir`: the latter does not follow the
 symlink, and resolving the link instead would put the files outside the module and make the
 whole corpus check silently cacheable (§1).
 
-A **sixth property waits on §7**: running the reference lexer over the same input and diffing
-catches *wrong-token* bugs, which none of the five above can see.
+A **sixth property is available in principle and not taken** (§7): running a spec-literal lexer over the same input and diffing
+would catch *wrong-token* bugs, which none of the five above can see. §7 records why that is
+not worth a third implementation.
 
-## 7. A spec-literal reference lexer
+## 7. A spec-literal lexer — dropped from the critical path
 
-Transcribe §0's patterns, attempted in §8's order, into perhaps fifty lines of Go that are
-obviously correct by inspection because they *are* the spec. Differential-test it against the fast
-implementation §3 recommends (lex an `IDENT`, promote via lookup table, peek for the compounds).
+The idea: transcribe §0's patterns, attempted in §8's order, into perhaps fifty lines of Go that
+are obviously correct by inspection because they *are* the spec, and differential-test it against
+the fast implementation §3 recommends (lex an `IDENT`, promote via lookup table, peek for the
+compounds). It would check the three optimizations that are genuine transformations *away* from
+what the spec literally says — byte dispatch, the keyword map, the longest-first operator table.
 
-This is `testing-strategy.md`'s oracle philosophy applied one level down, and it is what makes §3's
-optimization safe to perform at all. It covers `DEFAULT` mode with no interpolation — where the
-modes begin, regexes stop being sufficient, which is §4's territory.
+**First, the name was wrong and misleading.** R241 already spends "reference" and "oracle": the
+oracle is the canonical implementation *for the production compiler*, which is written in Luna and
+shares no code with it. This would be a fourth artifact, one level further down, checking the
+oracle itself. It is a **spec-literal lexer**, and its distinguishing property is that it is a
+transcription rather than an implementation.
+
+**Second, three things changed since this was written, and together they take it off the path.**
+It covers only what RE2 can express — trivia, words, numbers, operators, the fast-path literal
+spans, roughly 550 of the lexer's ~1,600 lines — and *not* the mode stack, brace depth, margins,
+the closer lookahead, or escape validation. Every bug found while building the lexer was in the
+half it cannot reach: the empty-triple closer, `\<newline>` taking R244's path instead of R246's,
+`\u{}` splitting wrong. It was also **already built twice**, by two of the four agents that
+audited the golden corpus, and both reproduced their assigned files byte-for-byte — the experiment
+has been run, and it found nothing. And it would be a third artifact to keep in step with §0.
+
+§3 targets the same risk — attempt order and maximal munch, F6's "ordering is load-bearing" —
+exhaustively, over exactly the pairs that can fuse, and needs no second implementation. Do that
+instead. The loss is real and worth naming: differential is the only technique that catches
+*wrong-token* bugs on arbitrary input, which is why §6's sixth property goes with it.
 
 ---
 
@@ -189,7 +231,7 @@ Bottom-up along the state, testing each layer as it lands:
 1. **`source`** — UTF-8 validation at ingress (lexical-structure §1), the pure-ASCII flag, the
    lazy line index (§9). A clean separate boundary, since validation happens *before* tokenizing.
 2. **`token`** — §0's inventory as constants. §1's pin lands here.
-3. **`lexer`, `DEFAULT` mode** — §8's attempt order. §2, §3, §7 land here.
+3. **`lexer`, `DEFAULT` mode** — §8's attempt order. §2 and §3 land here.
 4. **The mode stack** — §1/§6. §4 lands here.
 5. **`diagnostic` integration** — §11's codes and spans. §5 lands here.
 
