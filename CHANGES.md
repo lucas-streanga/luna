@@ -6494,6 +6494,57 @@ tables that predate the scheme (variables §7 and elsewhere), which acquire
 them as their specs are next revisited; and `luna explain <code>`, which
 the scheme makes possible but compiler §0.1's flag table does not yet carry.
 
+**R241 — the oracle is a complete implementation and the production
+compiler shares no code with it: full disjointness replaces the shared
+front-end, which closes R234's gap by construction and makes the
+never-import rule free.** testing-strategy §1 and claude-agent-plan Phase
+0.3 both recorded an "alpha choice" — Phase 1 reuses the human front-end
+(lex/parse/check/desugar → LIR) and builds only the backend, "so the
+front-end is **not** differential-tested — acceptable for alpha, closable
+later by an independent front-end." R241 makes the two implementations
+**wholly disjoint** instead: the **oracle** is a complete Go tree-walking
+interpreter, lex through eval, and the **production compiler** is written
+in Luna (R234) and shares not one line with it. **This is a strengthening,
+and it retires the concession rather than deferring it.** The gap R234
+could only promise to close "later" is closed on the first day: with two
+complete implementations and no shared code, lexing and parsing are
+differential-tested exactly like evaluation, and the divergence surface is
+the whole pipeline rather than two backends over a common front. What
+survives untouched is testing-strategy §1's *other* residual — **shared
+spec-misreading** — which no amount of implementation independence can
+remove and which stays covered the way §1 already says: the human owns the
+semantic core and adjudicates every disagreement. **The never-import rule
+becomes structural.** R234 required that the compiler never import the
+oracle, "gated mechanically on the build graph". Under disjointness the
+gate needs no build-graph test at all, because **a Luna program cannot
+import a Go package** — the language barrier enforces it, which is the
+strongest form the rule could take. One residual surface is worth naming so
+it is not wired in by accident: the emitted program's runtime must not be
+the oracle's `value`/`std`, which would be a deliberate act rather than a
+slip. **The consequence that reaches the oracle's scope.** If the
+production compiler is Luna and the oracle is the only complete
+implementation, then **the oracle is what runs the compiler's source**
+until it can self-compile — it is the bootstrap interpreter, not merely a
+test instrument. That raises its bar above §F's "standard library —
+deliberately tiny for alpha, `io`, `stringBuilder`, and perhaps 1–2
+others": an interpreter that must execute a compiler needs what a compiler
+needs — `filesystem` for module discovery, `exec` to invoke the bundled Go
+toolchain (R233), `process` for environment access, a hash for R149's
+content-addressed cache, `platform` for target facts. §F's tiny-std scope
+stands for what *alpha programs* need and no longer for what the oracle
+must implement; the two were the same claim while the front-end was shared,
+and are not any more. **Not ruled here**, and both now live: the **agent
+loop's target and gates**. claude-agent-plan's header describes Phase 1 as
+"the automated loop that builds the production Go-emitting backend", which
+no longer exists as an artifact — the loop's target is the Luna compiler —
+and §E's Tier-1 lint gate is `gofmt` + `go vet` + `golangci-lint`, every
+one of which is Go-only and therefore inapplicable to a Luna target. What
+replaces them, and whether the loop's mechanics survive the language change
+at all, is a pipeline question rather than a spec one, and is left open
+deliberately rather than assumed. Swept: `testing-strategy.md` (§1's
+independence paragraph), `claude-agent-plan.md` (header's two-phase
+summary, Phase 0.3's alpha choice, §F's IR/desugaring and std bullets).
+
 ---
 
 ## Still open (out of scope of these rulings)

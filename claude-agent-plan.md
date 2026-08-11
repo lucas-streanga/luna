@@ -1,9 +1,11 @@
 # claude-agent-plan
 
 Orchestration plan for the pipeline in `proposed-claude-pipeline.md`. Two phases: **Phase 0**
-hand-builds the oracle (a naive complete interpreter) and the human-owned semantic core; **Phase
-1** is the automated loop that builds the production Go-emitting backend and validates it against
-the oracle. This file holds the Phase-0 discipline, tooling/container changes, retry metering, the
+hand-builds the oracle (a complete Go interpreter) and the human-owned semantic core; **Phase 1**
+is the automated loop that builds the production compiler and validates it against the oracle.
+Since R241 the two share **no code**, and since R234 the production compiler is written in
+**Luna** — so Phase 1's target is not a Go backend, and §E's Go-only lint gate does not reach it.
+What replaces that gate is open (R241). This file holds the Phase-0 discipline, tooling/container changes, retry metering, the
 mount matrix, the artifact set, the quality tiers, and the alpha scope. **The correctness spine —
 oracle, differential, metamorphic, fuzz, and non-determinism detection — lives in
 `testing-strategy.md`.** Serial, no subagent parallelism.
@@ -30,10 +32,12 @@ implementation. Two artifacts must exist before Phase 1 runs, and neither is bui
    (R234). It ships as alpha v0 and **stops shipping** once a stable Luna-written compiler exists,
    but is maintained for the life of the language: post-self-hosting it is the only implementation
    the production compiler did not produce. The compiler may never import it (compiler §6.1).
-3. **Independence discipline.** Detailed in `testing-strategy.md` §1. **Alpha choice:** Phase 1
-   reuses the human front-end (lex/parse/check/**desugar → LIR**) and builds only the **backend**
-   (Go emission from LIR + runtime + incremental cache); the shared front-end is not
-   differential-tested — acceptable for alpha, closable later by an independent front-end.
+3. **Independence discipline — full disjointness (R241).** Detailed in `testing-strategy.md` §1.
+   The oracle is a **complete** Go implementation (lex → eval); the production compiler is written
+   in Luna (R234) and shares **no code** with it. The earlier alpha choice — reuse the human
+   front-end, build only the backend, leave the front-end untested — is retired: the whole
+   pipeline is differential-tested, and R234's never-import rule is enforced by the language
+   barrier rather than by a build-graph check.
 
 ## A. Tooling / container changes (prerequisite)
 
@@ -207,12 +211,17 @@ spend attention only on judgment.
 ## F. Alpha scope & architecture
 
 - **IR / desugaring — already in the spec, purposely underspecified.** The spec has both an LIR and
-  desugaring for exactly this reason. Phase 1's backend consumes the **desugared LIR** from the
-  human front-end (not the surface AST), so the emitter targets a small core — matching Luna's
-  small-surface ethos and giving the differential oracle a clean checkpoint.
-- **Standard library — deliberately tiny for alpha.** `io`, `stringBuilder`, and perhaps 1–2 others.
-  Library design is a separate problem; with the language tools in hand an arbitrary std can be
-  designed later. Alpha ships the minimum the e2e programs need.
+  desugaring for exactly this reason, and each implementation lowers to its own: under R241 the
+  compiler shares no front-end with the oracle, so both emit from a **desugared LIR** rather than a
+  surface AST, targeting a small core independently. That is what gives the differential a clean
+  checkpoint — the same core reached twice, not once and reused.
+- **Standard library — two scopes since R241, previously one.** For *alpha programs*, deliberately
+  tiny: `io`, `stringBuilder`, and perhaps 1–2 others; library design is a separate problem and
+  alpha ships the minimum the e2e programs need. For the **oracle**, larger and non-negotiable —
+  because the oracle is the bootstrap interpreter that runs the Luna compiler's source until it
+  self-compiles, it needs what a compiler needs: `filesystem` (module discovery), `exec` (invoking
+  the bundled Go toolchain, R233), `process` (environment), a hash (R149's cache key), `platform`
+  (target facts). These were the same claim while the front-end was shared; they are not now.
 - **Incremental cache — file/module-granular for alpha (decided).** Content-hash per module, layered
   on Go's own build cache. Query-based/demand-driven (Salsa/rustc-style) is the post-alpha path;
   retrofitting incrementality is expensive, so the granularity is fixed now.

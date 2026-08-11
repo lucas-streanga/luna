@@ -26,10 +26,20 @@ production compiler **may never import it** (compiler §6.1), gated on the build
 
 **Independence discipline** (what gives it power): a differential test only bites if the two
 sides fail *differently*. Tree-walk vs Go-emission is structurally different code → implementation
-bugs uncorrelated for free. Residual *shared spec-misreading* is covered by the human owning the
-semantic core (Phase 0.1) and adjudicating every oracle-vs-compiler disagreement. Alpha reuses the
-human front-end (lex/parse/check/desugar → LIR) and builds only the backend, so the front-end is
-not differential-tested — acceptable for alpha, closable later by an independent front-end.
+bugs uncorrelated for free.
+
+**The two implementations are wholly disjoint** (R241). The oracle is a complete Go interpreter,
+lex through eval; the production compiler is written in Luna (R234) and shares **no code** with
+it. So the divergence surface is the entire pipeline, not two backends over a common front, and
+lexing and parsing are differential-tested exactly like evaluation. This retires the earlier alpha
+concession — that Phase 1 would reuse the human front-end, leaving it untested and "closable later
+by an independent front-end" — by closing it on the first day instead. It also makes R234's
+never-import rule structural rather than checked: **a Luna program cannot import a Go package**.
+
+Residual *shared spec-misreading* survives, and no amount of implementation independence removes
+it: two implementations of the same misread sentence agree. That stays covered the way it always
+was — the human owns the semantic core (Phase 0.1) and adjudicates every oracle-vs-compiler
+disagreement.
 
 ## 2. e2e comparison policy
 
