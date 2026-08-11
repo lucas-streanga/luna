@@ -45,6 +45,17 @@
 //	literal_mode.go the single-line literal modes, for one that has a `${`
 //	triple.go       the multi-line literal modes (R246)
 //	tables.go       the keyword and operator lookups
+//
+// The tests share the directory because Go requires it. Two are `package lexer` rather
+// than `package lexer_test`, for the one property that reads the mode stack.
+//
+//	golden_test.go  testdata: source paired with the token dump it must produce
+//	munch_test.go   every token pair × three separators — §0's longest-match rule
+//	corpus_test.go  every `luna` block in the spec, one named subtest each
+//	eof_test.go     what a golden cannot express: end of input mid-construct
+//	scanner_test.go the incremental API, including discovery's early stop
+//	fuzz_test.go    FuzzLexer, and the property checks both fuzzers share — internal
+//	random_test.go  pseudo-random streams through those same checks — internal
 package lexer
 
 import (
