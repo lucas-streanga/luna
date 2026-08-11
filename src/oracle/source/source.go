@@ -48,7 +48,15 @@ type File struct {
 	name  string
 	text  string
 	ascii bool
-	lines []int32 // lazily built; nil until the first Position call
+
+	// The line index is built on first use: §9 wants a compile that emits no
+	// diagnostic to build no table. Guarded, because compiler §1.1 lexes files in
+	// parallel and a *File can be reached both from its own lexer and from whatever
+	// later renders a collected diagnostic. -race would catch the unguarded version
+	// (testing-strategy §7), but sync.Once costs one atomic load after the first call
+	// — cheaper than finding out.
+	once  sync.Once
+	lines []int32 // byte offset where each line starts
 }
 
 // New validates in-memory text and returns the file it describes. Text that is not
