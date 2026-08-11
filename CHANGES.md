@@ -7139,6 +7139,102 @@ should not vary by checkout. Swept: `string.md`'s multi-line paragraph and
 checkout-independent and why. The golden `triple-crlf.lex` pins both
 behaviours, so a later normalization cannot land silently.
 
+**R250 — the module phases split by job: discovery finds and never judges,
+import validation moves after lex and takes the prelude rule with it, and
+an assigned import is part of the prelude.** R190 settled the finding half
+of the bootstrap and left the judging half thinner. Implementing §1.0
+against it surfaced one ambiguity that is a silent miscompilation, and
+three placements that were never load-bearing where the spec put them.
+
+**An assigned import is part of the prelude, `export` included.** §5's grid
+(R136) has four cells and two of them begin `const`; §4 states the prelude
+rule for an `import` *statement*, and §6 calls the assigned form an
+*expression* outright. Read literally, discovery stops at `const fs =
+import std.filesystem;` as a non-import declaration, drops the edge, and
+the module is never lexed — and nothing backstops it, because a
+const-import is legal, so the parser has nothing to reject. That is exactly
+the divergence R190's soundness rules exist to exclude, reached from the
+other side. Ruled: all four cells are the prelude, and `export const fs =
+import …;` with them, re-exporting a collected table being ordinary. The
+consequence falls on the implementation rather than the rule: the stopping
+condition is a parse decision and not a token test, since `const` and
+`export` need lookahead to `= import` before discovery knows whether the
+prelude has ended.
+
+**Discovery finds; it never judges.** R190 sent cycle *diagnosis* to §1.2
+but said nothing about a path resolving to no file — a condition discovery
+is the first to meet, having to open the file in order to follow it. Ruled:
+discovery raises no diagnostic at all. An unresolvable path is skipped, and
+§1.2 reports it from the retained edges. The rationale is the contract:
+discovery exists to answer *which files*, and the phase with one product
+and no diagnostic surface is the one that stays cheap and stays correct.
+Rejected: erroring in discovery, which couples the cheapest phase to the
+diagnostic surface and would make any later, more permissive reader fail
+valid programs — a commented-out `// import std.experimental` becoming a
+build failure. Outside this rule: a file that exists and cannot be read is
+an I/O failure, not an import error, and belongs to whoever meets it.
+
+**Import validation runs after lex (§1.2 after §1.1).** The §1 diagram
+ordered discover → validation → lex, and nothing required it: lexing needs
+the **file set**, validation's only consumer is §1.4's layering, and R190
+had already named those two as the separate gating artifacts. The diagram
+listed them in section order, which is not the same claim. Ruled: §1.2 runs
+after §1.1, and may run concurrently with §1.1 and §1.3 — its one real
+constraint is finishing before §1.4. What the move buys is the next item:
+§1.2 then holds every token stream. The cost, accepted: a lexical error
+anywhere now suppresses cycle diagnosis, where the old order reported a
+cycle despite a typo elsewhere. That is a wash rather than a regression —
+under either order the failing phase aborts at its boundary, and one error
+class hides the other.
+
+**The prelude rule is enforced in §1.2, superseding R190's placement of it
+in §1.3.** The check needs no structure: any `KW_IMPORT` past the prelude
+end is invalid, because both violations §4 names — a late top-level import,
+and an import inside a function, a block, or a conditional — are errors, so
+detection never has to tell them apart. Soundness comes from the reader
+rather than from the check: the lexer's mode machine already guarantees
+that no `KW_IMPORT` arrives from `// import x` or from `"import x"`. Ruled:
+§1.2 raises it, as an `M` code. The rule is the module system's, and codes
+are owned by the package that raises them (R240), so leaving enforcement in
+the parser would file a module rule under `P`. Rejected: discovery, where
+detecting a late import means reading past the prelude — spending the
+O(file-head) property that is the prelude rule's own dividend, and spending
+it in the one phase that gates everything and parallelizes only by graph
+level. R190's licensing sentence is rewritten with the move: the early stop
+is licensed by §1.2 catching the violation, not by §1.3. The parser's
+grammar still admits an import only in the prelude, so a misplaced one
+remains a syntax error — now unreachable in practice, §1.2 having aborted
+at the phase boundary first. It stays as a structural invariant, and is not
+dead code to be tidied away later.
+
+**Discovery emits a third free byproduct: the prelude-end offset per
+file.** It stops there, so it knows it; recording the offset costs nothing,
+exactly as retaining the raw edge list cost nothing (R190). It is what
+makes §1.2's check a filter over tokens rather than a second scan of the
+source.
+
+**What R190 keeps.** Its first soundness rule is untouched and still
+load-bearing: discovery is the real lexer in an imports-only mode, never a
+second scanner. Nothing here trades that for a cheaper reader, and the
+arithmetic is the reason — a naive scan is *slower*, not faster, because it
+cannot know where the prelude ends without the same parse, and must
+therefore read every byte of every file where the lexer reads a head.
+
+Swept: `compiler.md` §1 (the diagram), §1.0 (the byproduct list, the
+no-diagnostics contract, the rewritten licensing sentence), §1.2 (position
+in the pipeline, prelude enforcement), §1.3 (the prelude paragraph, now a
+backstop); `modules.md` §4 (the prelude covers all four cells of §5's grid)
+and §6 (assigned imports are prelude members, `export` among them).
+
+**Not ruled here.** The `M` code's number: the modules error summary that
+would allocate it does not exist yet, and a code allocated before there is
+a table to pin it against is a code nothing checks — lexer §11 is the
+model, and §1.2 has no equivalent. `std.*` resolution: §10 makes `std` a
+virtual root and §11 defers the standard library's organization, so what
+discovery does with the reserved root while no stdlib tree exists is its
+own question. And whether §1.2's concurrency with §1.1 and §1.3 is
+exploited or merely permitted.
+
 ---
 
 ## Still open (out of scope of these rulings)
