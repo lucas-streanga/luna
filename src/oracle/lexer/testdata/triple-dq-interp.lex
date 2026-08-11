@@ -1,0 +1,33 @@
+let s = """
+    hi ${name}!
+    ${ a
+      + b }
+    """;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "s"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+TRIPLE_DQ_OPEN 8..12 "\"\"\"\n"
+MARGIN 12..16 "    "
+DQ_TEXT 16..19 "hi "
+INTERP_OPEN 19..21 "${"
+IDENT 21..25 "name"
+INTERP_CLOSE 25..26 "}"
+DQ_TEXT 26..27 "!"
+DQ_TEXT 27..28 "\n"
+MARGIN 28..32 "    "
+INTERP_OPEN 32..34 "${"
+WHITESPACE 34..35 " "
+IDENT 35..36 "a"
+WHITESPACE 36..43 "\n      "
+PLUS 43..44 "+"
+WHITESPACE 44..45 " "
+IDENT 45..46 "b"
+WHITESPACE 46..47 " "
+INTERP_CLOSE 47..48 "}"
+TRIPLE_DQ_CLOSE 48..56 "\n    \"\"\""
+SEMICOLON 56..57 ";"
+WHITESPACE 57..58 "\n"

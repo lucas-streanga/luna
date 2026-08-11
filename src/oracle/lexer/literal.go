@@ -31,7 +31,7 @@ func (s *Scanner) lexDQString() token.Kind {
 	case '\n':
 		return s.unterminatedMode("string")
 	case '\\':
-		return s.lexEscape(escape.StringDq)
+		return s.lexEscape(escape.StringDq, false)
 	}
 	if k, ok := s.lexInterp(true); ok {
 		return k
@@ -52,7 +52,7 @@ func (s *Scanner) lexRegexBody() token.Kind {
 		s.pop()
 		return token.RegexClose
 	case '\\':
-		return s.lexEscape(escape.Regex)
+		return s.lexEscape(escape.Regex, true)
 	}
 	if k, ok := s.lexInterp(false); ok {
 		return k
@@ -72,7 +72,7 @@ func (s *Scanner) lexCommandBody() token.Kind {
 	case '\n':
 		return s.unterminatedMode("command")
 	case '\\':
-		return s.lexEscape(escape.Command)
+		return s.lexEscape(escape.Command, false)
 	}
 	if k, ok := s.lexInterp(false); ok {
 		return k
@@ -110,8 +110,13 @@ func (s *Scanner) lexInterp(ident bool) (token.Kind, bool) {
 // are claimed, and §2's tiling does not care whether they were legal — the diagnostic is
 // the parallel channel R243 separated. So the span comes from escape.Check, which is what
 // makes a whole `\u{1F600}` one token and a malformed `\u{` two bytes (R245).
-func (s *Scanner) lexEscape(ctx escape.Context) token.Kind {
-	if !spansLines(ctx) && s.peek(1) == '\n' {
+//
+// multiline cannot be derived from ctx, though it looks as if it could: `"""` shares
+// `"…"`'s escape table (R246) while spanning lines, so the two facts came apart the
+// moment the multi-line forms landed. Passing it keeps the table keyed on the literal
+// *form* while line-spanning stays a property of the *mode*.
+func (s *Scanner) lexEscape(ctx escape.Context, multiline bool) token.Kind {
+	if !multiline && s.peek(1) == '\n' {
 		// A trailing backslash cannot continue the literal (R244), so the pair does not
 		// match and nothing else claims this byte. Consuming it as the INVALID that ends
 		// the literal is what the span-regex path does too, and it keeps the newline

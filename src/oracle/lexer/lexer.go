@@ -129,6 +129,10 @@ func (s *Scanner) lex() token.Kind {
 		return s.lexDQString()
 	case modeRegexBody:
 		return s.lexRegexBody()
+	case modeTripleDq:
+		return s.lexTripleDq()
+	case modeTripleSq:
+		return s.lexTripleSq()
 	case modeCommand:
 		return s.lexCommandBody()
 	default:
@@ -172,6 +176,11 @@ type mode struct {
 	kind  modeKind
 	depth int // brace depth inside modeInterpExpr; the } returning it to zero closes the splice
 
+	// margin is the closing delimiter's indentation, in the triple modes (R246). Found by
+	// a lookahead when the frame is pushed, because it lives at the *end* of the literal
+	// and every content line before it needs to know what it is.
+	margin string
+
 	// Where the frame was opened. Kept because every diagnostic about an unclosed
 	// construct wants its caret on the *opener* — that is what went unclosed — and by
 	// the time the failure is known the scanner is somewhere else entirely, at a
@@ -187,13 +196,15 @@ const (
 	modeRegexBody
 	modeCommand
 	modeInterpExpr
+	modeTripleDq
+	modeTripleSq
 )
 
 // what names the construct for an unterminated-literal message. §11 requires the
 // description to say which kind of literal it was.
 func (k modeKind) what() string {
 	switch k {
-	case modeDQString:
+	case modeDQString, modeTripleDq, modeTripleSq:
 		return "string"
 	case modeRegexBody:
 		return "regex"

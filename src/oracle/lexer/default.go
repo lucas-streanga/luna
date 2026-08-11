@@ -46,6 +46,12 @@ func (s *Scanner) lexDefault() token.Kind {
 	case isIdentStart(c):
 		return s.lexWord()
 
+	// The triples before their single-quote counterparts (§8.2, R246), or `"""` lexes as
+	// an empty string followed by a quote. The only ordering the multi-line forms need.
+	case s.has(tripleDq):
+		return s.lexTripleOpen(tripleDq, modeTripleDq, token.TripleDqOpen)
+	case s.has(tripleSq):
+		return s.lexTripleOpen(tripleSq, modeTripleSq, token.TripleSqOpen)
 	case c == '\'':
 		return s.lexStringSq()
 	case c == '"':

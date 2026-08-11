@@ -1,0 +1,53 @@
+let a = """
+    hello
+      deeper is data
+    """;
+let b = """
+    """;
+let c = """
+    x
+
+    y
+    """;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "a"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+TRIPLE_DQ_OPEN 8..12 "\"\"\"\n"
+MARGIN 12..16 "    "
+DQ_TEXT 16..21 "hello"
+DQ_TEXT 21..22 "\n"
+MARGIN 22..26 "    "
+DQ_TEXT 26..42 "  deeper is data"
+TRIPLE_DQ_CLOSE 42..50 "\n    \"\"\""
+SEMICOLON 50..51 ";"
+WHITESPACE 51..52 "\n"
+KW_LET 52..55 "let"
+WHITESPACE 55..56 " "
+IDENT 56..57 "b"
+WHITESPACE 57..58 " "
+ASSIGN 58..59 "="
+WHITESPACE 59..60 " "
+TRIPLE_DQ_OPEN 60..64 "\"\"\"\n"
+TRIPLE_DQ_CLOSE 64..71 "    \"\"\""
+SEMICOLON 71..72 ";"
+WHITESPACE 72..73 "\n"
+KW_LET 73..76 "let"
+WHITESPACE 76..77 " "
+IDENT 77..78 "c"
+WHITESPACE 78..79 " "
+ASSIGN 79..80 "="
+WHITESPACE 80..81 " "
+TRIPLE_DQ_OPEN 81..85 "\"\"\"\n"
+MARGIN 85..89 "    "
+DQ_TEXT 89..90 "x"
+DQ_TEXT 90..91 "\n"
+DQ_TEXT 91..92 "\n"
+MARGIN 92..96 "    "
+DQ_TEXT 96..97 "y"
+TRIPLE_DQ_CLOSE 97..105 "\n    \"\"\""
+SEMICOLON 105..106 ";"
+WHITESPACE 106..107 "\n"
