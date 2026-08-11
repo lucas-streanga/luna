@@ -11,9 +11,14 @@
 // both, and a Span identifies its file by name so a diagnostic stays serializable —
 // the language server consumes these, and ingress failures name a file that never
 // became a *source.File at all.
-//
-// NOTE: declarations only. Bodies are unimplemented, and no tests are written yet.
 package diagnostic
+
+import (
+	"cmp"
+	"errors"
+	"fmt"
+	"slices"
+)
 
 // Stage is the one-letter prefix naming the stage that *defined* a check — not
 // necessarily the one that runs it. A check that migrates to an earlier phase keeps
@@ -90,7 +95,7 @@ type Span struct {
 }
 
 // End is the offset one past the span, so a span is [Offset, End).
-func (s Span) End() int { panic("unimplemented") }
+func (s Span) End() int { return s.Offset + s.Length }
 
 // Label is a secondary span and the phrase that explains it — "declared here",
 // "consumed here". Labels carry the narrative; the primary span carries the caret.
@@ -139,7 +144,14 @@ type Diagnostic struct {
 // added by the builder methods, which return the receiver so a call site reads as one
 // expression.
 func New(code Code, primary Span, format string, args ...any) *Diagnostic {
-	panic("unimplemented")
+	// Formatted unconditionally, as any format-taking function does. A caller passing
+	// raw data where a format belongs is the same bug as fmt.Printf(userInput), and go
+	// vet catches it at the call site.
+	return &Diagnostic{
+		Code:        code,
+		Description: fmt.Sprintf(format, args...),
+		Primary:     primary,
+	}
 }
 
 // Title is the phrase fixed to the code — derived, never stored, so a diagnostic
@@ -148,30 +160,58 @@ func (d *Diagnostic) Title() string { return d.Code.Title() }
 
 // Label attaches a secondary span. Order is the order added; a renderer may present
 // them in source order instead.
-func (d *Diagnostic) Label(span Span, text string) *Diagnostic { panic("unimplemented") }
+func (d *Diagnostic) Label(span Span, text string) *Diagnostic {
+	d.Labels = append(d.Labels, Label{Span: span, Text: text})
+	return d
+}
 
 // Note attaches context that is not tied to a span.
-func (d *Diagnostic) Note(text string) *Diagnostic { panic("unimplemented") }
+func (d *Diagnostic) Note(text string) *Diagnostic {
+	d.Notes = append(d.Notes, text)
+	return d
+}
 
 // Hint attaches advice with no machine-applicable fix.
-func (d *Diagnostic) Hint(text string) *Diagnostic { panic("unimplemented") }
+func (d *Diagnostic) Hint(text string) *Diagnostic {
+	d.Hints = append(d.Hints, Hint{Text: text})
+	return d
+}
 
 // Suggest attaches advice with a fix a tool can apply.
 func (d *Diagnostic) Suggest(text string, span Span, replacement string) *Diagnostic {
-	panic("unimplemented")
+	d.Hints = append(d.Hints, Hint{
+		Text:       text,
+		Suggestion: &Suggestion{Span: span, Replacement: replacement},
+	})
+	return d
 }
 
 // Validate reports whether the diagnostic is well formed: a code that is valid and
-// carries a title, and a primary span naming a file. Checked here rather than only in
-// New because the fields are exported and a caller may build one directly — and an
+// carries a title, and a primary span naming a file. It exists because the fields are
+// exported and a caller may build one directly, bypassing New — and because an
 // untitled code means one was allocated without being added to the spec's error
-// summary, which is the drift this catches.
-func (d *Diagnostic) Validate() error { panic("unimplemented") }
+// summary, which is the drift this catches at runtime and the code pin catches
+// statically.
+func (d *Diagnostic) Validate() error {
+	switch {
+	case d == nil:
+		return errors.New("diagnostic: nil")
+	case !d.Code.Valid():
+		return fmt.Errorf("diagnostic: malformed code %q", string(d.Code))
+	case d.Code.Title() == "":
+		return fmt.Errorf("diagnostic: %s has no title, so it is absent from the spec's error summary", d.Code)
+	case d.Primary.Filename == "":
+		return fmt.Errorf("diagnostic: %s has a primary span naming no file", d.Code)
+	}
+	return nil
+}
 
 // String is a one-line debug form: "L0003 t.luna@8: Leading zero". It reports the
 // byte offset, not a line and column, because resolving those needs the source text
 // this package deliberately does not hold.
-func (d *Diagnostic) String() string { panic("unimplemented") }
+func (d *Diagnostic) String() string {
+	return fmt.Sprintf("%s %s@%d: %s", d.Code, d.Primary.Filename, d.Primary.Offset, d.Title())
+}
 
 // List accumulates the diagnostics of one phase.
 //
@@ -185,12 +225,31 @@ type List []*Diagnostic
 
 // Add appends a diagnostic. It panics if the diagnostic is malformed, since that is a
 // compiler bug rather than a condition in the program being compiled.
-func (l *List) Add(d *Diagnostic) { panic("unimplemented") }
+func (l *List) Add(d *Diagnostic) {
+	if err := d.Validate(); err != nil {
+		panic(err)
+	}
+	*l = append(*l, d)
+}
 
 // Empty reports whether the phase found nothing — the question §3's phase boundary
 // asks.
-func (l List) Empty() bool { panic("unimplemented") }
+func (l List) Empty() bool { return len(l) == 0 }
 
 // Sorted returns a copy ordered by file, then offset: the order a reader expects,
 // independent of the order a phase happened to discover them in.
-func (l List) Sorted() List { panic("unimplemented") }
+//
+// A copy, because a phase may already have handed its list to something else, and
+// reordering underneath it would be a surprise. Stable, because two diagnostics at
+// one position should keep discovery order rather than an arbitrary one — compiler §8
+// makes determinism a property this compiler owes, not one it hopes for.
+func (l List) Sorted() List {
+	out := slices.Clone(l)
+	slices.SortStableFunc(out, func(a, b *Diagnostic) int {
+		if c := cmp.Compare(a.Primary.Filename, b.Primary.Filename); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Primary.Offset, b.Primary.Offset)
+	})
+	return out
+}
