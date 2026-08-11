@@ -1,0 +1,14 @@
+// a comment
+let x = 1;
+---
+LINE_COMMENT 0..12 "// a comment"
+WHITESPACE 12..13 "\n"
+KW_LET 13..16 "let"
+WHITESPACE 16..17 " "
+IDENT 17..18 "x"
+WHITESPACE 18..19 " "
+ASSIGN 19..20 "="
+WHITESPACE 20..21 " "
+INT_DEC 21..22 "1"
+SEMICOLON 22..23 ";"
+WHITESPACE 23..24 "\n"
