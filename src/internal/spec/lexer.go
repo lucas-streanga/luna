@@ -258,6 +258,9 @@ func parseCounts(text string) Counts {
 	return c
 }
 
+// Root is the repository root: the directory holding the spec.
+func Root() (string, error) { return findRoot() }
+
 // findRoot walks up from the working directory looking for the lexer spec, and gives up
 // at the module root rather than continuing to the real repository root above it.
 //

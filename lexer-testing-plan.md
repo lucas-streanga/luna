@@ -130,21 +130,45 @@ Every one of §11's sixteen codes needs at least one case. Two deserve more than
   §1.1 collects errors rather than aborting, so the scanner must unwind the mode stack and keep
   making progress. Recovery behaviour needs its own cases, not just detection.
 
-## 6. Fuzzing — four properties, no oracle needed
+## 6. Fuzzing — five properties, no oracle needed
 
-A lexer is an unusually good fuzz target because the interesting properties need no reference:
+**Built: `FuzzLexer` in `oracle/lexer/fuzz_test.go`.** A lexer is an unusually good fuzz target
+because every property worth checking is structural, so an arbitrary input can be judged
+without anyone knowing what it should have lexed to:
 
-1. **Never panics** on arbitrary bytes — invalid UTF-8, NULs, lone `$`, unterminated everything.
-2. **Always terminates** — structural since R242, not merely asserted: the scanner emits exactly
-   one token per step covering at least one byte, so the classic
-   bug, looping on an unrecognized character, is unwritable rather than untested.
-3. **Spans tile the input exactly** — monotonic, gapless, summing to the input length. Total since
-   R242: bytes no production claims are covered by `INVALID`, so it holds on invalid input too,
-   which is where a fuzzer operates. The single strongest assertion available.
-4. **The mode stack is empty at EOF**, or an error explains why it isn't.
+1. **Ingress rejects cleanly.** Most of what a mutator emits is not valid UTF-8, which is not a
+   wasted case: the rejection must be a `*source.Error` carrying `L0001` or `L0002`, never a
+   panic and never another code.
+2. **Never panics** on arbitrary bytes — NULs, lone `$`, unterminated everything.
+3. **Always terminates** — structural since R242, not merely asserted: the scanner emits exactly
+   one token per step covering at least one byte, so the classic bug, looping on an unrecognized
+   character, is unwritable rather than untested. A target that returns has proved it.
+4. **Spans tile the input exactly** — monotonic, gapless, summing to the input length, every
+   lexeme equal to its own slice. Total since R242: bytes no production claims are covered by
+   `INVALID`, so it holds on invalid input too, which is where a fuzzer operates. The single
+   strongest assertion available.
+5. **Every frame open at end of input is explained by a diagnostic**, and no token carries
+   `Unset`. The second half guards a specific hazard: `Unset` doubles as the scanner's "no
+   match" sentinel, so a missing check would return it as a real token rather than falling
+   through.
 
-Seeds: the **436 `luna`-labeled corpus blocks** — real Luna rather than generated noise — plus
-every example in the spec's own text.
+The target is an **internal** test, because property 5 reads `s.modes` and growing the exported
+API to let a test see it would be the tail wagging the dog.
+
+**Seeds are 537**, from two sources that complement each other: the golden corpus, whose inputs
+are deliberately malformed and so seed the error paths, and the spec's **436 `luna` blocks**,
+which are valid and carry the realistic keyword and nesting vocabulary a mutator would take a
+long time to discover. Both are read mechanically, so neither can go stale.
+
+Seeds also run on a plain `go test`, without `-fuzz` — so this **subsumes §9's corpus gate**:
+every spec block is lexed on every run, and a change that breaks one fails immediately rather
+than waiting for someone to fuzz. Reading them goes through `spec.LunaBlocks`, which recurses
+with `os.ReadDir` rather than `filepath.WalkDir`: the latter does not follow the `src/specs`
+symlink, and resolving the link instead would put the files outside the module and make the
+whole corpus check silently cacheable (§1).
+
+A **sixth property waits on §7**: running the reference lexer over the same input and diffing
+catches *wrong-token* bugs, which none of the five above can see.
 
 ## 7. A spec-literal reference lexer
 
@@ -170,6 +194,13 @@ Bottom-up along the state, testing each layer as it lands:
 5. **`diagnostic` integration** — §11's codes and spans. §5 lands here.
 
 ## 9. What this gate does not catch
+
+**Built: `TestSpecCorpus`** — one named subtest per block (`specs/types/int.md:142`), asserting
+zero diagnostics and tiling, with a floor so a broken corpus walk cannot pass by finding
+nothing. Named, because the fuzz seeds cover the same blocks anonymously and `seed#312` tells
+nobody which block broke. **`cmd/lexdump`** is its companion: `go run ./cmd/lexdump file.luna`
+prints the stream in `testdata/*.lex` notation, and `-golden` emits a file the harness accepts
+unchanged — which is how the tool's own diagnostic-ordering bug was caught the first time it ran.
 
 Recorded because the opposite was claimed earlier and is wrong. **A lexing gate is permissive.**
 Every retired spelling lexes cleanly: `pub` is an `IDENT`, `caps.io` is `IDENT DOT IDENT`,
