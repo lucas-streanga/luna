@@ -323,3 +323,52 @@ func TestListSorted(t *testing.T) {
 		t.Errorf("Sorted() reordered the receiver: l[0] = %q", l[0].Description)
 	}
 }
+
+// TestModuleCodesMatchSpec is TestCodesMatchSpec for the module stage, pinning
+// codes_modules.go against modules §12 in both directions. Read through LoadCodes rather
+// than Load: modules.md has an error summary and none of the lexer's other tables.
+func TestModuleCodesMatchSpec(t *testing.T) {
+	rows, err := spec.LoadCodes(spec.ModulesSpecPath)
+	if err != nil {
+		t.Fatalf("reading the modules spec: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no §12 rows parsed; the error-summary table changed shape")
+	}
+
+	inSpec := map[string]bool{}
+	for _, row := range rows {
+		c := diagnostic.Code(row.Code)
+		inSpec[row.Code] = true
+
+		if !c.Valid() {
+			t.Errorf("§12:%d: %q is not a well-formed code", row.Line, row.Code)
+			continue
+		}
+		if c.Stage() != diagnostic.Modules {
+			t.Errorf("§12:%d: %s is not an M code", row.Line, c)
+		}
+		if got := c.Title(); got != row.Title {
+			t.Errorf("§12:%d: %s title is %q in the spec, %q in Go", row.Line, c, row.Title, got)
+		}
+	}
+
+	for _, c := range modulesCodes {
+		if !inSpec[string(c)] {
+			t.Errorf("%s is defined in Go but has no §12 row", c)
+		}
+	}
+	if len(modulesCodes) != len(rows) {
+		t.Errorf("Go defines %d module codes, §12 lists %d", len(modulesCodes), len(rows))
+	}
+}
+
+// modulesCodes is every code codes_modules.go defines, listed explicitly for the same reason
+// lexicalCodes is: a derived list would grow to match itself and check nothing.
+var modulesCodes = []diagnostic.Code{
+	diagnostic.UnresolvedImport,
+	diagnostic.RootImport,
+	diagnostic.ImportCycle,
+	diagnostic.ImportOutsidePrelude,
+	diagnostic.MissingEntry,
+}

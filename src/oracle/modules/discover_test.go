@@ -6,6 +6,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"luna/internal/spec"
+
 	"luna/oracle/modules"
 )
 
@@ -321,5 +323,220 @@ func TestEmptyTree(t *testing.T) {
 	equal(t, "files", paths(res), []string{"app.luna"})
 	if len(res.Edges) != 0 {
 		t.Errorf("edges = %q, want none", edges(res))
+	}
+}
+
+// TestFormSpace sweeps the grammar the prelude admits, rather than the forms I happened to
+// think of. §5's grid crossed with the two modifiers §6 allows on an assigned import —
+// `export`, and a type annotation — is ten spellings of one edge, and every one must produce
+// it.
+//
+// This exists because the annotation was missed: `const d = import p;` was tested and
+// `const d: table = import p;` was not, though modules §6 makes both legal. A dropped edge
+// there is silent, the form being valid, so no parser error backstops it. Enumerating the
+// space is what stops the next modifier from going the same way.
+func TestFormSpace(t *testing.T) {
+	specs := []struct{ name, text string }{
+		{"bare", "dep"},
+		{"selective", "{ a } from dep"},
+	}
+	bindings := []struct{ name, prefix string }{
+		{"statement", ""},
+		{"assigned", "const d = "},
+		{"annotated", "const d: table = "},
+		{"exported", "export const d = "},
+		{"exported annotated", "export const d: table = "},
+	}
+
+	for _, b := range bindings {
+		for _, s := range specs {
+			t.Run(b.name+"/"+s.name, func(t *testing.T) {
+				src := b.prefix + "import " + s.text + ";\n"
+				res := run(t, "app.luna", map[string]string{
+					"app.luna": src,
+					"dep.luna": "",
+				})
+				if got := edges(res); len(got) != 1 || got[0] != "(root)->dep" {
+					t.Fatalf("%q produced %q, want one edge to dep", src, got)
+				}
+				// The edge is worth nothing if the file it names went undiscovered.
+				equal(t, "files", paths(res), []string{"app.luna", "dep.luna"})
+				// And the prelude must not have ended at this line.
+				if res.Files[0].PreludeEnd != len(src) {
+					t.Errorf("%q ended the prelude at %d, want %d",
+						src, res.Files[0].PreludeEnd, len(src))
+				}
+			})
+		}
+	}
+}
+
+// TestSpecExamplesAreDiscoverable pins discovery to the spec's own worked examples. Every
+// import modules.md writes in a `luna` block must yield an edge — if the spec shows a form,
+// discovery reads it, and neither can drift without the other noticing.
+//
+// The corpus is read rather than copied for the reason §0's token table is: a form added to
+// the spec should fail here until the code catches up, which a hand-copied list cannot do.
+func TestSpecExamplesAreDiscoverable(t *testing.T) {
+	blocks, err := spec.LunaBlocks()
+	if err != nil {
+		t.Fatalf("reading the spec corpus: %v", err)
+	}
+
+	checked := 0
+	for _, b := range blocks {
+		if !strings.HasSuffix(b.Path, "modules.md") {
+			continue
+		}
+		for _, line := range strings.Split(b.Source, "\n") {
+			line = strings.TrimSpace(stripComment(line))
+			if !strings.HasPrefix(line, "import ") && !strings.Contains(line, "= import ") {
+				continue
+			}
+			if !strings.HasSuffix(line, ";") {
+				line += ";" // several examples elide it, being fragments
+			}
+			checked++
+
+			res := run(t, "app.luna", map[string]string{"app.luna": line + "\n"})
+			if len(res.Edges) != 1 {
+				t.Errorf("%s: %q produced %d edges, want 1", b.Path, line, len(res.Edges))
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no import examples found in modules.md; this test checked nothing")
+	}
+	t.Logf("%d import examples from the spec", checked)
+}
+
+// stripComment drops a trailing `//` comment, which the spec's examples use to annotate the
+// form. Crude on purpose: no example puts `//` inside a string.
+func stripComment(line string) string {
+	if i := strings.Index(line, "//"); i >= 0 {
+		return line[:i]
+	}
+	return line
+}
+
+// keywordLexemes is every keyword's spelling, read from lexer §0's first column.
+//
+// Enumerated from the spec rather than sampled, because sampling is what let the annotated
+// import through: a keyword added to §3 should arrive here on its own and fail if the segment
+// rule cannot take it.
+func keywordLexemes(t *testing.T) []string {
+	t.Helper()
+	inv, err := spec.Load()
+	if err != nil {
+		t.Fatalf("reading lexer §0: %v", err)
+	}
+	var out []string
+	for _, r := range inv.Rows {
+		if r.Category != "keyword" {
+			continue
+		}
+		out = append(out, strings.Trim(strings.TrimSpace(r.Token), "`"))
+	}
+	if len(out) == 0 {
+		t.Fatal("no keywords found in §0; the table changed shape")
+	}
+	return out
+}
+
+// TestEveryKeywordIsAPathSegment sweeps §3's keywords through path position. A path segment
+// is not a name (modules §5), so every one of them must resolve.
+func TestEveryKeywordIsAPathSegment(t *testing.T) {
+	for _, kw := range keywordLexemes(t) {
+		t.Run(kw, func(t *testing.T) {
+			// `yield from` is one token whose lexeme carries a space, so it names a directory
+			// no ordinary tree has. It still has to parse as a segment rather than end the
+			// prelude, which is what this asserts.
+			file := strings.ReplaceAll(kw, ".", "/") + ".luna"
+			res := run(t, "app.luna", map[string]string{
+				"app.luna": "import " + kw + ";\n",
+				file:       "",
+			})
+			if got := edges(res); len(got) != 1 || got[0] != "(root)->"+kw {
+				t.Fatalf("`import %s;` produced %q", kw, got)
+			}
+			equal(t, "files", paths(res), []string{"app.luna", file})
+		})
+	}
+}
+
+// TestKeywordSegmentPositions puts a keyword everywhere a segment can go, since accepting one
+// leading a path says nothing about one in the middle or after a from-clause.
+func TestKeywordSegmentPositions(t *testing.T) {
+	for _, tc := range []struct{ name, src, want, file string }{
+		{"leading", "import test.helpers;", "test.helpers", "test/helpers.luna"},
+		{"trailing", "import helpers.test;", "helpers.test", "helpers/test.luna"},
+		{"interior", "import a.if.b;", "a.if.b", "a/if/b.luna"},
+		{"every segment", "import if.else.while;", "if.else.while", "if/else/while.luna"},
+		{"after from", "import { x } from error.codes;", "error.codes", "error/codes.luna"},
+		{"assigned", "const e = import error;", "error", "error.luna"},
+		{"annotated", "const e: table = import test;", "test", "test.luna"},
+		{"wildcard", "import _.x;", "_.x", "_/x.luna"},
+		{"compound with a bang", "import match!.x;", "match!.x", "match!/x.luna"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := run(t, "app.luna", map[string]string{
+				"app.luna": tc.src + "\n",
+				tc.file:    "",
+			})
+			equal(t, "edges", edges(res), []string{"(root)->" + tc.want})
+			equal(t, "files", paths(res), []string{"app.luna", tc.file})
+		})
+	}
+}
+
+// TestKeywordsAreNotNames is the boundary. A path segment is not a name, so relaxing path
+// position must not relax the two places a name is actually bound — otherwise this stops
+// being "keywords may appear in paths" and becomes "keywords are identifiers".
+func TestKeywordsAreNotNames(t *testing.T) {
+	t.Run("a binding name may not be a keyword", func(t *testing.T) {
+		// `const test = import dep;` is not an import: the prelude ends at the `const`, and
+		// §1.3 reports the syntax error.
+		res := run(t, "app.luna", map[string]string{
+			"app.luna": "const test = import dep;\n",
+			"dep.luna": "",
+		})
+		if len(res.Edges) != 0 {
+			t.Errorf("a keyword binding name was accepted: %q", edges(res))
+		}
+		if got := res.Files[0].PreludeEnd; got != 0 {
+			t.Errorf("PreludeEnd = %d, want 0: the prelude ends at the const", got)
+		}
+	})
+
+	t.Run("a braced name list is the parser's to judge", func(t *testing.T) {
+		// Discovery skips the names wholesale, so `{ test }` is followed rather than rejected.
+		// Over-approximation is the safe direction — the file set grows, and §1.3 reports the
+		// illegal binding — but it is deliberate, not an oversight.
+		res := run(t, "app.luna", map[string]string{
+			"app.luna": "import { test } from dep;\n",
+			"dep.luna": "",
+		})
+		equal(t, "edges", edges(res), []string{"(root)->dep"})
+	})
+}
+
+// TestKeywordPathsReachTheRightFile closes the loop: a keyword path must resolve through
+// fileOf to the directory it names, and its module identity must round-trip.
+func TestKeywordPathsReachTheRightFile(t *testing.T) {
+	res := run(t, "app.luna", map[string]string{
+		"app.luna":            "import test.helpers;\nimport error;\n",
+		"test/helpers.luna":   "import if.deep;\n",
+		"error.luna":          "",
+		"if/deep.luna":        "",
+		"unrelated/test.luna": "",
+	})
+	equal(t, "files", paths(res), []string{
+		"app.luna", "test/helpers.luna", "error.luna", "if/deep.luna",
+	})
+	equal(t, "edges", edges(res), []string{
+		"(root)->test.helpers", "(root)->error", "test.helpers->if.deep",
+	})
+	if got := res.Files[1].Module; got != "test.helpers" {
+		t.Errorf("module = %q, want test.helpers", got)
 	}
 }

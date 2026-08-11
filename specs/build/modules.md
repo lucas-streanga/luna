@@ -106,6 +106,14 @@ differ only in discovery (and in role: §9.1). `main` is a special *function* (t
 entry, §1), not a module identity: the root module is uniformly "the empty-path top module,"
 and an application's root merely happens to contain `main`.
 
+**A path segment may be a keyword** (R252): `import test.helpers;` and `import error.codes;`
+are ordinary imports, and `_` is a segment like any other. A segment is not a name — §5 makes
+the path bind nothing — so `test` here collides with nothing, while `test/` and `error/` are
+among the most ordinary directory names there are. Only the grammar's view of this one
+position changes; the lexer still reads `test` as a keyword. The boundary is that a braced
+name list (§5) and the `const` name of an assigned import (§6) *do* bind, so both stay
+identifiers.
+
 A path maps directly to the filesystem: `text.strings` is `text/strings.luna` under the root,
 and `utils.parse` is `utils/parse.luna`. Module loading is **filesystem-based** and **static**
 (§4); dynamic loading is a possible later addition, not part of this system. Modules are
@@ -170,7 +178,9 @@ import { parse as strParse } from text.strings      // with a rename (collisions
   importer to the module's entire (and future) export surface, which is worth a thought for
   third-party dependencies. **The path never becomes a name**: `import std.filesystem;` binds
   nothing called `filesystem` — this is not Python's `import os`; namespacing is exclusively
-  the assignment form's job (§6).
+  the assignment form's job (§6). This sentence is load-bearing beyond its own paragraph: it
+  is the whole reason a path segment may be a keyword (§3, R252), so a proposal to make a path
+  bind retires that with it.
 - **Selective** (`{ names } from`): brings exactly the named exports. The precise form.
   `from` is **not reserved** (R223, lexer §3): it lexes as an ordinary identifier and the
   parser matches its spelling here, unambiguous because after a braced import list the
@@ -450,3 +460,32 @@ fixed, not open questions (R151):
   fully static, which the DAG (§2), the interface-hash cache (build-cache §1), and the
   comptime sandbox all lean on. This is a standing decision, revisited only if a
   concrete need survives contact with those three dependents — none is on any horizon.
+
+---
+
+## 12. Error summary (R240)
+
+Every module error, with the code that names it. Codes are `M` + four digits, allocated
+append-only and never reused (compiler §3.1). Each has a fixed **title**; the description is
+per-instance and volatile. Tests pin the code and the primary span, never the prose
+(testing-strategy §2).
+
+Discovery (compiler §1.0) raises none of these — it answers *which files* and nothing else
+(R250). Every row below is import validation's (§1.2), except `M0005`, which travels as the
+code on the error `Discover` returns: at that point there is no file to anchor a span to, which
+is the shape `source.Error` already established for ingress.
+
+| Code | Title | Raised when | Authority |
+|-|-|-|-|
+| `M0001` | Unresolved import | An import path names no file under the root; `std.*` is excluded, reaching no file by construction | §3, §10, R251 |
+| `M0002` | Root import | An import resolves to the entry's file, which would give one file two identities | §3, R251 |
+| `M0003` | Import cycle | Modules import one another; the description carries the full path, and every cycle is reported, not merely the first | §2, R251 |
+| `M0004` | Import outside the prelude | An `import` after the prelude — late at top level, or inside a function, a block, or a conditional | §4, R250 |
+| `M0005` | Missing entry | The entry names no file, so there is no root module and no compilation to begin | §3 |
+
+**Deliberately uncoded.** A `std` directory at the project root is forbidden (§10), but nothing
+looks for one: every `std.*` import resolves to the virtual root, so such a directory is merely
+unreferenced, and detecting it would mean listing the root to catch a name no import can reach.
+A malformed path handed to discovery is a caller bug and belongs to the `I` stage. An I/O
+failure on a file that exists is environmental rather than a claim about the program, and stays
+a plain error (R250).

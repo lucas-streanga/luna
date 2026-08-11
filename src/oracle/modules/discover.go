@@ -1,4 +1,4 @@
-// Discovery: compiler §1.0, the pipeline's stage 0 (R190, R250).
+// Discovery: compiler §1.0, the pipeline's stage 0 (R190, R250, R251).
 package modules
 
 import (
@@ -66,7 +66,7 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 			return Result{}, fmt.Errorf("modules: reading %s: %w", file, err)
 		}
 
-		module := moduleOf(file, file == entry)
+		module := moduleOf(file, entry)
 
 		f, err := source.New(file, string(src))
 		if err != nil {
@@ -81,14 +81,17 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 		res.Files = append(res.Files, File{Path: file, Module: module, PreludeEnd: end})
 
 		for _, imported := range imports {
-			res.Edges = append(res.Edges, Edge{From: module, To: imported})
+			res.Edges = append(res.Edges, Edge{
+				From: module, To: imported.path,
+				Offset: imported.offset, Len: imported.len,
+			})
 
 			// R250 left std resolution unruled and there is no tree to resolve against, so the
 			// edge is recorded and nothing followed — committing to neither answer.
-			if reserved(imported) {
+			if reserved(imported.path) {
 				continue
 			}
-			if target := fileOf(imported); !seen[target] {
+			if target := fileOf(imported.path); !seen[target] {
 				seen[target] = true
 				queue = append(queue, target)
 			}
@@ -107,12 +110,24 @@ func fileOf(module string) string {
 	return strings.ReplaceAll(module, ".", "/") + ext
 }
 
-// moduleOf is the inverse. The entry is the root module, whose path is empty (modules §3).
-func moduleOf(file string, isEntry bool) string {
-	if isEntry {
+// moduleOf inverts fileOf for the paths fileOf produces, and the entry, which is the root
+// module and has the empty path (modules §3).
+//
+// Not a total inverse: a directory whose name contains a dot would round-trip to the wrong
+// module. No import path can address such a directory — dots become slashes — so the only file
+// that could sit in one is the entry, which returns the empty path and never round-trips.
+func moduleOf(file, entry string) string {
+	if file == entry {
 		return ""
 	}
 	return strings.ReplaceAll(strings.TrimSuffix(file, ext), "/", ".")
+}
+
+// importRef is one import the prelude named, and the span of the path as written. The span
+// covers the path and not the `import` keyword: the path is the part a diagnostic is about.
+type importRef struct {
+	path        string
+	offset, len int
 }
 
 // readPrelude reads a file's imports, returning where the prelude ended and the paths named.
@@ -124,7 +139,7 @@ func moduleOf(file string, isEntry bool) string {
 // A malformed import is simply not an import: the prelude ends there and the parser raises
 // the syntax error. That is how the no-diagnostics contract survives without discovery having
 // to tell "not an import" from "a broken one".
-func readPrelude(f *source.File) (end int, imports []string) {
+func readPrelude(f *source.File) (end int, imports []importRef) {
 	p := &preludeReader{f: f, s: lexer.New(f)}
 	p.advance()
 
@@ -172,6 +187,31 @@ func (p *preludeReader) text() string { return p.f.Slice(p.tok.Offset, p.tok.Len
 // reserved (R223), which is what keeps `import { parse as from } from m;` legal.
 func (p *preludeReader) atWord(w string) bool { return p.at(token.Ident) && p.text() == w }
 
+// atSegment reports whether the current token can be a module-path segment.
+//
+// Keywords qualify, and that is the point: a path segment is not a name. modules §5 makes
+// `import std.filesystem;` bind nothing called `filesystem`, so `test` and `error` in a path
+// collide with nothing — while `test/` and `error/` are among the most ordinary directory
+// names there are, and §3 maps paths straight onto directories.
+//
+// The line this must not cross is the braced name list, whose entries *do* bind. Nothing here
+// reaches those: spec skips them wholesale, and the `const NAME` of an assigned import still
+// demands token.Ident, so a keyword cannot become a binding by this route.
+//
+// Only the parser's view changes; the lexer still emits KW_TEST and is untouched. Luna
+// already resolves one token-kind-versus-role question by position — R223's unreserved
+// `from` — and this is the same move in the other direction.
+func (p *preludeReader) atSegment() bool {
+	if !p.ok {
+		return false
+	}
+	switch p.tok.Kind.Category() {
+	case token.Identifier, token.Keyword:
+		return true
+	}
+	return false
+}
+
 func (p *preludeReader) accept(k token.Kind) bool {
 	if !p.at(k) {
 		return false
@@ -187,62 +227,111 @@ func (p *preludeReader) accept(k token.Kind) bool {
 //	const n = import p;    const n = import { a, b } from p;
 //
 // `export` may precede either assigned form, re-exporting the collected table.
-func (p *preludeReader) item() (string, bool) {
+func (p *preludeReader) item() (importRef, bool) {
 	// Why the stopping condition is a parse decision and not a token test: `const n = 5;` and
 	// `const n = import p;` diverge only at the token after the `=`.
 	p.accept(token.KwExport)
 	if p.accept(token.KwConst) {
-		if !p.accept(token.Ident) || !p.accept(token.Assign) {
-			return "", false
+		if !p.accept(token.Ident) {
+			return importRef{}, false
+		}
+		if p.at(token.Colon) && !p.skipAnnotation() {
+			return importRef{}, false
+		}
+		if !p.accept(token.Assign) {
+			return importRef{}, false
 		}
 	}
 	if !p.accept(token.KwImport) {
-		return "", false
+		return importRef{}, false
 	}
 	return p.spec()
 }
 
+// skipAnnotation consumes `: T`, leaving the reader on the `=`.
+//
+// The type is skipped rather than parsed: §1.3 owns type syntax, and discovery needs only to
+// reach the `=` to learn whether an import follows. modules §6 makes the annotation legal —
+// an assigned import's type "is `table`, annotatable and inferable" — and dropping the form
+// loses its edge with nothing to catch it, the annotated spelling being as valid as the bare
+// one.
+//
+// Bracket depth is tracked so an `=` inside the type cannot be mistaken for the declaration's
+// own, and a `;` at depth zero ends the search: that is a declaration with no initializer,
+// which is not an import however it is annotated.
+func (p *preludeReader) skipAnnotation() bool {
+	p.advance() // the `:`
+
+	depth := 0
+	for p.ok {
+		switch p.tok.Kind {
+		case token.LParen, token.LBracket, token.LBrace:
+			depth++
+		case token.RParen, token.RBracket, token.RBrace:
+			depth--
+		case token.Assign:
+			if depth == 0 {
+				return true // left for the caller to accept
+			}
+		case token.Semicolon:
+			if depth == 0 {
+				return false
+			}
+		}
+		p.advance()
+	}
+	return false
+}
+
 // spec parses what follows `import`: a bare path, or a braced name list and a from-clause.
-func (p *preludeReader) spec() (string, bool) {
+func (p *preludeReader) spec() (importRef, bool) {
 	if p.accept(token.LBrace) {
 		// Names are skipped wholesale — discovery wants the path, and the list's contents are
 		// §1.3's business.
 		for !p.at(token.RBrace) {
 			if !p.ok {
-				return "", false
+				return importRef{}, false
 			}
 			p.advance()
 		}
 		p.advance()
 		if !p.atWord("from") {
-			return "", false
+			return importRef{}, false
 		}
 		p.advance()
 	}
 
-	imported, ok := p.path()
+	at := p.tok.Offset
+	imported, end, ok := p.path()
 	if !ok || !p.accept(token.Semicolon) {
-		return "", false
+		return importRef{}, false
 	}
-	return imported, true
+	return importRef{path: imported, offset: at, len: end - at}, true
 }
 
-// path parses a dotted module path: IDENT ('.' IDENT)*.
-func (p *preludeReader) path() (string, bool) {
-	if !p.at(token.Ident) {
-		return "", false
+// path parses a dotted module path, returning where its last token ends. A segment is an
+// identifier or a keyword — see atSegment.
+//
+// The end is tracked rather than inferred from the assembled string, because the two disagree
+// wherever trivia sits between the segments: `a . b` is three characters of module path and
+// five of source.
+func (p *preludeReader) path() (text string, end int, ok bool) {
+	if !p.atSegment() {
+		return "", 0, false
 	}
 	var b strings.Builder
 	b.WriteString(p.text())
+	end = p.tok.Offset + p.tok.Len
 	p.advance()
 
 	for p.accept(token.Dot) {
-		if !p.at(token.Ident) {
-			return "", false
+		if !p.atSegment() {
+			return "", 0, false
 		}
 		b.WriteString(".")
 		b.WriteString(p.text())
+		end = p.tok.Offset + p.tok.Len
 		p.advance()
 	}
-	return b.String(), true
+	return b.String(), end, true
 }

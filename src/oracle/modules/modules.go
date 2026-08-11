@@ -12,8 +12,7 @@
 //
 //	modules.go   the types both phases pass
 //	discover.go  §1.0 — Discover, the BFS walk, the prelude reader, path resolution
-//
-// §1.2 is not written yet; it will consume exactly what Discover returns.
+//	validate.go  §1.2 — Validate, the DAG, and every import diagnostic
 package modules
 
 // File is one module discovered on disk.
@@ -40,6 +39,15 @@ type File struct {
 // from here — the no-diagnostics contract without losing the error (R250).
 type Edge struct {
 	From, To string // module paths
+
+	// Offset and Len span the path as written, in the file From came from. Free — the prelude
+	// reader is holding those tokens when it records the edge — and §1.2 cannot do without
+	// them: an unresolved import whose diagnostic points at the file rather than at the import
+	// is a diagnostic that makes the reader search.
+	//
+	// Len is measured rather than derived from len(To), because the two differ wherever trivia
+	// sits inside the path: `import a . b;` is the module `a.b` written across five bytes.
+	Offset, Len int
 }
 
 // Result is discovery's whole output.

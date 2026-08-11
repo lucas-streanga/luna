@@ -27,6 +27,9 @@ import (
 // LexerSpecPath is the spec's location relative to the repository root.
 const LexerSpecPath = "specs/build/lexer.md"
 
+// ModulesSpecPath is where the module system's error summary lives (modules §12).
+const ModulesSpecPath = "specs/build/modules.md"
+
 // Row is one row of lexer §0's token table.
 //
 // §0 has more rows than tokens, deliberately, and the difference is what Name and

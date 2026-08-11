@@ -7295,6 +7295,46 @@ packaging exists: modules §11 defers the mounting question entire, and this
 rule governs a single compilation. And the error's code, for the reason
 R250 gave — there is still no modules error summary to allocate it in.
 
+**R252 — a module path segment may be a keyword.** modules §5 had already
+decided this without saying so: "the path never becomes a name", so
+`import test.helpers;` binds nothing called `test` and can collide with
+nothing. §3 maps a path straight onto directories, and `test/` and `error/`
+are among the most ordinary directory names there are — forbidding them
+would be a rule nobody expects, enforced by a parse error pointing at a
+perfectly reasonable folder.
+
+Ruled: in path position, any keyword token is a segment, `_` included. The
+lexer is untouched — it still emits `KW_TEST` — and only the grammar's view
+of that one position changes. Luna already settles a token-kind-versus-role
+question positionally: R223 leaves `from` unreserved and has the parser
+match its spelling in the from-clause. This is the same move in the other
+direction.
+
+**The boundary is the braced name list**, whose entries bind, and the
+`const NAME` of an assigned import, which binds too. Both stay identifiers.
+Without that line this would not be "keywords may appear in paths" but
+"keywords are identifiers", which is a different and far larger change.
+
+Rejected: forbidding keyword segments, as Python, Java and Rust do. Their
+path segments *are* names — `import os` binds `os` — so a keyword there
+genuinely collides. R136 severed that link for Luna, and the objection went
+with it.
+
+Two consequences accepted. **Syntax highlighting is wrong**: `error` in a
+path renders keyword-coloured, and nothing available fixes it —
+`grammar.js` is deliberately lexical, and `cmd/highlight` is a stateless
+kind-to-class map by design. Cosmetic, and cheaper than the
+context-sensitivity a fix would need. **`import match!.x;` names the
+directory `match!`**, which is what a uniform rule admits; enumerating
+exceptions would cost more than the absurdity does.
+
+A fence, since §3 alone does not imply it: this rests entirely on §5's "the
+path never becomes a name". Any proposal to make a path bind — a
+Python-style `import os` — retires this with it.
+
+Swept: `modules.md` §3 (the rule) and §5 (the sentence it depends on, now
+marked as load-bearing beyond its own paragraph).
+
 ---
 
 ## Still open (out of scope of these rulings)

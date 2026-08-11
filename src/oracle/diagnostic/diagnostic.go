@@ -75,7 +75,18 @@ func (c Code) Valid() bool {
 // Title is the phrase fixed to this code — what `luna explain` would print. It
 // returns "" for a code with no registered title, which Validate treats as an error:
 // a code nobody named is a code nobody documented.
-func (c Code) Title() string { return lexicalTitles[c] }
+// Each stage keeps its own registry, mirroring §11-and-§12's one-table-per-stage shape, and
+// the switch is what makes an unregistered stage return "" rather than silently borrowing
+// another's numbering — L0001 and M0001 are unrelated codes (R240).
+func (c Code) Title() string {
+	switch c.Stage() {
+	case Lexical:
+		return lexicalTitles[c]
+	case Modules:
+		return modulesTitles[c]
+	}
+	return ""
+}
 
 var stages = map[Stage]bool{
 	Lexical: true, Syntax: true, Semantic: true, Modules: true, Comptime: true,
