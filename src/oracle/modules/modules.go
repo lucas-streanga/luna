@@ -1,0 +1,52 @@
+// Package modules implements the compiler's two module phases: §1.0 discovery and §1.2
+// import validation.
+//
+// One package because R190 makes them two halves of one job: discovery **finds**, validation
+// **judges**. Discovery answers *which files* and raises no diagnostic (R250); every import
+// error — unresolvable path, cycle, late import — is validation's.
+//
+// Discovery exists to break the pipeline's bootstrap circle: lexing cannot start without the
+// file set, and the file set is written in imports, which only lexing can read.
+//
+// # Layout
+//
+//	modules.go   the types both phases pass
+//	discover.go  §1.0 — Discover, the BFS walk, the prelude reader, path resolution
+//
+// §1.2 is not written yet; it will consume exactly what Discover returns.
+package modules
+
+// File is one module discovered on disk.
+type File struct {
+	Path string // slash-separated, relative to the root: `utils/parse.luna`
+
+	// Module is Path with dots for slashes and no extension: `utils.parse`. The root module's
+	// path is empty (modules §3) — the one module not named by its file.
+	Module string
+
+	// PreludeEnd is the offset of the first token that is not part of an import, or the file
+	// length if there is none, so it lands on the declaration rather than the blank line above
+	// it.
+	//
+	// Free to record (the walk stops there) and needed by §1.2, which is what makes its
+	// prelude check a filter over §1.1's tokens rather than a second read (R250).
+	PreludeEnd int
+}
+
+// Edge is one import, from the module that wrote it to the path it named.
+//
+// To is the *written* path, not a resolved file, and that is the point: an edge survives when
+// nothing on disk answers it. Discovery skips the missing file silently and §1.2 reports it
+// from here — the no-diagnostics contract without losing the error (R250).
+type Edge struct {
+	From, To string // module paths
+}
+
+// Result is discovery's whole output.
+//
+// Deliberately not a graph: R190 has discovery retain raw edges and §1.2 build the DAG. The
+// file *set* unlocks lex and parse; the DAG orders only semantic layering.
+type Result struct {
+	Files []File // reachable from the entry, breadth-first, entry first
+	Edges []Edge // every import followed or attempted, in encounter order
+}
