@@ -473,12 +473,21 @@ per-instance and volatile. Tests pin the code and the primary span, never the pr
 | `L0011` | Unterminated interpolation | End of file with `INTERP_EXPR` brace depth above zero | §6 |
 | `L0012` | Unexpected character | A byte that begins no token in the current mode (`^`, a bare `\`, a `$` in `DEFAULT`) | §0 |
 
-**Every one of these is accompanied by an `INVALID` token** covering the bytes it condemns
-(§0, R242). Diagnostics and tokens are separate channels and stay separate: the stream records
-what the scanner consumed, the diagnostic records what to tell the author, and neither has to
-do the other's job. That is what frees a primary span to be a *caret position* — `L0009` wants
-its caret on the opening delimiter, not spread across everything up to end of file — and it is
-why §2's tiling holds on invalid input.
+**An `INVALID` token covers bytes no other production claims** (§0, R242) — which is a test
+about the *stream*, not about this table: a diagnostic does not oblige the lexer to emit
+anything, and several of these raise no token of their own (R243). `L0003`, `L0004`, `L0007`,
+`L0008`, and `L0012` do, nothing else claiming the bytes they condemn; `L0009` and `L0010` do
+on the span-regex fast path, where a literal or comment that never closed leaves the
+single-token reading unable to complete. `L0005` and `L0006` do **not** — an escape sits inside
+a well-formed literal, already covered by its `STRING_SQ` or its `ESCAPE_PAIR`, and an `INVALID`
+over it would overlap. Nor does `L0011`, every byte of the splice having been emitted as it was
+scanned. `L0001` and `L0002` are raised at ingress, where there is no stream at all.
+
+Diagnostics and tokens are separate channels and stay separate: the stream records what the
+scanner consumed, the diagnostic records what to tell the author, and neither has to do the
+other's job — in either direction (R243). That is what frees a primary span to be a *caret
+position* — `L0009` wants its caret on the opening delimiter, not spread across everything up
+to end of file — and it is why §2's tiling holds on invalid input.
 
 `L0012` is the catch-all that makes the lexer **total**: every byte begins a token, and any
 byte that begins no other one begins an `INVALID`. The scanner's rule is therefore one token

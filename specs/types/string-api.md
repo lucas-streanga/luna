@@ -189,7 +189,7 @@ order), and a **named** group (`(?<name>…)`, regex §5.4) appears under **both
 number and its name:
 
 ```luna
-let m = text.find(/(?<year>\d{4})-(?<month>\d{2})/);
+let m = text.find(~"(?<year>\d{4})-(?<month>\d{2})");
 // m: [0 => "2026-07", 1 => "2026", 2 => "07", 'year' => "2026", 'month' => "07"]
 let ['year' => y] = m;          // keyed destructuring composes for free
 ```

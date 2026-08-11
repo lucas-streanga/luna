@@ -146,9 +146,16 @@ error; they fail at parse or semantic analysis. So "every `luna` block lexes cle
 have caught the drift R232 found by hand.
 
 What it does catch is malformed *lexemes* — unterminated literals, unknown escapes, leading zeros,
-`0X`, stray non-ASCII outside comments and strings. A scan of all 436 labeled blocks found exactly
-**one** such case, since fixed. That one hit is the finding: the corpus is already lexically clean,
-so the gate is a **regression guard for the implementation**, not a discovery tool for the spec.
+`0X`, stray non-ASCII outside comments and strings. The corpus is already lexically clean, so the
+gate is mostly a **regression guard for the implementation** rather than a discovery tool for the
+spec: two hits across 436 blocks, both since fixed.
+
+The second hit narrows the claim above, though, and is worth stating precisely (R243). A retired
+spelling is invisible to the gate only when it stays *lexically valid* — which is the usual case,
+the four above included. **R237 is the exception**: retiring `/…/` for `~"…"` made the old spelling
+lex as `SLASH LPAREN …` with `L0012` on every `\`, so the one site the R237 sweep missed
+(`string-api.md` §5) fell out the moment a real lexer ran the corpus. The gate catches a retirement
+exactly when the retirement changed what is lexable, and no more.
 
 The corpus labeling is therefore worth three things and not a fourth: a regression corpus, fuzz
 seeds, and — once the parser exists — a **parse** gate, which *is* strong and would catch stale

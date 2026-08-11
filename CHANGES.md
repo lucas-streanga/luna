@@ -6604,6 +6604,75 @@ code carries — `L0009` spanning the opener versus the opener through end of
 file is a diagnostic-quality question, and now an independent one, since
 coverage no longer rides on it.
 
+**R243 — `INVALID` covers bytes no production claims; it is not owed to
+every diagnostic.** §11 closed R242's sweep with "**Every one of these is
+accompanied by an `INVALID` token** covering the bytes it condemns", and
+then, one sentence later, "diagnostics and tokens are separate channels and
+stay separate". Both cannot hold. R242 severed one direction of that
+coupling — a diagnostic's primary span no longer has to double as a
+coverage record — and the new sentence quietly restored it in the other,
+letting the diagnostic channel dictate what the token channel emits. **The
+test is whether any other production claims the bytes.** That is what §0's
+catch-all row already says, correctly, and what §11 restated wrong:
+`INVALID` exists so that §2's tiling is total, and tiling is a property of
+the stream alone, which no diagnostic has standing to affect.
+
+The clause was **self-defeating on two of its own twelve rows**, which is
+the tell. An unknown escape (`L0005`) and a bad codepoint escape (`L0006`)
+sit *inside* a literal that is lexically well formed — `'a\qb'` is one
+`STRING_SQ`, and on the mode path the offending bytes are an `ESCAPE_PAIR`
+— so those bytes are already claimed, and an `INVALID` over them would
+overlap, breaking the very invariant the clause was written to serve. Two
+further rows falsified it outright: `L0001` and `L0002` are raised at
+ingress, where there is no token stream to tile.
+
+What survives is a shorter list and a sharper one. `L0003` and `L0004` keep
+their `INVALID`, because §0's error productions are not real productions
+and nothing else claims `0755` or `0X`. `L0007`, `L0008`, and `L0012` keep
+theirs by definition — an unclaimed byte is precisely what they report.
+`L0009` and `L0010` keep theirs on the span-regex fast path, where a
+literal or comment that never closed leaves the single-token reading unable
+to complete. `L0011` needs none: every byte of the splice was emitted as it
+was scanned, and what failed is a stack that never unwound. `L0005`,
+`L0006`, and the two ingress codes emit no token of their own.
+
+**The rejected alternative was to keep the blanket clause and carve out the
+exceptions** — four of twelve, enumerated in §11. That reads as bookkeeping
+and is worse than it reads: two of the four are *forced* by the invariant
+the clause was meant to uphold, which means the clause was stated over the
+wrong subject rather than merely stated too broadly. The argument in its
+favour, that a consumer could then locate every error region from the token
+stream without reading the diagnostics, is the same coupling under another
+name, and it does not work regardless — the two ingress codes have no
+stream to locate anything in.
+
+Nothing else moves. §0 is untouched: `INVALID` keeps all three of its rows,
+§10's **131 rows / 127 names** stands, and the token pin is unaffected,
+this being a narrowing of when the kind is *emitted* rather than of what it
+is. The oracle needed no change either, having been built to the narrow
+rule — it emits `INVALID` only where nothing else claims the bytes. Swept:
+`lexer.md` (§11's closing paragraph, rewritten around the coverage test;
+§2's invariant paragraph and §0's catch-all row already carried the narrow
+form and were left alone). **Not ruled here**: whether the fast path should
+fall back to the delimited form on an unterminated literal instead of
+emitting one `INVALID` blob. The observation that prompts the question is
+that on the mode path an unterminated `"abc` is `DQ_OPEN` + `DQ_TEXT` with
+every byte claimed and no `INVALID` anywhere, so `L0009`'s `INVALID` is an
+artifact of the fast path's commitment to a single-token reading rather
+than a necessity; the fallback would also hand the parser a partially
+intelligible prefix instead of an opaque span, which is §1.3's
+lossless-CST interest. R242's open on `L0009`'s caret span carries forward
+unchanged.
+
+*(Found by the same implementation pass and recorded so the edit is not
+silent: R237's sweep left one site behind — `string-api.md` §5's
+named-group example still spelled a regex `/(?<year>…)/`, now
+`~"(?<year>…)"`. The oracle found it by lexing all 436 corpus blocks,
+which narrows `lexer-testing-plan.md` §9: the gate stays permissive
+about retired *spellings* — `pub`, `caps.io`, and `use (&io)` all lex
+clean — but R237 is the one retirement that made its predecessor
+lexically **invalid**, so that class the gate does catch.)*
+
 ---
 
 ## Still open (out of scope of these rulings)
