@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"luna/oracle/diagnostic"
-	"luna/oracle/escape"
+
 	"luna/oracle/token"
 )
 
@@ -41,7 +41,7 @@ func (s *Scanner) lexTripleOpen(delim string, kind modeKind, open token.Kind) to
 	// The opener owns the rest of its line (R246), which is what makes the first content
 	// line unexceptional so the margin applies uniformly from line one.
 	j := i
-	for j < len(s.src) && isLineSpace(s.src[j]) {
+	for j < len(s.src) && isHorizontalSpace(s.src[j]) {
 		j++
 	}
 	if j < len(s.src) && s.src[j] != '\n' {
@@ -54,8 +54,12 @@ func (s *Scanner) lexTripleOpen(delim string, kind modeKind, open token.Kind) to
 		i = len(s.src)
 	}
 
-	s.push(kind, start, len(delim))
-	s.mode().margin = findMargin(s.src, i, delim)
+	s.push(mode{
+		kind:    kind,
+		open:    start,
+		openLen: len(delim),
+		margin:  findMargin(s.src, i, delim),
+	})
 	s.pos = i
 	return open
 }
@@ -70,7 +74,7 @@ func (s *Scanner) lexTripleOpen(delim string, kind modeKind, open token.Kind) to
 func findMargin(src string, i int, delim string) string {
 	for i <= len(src) {
 		j := i
-		for j < len(src) && isLineSpace(src[j]) {
+		for j < len(src) && isHorizontalSpace(src[j]) {
 			j++
 		}
 		if strings.HasPrefix(src[j:], delim) {
@@ -85,11 +89,12 @@ func findMargin(src string, i int, delim string) string {
 	return ""
 }
 
-// lexTripleDq scans inside `"""`: escapes and interpolation as `DQ_STRING` has them, plus
+// lexTripleDqMode scans inside `"""`: escapes and interpolation as the single-line mode
+// has them, plus
 // the margin and the trailing-whitespace strip.
-func (s *Scanner) lexTripleDq() token.Kind {
+func (s *Scanner) lexTripleDqMode() token.Kind {
 	if s.atLineStart() {
-		if k, ok := s.lexTripleLineStart(tripleDq, token.TripleDqClose); ok {
+		if k := s.lexTripleLineStart(tripleDq, token.TripleDqClose); k != token.Unset {
 			return k
 		}
 	}
@@ -97,9 +102,9 @@ func (s *Scanner) lexTripleDq() token.Kind {
 		return s.lexLineBreak(tripleDq, token.TripleDqClose, token.DqText)
 	}
 	if s.src[s.pos] == '\\' {
-		return s.lexEscape(escape.StringDq, true)
+		return s.lexEscape(formTripleDq)
 	}
-	if k, ok := s.lexInterp(true); ok {
+	if k := s.lexInterp(formTripleDq); k != token.Unset {
 		return k
 	}
 
@@ -115,7 +120,7 @@ func (s *Scanner) lexTripleDq() token.Kind {
 	// this position *is* the whitespace.
 	end := i
 	if i >= len(s.src) || s.src[i] == '\n' {
-		for end > s.pos && isLineSpace(s.src[end-1]) {
+		for end > s.pos && isHorizontalSpace(s.src[end-1]) {
 			end--
 		}
 	}
@@ -127,13 +132,13 @@ func (s *Scanner) lexTripleDq() token.Kind {
 	return token.DqText
 }
 
-// lexTripleSq scans the raw triple, the simplest literal in the language: after
+// lexTripleSqMode scans the raw triple, the simplest literal in the language: after
 // the margin, a line is one RAW_TEXT run. No escapes, no interpolation, and trailing
 // whitespace preserved — which is what makes this the form for content that is sensitive
 // to it (R246).
-func (s *Scanner) lexTripleSq() token.Kind {
+func (s *Scanner) lexTripleSqMode() token.Kind {
 	if s.atLineStart() {
-		if k, ok := s.lexTripleLineStart(tripleSq, token.TripleSqClose); ok {
+		if k := s.lexTripleLineStart(tripleSq, token.TripleSqClose); k != token.Unset {
 			return k
 		}
 	}
@@ -172,7 +177,7 @@ func (s *Scanner) lexLineBreak(delim string, close, content token.Kind) token.Ki
 // first line after the opener: that is the empty multi-line string, whose newline the
 // opener has already consumed, so there is none left for the closing token to span.
 func (s *Scanner) closerLen(i int, delim string) int {
-	m := s.mode()
+	m := s.modes[s.modeIndex()]
 	if !strings.HasPrefix(s.src[i:], m.margin) {
 		return -1
 	}
@@ -183,13 +188,13 @@ func (s *Scanner) closerLen(i int, delim string) int {
 }
 
 // lexTripleLineStart handles what may begin a content line: the closing delimiter, or the
-// margin. It reports false when neither produced a token, so the caller falls through to
+// margin. It returns Unset when neither produced a token, so the caller falls through to
 // the line's content.
-func (s *Scanner) lexTripleLineStart(delim string, close token.Kind) (token.Kind, bool) {
+func (s *Scanner) lexTripleLineStart(delim string, close token.Kind) token.Kind {
 	if n := s.closerLen(s.pos, delim); n >= 0 {
 		s.pos += n
 		s.pop()
-		return close, true
+		return close
 	}
 	return s.lexMargin()
 }
@@ -199,7 +204,7 @@ func (s *Scanner) lexTripleLineStart(delim string, close token.Kind) (token.Kind
 // newline precisely when a content line begins here.
 func (s *Scanner) atLineStart() bool { return s.pos > 0 && s.src[s.pos-1] == '\n' }
 
-// lexMargin consumes a content line's margin, reporting false when it emitted nothing so
+// lexMargin consumes a content line's margin, returning Unset when it emitted nothing so
 // the caller falls through to the line's content.
 //
 // The check is a **byte prefix**, never a column count: comparing columns would require a
@@ -207,20 +212,20 @@ func (s *Scanner) atLineStart() bool { return s.pos > 0 && s.src[s.pos-1] == '\n
 // four-space margin rejects a line indented with a tab, whose position is unknowable
 // without the width nobody has chosen — and that strictness is the point, since the
 // alternative is a literal whose value depends on an editor setting.
-func (s *Scanner) lexMargin() (token.Kind, bool) {
-	m := s.mode()
+func (s *Scanner) lexMargin() token.Kind {
+	m := s.modes[s.modeIndex()]
 	if m.margin != "" && strings.HasPrefix(s.src[s.pos:], m.margin) {
 		s.pos += len(m.margin)
-		return token.Margin, true
+		return token.Margin
 	}
 	if m.margin == "" || blankLine(s.src, s.pos) {
 		// A blank line is exempt (R246): demanding the margin on a line that has nothing
 		// on it would fight every editor that strips trailing whitespace on save.
-		return token.Unset, false
+		return token.Unset
 	}
 	s.error(diagnostic.InsufficientIndentation, s.pos, 1,
 		"this line is not indented by the closing delimiter's margin (%d bytes)", len(m.margin))
-	return token.Unset, false
+	return token.Unset
 }
 
 // blankLine reports whether the line at i holds nothing but whitespace.
@@ -229,7 +234,7 @@ func blankLine(src string, i int) bool {
 		if src[i] == '\n' {
 			return true
 		}
-		if !isLineSpace(src[i]) {
+		if !isHorizontalSpace(src[i]) {
 			return false
 		}
 	}
@@ -238,4 +243,4 @@ func blankLine(src string, i int) bool {
 
 // isLineSpace is horizontal whitespace: the margin and the trailing strip are both about
 // what sits beside content on a line, so a newline is never one of them.
-func isLineSpace(c byte) bool { return c == ' ' || c == '\t' || c == '\r' }
+func isHorizontalSpace(c byte) bool { return c == ' ' || c == '\t' || c == '\r' }

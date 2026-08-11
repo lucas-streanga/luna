@@ -39,18 +39,22 @@ const (
 )
 
 // allowed is string §5.1's table, one row per context: the characters that may follow a
-// backslash. Regex's row is empty and never consulted — see passthrough.
+// backslash.
+//
+// **Regex has no row**, deliberately — an empty one would read as "nothing is allowed
+// there", the opposite of the truth. Check answers it before consulting this table; the
+// array is sized to hold the index anyway, so a future edit that drops that guard reads a
+// zero value rather than running off the end.
 //
 // Bytes carries both quote escapes. §5.1's row is written for the `b"…"` form, but bytes
 // §7 rules that the quote style does not matter, and a literal must be able to escape
 // whichever delimiter closes it — so `b'don\'t'` is legal for the same reason `b"say \""`
 // is. That is an inference from two rules rather than a third rule stated outright.
-var allowed = [...]string{
+var allowed = [Regex + 1]string{
 	StringDq: "ntr\\\"$u",
 	StringSq: "'\\",
 	Bytes:    "ntr\\\"'x",
 	Command:  "`\\$",
-	Regex:    "",
 }
 
 // passthrough reports whether the context has no escape language of its own. Only the

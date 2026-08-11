@@ -33,13 +33,23 @@
 //
 // One function per mode (§1), each consuming one token's bytes and reporting its kind.
 // Next owns the span arithmetic and the progress check, so neither is repeated and
-// neither can be got wrong in only one mode. lexDefault, in default.go, serves both
-// `DEFAULT` and `INTERP_EXPR`; the three literal modes are the mode stack's half of
-// the work and are not implemented yet.
+// neither can be got wrong in only one mode.
+//
+//	lexer.go        this file: the API, the scanner, the mode stack
+//	core.go         the DEFAULT dispatch, which INTERP_EXPR shares; operators; braces
+//	trivia.go       whitespace, comments, the shebang (§2)
+//	word.go         identifiers, keywords, the wildcard (§3, §7)
+//	number.go       numeric literals (§4)
+//	form.go         literalForm: what each delimited literal admits
+//	literal_fast.go the span-regex fast path — a literal with no `${` is one token
+//	literal_mode.go the single-line literal modes, for one that has a `${`
+//	triple.go       the multi-line literal modes (R246)
+//	tables.go       the keyword and operator lookups
 package lexer
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"luna/oracle/diagnostic"
@@ -91,9 +101,9 @@ func New(f *source.File) *Scanner {
 
 // Next returns the next token, or ok=false at end of input.
 //
-// There is no EOF token, deliberately: §0's inventory is the 127 lexemes the language
-// has, and end-of-file is not one of them. Adding a 128th to make loops tidier would
-// put the code out of step with the table it is pinned against.
+// There is no EOF token, deliberately: §0's inventory is the lexemes the language has,
+// and end-of-file is not one of them. Adding one to make loops tidier would put the code
+// out of step with the table it is pinned against.
 //
 // A lexical error does not stop the scan. Next records the diagnostic, advances by at
 // least one byte, and returns the next token it can find — so a caller that ignores
@@ -122,19 +132,19 @@ func (s *Scanner) Next() (token.Token, bool) {
 // this again, so the token comes from the mode underneath. That recursion is bounded by
 // the stack depth, every step popping, and DEFAULT never pops.
 func (s *Scanner) lex() token.Kind {
-	switch k := s.mode().kind; k {
-	case modeDefault, modeInterpExpr:
+	switch k := s.modes[s.modeIndex()].kind; k {
+	case modeDefault, modeInterp:
 		return s.lexDefault()
-	case modeDQString:
-		return s.lexDQString()
-	case modeRegexBody:
-		return s.lexRegexBody()
-	case modeTripleDq:
-		return s.lexTripleDq()
-	case modeTripleSq:
-		return s.lexTripleSq()
+	case modeDq:
+		return s.lexDqMode()
+	case modeRegex:
+		return s.lexRegexMode()
 	case modeCommand:
-		return s.lexCommandBody()
+		return s.lexCommandMode()
+	case modeTripleDq:
+		return s.lexTripleDqMode()
+	case modeTripleSq:
+		return s.lexTripleSqMode()
 	default:
 		panic(fmt.Sprintf("lexer: unknown mode %d", k))
 	}
@@ -152,19 +162,25 @@ func (s *Scanner) finish() {
 	}
 	s.finished = true
 	for _, m := range s.modes[1:] {
-		if m.kind == modeInterpExpr {
+		if m.kind == modeInterp {
 			s.error(diagnostic.UnterminatedInterpolation, m.open, m.openLen,
 				"unterminated interpolation")
 			continue
 		}
 		s.error(diagnostic.UnterminatedLiteral, m.open, m.openLen,
-			"unterminated %s literal", m.kind.what())
+			"unterminated %s literal", m.kind.noun())
 	}
 }
 
-// Errors returns the diagnostics collected so far. During a scan it grows; after the
-// scan completes it is the file's full set.
-func (s *Scanner) Errors() diagnostic.List { return s.errors }
+// Errors returns the diagnostics collected so far — a copy, so a caller cannot reorder or
+// extend the scanner's own list. During a scan it grows; after the scan completes it is
+// the file's full set.
+//
+// Note that a caller which stops early, as discovery does, never reaches the end of input
+// and so is never told about a literal left open past where it stopped. That is the right
+// answer for a consumer that chose not to read those bytes, and the reason finish runs
+// only at end of input.
+func (s *Scanner) Errors() diagnostic.List { return slices.Clone(s.errors) }
 
 // mode is one frame of the lexer's mode stack (§1).
 //
@@ -192,36 +208,37 @@ type modeKind uint8
 
 const (
 	modeDefault modeKind = iota
-	modeDQString
-	modeRegexBody
+	modeInterp
+	modeDq
+	modeRegex
 	modeCommand
-	modeInterpExpr
 	modeTripleDq
 	modeTripleSq
 )
 
-// what names the construct for an unterminated-literal message. §11 requires the
+// noun names the construct for an unterminated-literal message. §11 requires the
 // description to say which kind of literal it was.
-func (k modeKind) what() string {
+func (k modeKind) noun() string {
 	switch k {
-	case modeDQString, modeTripleDq, modeTripleSq:
-		return "string"
-	case modeRegexBody:
+	case modeRegex:
 		return "regex"
 	case modeCommand:
 		return "command"
 	}
-	return "unknown"
+	return "string"
 }
 
-// mode returns the innermost frame. The pointer is into the stack, so a caller may
-// adjust its brace depth in place; it is invalidated by the next push.
-func (s *Scanner) mode() *mode { return &s.modes[len(s.modes)-1] }
+// modeIndex is the innermost frame's index.
+//
+// An index rather than a *mode: a pointer into the stack is invalidated by the next push,
+// and a write through a stale one would land on a frame that is no longer innermost with
+// nothing to say it had. Callers that only read may take a copy — mode is small and holds
+// no pointers — but the mutable path goes through the slice.
+func (s *Scanner) modeIndex() int { return len(s.modes) - 1 }
 
-// push opens a frame, recording where its delimiter began.
-func (s *Scanner) push(k modeKind, open, openLen int) {
-	s.modes = append(s.modes, mode{kind: k, open: open, openLen: openLen})
-}
+// push opens a frame. It takes the whole frame rather than its parts, so a field like the
+// triples' margin is set where the frame is built instead of written into it afterwards.
+func (s *Scanner) push(m mode) { s.modes = append(s.modes, m) }
 
 func (s *Scanner) pop() { s.modes = s.modes[:len(s.modes)-1] }
 
