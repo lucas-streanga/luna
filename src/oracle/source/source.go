@@ -14,7 +14,10 @@
 // NOTE: declarations only. Bodies are unimplemented — the tests come first.
 package source
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 // Diagnostic codes this package raises (lexer §11).
 const (
