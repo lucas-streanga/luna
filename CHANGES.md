@@ -6409,6 +6409,91 @@ escape rows (string §5.1), and neither ever reaches this decision. Swept:
 `lexer.md` (§6 row and new ordering paragraph, §10 inventory —
 literal content 4 → 5, total 125 → **126**).
 
+**R240 — every diagnostic carries a code: one-letter stage prefix plus four
+digits, per-stage numbering, and a span model with one mandatory primary.**
+testing-strategy §2 pinned diagnostic tests to "the ruled error **type** +
+source location", which was unwritable for most of the compiler:
+`errors.md` §2's hierarchy names *runtime* types, and the phases that
+produce most diagnostics — lex, parse, semantic — named nothing at all.
+lexer.md had at least twelve ruled error conditions and no vocabulary for
+any of them, so the error half of the test plan could not be written
+without inventing names and freezing them, the same trap G2 posed before
+R238. **The scheme**: a one-letter prefix naming the stage that *defined*
+the check, then four digits — `L0003`, `S0143`, `M0011` — with the prefix a
+**separate numbering space**, so `L0001` and `P0001` are unrelated.
+Per-stage rather than flat is chosen for a reason particular to this
+project: `claude-agent-plan` implements slices in parallel, and independent
+number spaces remove the central registry those agents would otherwise
+contend on. MSVC's `C####`/`LNK####` split is the precedent; ten thousand
+per stage is far beyond what any compiler has spent (Rust is near six
+hundred after a decade). **Nine prefixes**, derived from §1's phases: `L`
+lexical, `P` syntax, `S` semantic, `M` modules (§1.0 discovery and §1.2
+import validation together, since a user cannot tell which noticed an
+unresolved import), `C` comptime, `B` build (assemble, toolchain
+invocation, the incremental cache), `F` format, `T` tooling (LSP, debugger,
+test runner), `I` internal — an invariant violated, "this is a compiler
+bug". **No prefix exists for lowering or emission**, and the omission is a
+theorem rather than an oversight: §1.7 guarantees the emitted Go compiles,
+so a failure there is not a user diagnostic but a compiler bug, and lands
+in `I`. No severity axis exists either, §3's "**No warnings, ever**" having
+already settled it — every code is an error. **Allocation is append-only**,
+starting at `0001`; `0000` is never allocated because too much tooling
+reads zero as "no error". A retired check's code is **retired, never
+reused** — search results outlive the check that prompted them. Numbers
+carry no meaning, with **no ranges reserved by topic**, because a range
+always overflows and then lies. And **a code never changes prefix**: when a
+check migrates to an earlier phase, as checks do, it keeps its original
+code and is reported by whichever phase now runs it. That is deliberately
+impure — the prefix records where a check was *defined*, not where it lives
+— and it is what makes per-stage numbering safe, since renumbering would
+collide with codes already allocated. **A code is not an error type, and
+both are needed.** A code identifies a *diagnostic*: a message about a
+program that will not be built, uncatchable, with no runtime existence. A
+type identifies a *value*: `useAfterConsumed` (errors §2) is catchable
+because the program ran and the check failed dynamically. The same
+condition frequently has both, the compiler proving what it can and
+deferring the rest — exactly what variables §7's "compile (runtime when
+branch-dependent)" column has been recording all along — so a static
+use-after-consume is `S0143` while its dynamic twin stays
+`useAfterConsumed`, and a code with a runtime counterpart names it so `luna
+explain` can say so. Runtime panics get no codes; their type name is
+already the stable referent. **Prose splits by lifetime**: the **title** is
+fixed per code and part of its identity ("Use-after-consume"), the
+**description** is per-instance and volatile (naming the binding, the file,
+the type). Only the title is documentable, which is what makes a page per
+code possible while instance text churns — and what makes
+`claude-agent-plan` §F's "diagnostics are volatile in alpha" safe rather
+than merely tolerated. **Spans**: exactly **one primary span**, mandatory,
+the caret site, so "the location" is never ambiguous; plus zero or more
+**labeled secondary spans** ("declared here", "consumed here") carrying the
+narrative. A span is `(file, byte offset, length)` — file identity
+required, not optional, because a secondary span routinely lives in another
+module. Byte offsets fall out of R236 at no cost: the diagnostic layer
+stores offsets only and lexer §9's lazy line index resolves line and rune
+column at render time. Notes and hints are prose and never load-bearing,
+but a hint **may carry a structured suggestion** (a span plus replacement
+text), designed in now because it is what lets `luna -l` surface code
+actions later without every hint being rewritten. **testing-strategy §2 is
+amended accordingly**: tests pin the **code** plus the **primary** span's
+file and line, with secondary spans opt-in per test — they are the half
+that churns as diagnostics improve. Runtime errors continue to be matched
+by type. **Applied immediately as lexer §11**, the worked example every
+later spec can copy: twelve `L00xx` codes for conditions already ruled,
+from `L0001` invalid UTF-8 through `L0012` unexpected character — the
+catch-all that makes the lexer **total**, since every byte now either
+begins a token or raises a code, which is what lets §2's tiling invariant
+hold on invalid input as well as valid. Writing it surfaced a hole R238
+left: R238 declared `0X`/`0B`/`0O` lex errors but added no error
+production, so `0X1F` would have split into `INT_DEC` + `IDENT` and
+diagnosed as a syntax error; §0 gains the `0[XBO]` production, and the
+inventory's row count moves 129 → 130 while the token count stays 126.
+Swept: `compiler.md` (§3's thin codes bullet replaced by new §3.1),
+`lexer.md` (§0 error production, §10 counts, new §11),
+`testing-strategy.md` (§2). **Not ruled here**: codes for the error-summary
+tables that predate the scheme (variables §7 and elsewhere), which acquire
+them as their specs are next revisited; and `luna explain <code>`, which
+the scheme makes possible but compiler §0.1's flag table does not yet carry.
+
 ---
 
 ## Still open (out of scope of these rulings)

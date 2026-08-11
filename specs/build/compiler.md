@@ -433,8 +433,65 @@ it safely can.
   produced any, the compile stops before the next phase (a phase cannot meaningfully consume the
   broken output of the previous one). Within a phase, error recovery is best-effort to find more
   independent errors (e.g. resynchronizing the parser at statement boundaries).
-- **Compile errors carry codes** (variables spec §7 and elsewhere), so diagnostics are stable and
-  referenceable.
+### 3.1 Diagnostic codes and spans (R240)
+
+**Every diagnostic carries a code**: a one-letter prefix naming the stage that defined the check,
+then four digits. `L0003`, `S0143`, `M0011`. The prefix is a **separate numbering space** — `L0001`
+and `P0001` are unrelated — which is what lets each stage allocate without a central registry, the
+property that matters most when slices are implemented in parallel (claude-agent-plan §C).
+
+| Prefix | Owns | Where |
+|-|-|-|
+| `L` | Lexical | §1.1 |
+| `P` | Syntax | §1.3 |
+| `S` | Semantic | §1.4 |
+| `M` | Modules | §1.0 discovery, §1.2 import validation |
+| `C` | Comptime | §6 |
+| `B` | Build | §1.8 assemble, toolchain invocation, the incremental cache |
+| `F` | Format | `luna -f` |
+| `T` | Tooling | LSP, debugger, test runner |
+| `I` | Internal | an invariant violated — "this is a compiler bug" |
+
+Discovery and import validation share `M` because a user cannot tell which of them noticed that an
+import does not resolve. There is deliberately **no prefix for lowering or emission**: §1.7
+guarantees the emitted Go compiles, so a failure there is not a user diagnostic but a compiler bug,
+and belongs to `I`. No severity axis exists either, because of the rule above — every code is an
+error.
+
+**Allocation is append-only.** Numbers start at `0001` (`0000` is never allocated; too much tooling
+reads zero as "no error"). A retired check's code is **retired, never reused** — search results and
+answers outlive the check that prompted them. Numbers carry no meaning: no reserved ranges by
+topic, because a range always overflows and then lies. And **a code never changes prefix**: when a
+check migrates to an earlier phase, as checks do, it keeps its original code and is simply reported
+by the phase that now runs it. The prefix records where a check was *defined*, not where it lives —
+stability beats taxonomy, and renumbering would collide with codes already allocated.
+
+**A code is not an error type.** They are different axes and both are needed. A **code** identifies
+a *diagnostic*: a message about a program that will not be built, uncatchable, with no runtime
+existence. A **type** identifies a *value*: `useAfterConsumed` (errors §2) is catchable because the
+program ran and the check failed dynamically. The same condition often has both — the compiler
+proves what it can and defers the rest (variables §7's "compile (runtime when branch-dependent)"),
+so a static use-after-consume is `S0143` and its dynamic twin is `useAfterConsumed`. Where a code
+has a runtime counterpart, its entry names it, so `luna explain` can say so. Runtime panics need no
+codes; their type name is already the stable referent.
+
+**A diagnostic's prose has two halves with different lifetimes.** The **title** is fixed per code
+and is part of its identity ("Use-after-consume"); the **description** is per-instance and volatile
+(naming the binding, the type, the file). Only the title is documentable, which is what makes a
+page per code possible while instance text churns.
+
+**Spans.** A diagnostic carries **exactly one primary span** — the caret site, mandatory, so "the
+location" is never ambiguous — and **zero or more labeled secondary spans** ("declared here",
+"consumed here") that carry the narrative. A span is `(file, byte offset, length)`: the file
+identity is required, not optional, because a secondary span routinely lives in another module.
+Byte offsets fall out of R236 — the diagnostic layer stores offsets only, and lexer §9's lazy line
+index resolves line and rune column at render time, so this model needs no machinery of its own.
+**Notes and hints are prose and never load-bearing**; a hint may optionally carry a *structured
+suggestion* (a span plus replacement text), which is what lets `luna -l` surface code actions
+without every hint being rewritten later.
+
+Existing error-summary tables predate this scheme (variables §7 names its errors without codes);
+they acquire codes as their specs are next revisited. lexer §11 is the worked example.
 - **Tolerance is a pass property; aborting is a driver policy.** The passes recover from errors and
   produce a best-effort partial result (a partial CST, a partial typed AST); the **batch driver**
   chooses to discard that partial result and abort at the boundary, but the **tooling drivers** (the

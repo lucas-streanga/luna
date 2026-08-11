@@ -94,7 +94,8 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `b'GET '` | `BYTES` (sq) | literal §4 | `(?s)b'[^'\\]*(?:\\.[^'\\]*)*'` |
 | `~"\d+"im` | `REGEX` | literal §4 | `(?s)~"[^"\\]*(?:\\.[^"\\]*)*"[imsxb]*` — self-identifying since R237; interpolation-limited (F2) |
 | `` `grep ${x} f` `` | `COMMAND` | literal §4 | ``(?s)`[^`]*` `` — **only valid when the literal contains no `${`**; otherwise mode-lex (F3). `\` is an ordinary byte, by ruling (command §2.2) |
-| `0755`, `0_1` | *(error production)* | error §4 | `0[0-9_]+` — a leading zero is a **lex error** (R238), never silent decimal and never C-style octal |
+| `0755`, `0_1` | *(error production)* | error §4 | `0[0-9_]+` — a leading zero is a **lex error** (R238, `L0003`), never silent decimal and never C-style octal |
+| `0X1F`, `0B1` | *(error production)* | error §4 | `0[XBO]` — radix prefixes are lowercase only (R238, `L0004`); without this production `0X1F` would split into `INT_DEC` + `IDENT` and diagnose as a syntax error instead |
 | `???=` | `NULL_COALESCE_ASSIGN` | operator §5 | `\?\?\?=` |
 | `???` | `NULL_COALESCE` | operator §5 | `\?\?\?` |
 | `??=` | `COALESCE_ASSIGN` | operator §5 | `\?\?=` |
@@ -418,15 +419,15 @@ source of truth. Its purpose is mechanical: a count that can be asserted in a te
 that makes an omission visible. R232 fixed a "47 patterns" claim standing over a 49-row table;
 this section exists so that class of drift fails loudly instead of hiding.
 
-**126 tokens over 129 rows.** By §0's category column: **4** trivia, **49** keyword (47
+**126 tokens over 130 rows.** By §0's category column: **4** trivia, **49** keyword (47
 word-shaped plus the compounds `KW_MATCH_BANG` and `KW_YIELD_FROM`), **10** literal, **37**
 operator, **10** punctuation, **6** delimiter (three openers, three closers), **3** interp,
 **5** content, **2** identifier.
 
 **Rows exceed names in three places**, which is where a naive recount goes wrong. `DOUBLE`
 owns two rows (point and exponent form) and `BYTES` owns two (`b"…"`, `b'…'`), so those four
-rows are two names; and one row is not a token at all — the leading-zero **error production**,
-categorized `error §4` precisely so a count can exclude it. `STRING_SQ`/`STRING_DQ` look like
+rows are two names; and two rows are not tokens at all — the **error productions** for a leading
+zero and an uppercase radix prefix, categorized `error §4` precisely so a count can exclude them. `STRING_SQ`/`STRING_DQ` look like
 the same case and are not: two rows, two genuine names. §3's 49 matches keywords.md §1–§4
 exactly.
 
@@ -441,6 +442,38 @@ and `` `…` `` are affected — a single-quoted string is one span regex with n
 is ordinary content inside `[^'\\]` there and never reaches this question.
 
 ---
+
+
+## 11. Error summary (R240)
+
+Every lexical error, with the code that names it. Codes are `L` + four digits, allocated
+append-only and never reused (compiler §3.1). Each has a fixed **title**; the description is
+per-instance and volatile. Tests pin the code and the primary span, never the prose
+(testing-strategy §2).
+
+| Code | Title | Raised when | Authority |
+|-|-|-|-|
+| `L0001` | Invalid UTF-8 | A source byte sequence is not valid UTF-8; rejected at ingress, before tokenizing | lexical-structure §1 |
+| `L0002` | Byte-order mark | A file begins with U+FEFF, which is an ordinary codepoint here and never stripped | lexical-structure §1 |
+| `L0003` | Leading zero | A decimal literal begins `0` followed by another digit or `_` (`0755`, `0_1`) — write `0o755` for octal | §0, R238 |
+| `L0004` | Uppercase radix prefix | `0X`, `0B`, or `0O`; prefixes are lowercase only | §0, R238 |
+| `L0005` | Unknown escape | A `\` followed by a character absent from its context's row in the escape table | string §5.1, R150 |
+| `L0006` | Invalid codepoint escape | `\u{…}` naming a surrogate (`D800`–`DFFF`) or a value above `10FFFF` | string §5.1, R150 |
+| `L0007` | Unexpected `#` | A `#` that is neither `#[` nor a first-line `#!` | §5, R85 |
+| `L0008` | Unexpected `~` | A `~` not followed by `"`; the sigil exists only to open a regex literal | §5, R237 |
+| `L0009` | Unterminated literal | End of file inside a string, regex, or command literal — the description names which | §1 |
+| `L0010` | Unterminated block comment | End of file with no closing `*/`; block comments do not nest, so the first `*/` would have closed it | §2, F4 |
+| `L0011` | Unterminated interpolation | End of file with `INTERP_EXPR` brace depth above zero | §6 |
+| `L0012` | Unexpected character | A byte that begins no token in the current mode (`^`, a bare `\`, a `$` in `DEFAULT`) | §0 |
+
+`L0012` is the catch-all that makes the lexer **total**: every byte either begins a token or
+raises it, which is what lets §2's tiling invariant hold on invalid input as well as valid.
+None of these aborts — §1.1 collects lexical errors and the compile stops at the phase
+boundary — so each must also leave the scanner able to make progress, `L0009`/`L0010`/`L0011`
+being the ones where recovery is least obvious, since the mode stack must be unwound.
+
+No lexical error has a runtime counterpart: all twelve are compile-time only, and none of them
+corresponds to a catchable type in the errors §2 hierarchy.
 
 ## Flagged: complex, context-sensitive, or non-regular tokens
 

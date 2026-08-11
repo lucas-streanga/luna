@@ -38,8 +38,11 @@ the oracle defines "correct." Enforced by `e2e-runner`:
 
 - *Success stdout* — **exact**. Maps and streams have ruled iteration order (no sets), so a program
   with no undeclared effects and no concurrent multi-writer output is deterministic.
-- *Diagnostics / compile errors* — **partial**: match the ruled error **type** (`typeError`,
-  `ioError`, …) + source location, never the prose.
+- *Diagnostics / compile errors* — **partial**: match the ruled **diagnostic code** (`L0003`,
+  `S0143`, …; compiler §3.1, R240) + the **primary** span's file and line, never the prose.
+  Secondary spans ("declared here") are **opt-in** per test: they are the half that churns as
+  diagnostics improve, while the primary site stays put. Runtime errors are matched by **type**
+  instead (`typeError`, `ioError`, …) — a value has a type, a diagnostic has a code.
 - *Panics* — **partial**: match the panic type, not the address/stack dump.
 
 **Alpha note:** diagnostics are highly volatile in alpha — message wording will churn constantly,
