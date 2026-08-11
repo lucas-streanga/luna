@@ -61,7 +61,7 @@ Input text plus expected token dump in `testdata/`, **generated from §0** so it
 held as *data files* rather than test functions so it survives the API shifting underneath it.
 Golden files are reviewable once and diffable forever; generated assertions are neither.
 
-**Built: 101 files — 74 that lex clean, 27 under `testdata/error_producing/` — covering all 133 of
+**Built: 104 files — 76 that lex clean, 28 under `testdata/error_producing/` — covering all 133 of
 §0's tokens.** Diagnostics reach every code the lexer can raise: `L0003`–`L0016`, with
 `L0001`/`L0002` belonging to ingress, before any tokenizing.
 
@@ -119,6 +119,44 @@ and swallows the rest — §5's next-byte rule working, found by the sweep on it
 Mutation-tested both halves. A spurious operator table entry is caught as an unclassified fusion,
 and teaching the fold to skip comments is caught by the metamorphic relation — the second being a
 regression *only* this sweep sees, since no golden pairs `yield` with a comment.
+
+## 3b. Mutation testing — does the suite notice?
+
+**Built: `cmd/mutate`.** `go run ./cmd/mutate` applies 50 hand-written defects one at a time,
+runs the suite against each, and restores the file. A mutant the suite still passes is a
+**survivor**, and a survivor is a hole in the suite rather than a bug in the lexer — that is
+the whole point of the technique, and why it complements every other section here rather than
+overlapping one. Currently **0 survivors, 0 malformed, 0 killed by the wrong test**, in 10s.
+Coverage reaches beyond the lexer: `source` ingress and the line index, `token`'s helpers, and
+`diagnostic`'s validation each carry mutants, since a suite that never breaks them cannot
+claim they work.
+
+Three design choices, each learned by getting it wrong first.
+
+**Hand-written, not generated.** A generated mutant is frequently *equivalent* — semantically
+identical to the original and therefore unkillable — so a generator mostly manufactures triage.
+One equivalent mutant is kept in the list with its reasoning attached, because it is the
+obvious one to reach for: dropping `foldYieldFrom`'s `i == s.pos` guard changes nothing, since
+`lexWord` has already consumed every identifier byte and `src[s.pos:]` cannot then begin with
+`from`.
+
+**Each mutant names the test that should kill it**, and the harness collects *every* failing
+test rather than the first — Go runs tests in file order, so "the first failure" reports
+whichever test sorts earliest, not the one that was meant to catch it. A kill by an unexpected
+test is reported separately: still a kill, but the suite's shape is not what its author
+believed.
+
+**The `old` string must match exactly once.** An ambiguous mutation applied somewhere
+unreachable is indistinguishable from a weak suite, and that mistake was made twice by hand
+before the harness existed.
+
+It found three real gaps, each closed by a golden. Nothing exercised `closerLen`'s margin
+check, so a triple's closing line did not have to be indented by the margin. Nothing paired a
+`$` with a *digit* inside a mode-path string, so `$name`'s requirement of an identifier
+*start* went unasserted. And nothing had a regex that both spans lines **and** interpolates —
+the intersection of R244's exemption and F2's splice, where `REGEX_TEXT` is the one text run
+that carries newlines through. All three sat between features rather than inside one, which is
+where hand-written goldens are least likely to look.
 
 ## 4. The mode stack is the real surface
 
@@ -209,7 +247,8 @@ The generator is five lines of splitmix64 written out, not `math/rand`. The lint
 releases — so a fixed seed there would quietly start meaning something else after a toolchain
 bump, where this one reproduces a reported failure exactly for as long as the file exists.
 
-A **sixth property is available in principle and not taken** (§7): running a spec-literal lexer over the same input and diffing
+A **sixth property is available in principle and not taken** (§7): running a spec-literal
+lexer over the same input and diffing
 would catch *wrong-token* bugs, which none of the five above can see. §7 records why that is
 not worth a third implementation.
 
