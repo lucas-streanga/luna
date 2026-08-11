@@ -6800,6 +6800,165 @@ here**: which phase raises `L0005`, `L0006`, and `L0013`. R243 left the
 decode question open and this does not close it — it only makes the token
 stream carry enough shape for the answer to be cheap either way.
 
+**R246 — multi-line string literals: `"""` cooked, `'''` raw, and the
+closing delimiter is the margin.** R244 bounded every single-byte-opener
+literal at its line, which closed the swallowing failure F2 named but left
+`\n` escapes as the only way to write multi-line text — untenable for the
+embedded SQL, JSON, and templates a data-focused language exists to handle.
+Two forms land. **`"""`** is `"…"` with more lines: the same escape table
+(string §5.1), the same interpolation, plus margin stripping and trailing
+whitespace stripping. **`'''`** is raw: margin stripping and nothing else —
+no escapes, no interpolation, trailing whitespace preserved. The existing
+`"`-interpolates / `'`-is-literal split extends to the triples unchanged,
+so the pair costs no new concept.
+
+**The margin is the closing delimiter's indentation**, and every non-blank
+content line must begin with it. Lines indented *deeper* keep the excess as
+data, which is what makes nested JSON and SQL work; a line indented less is
+an error. Blank and whitespace-only lines are exempt, since requiring the
+margin on them would fight every editor that strips trailing whitespace on
+save.
+
+**The rule that matters is that the margin is set by punctuation rather
+than by content.** Java's text blocks take the *minimum* indentation over
+all lines, and the failure is spooky: given three lines at indents 2, 2, 1
+with the closer at 2, the margin becomes 1 and the first two lines each
+silently gain a leading space — adding one line changed the value of the
+others, with no diagnostic. Setting the margin from the first content line
+fails the same way from the other end, plus the first line is often the
+unrepresentative one, a blank first line yields a margin of zero, and the
+closer's own indentation becomes meaningless so nothing visibly marks the
+margin at all. The closer cannot participate in either failure, because you
+never reorder it. Perl's `<<~` and Swift both landed here, and both landed
+here *after* shipping the unstripped form; Java is the outlier.
+
+**The margin is matched as a byte prefix, never as a column.** A column
+comparison requires a tab width, and §9 (R236) refuses to pick one —
+"tabs need no decision", which is also what keeps diagnostic tests free of
+a tab-width setting. So the test is whether the line begins with the
+closer's exact indentation bytes. That is stricter than leftness: a margin
+of four spaces rejects a line beginning with a tab, whose position is
+unknowable without the width nobody has chosen. The cost is real — such a
+line may render flush in the author's editor — and it is the right cost,
+because the alternative is a literal whose value depends on a setting the
+language deliberately does not have.
+
+**An error, because §3 forbids the third option.** "No warnings, ever"
+means a condition either stops the build or is not reported, so
+under-indentation is either `L0014` or silence. Every alternative design
+chose silence: min-indent silently reinterprets, and Kotlin's
+`"""` + `trimIndent()` relocates the computation into a function, where it
+becomes undiagnosable by construction — a function cannot complain about
+its input. That library shape was the serious rival, and it loses on the
+governing idea rather than on taste: remembering to call it is discipline,
+and the default value is the one nobody wants.
+
+**Delimiter placement is asymmetric, each pinned on the side facing the
+content.** The **opener** must end its line — trailing whitespace tolerated,
+then the newline — so the first content line is unexceptional and the
+margin applies uniformly from line one; anything may precede it, so
+`const s = """` is ordinary. The **closer** must begin its line after the
+margin; anything may follow it, so `""";` and `""".trim()` and `""", x)`
+all work. One consequence is worth having: content may contain `"""`
+anywhere *except* at the start of a line at exactly the margin, which
+removes most of the case for a variable-delimiter raw form.
+
+**`'''` has no escapes at all**, which is what "raw" should mean. `'…'`
+carries `\'` and `\\` for one reason — to put a quote inside — and the
+closer's line-start rule already solves that, a mid-line `'''` being
+ordinary content. With nothing left for an escape to buy, the form is every
+byte between the delimiters minus the margin, and `\` is an ordinary byte.
+It is also what makes stripping affordable in `"""`: **trailing whitespace
+is not durable in source.** Editors, `.editorconfig`, and CI hooks delete
+it, so a value that depends on it changes when someone saves the file, with
+nothing visible in the diff — and the Markdown hard break, the canonical
+argument for preserving it, is exactly the case that would break. `"""`
+therefore strips and `\u{20}` is the durable spelling; `'''` preserves, and
+says so at the call site, which is the honest signal to a reader and to a
+formatter that the content is fragile.
+
+**The margin is a trivia token, so nothing strips anything.** This is the
+implementation consequence and it pays for itself several times: §2's
+tiling holds with no special case (R242), the decoder concatenates content
+tokens and skips trivia rather than reimplementing the margin rule a second
+time where the two copies could drift, the formatter reindents by rewriting
+a trivia run — its native operation and §2's stated reason trivia exist at
+all — and **escapes survive by construction**, since trivia is only ever
+assigned to literal whitespace bytes and an `ESCAPE_PAIR` is content. There
+is no rule protecting `\t` from the trailing strip; there is nothing that
+could reach it. The `"""`/`'''` difference reduces to one classification
+bit: in `"""` a line's trailing whitespace is trivia, in `'''` it is
+content. Triples accordingly have **no whole-literal fast path** — they
+always take §6's delimited shape, because a triple always has margins to
+tokenize, which removes a decision rather than adding one.
+
+**The newline before the closer belongs to the delimiter** (Swift, Kotlin),
+so `"""` + `\nabc\n` + `"""` is `"abc"`, and a blank line before the closer
+supplies a trailing newline when one is wanted. Structurally this is one
+byte: the closing token spans `\n<margin>"""`. Java's reading — the newline
+is content — was rejected because opting out of it requires `\<newline>` as
+a line continuation, and R244 ruled that a backslash-newline is not a
+continuation. **`\<newline>` inside `"""` is therefore an unknown escape**
+(`L0005`). Adding the continuation later is backward-compatible; removing
+it would not be, and `\n` already spells the intent.
+
+**A splice suspends margin checking.** Inside `${…}` the content is code,
+where newlines are insignificant whitespace (lexical-structure §1), so a
+splice may span lines and its lines carry no margin obligation. The
+alternative would impose an offside rule in the one place Luna has none.
+R244's "splices inherit their literal's rule" stands unchanged and is
+satisfied here: the triple may span lines, so its splices may.
+
+**On the obvious objection — no, this is not significant indentation.**
+lexical-structure §1 commits to "no offside rule and no significant
+indentation", and that commitment is about *program structure*: nothing
+here changes where a statement or block begins, statements staying
+`;`-terminated. §1 already carves out literals ("whitespace is
+insignificant except as a token separator and inside literals"), and
+whitespace inside a string has always been data. The margin is nonetheless
+a genuinely new fourth thing — whitespace as **measurement**, a ruler
+declaring where data starts, neither separator nor data nor structure — and
+it is recorded as new rather than filed under the existing carve-out. It is
+contained: it exists only between the delimiters and cannot reach the
+grammar.
+
+Inventory: six new tokens, §0 going to **133 names over 137 rows** —
+`TRIPLE_DQ_OPEN`, `TRIPLE_DQ_CLOSE`, `TRIPLE_SQ_OPEN`, `TRIPLE_SQ_CLOSE`
+(delimiter, 6 → 10), `MARGIN` (trivia, 4 → 5), and `RAW_TEXT` (content,
+5 → 6). Categories stay at ten. `DQ_TEXT` gains a `\n` alternative in the
+triple modes, a line break inside a triple being content; `ESCAPE_PAIR`,
+`DOLLAR_TEXT`, and the three `INTERP_*` are reused unchanged, and stripped
+trailing whitespace is an ordinary `WHITESPACE` trivia token. §1 gains two
+modes, `TRIPLE_DQ_STRING` and `TRIPLE_SQ_STRING`, so the mode count goes
+5 → 7. §11 gains **`L0014`** (insufficient indentation) and **`L0015`**
+(content after a multi-line opener), reaching fifteen codes; an unterminated
+triple is `L0009`, already worded to cover any literal. **Bytes literals get
+no triple form** — binary data is not line-oriented and no use case asked —
+so `b"""` is an empty `BYTES` followed by a quote, as it is today.
+
+**R244's rule reaches its final form**, which is shorter than the version
+that shipped: *a literal may span lines exactly when its opener is more
+than one byte.* `~"`, `"""`, and `'''` may; `"`, `'`, and the backtick may
+not. That is not a coincidence dressed as a principle — it is the rationale
+R244 already gave for exempting the regex: a multi-byte opener is typed
+deliberately, where a stray single quote is the ordinary typo.
+
+Swept: `lexer.md` (§0's six new rows and the `DQ_TEXT` pattern, §1's mode
+table, §2 — `MARGIN` joins the trivia and "four" becomes five, §4's literal
+rules including R244's final form, §6's mode-internal attempt order, §8
+which gains an ordering item since `"""` must be attempted before `"`,
+§10's counts, §11's two new codes, F1/F3 on the absent fast path),
+`lexical-structure.md` §1 (newlines load-bearing in a fourth place, and the
+significant-indentation caveat above), `string.md` (the two forms and their
+escape-table rows). **Not yet swept, outside the spec**: `oracle/token`'s
+inventory and `oracle/lexer`. The three-party pin fails until they follow,
+and that failure is the intended signal rather than an oversight — the
+spec moved first, by design. **Not ruled here**: which phase raises the
+decode-time escape codes (R243's open, and `L0014` joins the same
+question); whether `\<newline>` later becomes a continuation; and whether a
+variable-delimiter raw form is ever needed for content whose line begins
+`'''` at the margin.
+
 ---
 
 ## Still open (out of scope of these rulings)

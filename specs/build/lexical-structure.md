@@ -30,13 +30,19 @@ pass through as UTF-8 and are never interpreted as syntax.
   0** meaningful, which the shebang rule (§3) depends on.
 - **Whitespace is insignificant** except as a token separator and inside literals. Spaces,
   tabs, carriage returns, and newlines (`[ \t\r\n]+`, lexer §2) carry no meaning of their
-  own; there is no offside rule and no significant indentation.
+  own; there is no offside rule and no significant indentation. The multi-line literals
+  (`"""`, `'''`, R246) are worth naming as the apparent exception they are not: their
+  **margin** is whitespace used as *measurement* — a ruler declaring where a line's data
+  begins — which is a fourth role beyond separator, data, and structure, and it is confined
+  entirely between the delimiters. Nothing about it decides where a statement or a block
+  begins, and it cannot reach the grammar.
 - **Newlines are not significant.** Statements are `;`-terminated (every spec example), so a
-  line break is just whitespace. A newline is load-bearing in exactly three places: it ends a
-  line comment, it ends a shebang line (§3), and it ends a string, bytes, or command literal
-  (R244, lexer §4) — the regex literal being the one form that may span lines, for its `x`
-  flag. The third is why an unclosed quote costs one diagnostic on the line it was opened on
-  rather than the remainder of the file.
+  line break is just whitespace. A newline is load-bearing in exactly four places: it ends a
+  line comment, it ends a shebang line (§3), it ends a string, bytes, or command literal
+  (R244, lexer §4), and it separates the content lines of a multi-line literal (R246). The
+  third is why an unclosed quote costs one diagnostic on the line it was opened on rather
+  than the remainder of the file; the fourth is available only to the literals whose opener
+  is more than one byte — `~"`, `"""`, `'''` — which is the same fact stated forwards.
 - The grammar imposes **no** line-length, identifier-length, or file-size limit.
 
 Identifiers are **case-sensitive** (§2); nothing else in the source text is.

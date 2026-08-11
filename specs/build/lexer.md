@@ -29,7 +29,8 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 
 | Token | Name | Category | Go regex (RE2) |
 |-|-|-|-|
-| spaces, tabs, newlines | `WHITESPACE` | trivia §2 | `[ \t\r\n]+` — one token per maximal run |
+| spaces, tabs, newlines | `WHITESPACE` | trivia §2 | `[ \t\r\n]+` — one token per maximal run. Also the stripped trailing whitespace of a `"""` line (R246) |
+| a line's leading margin | `MARGIN` | trivia §2 | the closing delimiter's exact indentation bytes, at the start of every content line of a triple literal (R246); a non-blank line not beginning with them is `L0014` |
 | `#!…` (first line only) | `SHEBANG` | trivia §2 | `\A#![^\n]*` |
 | `// …` | `LINE_COMMENT` | trivia §2 | `//[^\n]*` |
 | `/* … */` | `BLOCK_COMMENT` | trivia §2 | `(?s)/\*.*?\*/` |
@@ -88,7 +89,7 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `0o755`, `0o1_7` | `INT_OCT` | literal §4 | `0o[0-7](?:_?[0-7])*` |
 | `3.14`, `2.5e10` | `DOUBLE` (point form) | literal §4 | `(?:0\x7c[1-9](?:_?[0-9])*)\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?` |
 | `6.022e23`, `1e-9` | `DOUBLE` (exponent form) | literal §4 | `(?:0\x7c[1-9](?:_?[0-9])*)[eE][+-]?[0-9]+` |
-| `'literal'` | `STRING_SQ` | literal §4 | `'[^'\\\n]*(?:\\[^\n][^'\\\n]*)*'` — newline-bounded (R244) |
+| `'literal'` | `STRING_SQ` | literal §4 | `'[^'\\\n]*(?:\\[^\n][^'\\\n]*)*'` — newline-bounded (R244); attempted **after** `'''` (§8) |
 | `"text $x ${e}"` | `STRING_DQ` | literal §4 | `"[^"\\\n]*(?:\\[^\n][^"\\\n]*)*"` — newline-bounded (R244); **only valid when the literal contains no `${`**, otherwise mode-lex (F1) |
 | `b"GET \x89"` | `BYTES` (dq) | literal §4 | `b"[^"\\\n]*(?:\\[^\n][^"\\\n]*)*"` — newline-bounded (R244) |
 | `b'GET '` | `BYTES` (sq) | literal §4 | `b'[^'\\\n]*(?:\\[^\n][^'\\\n]*)*'` — newline-bounded (R244) |
@@ -143,7 +144,11 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `,` | `COMMA` | punctuation §5 | `,` |
 | `;` | `SEMICOLON` | punctuation §5 | `;` |
 | `:` | `COLON` | punctuation §5 | `:` |
-| `"` | `DQ_OPEN` | delimiter §6 | `"` — pushes `DQ_STRING`; mode-path only |
+| `"""` | `TRIPLE_DQ_OPEN` | delimiter §6 | `"""[ \t\r]*\n` — pushes `TRIPLE_DQ_STRING` (R246); the opener owns to the end of its line, and content after it is `L0015` |
+| `<margin>"""` | `TRIPLE_DQ_CLOSE` | delimiter §6 | `\n[ \t]*"""` — pops `TRIPLE_DQ_STRING`; the token spans the preceding newline, which is why that newline is not content (R246) |
+| `'''` | `TRIPLE_SQ_OPEN` | delimiter §6 | `'''[ \t\r]*\n` — pushes `TRIPLE_SQ_STRING` (R246) |
+| `<margin>'''` | `TRIPLE_SQ_CLOSE` | delimiter §6 | `\n[ \t]*'''` — pops `TRIPLE_SQ_STRING` |
+| `"` | `DQ_OPEN` | delimiter §6 | `"` — pushes `DQ_STRING`; mode-path only; attempted **after** `"""` (§8) |
 | `~"` | `REGEX_OPEN` | delimiter §6 | `~"` — pushes `REGEX_BODY` (R237); mode-path only |
 | `` ` `` | `CMD_OPEN` | delimiter §6 | ``` ` ``` — pushes `COMMAND`; mode-path only |
 | `"` | `DQ_CLOSE` | delimiter §6 | `"` — pops `DQ_STRING` |
@@ -153,7 +158,8 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `$name` | `INTERP_IDENT` | interp §6 | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
 | `}` | `INTERP_CLOSE` | interp §6 | the `}` returning brace depth to zero; pops to the enclosing literal mode |
 | `\n`, `\$`, `\u{1F600}`, … | `ESCAPE_PAIR` | content §6 | `\\u\{[0-9a-fA-F]{1,6}\}\x7c\\[^\n]` in `DQ_STRING`, `\\[^\n]` in `COMMAND`, `(?s)\\.` in `REGEX_BODY` — one backslash-pair, except that `DQ_STRING` matches the **whole** `\u{…}` (R245), that being the one context where the codepoint escape is legal (string §5.1); elsewhere a bare `\u` is an ordinary unknown escape and one pair is the right span for it. A backslash-newline is not a pair in a newline-bounded form (R244), so a trailing `\` cannot continue the literal. R150 gives commands `` \` `` `\\` `\$` (command §2); decoding per the authoritative table, string §5.1 |
-| text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$\n]+` — newline-bounded (R244) |
+| text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$\n]+` in `DQ_STRING`, newline-bounded (R244); `[^"\\$\n]+\x7c\n` in `TRIPLE_DQ_STRING`, a line break there being content (R246) |
+| text run (raw triple) | `RAW_TEXT` | content §6 | `[^'\n]+\x7c\n` — `TRIPLE_SQ_STRING` only: no escapes, no interpolation, so `\` and `$` are ordinary bytes (R246) |
 | lone `$` | `DOLLAR_TEXT` | content §6 | `\$` — a `$` that starts no interp form is literal content; one name across all three modes, as `ESCAPE_PAIR` is (in commands: `$` not followed by `{`, command §2.2) |
 | text run (regex) | `REGEX_TEXT` | content §6 | `[^"\\$]+` — newlines included, regex being the one form that may span lines (R244) |
 | text run (command) | `CMD_TEXT` | content §6 | ``[^`\\$\n]+`` — newline-bounded (R244); backslash excluded since R150, commands having escapes |
@@ -171,19 +177,29 @@ pattern (see flags F1–F3). The lexer therefore runs a small mode stack:
 |-|-|-|
 | `DEFAULT` | start of file | — |
 | `DQ_STRING` | `"` (`DQ_OPEN`, §6) | unescaped `"` (`DQ_CLOSE`), **or a raw newline** — `L0009` (R244) |
+| `TRIPLE_DQ_STRING` | `"""` ending its line (`TRIPLE_DQ_OPEN`, R246) | a line whose margin is followed by `"""` (`TRIPLE_DQ_CLOSE`) |
+| `TRIPLE_SQ_STRING` | `'''` ending its line (`TRIPLE_SQ_OPEN`, R246) | a line whose margin is followed by `'''` (`TRIPLE_SQ_CLOSE`) |
 | `REGEX_BODY` | `~"` (`REGEX_OPEN`, R237) | unescaped `"`, then flags (`REGEX_CLOSE`) — the one mode a newline does not end |
 | `COMMAND` | `` ` `` (`CMD_OPEN`) | unescaped `` ` `` (`CMD_CLOSE`), **or a raw newline** — `L0009` (R244) |
 | `INTERP_EXPR` | `${` inside any of the three modes above | the `}` that returns brace depth to zero (depth counted by the lexer), or the enclosing literal's newline (R244) |
 
 `INTERP_EXPR` lexes with the full `DEFAULT` rule set. Single-quoted strings and `b"..."`
 bytes literals do **not** interpolate (string §5, bytes §7) and are handled by a single
-regex each.
+regex each. Inside a splice **margin checking is suspended** (R246): the content there is
+code, where newlines are insignificant (lexical-structure §1), so a `${…}` may span lines
+and its lines carry no margin obligation — the alternative would impose an offside rule in
+the one place Luna has none.
+
+The two triple modes are the multi-line literals (R246). `TRIPLE_DQ_STRING` interpolates and
+escapes exactly as `DQ_STRING` does; `TRIPLE_SQ_STRING` does neither, and holds a single
+`RAW_TEXT` run per line. Neither has a whole-literal fast path: a triple always has margins
+to tokenize, so it always takes the delimited shape (§6).
 
 ## 2. Whitespace and comments — the trivia tokens
 
-`WHITESPACE`, `SHEBANG`, `LINE_COMMENT`, `BLOCK_COMMENT` (§0, categorized `trivia §2`).
-**All four are emitted, not skipped (R236)**, and collectively they are the **trivia**
-tokens. They carry no meaning — whitespace is insignificant and comments are inert
+`WHITESPACE`, `MARGIN`, `SHEBANG`, `LINE_COMMENT`, `BLOCK_COMMENT` (§0, categorized
+`trivia §2`). **All five are emitted, not skipped (R236)**, and collectively they are the
+**trivia** tokens. They carry no meaning — whitespace is insignificant and comments are inert
 (lexical-structure §1, §3) — so every consumer but one drops them; the lexer emits them anyway,
 because the formatter (`luna -f`, compiler §0.1) cannot reproduce what the lexer discarded, and
 it is the only component that needs them. The parser filters trivia from its view, which is one
@@ -191,6 +207,18 @@ predicate over the stream and cheaper than maintaining a second lexer mode that 
 Fidelity rides on the **span**, not on token kinds: a trivia token carries a byte range into the
 retained source (§9), so one `WHITESPACE` run reports its exact bytes — tabs versus spaces, `\n`
 versus `\r\n` — with no need for per-character token kinds to distinguish them.
+
+`MARGIN` is the newest and the least obvious, and it belongs here by the same definition
+(R246): the indentation stripped from a multi-line literal's content lines is *layout*, not
+data, so it carries no meaning and only the formatter needs it — which is why reindenting a
+triple literal is the ordinary trivia rewrite rather than a special case. Emitting it is what
+makes stripping a **classification** rather than a transformation: nothing removes the margin,
+the decoder simply concatenates content and skips trivia, so the rule exists in one place
+instead of being implemented twice in two places that must agree. Stripped trailing whitespace
+in a `"""` line is ordinary `WHITESPACE` for the same reason, and the whole `"""`-versus-`'''`
+difference reduces to whether a line's trailing whitespace is classified as trivia or content.
+Escapes are safe from all of this by construction: trivia is only ever assigned to literal
+whitespace bytes, and an `ESCAPE_PAIR` is content, so no rule is needed to protect `\t`.
 
 Two consequences are worth stating. **Token spans tile the source exactly** — monotonic, no
 gaps, summing to the file length — and since R242 that holds on **invalid** input as well:
@@ -266,6 +294,12 @@ of words. They **denote** literal values all the same; the distinction is lexica
 `MINUS KW_INF` (unary minus, tier 2; `0..-1` parses as `0..(-1)`, associativity §4). There is no
 unary `+`, so positive infinity is written `inf`, never `+inf`. Regex flags are exactly `i m s x b` (regex §3).
 
+**A literal may span lines exactly when its opener is more than one byte.** That is R244's
+rule in the form R246 left it: `~"`, `"""`, and `'''` may; `"`, `'`, and the backtick may
+not. The correspondence is the rationale rather than a coincidence — a multi-byte opener is
+typed deliberately, where a stray single quote is the ordinary typo, and it is the stray one
+that would otherwise swallow the rest of a file.
+
 **A raw newline ends every literal but the regex (R244).** `'…'`, `"…"`, `b"…"`, `b'…'`, and
 the backtick command literal are bounded by the line they open on; a newline before the closing
 delimiter raises `L0009` with its caret on the *opener*, and the newline itself is left to lex as
@@ -279,6 +313,35 @@ either. **The `x`-flag verbose form is the exemption**: spelling a long pattern 
 that flag's purpose (regex §4), so `REGEX` keeps `(?s)` and its span pattern is unaffected,
 seeking only the unescaped closing `"` — safe here because `~"` is a deliberate two-byte opener
 rather than the single stray byte the rule exists to contain.
+
+**Multi-line literals, ruled in full (R246).** `"""` is `"…"` with more lines — same escape
+table (string §5.1), same interpolation — and `'''` is raw: no escapes, no interpolation, `\`
+and `$` ordinary bytes. Six rules:
+
+- **The opener ends its line**; trailing whitespace is tolerated, then the newline. Anything
+  may precede it, so `const s = """` is ordinary. Content after it is `L0015`. This is what
+  makes the first content line unexceptional, so the margin applies uniformly from line one.
+- **The closer begins its line**, after the margin; anything may follow it, so `""";` and
+  `""".trim()` and `""", x)` all work. So content may contain `"""` anywhere *except* at the
+  start of a line at exactly the margin.
+- **The margin is the closer's indentation**, matched as a **byte prefix** and never as a
+  column — a column comparison needs a tab width and §9 refuses to pick one. A non-blank
+  content line that does not begin with those exact bytes is `L0014`; a line indented deeper
+  keeps the excess as data; blank and whitespace-only lines are exempt.
+- **The newline before the closer belongs to the delimiter**, so the closing token spans
+  `\n<margin>"""` and a value ends without a trailing newline unless a blank line supplies
+  one. `\<newline>` is accordingly an unknown escape (`L0005`), not a continuation — `\n`
+  already spells the intent, and adding the continuation later stays backward-compatible.
+- **`"""` strips each line's trailing whitespace; `'''` keeps it.** Trailing whitespace is not
+  durable in source — editors, `.editorconfig`, and CI hooks delete it — so a `"""` value
+  never depends on bytes that get taken away, and `\u{20}` is the durable spelling. `'''` is
+  where whitespace-sensitive content goes, and saying so at the call site is the signal a
+  reader and a formatter need.
+- **A splice suspends the margin** (§1): inside `${…}` the content is code, so it may span
+  lines with no margin obligation.
+
+Bytes literals have **no triple form**: binary data is not line-oriented, so `b"""` is an
+empty `BYTES` followed by a quote, exactly as it is today.
 
 **The numeric grammar, ruled in full (R238, closing G2).** Four rules, each chosen against a
 known footgun rather than for taste:
@@ -356,6 +419,18 @@ because the two interpolation forms are attempted before it. This is also why th
 exclude `$` from their classes: a run that could swallow `$` would consume `${` before
 `INTERP_OPEN` ever saw it.
 
+**The triple modes add two line-shaped steps** (R246), and they come first because both are
+about position rather than content. At a **newline**, the mode's closer is attempted before
+anything else: if the following line's indentation is followed by `"""` (or `'''`), that whole
+run — `\n`, margin, delimiter — is the closing token, which is how the last newline stops being
+content. Otherwise the newline is content and the next line begins with a `MARGIN` trivia token,
+whose bytes must be the closer's indentation exactly; a non-blank line that does not begin with
+them is `L0014`. Then the ordinary chain above runs, with one addition in `TRIPLE_DQ_STRING`:
+whitespace immediately before a newline is split off as `WHITESPACE` trivia rather than joining
+the text run, which is the whole of "`\"\"\"` strips trailing whitespace" (§4).
+`TRIPLE_SQ_STRING` skips the `$` and escape chain entirely — it has neither — and its line is one
+`RAW_TEXT` run, trailing whitespace included.
+
 ## 7. Identifiers
 
 The identifier grammar is now formal (lexical-structure §2): ASCII bytes only, no Unicode
@@ -371,18 +446,21 @@ Attempt order within `DEFAULT` / `INTERP_EXPR`:
 
 1. `SHEBANG` (only at byte offset 0), then `WHITESPACE`, `LINE_COMMENT`, `BLOCK_COMMENT` —
    comments before anything `/`-initial.
-2. `BYTES` — before `IDENT`, or `b"…"` lexes as `IDENT(b)` + string.
-3. `REGEX` — `~"`-initial and self-identifying (R237): `~` is a token in no other
+2. `TRIPLE_DQ_OPEN` and `TRIPLE_SQ_OPEN` — before `DQ_OPEN`/`STRING_DQ` and
+   `STRING_SQ` respectively (R246), or `"""` lexes as an empty string followed by a
+   quote. Maximal munch, and the only ordering the triples need.
+3. `BYTES` — before `IDENT`, or `b"…"` lexes as `IDENT(b)` + string.
+4. `REGEX` — `~"`-initial and self-identifying (R237): `~` is a token in no other
    position, so no ordering constraint applies and no context is consulted.
-4. `DOUBLE` (both rows), then `INT_HEX`, `INT_BIN`, `INT_OCT`, then the leading-zero error
+5. `DOUBLE` (both rows), then `INT_HEX`, `INT_BIN`, `INT_OCT`, then the leading-zero error
    production, then `INT_DEC` — doubles first so `1.5` is one token; the radix prefixes
    before decimal so `0x10` doesn't lex as `INT(0)` + `IDENT(x10)`; and the error
    production before `INT_DEC` so `0755` is diagnosed rather than split into adjacent
    integers (§4, R238).
-5. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?->` › `?.` › `?`; `...` ›
+6. Operators, longest lexeme first: `???=` › `???` › `??=` › `??` › `?->` › `?.` › `?`; `...` ›
    `..<` › `..` › `.`; `||` › `|`; `&&` › `&`; `=>` and `==` › `=`; `->` and
    `-=` › `-`; `@@` › `@`; `!=` › `!`; `<=` › `<`; `>=` › `>`; `#[` before any bare `#`.
-6. Keywords (with `KW_MATCH_BANG` before `KW_MATCH`, and `KW_YIELD_FROM` before
+7. Keywords (with `KW_MATCH_BANG` before `KW_MATCH`, and `KW_YIELD_FROM` before
    `KW_YIELD`), then `WILDCARD`, then `IDENT` — or, equivalently, `IDENT` first with a
    keyword lookup, plus a one-token peek for `match!` and a whitespace-only peek for
    `yield from`.
@@ -435,10 +513,10 @@ source of truth. Its purpose is mechanical: a count that can be asserted in a te
 that makes an omission visible. R232 fixed a "47 patterns" claim standing over a 49-row table;
 this section exists so that class of drift fails loudly instead of hiding.
 
-**127 tokens over 131 rows.** By §0's category column: **4** trivia, **49** keyword (47
+**133 tokens over 137 rows.** By §0's category column: **5** trivia, **49** keyword (47
 word-shaped plus the compounds `KW_MATCH_BANG` and `KW_YIELD_FROM`), **10** literal, **37**
-operator, **10** punctuation, **6** delimiter (three openers, three closers), **3** interp,
-**5** content, **2** identifier, **1** error.
+operator, **10** punctuation, **10** delimiter (five openers, five closers), **3** interp,
+**6** content, **2** identifier, **1** error.
 
 **Rows exceed names in three places**, which is where a naive recount goes wrong. `DOUBLE`
 owns two rows (point and exponent form), `BYTES` owns two (`b"…"`, `b'…'`), and `INVALID` owns
@@ -450,9 +528,9 @@ Every row now names a token (R242). The arithmetic used to carry a third case, r
 not tokens at all, and it is gone: the error productions emit `INVALID` alongside their
 diagnostic rather than emitting nothing, which is what makes §2's tiling total.
 
-**Not tokens, and deliberately absent:** the five *modes* of §1 (`DEFAULT`, `DQ_STRING`,
-`REGEX_BODY`, `COMMAND`, `INTERP_EXPR` — note `COMMAND` names both a mode and a token, the one
-collision in the vocabulary). Nothing else: since R242 every §0 row names a token, including
+**Not tokens, and deliberately absent:** the seven *modes* of §1 (`DEFAULT`, `DQ_STRING`,
+`TRIPLE_DQ_STRING`, `TRIPLE_SQ_STRING`, `REGEX_BODY`, `COMMAND`, `INTERP_EXPR` — note
+`COMMAND` names both a mode and a token, the one collision in the vocabulary). Nothing else: since R242 every §0 row names a token, including
 the three that also raise a diagnostic.
 
 `DOLLAR_TEXT` was **found by compiling this table** (R239): §6's lone-`$` row carried a pattern
@@ -485,6 +563,8 @@ per-instance and volatile. Tests pin the code and the primary span, never the pr
 | `L0011` | Unterminated interpolation | End of file with `INTERP_EXPR` brace depth above zero | §6 |
 | `L0012` | Unexpected character | A byte that begins no token in the current mode (`^`, a bare `\`, a `$` in `DEFAULT`) | §0 |
 | `L0013` | Malformed codepoint escape | `\u` not followed by `{`, 1–6 hex digits, `}` — `\u`, `\u{}`, `\u{XYZ}`, `\u{41` (R245). Distinct from `L0006`, which is a **well-formed** escape naming an invalid scalar | §0, string §5.1 |
+| `L0014` | Insufficient indentation | A non-blank content line of a `"""` or `'''` literal that does not begin with the margin — the closing delimiter's exact indentation bytes (R246). Mixed tabs and spaces land here, byte-matching being what lets §9 keep refusing to pick a tab width | §4, R246 |
+| `L0015` | Content after a multi-line opener | Anything but whitespace between a `"""` or `'''` opener and its newline; the opener owns the rest of its line (R246), which is what makes the first content line unexceptional | §4, R246 |
 
 **An `INVALID` token covers bytes no other production claims** (§0, R242) — which is a test
 about the *stream*, not about this table: a diagnostic does not oblige the lexer to emit
@@ -532,6 +612,13 @@ regex in §4 may be used only as a fast path when a scan finds no `${` before th
 quote. Since R244 that scan is **line-local** — the literal cannot outlive the line it opens
 on — so the choice between §6's two shapes is made from bounded lookahead rather than from a
 scan that may run to end of file.
+
+The multi-line forms have **no fast path at all** (R246), and neither does the command literal's
+triple counterpart, there being none. A `"""` or `'''` literal always takes the delimited shape,
+because its margins are tokens (§2) and there is therefore always interior structure to emit —
+one fewer decision rather than one more. Their lookahead is a different question and still
+bounded: the scanner must find the closing line to learn the margin *before* lexing the body,
+which is the same shape as the `${` probe above, run once per literal.
 
 **F2 — regex literals are prefixed, and they interpolate.** A regex literal is `~"…"` (R237,
 regex §2). The sigil is what keeps this simple: `~` is a token in no other position, so

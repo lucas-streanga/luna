@@ -123,11 +123,21 @@ their shared rows):
 | `` `…` `` command literal | `` \` `` `\\` `\$` |
 | `~"…"` regex literal | the regex spec's own escape language (RE2's), passed through undecoded; Luna decodes exactly one escape, `\"`, so a quote can appear inside the delimiters (regex §2, R237) |
 
-**A backslash-newline is not an escape pair** (R244). A raw newline ends a string literal —
-both quote styles, and bytes and command literals with them — so a trailing `\` cannot carry
-the literal onto the next line; the newline raises `L0009` with its caret on the opening quote.
-Multi-line text is written with `\n`. The regex literal is the sole exemption, for its `x` flag
-(regex §4); whether Luna gains a dedicated multi-line form is open.
+**A backslash-newline is not an escape pair** (R244, R246). A raw newline ends a single-quote
+or double-quote string literal — and bytes and command literals with them — so a trailing `\`
+cannot carry the literal onto the next line; the newline raises `L0009` with its caret on the
+opening quote. That holds inside `"""` too, where `\<newline>` is an unknown escape rather
+than a line continuation (`L0005`): `\n` already spells the intent, and leaving it an error
+keeps the continuation addable later without breaking anything.
+
+**Multi-line text has its own forms** (R246, lexer §4): `"""…"""`, which is a double-quoted
+string with more lines — same escape table, same interpolation — and `'''…'''`, which is raw:
+no escapes at all, no interpolation, `\` and `$` ordinary bytes. Both strip a **margin**, the
+closing delimiter's indentation, from every content line; `"""` also strips each line's
+trailing whitespace, where `'''` preserves it, which is what makes `'''` the form for
+whitespace-sensitive content. `'''` needs no escapes because the closer must begin its line,
+so a mid-line `'''` is ordinary content and the containment problem `\'` solves for `'…'`
+does not arise.
 
 Three rules, each ruled (R150):
 
