@@ -1,0 +1,21 @@
+a / b; a /= b; // c
+/* d */
+---
+IDENT 0..1 "a"
+WHITESPACE 1..2 " "
+SLASH 2..3 "/"
+WHITESPACE 3..4 " "
+IDENT 4..5 "b"
+SEMICOLON 5..6 ";"
+WHITESPACE 6..7 " "
+IDENT 7..8 "a"
+WHITESPACE 8..9 " "
+SLASH_ASSIGN 9..11 "/="
+WHITESPACE 11..12 " "
+IDENT 12..13 "b"
+SEMICOLON 13..14 ";"
+WHITESPACE 14..15 " "
+LINE_COMMENT 15..19 "// c"
+WHITESPACE 19..20 "\n"
+BLOCK_COMMENT 20..27 "/* d */"
+WHITESPACE 27..28 "\n"

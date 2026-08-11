@@ -235,9 +235,12 @@ Both comment forms are specified in lexical-structure §3. Block comments are C-
 **not** nest, by ruling, so §0's non-nesting pattern is the complete rule (F4). There
 is no doc-comment syntax; documentation rides on attributes.
 
-A **shebang** — `#!` as the first two bytes of the file — spans through the next newline as
-one `SHEBANG` trivia token (emitted, then dropped by every consumer but the formatter, R236),
-so a `.luna` file can be made executable and run directly (R85). It is recognized
+A **shebang** — `#!` as the first two bytes of the file — runs to the byte *before* the next
+newline as one `SHEBANG` trivia token (emitted, then dropped by every consumer but the
+formatter, R236), so a `.luna` file can be made executable and run directly (R85). The newline
+itself is left outside, joining the `WHITESPACE` run that follows, exactly as `LINE_COMMENT`
+leaves it: §0's two patterns are both `[^\n]*`-tailed, and §9 gives the reason — a newline
+needs no token of its own, its bytes being recoverable from whatever run contains them. It is recognized
 **only** at byte offset 0 (the `\A` anchor) and **only** as `#!`; a bare `#` is never a
 comment (the `#`-for-comments spelling was weighed and rejected, R85), and `#` otherwise
 appears solely in `#[` (attributes §3, §5).
@@ -571,7 +574,12 @@ about the *stream*, not about this table: a diagnostic does not oblige the lexer
 anything, and several of these raise no token of their own (R243). `L0003`, `L0004`, `L0007`,
 `L0008`, and `L0012` do, nothing else claiming the bytes they condemn; `L0009` and `L0010` do
 on the span-regex fast path, where a literal or comment that never closed leaves the
-single-token reading unable to complete. `L0005`, `L0006`, and `L0013` do **not** — an escape sits inside
+single-token reading unable to complete — deliberately, and not as a fallback waiting to be
+written (R247). That path is taken *precisely* when the literal holds no `${`, so there is no
+interior structure to preserve, and one `INVALID` says what is true where a text token would
+assert the bytes are string content. The mode path emits real tokens and no `INVALID` for the
+same failure, which is not an inconsistency: it is reached only when a splice is present, and
+the splice really was lexed correctly. `L0005`, `L0006`, and `L0013` do **not** — an escape sits inside
 a well-formed literal, already covered by its `STRING_SQ` or its `ESCAPE_PAIR`, and an `INVALID`
 over it would overlap. Nor does `L0011`, every byte of the splice having been emitted as it was
 scanned. `L0001` and `L0002` are raised at ingress, where there is no stream at all.

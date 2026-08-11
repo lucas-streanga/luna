@@ -74,11 +74,12 @@ func Lex(f *source.File) ([]token.Token, diagnostic.List) {
 // prelude and halts at the first non-import declaration, making that stage O(file
 // head) rather than O(file). Draining a whole file through Lex would defeat it.
 type Scanner struct {
-	f      *source.File
-	src    string // f.Text(), hoisted: every step of the scan indexes it
-	pos    int
-	errors diagnostic.List
-	modes  []mode
+	f        *source.File
+	src      string // f.Text(), hoisted: every step of the scan indexes it
+	pos      int
+	errors   diagnostic.List
+	modes    []mode
+	finished bool // finish has reported the frames left open at end of input
 }
 
 // New starts a scanner over a validated file. The file must already have passed
@@ -99,23 +100,12 @@ func New(f *source.File) *Scanner {
 // Errors still terminates and still sees a stream that tiles the input.
 func (s *Scanner) Next() (token.Token, bool) {
 	if s.pos >= len(s.src) {
+		s.finish()
 		return token.Token{}, false
 	}
 
 	start := s.pos
-	var kind token.Kind
-	switch k := s.mode().kind; k {
-	case modeDefault, modeInterpExpr:
-		kind = s.lexDefault()
-	case modeDQString:
-		kind = s.lexDQString()
-	case modeRegexBody:
-		kind = s.lexRegexBody()
-	case modeCommand:
-		kind = s.lexCommandBody()
-	default:
-		panic(fmt.Sprintf("lexer: unknown mode %d", k))
-	}
+	kind := s.lex()
 
 	// §11's rule, checked rather than assumed: one token per step covering at least
 	// one byte. It is the whole of what makes the scan terminate, so it is asserted in
@@ -127,18 +117,50 @@ func (s *Scanner) Next() (token.Token, bool) {
 	return token.Token{Kind: kind, Offset: start, Len: s.pos - start}, true
 }
 
+// lex runs the current mode's scanner. It is separate from Next because a mode that ends
+// without consuming anything — a raw newline closing a string (R244) — pops and calls
+// this again, so the token comes from the mode underneath. That recursion is bounded by
+// the stack depth, every step popping, and DEFAULT never pops.
+func (s *Scanner) lex() token.Kind {
+	switch k := s.mode().kind; k {
+	case modeDefault, modeInterpExpr:
+		return s.lexDefault()
+	case modeDQString:
+		return s.lexDQString()
+	case modeRegexBody:
+		return s.lexRegexBody()
+	case modeCommand:
+		return s.lexCommandBody()
+	default:
+		panic(fmt.Sprintf("lexer: unknown mode %d", k))
+	}
+}
+
+// finish reports the literals and interpolations still open at end of input — one
+// diagnostic per frame, outermost first, since source order is what a reader wants and
+// each frame names a construct that really was left open.
+//
+// It runs once. Next may be called again after returning false, and a caller that does
+// should not accumulate duplicates.
+func (s *Scanner) finish() {
+	if s.finished {
+		return
+	}
+	s.finished = true
+	for _, m := range s.modes[1:] {
+		if m.kind == modeInterpExpr {
+			s.error(diagnostic.UnterminatedInterpolation, m.open, m.openLen,
+				"unterminated interpolation")
+			continue
+		}
+		s.error(diagnostic.UnterminatedLiteral, m.open, m.openLen,
+			"unterminated %s literal", m.kind.what())
+	}
+}
+
 // Errors returns the diagnostics collected so far. During a scan it grows; after the
 // scan completes it is the file's full set.
 func (s *Scanner) Errors() diagnostic.List { return s.errors }
-
-// The literal modes (§1, §6) are not implemented yet — they are the mode stack's half
-// of the lexer, and lexDefault reaches them only for a literal that actually contains
-// a `${`. Failing loudly there is deliberate: the alternative, letting §0's span
-// pattern close the literal at the first quote it sees, would mis-tokenize the rest of
-// the file silently, which is precisely what F1 exists to warn about.
-func (s *Scanner) lexDQString() token.Kind    { panic("lexer: DQ_STRING mode is unimplemented") }
-func (s *Scanner) lexRegexBody() token.Kind   { panic("lexer: REGEX_BODY mode is unimplemented") }
-func (s *Scanner) lexCommandBody() token.Kind { panic("lexer: COMMAND mode is unimplemented") }
 
 // mode is one frame of the lexer's mode stack (§1).
 //
@@ -148,7 +170,13 @@ func (s *Scanner) lexCommandBody() token.Kind { panic("lexer: COMMAND mode is un
 // records which literal is open and, inside an interpolation, how deep the braces are.
 type mode struct {
 	kind  modeKind
-	depth int // brace depth inside interpModeExpr; the } returning it to zero closes the splice
+	depth int // brace depth inside modeInterpExpr; the } returning it to zero closes the splice
+
+	// Where the frame was opened. Kept because every diagnostic about an unclosed
+	// construct wants its caret on the *opener* — that is what went unclosed — and by
+	// the time the failure is known the scanner is somewhere else entirely, at a
+	// newline or at end of input.
+	open, openLen int
 }
 
 type modeKind uint8
@@ -161,11 +189,28 @@ const (
 	modeInterpExpr
 )
 
+// what names the construct for an unterminated-literal message. §11 requires the
+// description to say which kind of literal it was.
+func (k modeKind) what() string {
+	switch k {
+	case modeDQString:
+		return "string"
+	case modeRegexBody:
+		return "regex"
+	case modeCommand:
+		return "command"
+	}
+	return "unknown"
+}
+
 // mode returns the innermost frame. The pointer is into the stack, so a caller may
 // adjust its brace depth in place; it is invalidated by the next push.
 func (s *Scanner) mode() *mode { return &s.modes[len(s.modes)-1] }
 
-func (s *Scanner) push(k modeKind) { s.modes = append(s.modes, mode{kind: k}) }
+// push opens a frame, recording where its delimiter began.
+func (s *Scanner) push(k modeKind, open, openLen int) {
+	s.modes = append(s.modes, mode{kind: k, open: open, openLen: openLen})
+}
 
 func (s *Scanner) pop() { s.modes = s.modes[:len(s.modes)-1] }
 

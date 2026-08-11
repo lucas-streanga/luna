@@ -1,0 +1,18 @@
+let r = ~"^${p}\d+"im;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "r"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+REGEX_OPEN 8..10 "~\""
+REGEX_TEXT 10..11 "^"
+INTERP_OPEN 11..13 "${"
+IDENT 13..14 "p"
+INTERP_CLOSE 14..15 "}"
+ESCAPE_PAIR 15..17 "\\d"
+REGEX_TEXT 17..18 "+"
+REGEX_CLOSE 18..21 "\"im"
+SEMICOLON 21..22 ";"
+WHITESPACE 22..23 "\n"

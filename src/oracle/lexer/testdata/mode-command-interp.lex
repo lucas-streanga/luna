@@ -1,0 +1,17 @@
+let c = `grep ${p} f.txt`;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "c"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+CMD_OPEN 8..9 "`"
+CMD_TEXT 9..14 "grep "
+INTERP_OPEN 14..16 "${"
+IDENT 16..17 "p"
+INTERP_CLOSE 17..18 "}"
+CMD_TEXT 18..24 " f.txt"
+CMD_CLOSE 24..25 "`"
+SEMICOLON 25..26 ";"
+WHITESPACE 26..27 "\n"

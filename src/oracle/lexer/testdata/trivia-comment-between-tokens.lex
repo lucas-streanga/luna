@@ -1,0 +1,17 @@
+let /*a*/ x /*b*/ = /*c*/ 1;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+BLOCK_COMMENT 4..9 "/*a*/"
+WHITESPACE 9..10 " "
+IDENT 10..11 "x"
+WHITESPACE 11..12 " "
+BLOCK_COMMENT 12..17 "/*b*/"
+WHITESPACE 17..18 " "
+ASSIGN 18..19 "="
+WHITESPACE 19..20 " "
+BLOCK_COMMENT 20..25 "/*c*/"
+WHITESPACE 25..26 " "
+INT_DEC 26..27 "1"
+SEMICOLON 27..28 ";"
+WHITESPACE 28..29 "\n"

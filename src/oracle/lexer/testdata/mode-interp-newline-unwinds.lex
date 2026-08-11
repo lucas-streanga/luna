@@ -1,0 +1,26 @@
+let s = "a${x}b
+let t = 1;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "s"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+DQ_OPEN 8..9 "\""
+!L0009 8..9
+DQ_TEXT 9..10 "a"
+INTERP_OPEN 10..12 "${"
+IDENT 12..13 "x"
+INTERP_CLOSE 13..14 "}"
+DQ_TEXT 14..15 "b"
+WHITESPACE 15..16 "\n"
+KW_LET 16..19 "let"
+WHITESPACE 19..20 " "
+IDENT 20..21 "t"
+WHITESPACE 21..22 " "
+ASSIGN 22..23 "="
+WHITESPACE 23..24 " "
+INT_DEC 24..25 "1"
+SEMICOLON 25..26 ";"
+WHITESPACE 26..27 "\n"

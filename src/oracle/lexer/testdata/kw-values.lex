@@ -1,0 +1,16 @@
+true false null undefined nan inf self
+---
+KW_TRUE 0..4 "true"
+WHITESPACE 4..5 " "
+KW_FALSE 5..10 "false"
+WHITESPACE 10..11 " "
+KW_NULL 11..15 "null"
+WHITESPACE 15..16 " "
+KW_UNDEFINED 16..25 "undefined"
+WHITESPACE 25..26 " "
+KW_NAN 26..29 "nan"
+WHITESPACE 29..30 " "
+KW_INF 30..33 "inf"
+WHITESPACE 33..34 " "
+KW_SELF 34..38 "self"
+WHITESPACE 38..39 "\n"

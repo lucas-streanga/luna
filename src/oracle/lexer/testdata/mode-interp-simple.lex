@@ -1,0 +1,17 @@
+let s = "hi ${name}!";
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "s"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+DQ_OPEN 8..9 "\""
+DQ_TEXT 9..12 "hi "
+INTERP_OPEN 12..14 "${"
+IDENT 14..18 "name"
+INTERP_CLOSE 18..19 "}"
+DQ_TEXT 19..20 "!"
+DQ_CLOSE 20..21 "\""
+SEMICOLON 21..22 ";"
+WHITESPACE 22..23 "\n"

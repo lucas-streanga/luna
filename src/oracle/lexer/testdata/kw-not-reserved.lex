@@ -1,0 +1,18 @@
+panic get set int string table byte from
+---
+IDENT 0..5 "panic"
+WHITESPACE 5..6 " "
+IDENT 6..9 "get"
+WHITESPACE 9..10 " "
+IDENT 10..13 "set"
+WHITESPACE 13..14 " "
+IDENT 14..17 "int"
+WHITESPACE 17..18 " "
+IDENT 18..24 "string"
+WHITESPACE 24..25 " "
+IDENT 25..30 "table"
+WHITESPACE 30..31 " "
+IDENT 31..35 "byte"
+WHITESPACE 35..36 " "
+IDENT 36..40 "from"
+WHITESPACE 40..41 "\n"

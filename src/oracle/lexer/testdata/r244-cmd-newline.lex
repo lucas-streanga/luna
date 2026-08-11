@@ -1,0 +1,21 @@
+let c = `ls
+let b = 2;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "c"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+INVALID 8..11 "`ls"
+!L0009 8..9
+WHITESPACE 11..12 "\n"
+KW_LET 12..15 "let"
+WHITESPACE 15..16 " "
+IDENT 16..17 "b"
+WHITESPACE 17..18 " "
+ASSIGN 18..19 "="
+WHITESPACE 19..20 " "
+INT_DEC 20..21 "2"
+SEMICOLON 21..22 ";"
+WHITESPACE 22..23 "\n"

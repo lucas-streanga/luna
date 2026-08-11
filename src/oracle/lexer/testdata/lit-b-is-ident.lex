@@ -1,0 +1,12 @@
+b bee b_1 b+1
+---
+IDENT 0..1 "b"
+WHITESPACE 1..2 " "
+IDENT 2..5 "bee"
+WHITESPACE 5..6 " "
+IDENT 6..9 "b_1"
+WHITESPACE 9..10 " "
+IDENT 10..11 "b"
+PLUS 11..12 "+"
+INT_DEC 12..13 "1"
+WHITESPACE 13..14 "\n"

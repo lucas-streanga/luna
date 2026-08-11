@@ -1,0 +1,14 @@
+a # b ~ c
+---
+IDENT 0..1 "a"
+WHITESPACE 1..2 " "
+INVALID 2..3 "#"
+!L0007 2..3
+WHITESPACE 3..4 " "
+IDENT 4..5 "b"
+WHITESPACE 5..6 " "
+INVALID 6..7 "~"
+!L0008 6..7
+WHITESPACE 7..8 " "
+IDENT 8..9 "c"
+WHITESPACE 9..10 "\n"

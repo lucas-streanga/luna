@@ -1,0 +1,18 @@
+-> -= - => == = != !
+---
+ARROW 0..2 "->"
+WHITESPACE 2..3 " "
+MINUS_ASSIGN 3..5 "-="
+WHITESPACE 5..6 " "
+MINUS 6..7 "-"
+WHITESPACE 7..8 " "
+FAT_ARROW 8..10 "=>"
+WHITESPACE 10..11 " "
+EQ 11..13 "=="
+WHITESPACE 13..14 " "
+ASSIGN 14..15 "="
+WHITESPACE 15..16 " "
+NEQ 16..18 "!="
+WHITESPACE 18..19 " "
+BANG 19..20 "!"
+WHITESPACE 20..21 "\n"

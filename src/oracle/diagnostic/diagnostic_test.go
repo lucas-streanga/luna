@@ -128,6 +128,8 @@ var lexicalCodes = []diagnostic.Code{
 	diagnostic.UnterminatedInterpolation,
 	diagnostic.UnexpectedCharacter,
 	diagnostic.MalformedCodepointEscape,
+	diagnostic.InsufficientIndentation,
+	diagnostic.ContentAfterTripleOpen,
 }
 
 func TestLexicalCodesAreLexicalAndDistinct(t *testing.T) {

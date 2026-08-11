@@ -326,7 +326,7 @@ func (s *Scanner) lexStringDq() token.Kind {
 	case !ok:
 		return s.unterminated("string", 1, end)
 	case splice:
-		s.push(modeDQString)
+		s.push(modeDQString, s.pos, 1)
 		s.pos++
 		return token.DqOpen
 	}
@@ -345,7 +345,7 @@ func (s *Scanner) lexRegex() token.Kind {
 	case !ok:
 		return s.unterminated("regex", 2, end)
 	case splice:
-		s.push(modeRegexBody)
+		s.push(modeRegexBody, s.pos, 2)
 		s.pos += 2
 		return token.RegexOpen
 	}
@@ -365,7 +365,7 @@ func (s *Scanner) lexCommand() token.Kind {
 	case !ok:
 		return s.unterminated("command", 1, end)
 	case splice:
-		s.push(modeCommand)
+		s.push(modeCommand, s.pos, 1)
 		s.pos++
 		return token.CmdOpen
 	}

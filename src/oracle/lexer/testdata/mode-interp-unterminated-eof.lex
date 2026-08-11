@@ -1,0 +1,17 @@
+let s = "a${ "b
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "s"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+DQ_OPEN 8..9 "\""
+!L0009 8..9
+DQ_TEXT 9..10 "a"
+INTERP_OPEN 10..12 "${"
+!L0011 10..12
+WHITESPACE 12..13 " "
+INVALID 13..15 "\"b"
+!L0009 13..14
+WHITESPACE 15..16 "\n"

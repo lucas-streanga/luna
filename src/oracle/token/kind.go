@@ -6,9 +6,8 @@
 // itself. Names returned by Kind.String are §0's names, not Go's, so token dumps and
 // golden files stay reviewable against the spec.
 //
-// §0 has 130 rows and 126 tokens: DOUBLE and BYTES each own two rows, and two rows
-// are error productions, which name recognized shapes that raise a diagnostic rather
-// than producing a token (lexer §11).
+// §0 has 137 rows and 133 tokens: DOUBLE and BYTES each own two rows, and INVALID owns
+// three — the two error productions and the catch-all (R242). Every row names a token.
 package token
 
 // Category groups kinds as §0's category column does. The zero value is invalid.
@@ -59,6 +58,7 @@ const (
 
 	// trivia
 	Whitespace
+	Margin
 	Shebang
 	LineComment
 	BlockComment
@@ -178,9 +178,13 @@ const (
 	Colon
 
 	// delimiter
+	TripleDqOpen
+	TripleSqOpen
 	DqOpen
 	RegexOpen
 	CmdOpen
+	TripleDqClose
+	TripleSqClose
 	DqClose
 	RegexClose
 	CmdClose
@@ -196,6 +200,7 @@ const (
 	DollarText
 	RegexText
 	CmdText
+	RawText
 
 	// identifier
 	Ident
@@ -216,6 +221,7 @@ var infos = [...]info{
 	Unset:              {"UNSET", CategoryUnset},
 	Invalid:            {"INVALID", Error},
 	Whitespace:         {"WHITESPACE", Trivia},
+	Margin:             {"MARGIN", Trivia},
 	Shebang:            {"SHEBANG", Trivia},
 	LineComment:        {"LINE_COMMENT", Trivia},
 	BlockComment:       {"BLOCK_COMMENT", Trivia},
@@ -325,9 +331,13 @@ var infos = [...]info{
 	Comma:              {"COMMA", Punctuation},
 	Semicolon:          {"SEMICOLON", Punctuation},
 	Colon:              {"COLON", Punctuation},
+	TripleDqOpen:       {"TRIPLE_DQ_OPEN", Delimiter},
+	TripleSqOpen:       {"TRIPLE_SQ_OPEN", Delimiter},
 	DqOpen:             {"DQ_OPEN", Delimiter},
 	RegexOpen:          {"REGEX_OPEN", Delimiter},
 	CmdOpen:            {"CMD_OPEN", Delimiter},
+	TripleDqClose:      {"TRIPLE_DQ_CLOSE", Delimiter},
+	TripleSqClose:      {"TRIPLE_SQ_CLOSE", Delimiter},
 	DqClose:            {"DQ_CLOSE", Delimiter},
 	RegexClose:         {"REGEX_CLOSE", Delimiter},
 	CmdClose:           {"CMD_CLOSE", Delimiter},
@@ -339,6 +349,7 @@ var infos = [...]info{
 	DollarText:         {"DOLLAR_TEXT", Content},
 	RegexText:          {"REGEX_TEXT", Content},
 	CmdText:            {"CMD_TEXT", Content},
+	RawText:            {"RAW_TEXT", Content},
 	Ident:              {"IDENT", Identifier},
 	Wildcard:           {"WILDCARD", Identifier},
 }
@@ -361,12 +372,14 @@ func (k Kind) Category() Category {
 	return infos[k].cat
 }
 
-// IsTrivia reports whether the kind is one of §2's four trivia tokens. The parser
+// IsTrivia reports whether the kind is one of §2's five trivia tokens. The parser
 // filters on this: trivia are emitted so the formatter can see them (R236), and
 // dropped by everything else.
 func (k Kind) IsTrivia() bool { return k.Category() == Trivia }
 
-// All returns every kind in §0's order, excluding Invalid.
+// All returns every kind in §0's order, excluding only Unset — the zero value, which
+// names no token. Invalid is included: since R242 it is a token like any other, and §10's
+// counts are what this feeds.
 func All() []Kind {
 	ks := make([]Kind, 0, len(infos)-1)
 	for k := 1; k < len(infos); k++ {

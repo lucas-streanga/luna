@@ -6959,6 +6959,68 @@ question); whether `\<newline>` later becomes a continuation; and whether a
 variable-delimiter raw form is ever needed for content whose line begins
 `'''` at the margin.
 
+**R247 — an unterminated literal keeps its single `INVALID` on the
+span-regex fast path, and `L0009`'s caret is the opening delimiter.** Two
+open items close, both about the same construct. R243 left the first:
+whether the fast path should fall back to §6's delimited shape rather than
+emit one `INVALID` blob, the observation being that on the *mode* path an
+unterminated `"abc` is `DQ_OPEN` + `DQ_TEXT` with every byte claimed and no
+`INVALID` anywhere, so the fast path's blob looked like an artifact of
+committing to a single-token reading. R242 left the second: whether `L0009`
+spans the opener or the opener through end of file.
+
+**The first question was answered by R244 and the answer was not noticed.**
+When it was raised, an unterminated `"` consumed the rest of the file —
+thousands of bytes with no structure, no node for §1.3's lossless CST,
+nothing for a language server that only ever sees half-edited files. That
+was the whole case for the fallback. R244 then bounded every single-byte
+opener at its line, and the argument did not survive the bound; it was
+carried forward unre-weighed, which is precisely the drift this log exists
+to catch, here caught in a ruling of its own rather than in a sweep.
+
+**What the fallback would now add is nothing.** For `let s = "a formula:
+let x = 5;` the two shapes are `INVALID("a formula: let x = 5;")` against
+`DQ_OPEN` plus one `DQ_TEXT` carrying the same bytes — the same information
+in three tokens instead of one. The fast path is reached *precisely* when
+the literal holds no `${`, so there is no splice to preserve and no escape
+worth separating; `DQ_TEXT`'s own class stops at a newline, so nothing
+about the tail is re-read as code either way. **And `INVALID` is the more
+honest of the two.** `DQ_TEXT` asserts that the bytes are string content,
+where the literal never closed and what the author meant is the very thing
+in question; `INVALID` asserts only that the bytes begin no valid token,
+which is true.
+
+**R243's framing of the asymmetry as a defect is withdrawn.** The mode path
+is entered only when a `${` is present, so it has real interior structure —
+a splice that genuinely was lexed correctly and is worth keeping. The fast
+path is entered when there is none. Two paths producing different shapes
+from different inputs is not an inconsistency, and the rejected alternative
+that would have made them uniform — a distinct token kind naming an
+unterminated literal, so a parser could tell it from a stray `^` without
+reading the diagnostic — re-couples the two channels R243 separated and
+buys one line of bytes. **The cost is real and small**: from the token
+alone a consumer cannot tell which condemned those bytes, and must consult
+the diagnostic sitting at the same offset. That is what a diagnostic
+channel is for.
+
+**`L0009`'s caret is the opening delimiter**, which R242's own argument
+already required — "the caret belongs on the *opening delimiter*, that is
+what went unclosed, while the bytes consumed run to end of file. Two
+different spans" — and which the token stream now records independently, so
+the caret is free to go where it helps. Since R244 the two spans differ by
+at most a line rather than by a file, which weakens the case without
+reversing it: an author reading `L0009` wants to be shown the quote that
+opened, not the text that followed it. The mode path agrees by
+construction, each frame carrying the offset its delimiter began at.
+
+No code changes: `oracle/lexer` was built this way, so this records the
+shape rather than altering it. Swept: `lexer.md` §11, whose `INVALID`
+paragraph already noted that `L0009` and `L0010` emit one on the fast path
+and now says the choice is deliberate. **Not ruled here**: nothing further —
+both of R242's and R243's remaining opens on unterminated literals are
+closed, and what stays open about `L0009` is only its *wording*, which
+§11 has always held to be volatile (R240).
+
 ---
 
 ## Still open (out of scope of these rulings)

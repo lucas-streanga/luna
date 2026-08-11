@@ -1,0 +1,17 @@
+let c = `run ${...args}`;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "c"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+CMD_OPEN 8..9 "`"
+CMD_TEXT 9..13 "run "
+INTERP_OPEN 13..15 "${"
+SPREAD 15..18 "..."
+IDENT 18..22 "args"
+INTERP_CLOSE 22..23 "}"
+CMD_CLOSE 23..24 "`"
+SEMICOLON 24..25 ";"
+WHITESPACE 25..26 "\n"
