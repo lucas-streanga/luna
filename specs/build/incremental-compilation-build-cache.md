@@ -23,7 +23,7 @@ A module's artifact depends on its own source **and** on the **public interface 
 imports**: if an imported module changes a function's result type, a dependent's artifact is stale
 even though the dependent's own file is untouched. So the key is:
 
-```
+```luna
 key(M) = own_key(M) + { interface_hash(I) : I in imports(M) }
 ```
 

@@ -1,6 +1,6 @@
 # `std.random`
 
-```
+```luna
 import { entropy } from std.random;
 const rand = import std.random;       // or collect the function surface (modules §6)
 ```
@@ -10,7 +10,7 @@ pure.** One capability-gated entropy read at the top of a program; a pure,
 deterministic stream everywhere after. The consequence is a feature no bolted-on RNG
 gets: **every randomized run is replayable by logging one int** — the seed.
 
-```
+```luna
 let rng = randomStream();             // gated once, visibly: use (entropy)
 shuffle(deck, rng);                   // pure from here on
 let roll = nextInt(rng, 1, 6);
@@ -33,7 +33,7 @@ let roll = nextInt(rng, 1, 6);
 
 ## 2. The gated half: `entropy`
 
-```
+```luna
 export const entropy = capability;
 export const randomSeed   = fn () use (entropy): int;
 export const randomBytes  = fn (n: int) use (entropy): bytes;
@@ -54,7 +54,7 @@ exactly where it should: a build cannot depend on entropy it did not declare.
 
 ## 3. The pure half: `prng` and the `next*` family
 
-```
+```luna
 export const prng = fn (seed: int): stream;    // infinite, pure, deterministic
 
 export const nextInt    = fn (rng: stream, lo: int, hi: int): int;  // inclusive, unbiased
@@ -120,7 +120,7 @@ Two operations that must not share a spelling:
 `random` and `shuffle` now **require** their randomness source, typed as the stream it
 must be:
 
-```
+```luna
 fn random(it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table
 fn shuffle(tab: table, rng: stream): table
 ```

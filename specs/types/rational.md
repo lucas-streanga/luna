@@ -51,7 +51,7 @@ mixed-family arithmetic — `r + 1` is a compile error; construct the operand
 
 The two exact types interconvert with no silent loss in either direction:
 
-```
+```luna
 fn toRational(d: decimal): rational                    // total and exact, always
 fn exactDecimal(r: rational): decimal!                 // exact, or an error
 fn toDecimal(r: rational, scale: int,

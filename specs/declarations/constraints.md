@@ -34,7 +34,7 @@ position, and grants stay invisible to programs, checkable only by exercising th
 
 A constraint is declared with the **`constraint` declaration form**, bound to a `const`:
 
-```
+```luna
 const byte = constraint i: int where i >= 0 && i <= 255;
 const port = constraint i: int where i >= 1 && i <= 65535;
 ```
@@ -80,7 +80,7 @@ introspection API for types is fleshed out, that distinction is visible there.
 
 Multiple `where` clauses are allowed and run in order as a **conjunction** (all must hold):
 
-```
+```luna
 const byte = constraint i: int where i >= 0 where i <= 255;   // same as i >= 0 && i <= 255
 ```
 
@@ -160,7 +160,7 @@ arbitrary pure computation is cheap, terminating, or panic-free.
 A constraint names its base inside the form (`i: int`), so the constraint **is** a complete
 refined type on its own. There is no need to restate the base when using it:
 
-```
+```luna
 const byte = constraint i: int where i >= 0 && i <= 255;
 let x: byte = 65 as byte;        // byte is the type directly; no `int where byte` restatement
 ```
@@ -209,7 +209,7 @@ other subtype relationship in Luna.
 Constraints compose by **running predicates**, not by reasoning about them. A named constraint
 used in another's `where` conjoins its predicate:
 
-```
+```luna
 const asciiByte = constraint i: int where byte where i <= 127;   // byte AND i <= 127
 ```
 
@@ -240,7 +240,7 @@ conjunction with identical semantics, base-match, canonical order, no implicatio
 The base position itself admits a constrained type — the third spelling of the same
 conjunction, and the best one when a refinement genuinely *builds on* another:
 
-```
+```luna
 const asciiByte = constraint i: byte where i <= 127;    // ≡ constraint i: int where byte where i <= 127
 ```
 

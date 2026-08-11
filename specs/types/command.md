@@ -37,7 +37,7 @@ path, reopening the injection surface the structured design closes. So `command`
 sealed type rather than a table precisely because the safety property depends on its guts
 being controlled, not open.
 
-```
+```luna
 let listing = `ls -la`;      // a command, not run yet
 run(listing);                // run it (exec spec) ...
 run(listing);                // ... and again; it is reusable
@@ -50,7 +50,7 @@ run(listing);                // ... and again; it is reusable
 A command literal is delimited by backticks. It parses into a **program and an argument
 list**, not a shell string:
 
-```
+```luna
 `grep -n foo file.txt`
 // program: "grep"
 // args:    ["-n", "foo", "file.txt"]
@@ -93,7 +93,7 @@ never touches a shell.
 A backtick literal may interpolate `${expr}`. Each interpolated value becomes **exactly one
 argument** in the argument list, never spliced into a parsed string:
 
-```
+```luna
 let name = "my file; rm -rf /";
 `rm ${name}`
 // program: "rm"
@@ -109,7 +109,7 @@ This is unlike regex, where interpolation into a literal is restricted to compti
 values (regex spec §7); a command literal has no such restriction, because a structured
 argument cannot inject regardless of when it is known:
 
-```
+```luna
 `grep ${userInput} ${userFile}`      // safe: userInput and userFile are each one argument
 ```
 
@@ -120,7 +120,7 @@ it requires a capability (exec spec), and running is never a comptime operation.
 To interpolate **multiple** arguments from a collection (not one argument), a list-splicing
 form is used so that each element becomes its own argument:
 
-```
+```luna
 let flags = ["-l", "-a", "-h"];
 `ls ${...flags}`                     // args: ["-l", "-a", "-h"], three arguments
 ```
@@ -147,11 +147,11 @@ Commands compose into pipelines with **`pipe`**, a built-in variadic function (R
 `|>` operator is retired — retired/pipeline.md) that connects each stage's stdout to the
 next stage's stdin and yields a **new `command` value** (a pipeline is itself a command):
 
-```
+```luna
 fn pipe(first: command, second: command, ...rest: command): command
 ```
 
-```
+```luna
 pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`)
 ```
 
@@ -164,7 +164,7 @@ pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`)
   worth).
 - Because `pipe` takes command *values*, it composes literals and variables alike:
 
-```
+```luna
 let stage1 = `producer`;
 let stage2 = `consumer`;
 let pipeline = pipe(stage1, stage2);     // a new command value, still inert
@@ -198,7 +198,7 @@ Introspection is **pure**, no effect, no capability, so it lives with the comman
 
 Reading structure preserves argument boundaries, so it is always safe:
 
-```
+```luna
 fn isPipeline(c: command): bool      // whether c has more than one stage
 fn stageCount(c: command): int       // number of stages (1 for a single command)
 fn stages(c: command): list          // the stages, a list of commands ([c] for a single command)
@@ -221,7 +221,7 @@ fn argsOf(c: command): list          // the argument list of a single-stage comm
 
 For logging and debugging, a command renders to **structured JSON**, not a shell string:
 
-```
+```luna
 fn debugJson(c: command): json
 ```
 
@@ -236,7 +236,7 @@ command's arm of it.)
 and a pipeline as an array of such stages, so **every argument is a distinct JSON string with
 its boundary explicit**:
 
-```
+```luna
 `rm ${userFile}`.debugJson()
 // {"program":"rm","args":["my file; rm -rf /"]}
 ```

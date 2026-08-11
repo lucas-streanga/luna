@@ -1,6 +1,6 @@
 # `std.yaml`
 
-```
+```luna
 import std.yaml;
 ```
 
@@ -10,7 +10,7 @@ they use).
 
 ## 1. The `yaml` type
 
-```
+```luna
 export const yaml = constraint s: string where isValidYaml(s);
 ```
 
@@ -21,7 +21,7 @@ differ on scalars like `no` and `on`); the predicate must pin a version (§3).
 
 ## 2. Reading
 
-```
+```luna
 export const fromYaml = fn (v: yaml): table!;
 ```
 

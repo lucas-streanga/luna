@@ -9,7 +9,7 @@ capability**: like `spawn` and `await`, a channel is internal communication, not
 outside the program; its send and receive points join spawn and await as the
 **synchronization points** of the model (concurrency §7).
 
-```
+```luna
 let [tx, rx] = channel();       // a sink (send end) and a stream (receive end)
 spawn worker(rx);               // the stream transfers into the consumer task
 tx.send(job);                   // values flow in; copies of tx can flow to many producers
@@ -19,7 +19,7 @@ tx.send(job);                   // values flow in; copies of tx can flow to many
 
 ## 1. Creation
 
-```
+```luna
 fn channel(capacity: int = 0): list      // [sink, stream]
 ```
 
@@ -88,7 +88,7 @@ write end (equality §2, §6, R181).
 
 ## 4. Sending
 
-```
+```luna
 fn send(tx: sink, v: any): undefined
 ```
 
@@ -114,7 +114,7 @@ fn send(tx: sink, v: any): undefined
 
 There is **no whole-channel `close`**. Completion is **per-handle**:
 
-```
+```luna
 fn finish(tx: sink): undefined
 ```
 
@@ -136,7 +136,7 @@ needing no capability; one name, one signature, functions §3.4. The io spelling
 **The owner-task pattern** — the referent of protocols §2.1's "a task that owns it," and
 R96's mutable-static replacement, now expressible:
 
-```
+```luna
 let [tx, rx] = channel();
 spawn fn () => {
   var count = 0;                              // the "mutable static", owned, race-free

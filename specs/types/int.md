@@ -3,7 +3,7 @@
 `int` is Luna's integer type: a **64-bit signed** integer, stored **inline in the `lval`**
 (value-representation), never boxed or heap-allocated. It is a primitive, foundational type.
 
-```
+```luna
 let x: int = 0;
 let big = 9223372036854775807;      // 2^63 - 1, the maximum int
 ```
@@ -22,7 +22,7 @@ let big = 9223372036854775807;      // 2^63 - 1, the maximum int
 An int can be referenced with `&`, which is genuinely useful (out-parameters, in-place update
 through a reference, swapping) and has no reason to be excluded:
 
-```
+```luna
 var n = 5;
 increment(&n);          // pass a reference; increment mutates n in place
 ```
@@ -69,7 +69,7 @@ declarable error from a callee, never the `overflowError`, and code anticipating
 is wrong. Anticipated overflow is handled where every panic is handled, at a **`try`/`catch`
 block** (errors §8.2), which catches everything:
 
-```
+```luna
 try {
   let sum = bigA + bigB;         // may panic with overflowError
   process(sum);                   // success path stays inside the block
@@ -94,7 +94,7 @@ result is *intended arithmetic*, use the explicit wrapping/saturating operations
 does not compute an alternative value. When wrapping or saturation is the *intended* arithmetic
 (not an error to detect), explicit operations produce those values:
 
-```
+```luna
 fn wrappingAdd(a: int, b: int): int         // two's-complement wraparound (no panic)
 fn wrappingSub(a: int, b: int): int
 fn wrappingMul(a: int, b: int): int
@@ -117,7 +117,7 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
 
 ## 5. Division, remainder, and edge cases
 
-```
+```luna
 7 / 2       // 3   (integer division truncates toward zero)
 -7 / 2      // -3  (truncation, not floor)
 7 % 2       // 1   (remainder; sign follows the dividend)
@@ -150,7 +150,7 @@ arithmetic.
 The narrower **signed** widths fit within signed 64-bit, so they are **constraints**
 (constraints spec), shipped as stdlib declarations, not new primitives:
 
-```
+```luna
 const i8  = constraint i: int where i >= -128 && i <= 127;
 const i16 = constraint i: int where i >= -32768 && i <= 32767;
 const i32 = constraint i: int where i >= -2147483648 && i <= 2147483647;

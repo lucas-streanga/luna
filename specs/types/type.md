@@ -29,7 +29,7 @@ yields — always a comparable `type` — and near-uniform in what it means: "th
 value," with one statically-steered arm for protos ("the type this proto *induces*", §1.1,
 R175).
 
-```
+```luna
 @5              // int
 @5.0            // double
 @"hi"           // string
@@ -94,7 +94,7 @@ decidable, which it would not be if protocols or types could be constructed at r
 
 A `type` value may be bound like any other value, so a type can be given a name:
 
-```
+```luna
 const number: type = int | double;
 var  x: number = 5;          // number is usable as an annotation
 const same = @x == number;   // and as a value to compare against
@@ -119,7 +119,7 @@ Type equality is **structural**, and it is decided at compile time by **canonica
 compiler reduces every type expression to a canonical form (union members sorted and de-duplicated,
 aliases expanded) and assigns each canonical form exactly **one** `typeid`. So:
 
-```
+```luna
 number == (int | double)      // true: same canonical type, same typeid
 (int | double) == (double | int)   // true: unions are order-independent
 ```
@@ -178,7 +178,7 @@ A **value** has exactly one type (its current type, what `@` returns). What peop
 value's "supertype", the wider type it was *declared* as, is not a property of the value at all: it
 is a property of the **binding**. Consider:
 
-```
+```luna
 const number: type = int | double;
 var n: number = 5;
 ```
@@ -192,7 +192,7 @@ So the current/declared pair lives at the **binding** level, and the declared ty
 fact (the compiler knows every binding's declared type). The companion operator **`declared`**
 exposes it:
 
-```
+```luna
 @n           // int          (current type, from the value)
 declared n   // int | double (declared type, from the binding, resolved at compile time)
 ```
@@ -315,7 +315,7 @@ Therefore matching "a table with protocol applied `P`" is **not** a match on `@t
 the **application refinement** `@P` (§5, §1.1: in type position, "a table guaranteed to have `P` applied"), and
 matching an application-refinement pattern is defined as a **protocol-membership test** (is `P` applied, an `@@` check), not a `typeid` equality:
 
-```
+```luna
 match (x) {
   b: @stringBuilder => b->stringBuilder.append("!"),   // b is guaranteed to have stringBuilder applied
   _: @otherProto    => ...,                            // tested, not bound: nothing to reach through

@@ -15,7 +15,7 @@ runtime check, not a computation.
 
 ## 1. What `as` does
 
-```
+```luna
 let u = someFn();            // u : string | int   (inferred union)
 let s = u as string;         // narrow to string; typeError (panic) if u is currently an int
 ```
@@ -43,14 +43,14 @@ the value is *seen through*. Nothing is parsed, formatted, or recomputed.
 `as T` is an expression of type `T`, so it **supplies the binding's type** and a separate
 annotation is redundant:
 
-```
+```luna
 let s = u as string;         // s : string, from the `as`
 ```
 
 Writing both is allowed only if they **agree**; a disagreement is a compile error, because it
 is a contradiction:
 
-```
+```luna
 let s: string = u as string; // redundant but legal (they agree)
 let s: int    = u as string; // COMPILE ERROR: annotation says int, `as` says string
 ```
@@ -65,7 +65,7 @@ narrowing), and **`as`** when narrowing (which then types the binding). You rare
 `as` narrows *types*; it never converts *values*. Transforming a value into a **different
 value** is a function, not `as`, because it runs custom code at runtime:
 
-```
+```luna
 let text = toString(42);        // int -> string: a total function, "42"
 let n    = parseInt("42");      // string -> int: a fallible function, int!
 ```
@@ -151,7 +151,7 @@ or by falling through to the next arm (a pattern). What a pattern never does is 
 When two types can **never** be the same value, no `as` applies, the mismatch is caught at
 compile time:
 
-```
+```luna
 const someFn = fn (): int => ...;
 let s: string = someFn();        // COMPILE ERROR: int is not string, and cannot be
 let s = someFn() as string;      // COMPILE ERROR: int and string are disjoint; `as` cannot narrow
@@ -261,7 +261,7 @@ nothing to narrow.
 In particular, **`is` is a boolean test only**: it reports whether a value currently has a type, and
 does **not** narrow the tested binding within the guarded branch.
 
-```
+```luna
 if (x is int) {
   foo(x);          // x is STILL its declared type here (e.g. int | string), not narrowed
   let n = x as int; foo(n);   // to use it as int, produce a narrowed binding

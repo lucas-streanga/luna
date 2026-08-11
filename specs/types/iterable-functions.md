@@ -91,7 +91,7 @@ themselves consumed.
 The base enum has three members with a uniform meaning — `values` puts values in play,
 `keys` puts keys in play, `both` puts both in play:
 
-```
+```luna
 mode: enum {values, keys, both} = {values}
 ```
 
@@ -124,7 +124,7 @@ identical.
 ### 2.1 Introspect
 
 #### isEmpty()
-```
+```luna
 fn isEmpty(it: iterable): bool
 ```
 **O(1).** True if there are no elements. On a stream, peeks one element: the stream is
@@ -132,7 +132,7 @@ started (a bounded side effect) but nothing is consumed. Replaces the retired ta
 — one name, and it joins the `isList` / `isConsumed` predicate family.
 
 #### count()
-```
+```luna
 fn count(it: iterable): int
 ```
 **O(1) table / O(n) stream, consumes.** Number of elements. On a stream, exhausts it; to
@@ -141,7 +141,7 @@ count and keep the data, `collect` first.
 ### 2.2 Endpoints
 
 #### first() · last()
-```
+```luna
 fn first(it: iterable): any
 fn last(it: iterable): any
 ```
@@ -150,7 +150,7 @@ if empty. On a stream, `first` consumes exactly one element (`peek`, stream-api 
 without consuming); `last` runs to the end with O(1) working memory.
 
 #### keyFirst() · keyLast()
-```
+```luna
 fn keyFirst(it: iterable): any
 fn keyLast(it: iterable): any
 ```
@@ -161,7 +161,7 @@ fn keyLast(it: iterable): any
 ### 2.3 Search & predicates
 
 #### find()
-```
+```luna
 fn find(it: iterable, value: any = null, key: any = null, compareFn?,
         mode: enum {values, keys, both, either} = {values}): any
 ```
@@ -169,7 +169,7 @@ fn find(it: iterable, value: any = null, key: any = null, compareFn?,
 operands, returns the first value. Uses `==` unless `compareFn` (`fn(a, b): bool`) is set.
 
 #### keyOf()
-```
+```luna
 fn keyOf(it: iterable, value: any, compareFn?, all: bool = false): any
 ```
 **O(n), short-circuits (consumes with `all`).** The first key whose value matches `value`;
@@ -177,7 +177,7 @@ fn keyOf(it: iterable, value: any, compareFn?, all: bool = false): any
 complement of `find`.
 
 #### exists()
-```
+```luna
 fn exists(it: iterable, value: any = null, key: any = null, compareFn?,
           mode: enum {values, keys, both, either} = {values}): bool
 ```
@@ -186,7 +186,7 @@ O(1) when matching keys only on a table; O(n) otherwise. Use for equality tests;
 for predicate tests.
 
 #### some() · every()
-```
+```luna
 fn some(it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool
 fn every(it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool
 ```
@@ -199,7 +199,7 @@ Transformers are lazy on streams: they return a new stream that runs only as it 
 (stream spec §7), written as chained UFCS calls (the dataflow pipeline, stream §7 — the `|>` operator is retired, R146).
 
 #### map()
-```
+```luna
 fn map(it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable
 ```
 **O(n), lazy on streams.** Transforms each value via `transformFn` (`fn(value): any`). In
@@ -207,7 +207,7 @@ fn map(it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): 
 `{both}`, a returned key that is `null` / `undefined` is skipped.
 
 #### filter()
-```
+```luna
 fn filter(it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): iterable
 ```
 **O(n), lazy on streams.** Keeps elements where `predicateFn` (`fn(value): bool`) returns
@@ -215,14 +215,14 @@ true. `{keys}` passes keys; `{both}` passes `fn(value, key): bool`. Keys are pre
 implicit stream keys go sparse exactly as a list's would; follow with `values` to reindex.
 
 #### mapLeaves()
-```
+```luna
 fn mapLeaves(it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable
 ```
 **O(n), lazy on streams.** Recursively descends to every leaf and applies `transformFn`.
 Table-valued elements are retained data, so descent stays lazy per element.
 
 #### each()
-```
+```luna
 fn each(it: iterable, callbackFn: fn, mode: enum {values, keys, both} = {values}): iterable
 ```
 **O(n), lazy on streams.** Side-effecting iteration. Returns its input, so it chains; on a
@@ -230,7 +230,7 @@ stream it is a lazy tap, running `callbackFn` as elements flow through. Returnin
 from `callbackFn` stops early — on a stream, the result ends (downstream sees end-of-stream).
 
 #### reduce()
-```
+```luna
 fn reduce(it: iterable, reductionFn?, initial: any = null): any
 ```
 **O(n), consumes.** Folds via `reductionFn` (`fn(carry, item): any`), starting from
@@ -238,7 +238,7 @@ fn reduce(it: iterable, reductionFn?, initial: any = null): any
 hatch for building retained data from a stream by hand.
 
 #### keyCase()
-```
+```luna
 fn keyCase(it: iterable, uppercase: bool): iterable
 ```
 **O(n), lazy on streams.** Upper- or lower-cases every string key.
@@ -246,7 +246,7 @@ fn keyCase(it: iterable, uppercase: bool): iterable
 ### 2.5 Reshape
 
 #### values() · keys()
-```
+```luna
 fn values(it: iterable): iterable
 fn keys(it: iterable): iterable
 ```
@@ -256,7 +256,7 @@ fn keys(it: iterable): iterable
 **transform** everywhere — the retired stream collector of the same name is `collect` (§2.11).
 
 #### column()
-```
+```luna
 fn column(it: iterable, column: string|int, newKeyColumn?: string|int): iterable
 ```
 **O(n), lazy on streams.** From an iterable of rows (tables), extracts the value at key
@@ -264,7 +264,7 @@ fn column(it: iterable, column: string|int, newKeyColumn?: string|int): iterable
 otherwise reindexes from 0.
 
 #### flip()
-```
+```luna
 fn flip(it: iterable): iterable
 ```
 **O(n), lazy on streams.** Swaps each key with its value. On a table, colliding keys
@@ -272,14 +272,14 @@ overwrite in order; on a stream, duplicates flow through and resolve only at `co
 (last wins — the same final table).
 
 #### combine()
-```
+```luna
 fn combine(keys: iterable, values: iterable): iterable
 ```
 **O(n), lazy on streams.** Constructor-style (no receiver): pairs the values of `keys` with
 the values of `values` into a new iterable. Output kind follows the first operand.
 
 #### chunk()
-```
+```luna
 fn chunk(it: iterable, length: int, preserveKeys: bool = true): iterable
 ```
 **O(n), lazy on streams (O(length) working memory).** Splits into successive sub-tables of
@@ -287,7 +287,7 @@ fn chunk(it: iterable, length: int, preserveKeys: bool = true): iterable
 `preserveKeys = false` reindexes each chunk as a list.
 
 #### flatten()
-```
+```luna
 fn flatten(it: iterable, depth: int = -1, preserveKeys: bool = false): iterable
 ```
 **O(n), lazy on streams.** Flattens nested tables. `depth = -1` flattens fully. Reindexes by
@@ -300,7 +300,7 @@ they are the traversal-order counterpart of the key-addressed `slice`
 (indexable-functions §3). Keys are preserved; follow with `values` to reindex.
 
 #### take() · skip()
-```
+```luna
 fn take(it: iterable, n: int): iterable
 fn skip(it: iterable, n: int): iterable
 ```
@@ -309,7 +309,7 @@ fn skip(it: iterable, n: int): iterable
 `s.map(expensive).take(3)` runs `expensive` three times.
 
 #### takeWhile() · dropWhile()
-```
+```luna
 fn takeWhile(it: iterable, predicateFn: fn): iterable
 fn dropWhile(it: iterable, predicateFn: fn): iterable
 ```
@@ -319,7 +319,7 @@ first false. `takeWhile` short-circuits like `take`.
 ### 2.7 Combine & compare
 
 #### merge()
-```
+```luna
 fn merge(it: iterable, ...its: iterable,
          recursive: bool = false, preserveKeys: bool = false): iterable
 ```
@@ -333,7 +333,7 @@ concatenation, duplicate string keys flowing through in order and resolving at `
 (last wins), the same table `merge` would build.
 
 #### diff() · intersect()
-```
+```luna
 fn diff(it: iterable, ...tabs: table,
         compareFn?, mode: enum {values, keys, both} = {both}): iterable
 fn intersect(it: iterable, ...tabs: table,
@@ -345,7 +345,7 @@ operands are `table`, not `iterable`: they are probed for membership, which is k
 Under `mode = {both}`, equal iff key **and** value equal.
 
 #### distinct() · unique()
-```
+```luna
 fn distinct(it: iterable, compareFn?): iterable
 fn unique(it: iterable, compareFn?): iterable
 ```
@@ -355,7 +355,7 @@ differ only in keying: `distinct` reindexes the result from 0, while `unique` pr
 original keys of the surviving elements.
 
 #### replace()
-```
+```luna
 fn replace(it: iterable, ...replacements: table, recursive: bool = false): iterable
 ```
 **O(n), lazy on streams.** Replaces values in `it` by matching key against `replacements`.
@@ -364,7 +364,7 @@ When `recursive` and a matched value is a table, descends and replaces within it
 ### 2.8 Grow & shrink
 
 #### prepend() · append()
-```
+```luna
 fn prepend(it: iterable, value: any): iterable
 fn append(it: iterable, value: any): iterable
 ```
@@ -373,7 +373,7 @@ front / back. On a table, `prepend` reindexes a list and `append` is O(1) amorti
 stream both are lazy stages.
 
 #### remove()
-```
+```luna
 fn remove(it: iterable, value: any = null, key: any = null, compareFn?,
           mode: enum {values, keys, both, either} = {values}, all: bool = false): iterable
 ```
@@ -384,7 +384,7 @@ predicate). To count removals, diff `count()` around the call.
 ### 2.9 Pick
 
 #### random()
-```
+```luna
 fn random(it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table
 ```
 **O(n), consumes.** Picks `num` random elements, drawing from **`rng`** — a required
@@ -403,7 +403,7 @@ All aggregates **consume** a stream and return a scalar with bounded working sta
 numeric aggregates ignore values that are not `int` or `double`.
 
 #### sum() · average() · product()
-```
+```luna
 fn sum(it: iterable): int | double
 fn average(it: iterable): int | double
 fn product(it: iterable): int | double
@@ -411,7 +411,7 @@ fn product(it: iterable): int | double
 **O(n), consumes.** Sum / mean / product of the numeric values.
 
 #### min() · max()
-```
+```luna
 fn min(it: iterable, compareFn?): any
 fn max(it: iterable, compareFn?): any
 ```
@@ -419,14 +419,14 @@ fn max(it: iterable, compareFn?): any
 (`fn(a, b): int`). `undefined` if empty.
 
 #### mode()
-```
+```luna
 fn mode(it: iterable, compareFn?): any
 ```
 **O(n), consumes (working memory grows with distinct values).** The most frequent value;
 ties resolve to the first occurrence.
 
 #### join()
-```
+```luna
 fn join(it: iterable, glue: string = '', finalGlue?: string = null): string
 ```
 **O(n), consumes.** Concatenates values into a string separated by `glue`. `finalGlue` sets
@@ -439,7 +439,7 @@ The two bridges are total over `iterable` and are the identity on their own kind
 can be applied unconditionally to normalize.
 
 #### toStream()
-```
+```luna
 fn toStream(src: iterable | bytes): stream
 ```
 **O(1), lazy.** On a stream, the identity. On a table, adapts retained data into the stream
@@ -452,7 +452,7 @@ packed byte buffer), but its unambiguous element unit earns it this bridge and d
 (the COW capture is an immutable snapshot, stream §4, R105).
 
 #### collect()
-```
+```luna
 fn collect(it: iterable): table
 ```
 **O(1) table / O(n) stream, consumes.** On a table, the identity. On a stream, consumes it

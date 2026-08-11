@@ -1,6 +1,6 @@
 # `std.datetime`
 
-```
+```luna
 import std.datetime;
 ```
 
@@ -25,7 +25,7 @@ Three commitments shape everything (R133):
 
 ## 1. The `datetime` protocol
 
-```
+```luna
 export const datetime = proto {
   const get epochSeconds: int;     // seconds since 1970-01-01T00:00:00Z (unix semantics)
   const get nano: int;             // nanosecond-of-second, 0..999999999
@@ -52,7 +52,7 @@ export const datetime = proto {
 
 ## 2. `timezone`
 
-```
+```luna
 export const timezone = proto {
   const get id: string;            // "America/Chicago", "UTC", "+05:30"
   const get isFixed: bool;         // true for fixed offsets, false for rule-carrying zones
@@ -87,7 +87,7 @@ export const localZone = fn () use (time): @timezone;     // the machine's zone:
 
 ## 3. Construction
 
-```
+```luna
 export const create = fn (year: int, month: int, day: int,
                           hour: int = 0, minute: int = 0, second: int = 0,
                           nano: int = 0, zone: @timezone = utc): @datetime!;
@@ -116,14 +116,14 @@ export const parseDatetime = fn (s: string): @datetime!;
 Component access is the protocol's function surface, zone-resolved from the stored
 timestamp (the state is two integer members; components are derived, not stored):
 
-```
+```luna
 dt->year()      dt->month()      dt->day()        // month is int 1..12
 dt->hour()      dt->minute()     dt->second()     dt->nanoOfSecond()
 dt->weekday()                                     // the weekday enum value
 dt->dayOfYear()
 ```
 
-```
+```luna
 export const weekday = enum { monday, tuesday, wednesday, thursday,
                               friday, saturday, sunday };
 ```
@@ -163,7 +163,7 @@ to when the duration ladder stopped at `hours`:
 
 ## 6. Derivation and comparison
 
-```
+```luna
 export const next     = fn (dt: @datetime, day: weekday): @datetime;   // strictly after dt
 export const previous = fn (dt: @datetime, day: weekday): @datetime;   // strictly before dt
 export const startOfDay   = fn (dt: @datetime): @datetime;
@@ -194,7 +194,7 @@ nothing here is a special case, exactly as any proto table needing a wire form u
 named renderer), so the JSON convention is `format` / `toString` into the string field
 you mean to emit:
 
-```
+```luna
 let doc = toJson(['created' => toString(order->createdAt())]);
 ```
 

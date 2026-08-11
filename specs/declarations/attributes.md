@@ -8,7 +8,7 @@ drive **comptime code generation**, most centrally serialization: a comptime gen
 type's field attributes and emits a specialized serializer, so the tags are compiled in and
 nothing is reflected at runtime.
 
-```
+```luna
 const jsonTag = attribute ['tag' => string = ''];   // an attribute declaration (a `const`)
 
 const User = [
@@ -69,7 +69,7 @@ generation (§4) serves the actual need (attribute-driven serialization) without
 An attribute is declared with the `attribute` form, bound to a `const`, consistent with the other
 declaration forms (`enum`, `constraint`, `capability`, `proto`, all `const X = <form>`):
 
-```
+```luna
 const jsonTag = attribute ['tag' => string = ''];
 const route   = attribute ['path' => string, 'method' => string = 'GET'];
 const column  = attribute ['name' => string];
@@ -93,7 +93,7 @@ const column  = attribute ['name' => string];
 An attribute is applied at a **declaration site** with the `#[ ... ]` prefix, immediately before
 the declaration it annotates:
 
-```
+```luna
 #[jsonTag('user_name')]
 const name: string = '';
 
@@ -140,7 +140,7 @@ Attributes attach to **declaration sites**, and there are two:
 
 **Multiple attributes** on one declaration stack, each in its own `#[ ... ]`:
 
-```
+```luna
 #[jsonTag('created_at')]
 #[column('created_at')]
 const createdAt: int = 0;
@@ -171,7 +171,7 @@ walks its `fields` and their `attributes`, and returns a **plain runtime functio
 canonical example is JSON serialization, and its shape is fully expressible with no dependent
 types:
 
-```
+```luna
 // The generator: comptime in, plain runtime function out.
 const toJson = comptime fn (ct: comptype): fn (any): json => {   // json: a string constraint, json spec §1
   // Extract what generation needs into PLAIN data: names and tags are strings.

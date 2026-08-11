@@ -1,6 +1,6 @@
 # `std.csv`
 
-```
+```luna
 import std.csv;
 ```
 
@@ -10,7 +10,7 @@ they use).
 
 ## 1. The `csv` type
 
-```
+```luna
 export const csv = constraint s: string where isValidCsv(s);
 ```
 
@@ -22,7 +22,7 @@ wants a dialect parameter (§3).
 
 ## 2. Reading
 
-```
+```luna
 export const fromCsv = fn (v: csv): table!;
 ```
 
@@ -32,7 +32,7 @@ Pure, comptime-eligible, source-agnostic; the entry into `csv` is the validation
 
 ## 3. Writing: `toCsv`, the comptime generator
 
-```
+```luna
 export const toCsv = comptime fn (ct: comptype): fn (any): csv;
 ```
 

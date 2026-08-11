@@ -18,7 +18,7 @@ function without `use (revealSecret)` cannot reveal a secret, secret spec).
 A capability is declared with the **`capability` declaration form**, bound to a `const`, the
 same way a protocol or error type is declared (`proto {...}`, `error {...}`):
 
-```
+```luna
 const revealSecret = capability;
 const exec         = capability;
 const io           = capability;
@@ -208,7 +208,7 @@ the **imported binding**. Modules are unnamed and resolved at compile time, so t
 `use` clause is unambiguous the same way every imported name is; auditing "what can exercise
 X" is a search for `use (X)` against the one canonical declaration the import resolves to.
 
-```
+```luna
 const authenticate = fn (s: secret) use (revealSecret): response! => {
   let raw = reveal(s);          // permitted: this function holds the revealSecret capability
   ...
@@ -225,7 +225,7 @@ A `use` clause may name several capabilities (`use (io, exec)`), and capability
 Capability requirements **propagate transitively up the call graph**: calling a function that
 requires a capability requires the caller to hold it too.
 
-```
+```luna
 const println = fn (s: string) use (io) { ... };        // holds io
 
 const greet = fn () use (io) { println("hi"); };        // must hold io: it calls println
@@ -244,7 +244,7 @@ one. Because a callee cannot secretly exercise an authority the caller does not 
 `use (io)` in this signature" means "no io happens anywhere in this call tree," not just
 "this body does no io." So:
 
-```
+```luna
 // Guaranteed not to reveal s: no use(revealSecret) anywhere in its call tree.
 const forward = fn (s: secret, dest: command): command => attachAuth(dest, s);
 ```
@@ -297,7 +297,7 @@ supplied the check; the pre-R39 sentences stood here until R88.)
 A frame's granted set is its declared `use` **plus what callers explicitly delegated into
 it**. Delegation is a clause on a call, in the same spelling as every other grant:
 
-```
+```luna
 const someFn = fn (someOtherFn: fn) => { someOtherFn(); };
 let hello = fn () use (io) => println('hello');
 
@@ -375,7 +375,7 @@ is **`main`**: the runtime hands `main` exactly the capabilities its `use` claus
 every other function obtains a capability only by receiving it transitively from `main`
 downward.
 
-```
+```luna
 main = fn () use (io, argv) { ... };
 ```
 
@@ -397,7 +397,7 @@ is an ergonomic grouping of exported capabilities; it changes nothing about the 
 (using a set still requires and propagates each member). A set is declared with the
 **braced form** of the capability declaration (§1):
 
-```
+```luna
 const webApp = capability { io, net, fs };   // grants io, net, and fs together
 const query  = fn (sql: string) use (webApp): rows! => { ... };
 // use (webApp) requires and propagates io, net, and fs, exactly as if all three were listed
@@ -420,7 +420,7 @@ Capabilities are not reserved to the standard library. **Application code may de
 capabilities** to draw its own authority boundaries, using the same form and getting the same
 guarantees:
 
-```
+```luna
 const dbAccess = capability;
 
 const query = fn (sql: string) use (dbAccess): rows! => { ... };   // only holders may query

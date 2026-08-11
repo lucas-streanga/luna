@@ -1,6 +1,6 @@
 # `std.binary`
 
-```
+```luna
 import std.binary;                          // or: import { endian, readI32, ... } from std.binary;
 ```
 
@@ -19,7 +19,7 @@ importing pulls only what is used, R141). The module name is the backend's own: 
 
 ## 1. The `endian` type
 
-```
+```luna
 export const endian = enum { little, big };
 ```
 
@@ -38,7 +38,7 @@ any machine.
 
 ## 2. The read family
 
-```
+```luna
 export const readI16 = fn (b: bytes, offset: int, endianness: endian): i16;
 export const readU16 = fn (b: bytes, offset: int, endianness: endian): u16;
 export const readI32 = fn (b: bytes, offset: int, endianness: endian): i32;

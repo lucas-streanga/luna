@@ -8,7 +8,7 @@ R134; the io boundary stands: contents are `io`'s, structure is this module's).
 **The canonical import is two lines**, one per kind of thing, each forced by an
 existing ruling:
 
-```
+```luna
 import { filesystem, path } from std.filesystem;   // capability (use clauses) + type (annotations)
 const fs = import std.filesystem;                   // the function surface, namespaced (R136)
 ```
@@ -24,7 +24,7 @@ selective import and aliasing as anywhere (modules §8: `import { join as joinPa
 
 ## 1. `path`
 
-```
+```luna
 export const path = constraint p: string where isValidPath(p);
 ```
 
@@ -39,7 +39,7 @@ always — there is no `chdir` (std.process §3, R134).
 
 ## 2. The pure half: path operations
 
-```
+```luna
 export const join      = fn (base: path, ...parts: string): path;
 export const dirname   = fn (p: path): path;
 export const basename  = fn (p: path): string;
@@ -61,7 +61,7 @@ suspension point (concurrency §6.1).
 
 ### 3.1 Probing
 
-```
+```luna
 export const exists = fn (p: path) use (filesystem): bool;
 export const stat   = fn (p: path) use (filesystem): @fileInfo!;
 
@@ -85,7 +85,7 @@ export const entryKind = enum { file, directory, symlink, other };
 
 ### 3.2 Enumerating
 
-```
+```luna
 export const entries = fn (dir: path) use (filesystem): stream!;   // immediate children
 export const walk    = fn (dir: path) use (filesystem): stream!;   // recursive descent
 ```
@@ -102,7 +102,7 @@ axis (§5).
 
 ### 3.3 Creating, destroying, moving
 
-```
+```luna
 export const createDir = fn (p: path, recursive: bool = false) use (filesystem): undefined!;
 export const delete    = fn (p: path, recursive: bool = false) use (filesystem): undefined!;
 export const rename    = fn (from: path, to: path) use (filesystem): undefined!;

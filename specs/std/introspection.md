@@ -79,7 +79,7 @@ is deliberately no subtype operator (is spec §4).
 
 Everything **named** is an import:
 
-```
+```luna
 import { typeName, kindOf, members } from introspection;
 ```
 
@@ -137,7 +137,7 @@ Runtime-tier exports are `fn`; comptime-tier exports are `comptime fn`. All resu
 
 ### 4.1 Runtime tier
 
-```
+```luna
 export const typeName = fn (t: type): string;
 export const kindOf = fn (t: type): kind;
 export const isNullable = fn (t: type): bool;
@@ -189,7 +189,7 @@ export const baseOf = fn (t: type): type?;
 
 ### 4.2 Comptime tier, and the `comptype` bridge
 
-```
+```luna
 comptype v                                   // OPERATOR, not an export: the declaration descriptor
 export const fields = comptime fn (t: type): list;
 export const variants = comptime fn (t: type): list;
@@ -280,7 +280,7 @@ export const constraintPredicate = comptime fn (t: type): fn;
 
 ### 4.3 The `kind` enum
 
-```
+```luna
 export const kind = enum {
   scalar,          // int, double, bool, string, null, undefined, never; duration and
                    // instant (std.time §1, R132); and the committed tower primitives
@@ -343,7 +343,7 @@ Notes pinned by the derivation (R128):
 
 ### 4.4 The protocol axis
 
-```
+```luna
 export const protoName = fn (p: proto): string;
 export const declaresIdentityEquality = fn (p: proto): bool;
 export const members = fn (p: proto): list;
@@ -452,7 +452,7 @@ What the old section got right survives, restated on the corrected foundation:
 
 ### 4.6 The function axis
 
-```
+```luna
 export const capabilitiesOf = fn (f: fn): list;
 export const params = fn (f: fn): list;
 export const paramTypes = fn (t: type): list?;
@@ -518,7 +518,7 @@ section once carried took `t: type` and walked `fields(User)`; it is deleted, R1
 ratified pipeline demands `comptype`.) What belongs here is the **runtime-tier
 companion**, a generic walker written entirely on this module's surface:
 
-```
+```luna
 import { protoName, members } from introspection;
 
 // Describe any value's granted protocol surface — pretty-printers, differs, loggers.

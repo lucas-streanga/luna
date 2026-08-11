@@ -1,6 +1,6 @@
 # `std.json`
 
-```
+```luna
 import std.json;
 ```
 
@@ -10,7 +10,7 @@ deliberate: importing a JSON parser never pulls an XML one.
 
 ## 1. The `json` type
 
-```
+```luna
 export const json = constraint str: string where isValidJson(str);
 ```
 
@@ -46,7 +46,7 @@ verbatim, no re-escaping**, while a `string` in the same position is escaped as 
 type is the escaping decision.** Every format module follows this pattern. The boundary
 idiom falls out of constraint semantics with no new machinery:
 
-```
+```luna
 const body = networkInput as json;    // validate external text once, at the boundary
 sendDownstream(body);                 // everything downstream demands and trusts `json`
 ```
@@ -75,7 +75,7 @@ resolution rather than an exception to it.
 
 ## 2. Writing
 
-```
+```luna
 export const toJson = comptime fn (ct: comptype, skipFunctions: bool = false,
                                    includeProtocols: bool = false,
                                    revealSecrets: fn? = null): fn (any): json;   // generated, tags honored
@@ -118,7 +118,7 @@ an object of its `get`-granted **per-table** members, recursively serialized, se
 **application order** (not aesthetics: it is the requirement-safe replay order, a
 requirer never preceding its requirement, protocols §7):
 
-```
+```luna
 {"host": "x", "@@": {"person": {"name": "Lucas", "visits": 3}, "employee": {"badge": 7}}}
 ```
 
@@ -169,7 +169,7 @@ secret in the surface is passed to the revealer — a closure created where its 
 declared, invoked under the call's frame grant — so the idiomatic call **delegates at
 the site** (capabilities §5.2):
 
-```
+```luna
 toJson(cfg, revealSecrets: fn (s: secret): string | bytes | table =>
     canReveal(s) ? reveal(s) : '<secret>') use (dbCred, revealStackTrace)
 ```
@@ -181,7 +181,7 @@ revealer path can error beyond fn values; and a revealer may decline by returnin
 
 ## 3. Reading
 
-```
+```luna
 export const fromJson = fn (j: json): table!;
 ```
 

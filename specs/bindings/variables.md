@@ -18,11 +18,11 @@ fully mutable to fully immutable:
 Luna will automatically apply constant-access optimizations to `let` bindings when
 appropriate.
 
-```
+```luna
 let myName = 'Lucas';
 ```
 
-```
+```luna
 var myTable = [];
 myTable.name = 'Lucas';            // interior mutation, fine under var and let
 myTable['lastName'] = 'Streanga';
@@ -45,7 +45,7 @@ against it.
   constraint is a validated commitment the producer made, and inference preserves
   commitments, never manufactures them.
 
-```
+```luna
 var numbers: stream|table = 0..100;
 println(@numbers.typeName);        // "stream"
 &numbers.map(fn (number: int) => number * 2);
@@ -62,7 +62,7 @@ numbers = null;                    // compile error incompatibleTypeError:
 Because an unannotated `var` fixes its inferred type, changing a value's *kind*
 requires either declaring the union up front or opting into `any`:
 
-```
+```luna
 var myFile: File|stream = openFile('myfile.txt', File.modeRead);
 println(@myFile.typeName);         // "File"
 myFile = myFile.lines();           // OK: stream is a member of File|stream
@@ -78,7 +78,7 @@ f = f.lines();                     // compile error incompatibleTypeError:
 Rebinding a fixed binding is a **compile error** (`reassignmentError`; compile errors
 will carry codes):
 
-```
+```luna
 let numbers = 0..100;
 numbers = 0..50;                   // compile error reassignmentError:
                                    // cannot rebind a variable declared with let
@@ -89,7 +89,7 @@ numbers = 0..50;                   // compile error reassignmentError:
 An optional `let` initialized to `null` may receive **exactly one** non-null
 assignment, after which it behaves like any other `let`:
 
-```
+```luna
 let numbers?: stream = null;
 numbers = 0..100;                  // OK: the single permitted write
 numbers = 0..50;                   // compile error reassignmentError
@@ -101,7 +101,7 @@ evident (straight-line code, as above) it is a compile-time `reassignmentError`;
 where it is branch-dependent it cannot be seen statically, so it is tracked with a
 runtime flag and raises `writeOnceViolationError`:
 
-```
+```luna
 let handle?: stream = null;
 if (a) handle = openA();
 if (b) handle = openB();           // runtime writeOnceViolationError if a and b both hold
@@ -113,7 +113,7 @@ A variable declaration **must** provide an initializer. There is no uninitialize
 declaration form: `var x: int;` is a **compile error**. You write `var x: int = 0`, or, for
 a value that is not yet known, an **optional** initialized to `null`:
 
-```
+```luna
 var x: int;             // COMPILE ERROR: a declaration must be initialized
 var x: int = 0;         // OK
 let x?: int = null;     // OK: "not set yet" is an explicit null, filled once later (§1.2)
@@ -176,7 +176,7 @@ the value still never changes. Because a `const` table is known immutable at com
 compiler can specialize it (perfect-hashing, inlining; compiler spec), and, as concurrency relies on,
 it can be shared by reference across tasks without copying, since it can never change.
 
-```
+```luna
 const config = ['db' => ['host' => 'localhost']];
 config.db.host = 'remote';         // error: const is deeply immutable
 config.timeout = 30;               // error: const admits no new keys either
@@ -186,7 +186,7 @@ config.timeout = 30;               // error: const admits no new keys either
 elsewhere. Const-binding a value that is currently shared conceptually copies it to
 the new binding and makes *that copy* deeply immutable, leaving the original untouched:
 
-```
+```luna
 var original = ['count' => 0];
 const snapshot = original;         // snapshot is a deep, immutable copy
 original.count = 1;                // OK: original is an ordinary var
@@ -239,7 +239,7 @@ runtime's lock, not in Luna meta space, std.io §2.1.)
 Variables are **lexically (block) scoped**, as is typical in modern languages, and
 unlike PHP, where variables are function-scoped.
 
-```
+```luna
 foreach (num in 0..10) {
   let i = num;                     // scoped to the loop body
 }
@@ -278,7 +278,7 @@ is opaque to the programmer. The sole exception is `stream`, which is always pas
 `&` passes by reference and may be written on either the caller or the callee side.
 A function that mutates its argument in place takes (or is given) a reference:
 
-```
+```luna
 var myTable = [];
 var fillTable = fn (&myTable: table) => myTable['element'] = 1;   // & on the callee
 fillTable(myTable);
@@ -310,7 +310,7 @@ value-carried check, constraints §9.4, would catch such a write at runtime anyw
 invariance turns it into a compile error at the call, the earlier and better
 diagnostic.)
 
-```
+```luna
 let t = [];
 fillTable(&t);                     // compile error: cannot take a reference to a let binding
 ```
@@ -318,7 +318,7 @@ fillTable(&t);                     // compile error: cannot take a reference to 
 Because streams pass by reference, a method that extends the pipeline is visible to
 the caller, and consuming the stream in the callee consumes it for everyone:
 
-```
+```luna
 let myStream = 0..10;
 &myStream.map(fn (num: int) => num * 2);
 println(myStream.isConsumed());      // "true"
@@ -356,7 +356,7 @@ capability is immutable and there is no mutable slot to race on.)
 recursively to every element. Passing `copy x` hands the callee its own value, so
 in-place mutation cannot reach the original:
 
-```
+```luna
 let myTable = [];
 var fillTable = fn (&myTable: table) => myTable['element'] = 1;
 fillTable(copy myTable);
@@ -366,7 +366,7 @@ println(myTable);                  // []
 For a stream, `copy` captures the **current** state: the cursor position at the
 moment of the copy, not the stream's origin:
 
-```
+```luna
 let myStream = 0..10;
 foreach (v in myStream.take(5)) { print(v); }     // 01234; consumes 5 elements of myStream
 var myNewStream = copy myStream;                   // copy captures the current cursor (now at 5)
@@ -387,7 +387,7 @@ cursor by `n`, stream-api. There is no dedicated repetition operator.)
 value's *current* type, which for an absent key is `undefined` and for a stored null
 is `null`:
 
-```
+```luna
 var myTable = [];
 println(@myTable['element'].typeName);   // "undefined": no such key
 myTable.element = null;

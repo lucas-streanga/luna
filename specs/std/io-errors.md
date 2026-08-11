@@ -12,7 +12,7 @@ Errno values do not map 1:1 onto error types. The rule is the one errors §5.2 a
 caller can do about it*, and every type carries the raw number for diagnostics, never for
 dispatch:
 
-```
+```luna
 export ioError = error { path: path?, errno: int? };   // the family root
 ```
 
@@ -22,7 +22,7 @@ user code is a design smell the hierarchy exists to prevent.
 
 ## 2. The hierarchy
 
-```
+```luna
 export fileNotFound     = error : ioError {};   // ENOENT, ENXIO, ENODEV: nothing is there
 export notADirectory    = error : ioError {};   // ENOTDIR: a path component is the wrong kind
 export isADirectory     = error : ioError {};   // EISDIR: opened a directory for writing

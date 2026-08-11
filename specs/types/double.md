@@ -5,7 +5,7 @@
 faithfully, including infinities and nan, and it is deliberately **not** interchangeable with
 `int` (no implicit conversion, §7).
 
-```
+```luna
 let x: double = 3.14;
 let y = 1.0 / 3.0;         // 0.3333333333333333
 ```
@@ -46,7 +46,7 @@ because floats have defined out-of-range values and ints do not.
 Following from §1, floating-point division by zero does **not** panic (unlike int division,
 which does):
 
-```
+```luna
 1.0 / 0.0        // inf
 -1.0 / 0.0       // -inf
 0.0 / 0.0        // nan
@@ -73,7 +73,7 @@ used carefully in `match` and sorting.
 
 ### 2.1 Checking for special values
 
-```
+```luna
 fn isNan(x: double): bool         // true iff x is nan (the reliable nan test, since x == x fails for nan)
 fn isInf(x: double): bool          // true iff x is inf or -inf
 fn isFinite(x: double): bool       // true iff x is neither nan nor inf
@@ -89,7 +89,7 @@ IEEE `==` and IEEE ordering are not well-behaved (§2), so anything that needs a
 relation over doubles, **sorting** and **`match` value-patterns** (match spec), uses a **total
 order** instead, defined over every double including the infinities and nan:
 
-```
+```luna
 -inf  <  negative finite  <  0.0  <  positive finite  <  inf  <  nan
 ```
 
@@ -142,7 +142,7 @@ rounding. A constraint filters which doubles are valid; it cannot reduce precisi
 
 Constraints on `double` instead restrict the **value set**, which is useful:
 
-```
+```luna
 const probability   = constraint x: double where x >= 0.0 && x <= 1.0;
 const finiteDouble   = constraint x: double where isFinite(x);       // excludes nan and inf
 ```
@@ -157,7 +157,7 @@ So constraints give ranges and finiteness, not reduced precision.
 a real, finite number. Because it is an ordinary constraint (constraints spec), narrowing to it
 runs the check and **panics** (a `typeError`) on a nan or inf:
 
-```
+```luna
 let r = someComputation();          // r : double, possibly nan or inf
 let f = r as finiteDouble;          // panics here if r is nan or inf
 // f is known finite from here
@@ -192,7 +192,7 @@ There is **no implicit conversion** between `int` and `double`, and neither `as`
 two are disjoint representations and converting **transforms** the value (`as` never transforms,
 `as` spec §3). Conversion is by function:
 
-```
+```luna
 fn toDouble(n: int): double        // int to double; exact for |n| <= 2^53, lossy above (mantissa is 52 bits)
 fn trunc(d: double): int!          // toward zero          — the policy verbs, each fallible
 fn round(d: double): int!          // nearest; ties away from zero

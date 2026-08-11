@@ -18,7 +18,7 @@ declaration:
 - **Top-level `export` declarations are the module's exports**; top-level declarations without
   `export` are private to the module.
 
-```
+```luna
 // file: text/strings.luna   , this file is the module `text.strings`
 export const parse = fn (...) => ...;      // exported
 export const split = fn (...) => ...;      // exported
@@ -142,7 +142,7 @@ stated as a table:
 | **Statement** (dumps names) | `import std.filesystem;` | `import { stat, exists } from std.filesystem;` |
 | **Assignment** (collects a table, §6) | `const fs = import std.filesystem;` | `const fs = import { stat, exists } from std.filesystem;` |
 
-```
+```luna
 import text.strings                                 // every export name, bare
 import { parse, split } from text.strings           // exactly these names
 import { parse as strParse } from text.strings      // with a rename (collisions, §8)
@@ -182,7 +182,7 @@ change of a module it never uses.
 To get a namespaced handle instead of loose names, **assign the import** (the grid's second
 row, §5), which collects exports into an ordinary **table**:
 
-```
+```luna
 const strings = import text.strings;                 // all exports, as a table
 const fs = import { stat, exists } from std.filesystem;   // just these two, as a table
 strings.parse(x);                                    // ordinary table access
@@ -248,7 +248,7 @@ tools but invisible to the type system, so modules never become types through th
 `moduleof` is a **unary, compile-time prefix operator** (not a function) that yields a `table`
 describing the module a binding is defined in:
 
-```
+```luna
 moduleof parse           // the module `parse` is defined in: e.g. { path: "strings" }
 moduleof someLocal       // a local's defining module is the current module
 moduleof mainFn          // a root-module binding: { path: "" } (empty path == the root)
@@ -290,7 +290,7 @@ purpose, because it is almost never needed and does not warrant a scarce sigil.
 Because imports dump names, two imports can bring in the same name. A collision is a
 **compile-time error**, never a silent shadow, and it is resolved by **aliasing**:
 
-```
+```luna
 import { parse } from text.legacy;
 import { parse as jsonParse } from json.parser;      // alias avoids the collision
 ```

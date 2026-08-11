@@ -220,7 +220,7 @@ stores; the union is what the location declares.
 may hold an error, explicitly as `string | error`, or with the `!` suffix, the
 error-analogue of `?`:
 
-```
+```luna
 let myVal: string|error = try someFunc();
 let myVal!:  string      = try someFunc();   // identical; ! means "or error"
 ```

@@ -42,7 +42,7 @@ A builder is a value of type `@stringBuilder` (protocols §6): a table with the
 
 ## 2. Construction
 
-```
+```luna
 fn builder(seed: string = "", capacityHint: nat = 0): @stringBuilder
 ```
 
@@ -53,7 +53,7 @@ unit `reserve` already speaks), to avoid early reallocations.
 Construction is **non-errorable**: application is pure machinery and the operator form
 never fails (protocols §4.1), so no `try` is needed.
 
-```
+```luna
 var b    = builder();                 // empty builder
 var doc  = builder("<<HEADER>>\n");   // seeded with an initial string
 var big  = builder("", 4096);         // pre-sized for ~4 KB
@@ -70,7 +70,7 @@ additionally handling the seed and capacity hint. Bind with `var` or `let`, not 
 The builder's operations are `stringBuilder`'s protocol functions, reached with `->`
 (protocols §3). The protocol:
 
-```
+```luna
 const stringBuilder = proto {
   identityEquality;                    // builders compare by identity (protocols §5)
 
@@ -158,7 +158,7 @@ sink; the decoder owns the pending-partial-codepoint bookkeeping.
 Builder operations are protocol functions, reached with `->` and chained on their `self`
 returns; mutation is caller-side `&`-write-back (tables §4):
 
-```
+```luna
 var b = builder();
 &b->append("Hello, ")->append(name)->append("!");   // chain, then write back
 let s = b->build();                                  // : string — no mutation, no &
@@ -169,7 +169,7 @@ require a `var` binding for `&`. The helper is an ordinary free function — an 
 in the UFCS sense (protocols §9) — and it is *functions like this*, not protocol
 functions, that take `&` parameters (protocols §2.4):
 
-```
+```luna
 const addHeader = fn (&b: @stringBuilder, title: string) => {
   &b->append("== ")->append(title)->append(" ==\n");
 };
@@ -191,7 +191,7 @@ builder unchanged and reusable: you may `build()`, append more, and `build()` ag
 Calling `build()` to peek at the current contents never destroys the buffer. To consume
 deliberately, say both halves:
 
-```
+```luna
 let snapshot = b->build();          // b still usable; snapshot is independent
 let final    = b->build();          // then, if done with b:
 &b->clear();                        // reset explicitly (or just drop b)
@@ -247,7 +247,7 @@ A double-quoted literal with interpolations, `"$greeting, $name!"`, becomes a bu
 appends the literal runs and the `toString` of each interpolated expression in order, then
 materializes once:
 
-```
+```luna
 "$greeting, $name!"
 // lowers to roughly:
 //   var _b = builder();

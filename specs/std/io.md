@@ -4,7 +4,7 @@ The first standard module, and deliberately a stress test: everything here is ex
 the language's own tools, the capability model, protocols, streams, constraints, enums,
 `defer`, and nothing io-specific is added to the language.
 
-```
+```luna
 import std.io;
 
 const main = fn () use (io) {
@@ -16,7 +16,7 @@ const main = fn () use (io) {
 
 `std.io` **exports** one capability:
 
-```
+```luna
 export const io = capability;
 ```
 
@@ -51,7 +51,7 @@ precedent exactly (protocols §10, equality §4.4, concurrency §2.1):
 **`file` is the exported name of the refinement**, a type alias (type spec, aliases are pure
 sugar: a name, not a new type):
 
-```
+```luna
 export const file = @fileDescriptor;
 ```
 
@@ -70,7 +70,7 @@ a raw string reaching `openFile` is caught at the signature instead of at the OS
 
 ### 2.1 The standard handles
 
-```
+```luna
 export const stdin:  file;
 export const stdout: file;
 export const stderr: file;
@@ -91,7 +91,7 @@ mid-line.
 Option parameters are **inline anonymous enums**, and call sites name variants with the
 **fenced literal**, resolved by the parameter's expected type (enum spec §3.3):
 
-```
+```luna
 openFile('data.bin', {read}, {binary});
 ```
 
@@ -102,7 +102,7 @@ two signatures is one type. The axes: **mode** `enum {read, write, append}`, **f
 
 ## 4. Opening, closing, flushing
 
-```
+```luna
 export const openFile = fn (
   fileName: path,
   mode:           enum {read, write, append} = {read},
@@ -118,7 +118,7 @@ current target, in the io-errors spec: `fileNotFound`, `notADirectory`, `isADire
 `tooManyOpenFiles`, `outOfSpace`, all under `ioError = error { path: path?, errno: int? }`,
 caught by **type**, never by errno-switching.
 
-```
+```luna
 export const close = fn (fd: file) use (io): undefined;
 export const flush = fn (fd: file) use (io): undefined;
 ```
@@ -127,7 +127,7 @@ export const flush = fn (fd: file) use (io): undefined;
 closed file **panics** (misuse, an invariant violation, the same category as wrong-mode use,
 §8). The idiom is `defer`:
 
-```
+```luna
 // inside an errorable (fn!) context: a bare call propagates failure to the caller
 var fd = openFile('log.txt', {append});
 defer close(fd);
@@ -142,7 +142,7 @@ a contract**: flush timing and error reporting are only defined through explicit
 
 ## 5. Printing
 
-```
+```luna
 export const println  = fn (line: string, fd: file = stdout,
                             lineEnding: string = platform.lineEnding) use (io): undefined;
 export const print    = fn (text: string, fd: file = stdout) use (io): undefined;
@@ -159,7 +159,7 @@ delimiter is expressible; the default reads `platform.lineEnding` (§10).
 
 ## 6. Reading
 
-```
+```luna
 export const lines = fn (fd: file, lineEnding: string = platform.lineEnding,
                          includeLineEnding: bool = false) use (io): stream;
 export const chunks   = fn (fd: file, size: int) use (io): stream;
@@ -196,7 +196,7 @@ Re-traversal is explicit: `seek(fd, 0)` and a fresh `lines(fd)`.
 
 ## 7. Writing and seeking
 
-```
+```luna
 export const append     = fn (fd: file, data: string | bytes) use (io): undefined;
 export const appendLine = fn (fd: file, line: string,
                               lineEnding: string = platform.lineEnding) use (io): undefined;
@@ -217,7 +217,7 @@ now is, defined, single-owner, and on the owner's head.
 modules (`fromJson(j: json): table!` in std.json §3; siblings in std.csv, std.yaml,
 std.xml), and file-to-table is one expression:
 
-```
+```luna
 let t = fromJson(readAll(fd) as json);   // table!: propagates in an fn!; `try` to recover
 ```
 

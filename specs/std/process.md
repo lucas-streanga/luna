@@ -1,6 +1,6 @@
 # `std.process`
 
-```
+```luna
 import std.process;
 ```
 
@@ -12,7 +12,7 @@ lives here.
 
 ## 1. Arguments
 
-```
+```luna
 export const argv = capability;
 export const args = fn () use (argv): list;
 ```
@@ -25,7 +25,7 @@ any other authority. This module is the home that capability row's flag promised
 
 ## 2. Environment
 
-```
+```luna
 export const env = capability;
 export const envVars = fn () use (env): table;   // 'PATH' => secret, 'HOME' => secret, ...
 ```

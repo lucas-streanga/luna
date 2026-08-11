@@ -7,7 +7,7 @@ serialization entry points**, generated and dynamic.
 
 ## 1. `json` is a constraint on `string`
 
-```
+```luna
 const json = constraint str: string where isValidJson(str);
 ```
 
@@ -38,7 +38,7 @@ data. The type is the escaping decision.
 
 ## 2. The two entry points
 
-```
+```luna
 const toJson = comptime fn (ct: comptype): fn (any): json;   // generated, tags honored
 fn toJsonDynamic(v: any): json;                              // structural, tags erased
 ```

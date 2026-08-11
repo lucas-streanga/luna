@@ -55,7 +55,7 @@ apply to elements directly; no distinct byte type is needed (§6).
 Indexing follows the global `.`/`[]` rule (tables §3), but `bytes` has no static string keys,
 so access is by integer offset with `[]`:
 
-```
+```luna
 let b: bytes = [];        // empty buffer
 b[] = 65;                 // append: b is now [65], length 1
 b[0] = 66;                // in-bounds modify: b is now [66]
@@ -75,7 +75,7 @@ gapping. `bytes` rejects (except append-at-end); explicit growth is `fill`.
 
 ### 3.1 `fill`: deliberate growth
 
-```
+```luna
 fn fill(b: bytes, length: int, value: byte = 0): bytes    // grow to `length`, new octets set to `value`
 ```
 
@@ -88,7 +88,7 @@ default). This is the **explicit** way to extend a buffer, replacing the rejecte
 
 ## 4. Slicing and conversion
 
-```
+```luna
 fn slice(b: bytes, start: int, end: int): bytes          // a sub-buffer b[start:end], end excluded
 fn toList(b: bytes): list                                 // a list of int (0..255); COPIES and expands
 fn cString(b: bytes): bytes                               // ensure a trailing NUL (0x00); for FFI
@@ -117,7 +117,7 @@ Converting `bytes` to `string` is **fallible**, because arbitrary octets are not
 valid UTF-8. So it is a **function returning `string!`**, not a total `toString` and not an
 `as` narrowing (`as` never runs conversions, `as` spec §3):
 
-```
+```luna
 fn fromBytes(b: bytes): string!        // string.fromBytes: validates UTF-8, throws if invalid
 ```
 
@@ -157,7 +157,7 @@ would (§2). No new scalar type.
 A `bytes` value can be written literally with the **`b` prefix** on a quote, `b"..."` or
 `b'...'` (the quote style does not matter, since a bytes literal does not interpolate):
 
-```
+```luna
 let sig    = b"\x89PNG\r\n";      // the PNG signature: raw octets via \xNN plus text
 let method = b"GET ";              // ASCII text as bytes
 let empty  = b"";                  // the empty bytes

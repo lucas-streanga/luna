@@ -17,7 +17,7 @@ reindexes silently (tables §2.3).
 `...expr` inside a table literal inserts all of `expr`'s entries at that point, and spreads
 may sit among literal elements:
 
-```
+```luna
 let combined  = [...first, ...second];
 let withExtra = [head, ...middle, tail];
 ```
@@ -48,7 +48,7 @@ nothing observable with the sources.
 
 ### 1.1 Worked example
 
-```
+```luna
 let first  = [10, 20];            // entries 0=>10, 1=>20
 let second = [30];                // entries 0=>30
 let mixed  = ['x'=>99, 5=>50];    // a string key and a non-contiguous integer key
@@ -96,7 +96,7 @@ because `merge` folds the same way: integer keys append, string keys overwrite
 (iterable-functions §2.7, `preserveKeys = false`, the combiner default it shares with
 `flatten`).
 
-```
+```luna
 [...a, ...b]        // the same fold as a.merge(b)
 [...list1, ...list2]   // for list operands: concatenation, of their combined length
 ```
@@ -139,7 +139,7 @@ Spread contributes a table's **entries**, and an entry that is itself a table ar
 **one value**. There is no deep or recursive spread (`[......t]` is not a thing), because
 depth is a *policy*, and policies get functions, not operators:
 
-```
+```luna
 fn flatten(it: iterable, depth: int = -1, preserveKeys: bool = false): iterable
 ```
 
@@ -222,7 +222,7 @@ injection-safety point of structured commands.
 
 When the spread operands are comptime-known, the whole literal folds at compile time:
 
-```
+```luna
 const combined = [...tab1, ...tab2];   // requires tab1, tab2 comptime-known
 ```
 

@@ -93,7 +93,7 @@ floats.
 
 ### 1.4 Arbitrary-precision and exact (built-in, heap-backed)
 
-```
+```luna
 decimal       // arbitrary-precision base-10 (exact decimal fractions)
 rational      // exact fraction (a pair of integers, kept reduced)
 complex       // a pair of doubles (real, imaginary)
@@ -137,7 +137,7 @@ machinery is written from scratch.
 In an expression combining two values of the **same family** but different widths, the result takes
 the **widest** operand's type, and the narrower operand widens implicitly (losslessly):
 
-```
+```luna
 someI8 + someI32       // i32   (the i8 widens to i32)
 someU16 + someUint     // uint  (the u16 widens to uint)
 someFloat + someDouble // double (the float widens to double, losslessly)
@@ -157,7 +157,7 @@ rounded result is a computed new value, which is never `as` (as spec §3, R124).
 Between families, there is **no implicit conversion**; you convert with an explicit function
 (conversion spec):
 
-```
+```luna
 someInt + someDouble          // ERROR: different families, no implicit crossing
 someInt.toDouble() + someDouble   // OK: explicit widening to double, then double arithmetic
 

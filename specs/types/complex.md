@@ -60,7 +60,7 @@ operand (`someDouble as complex`, §4). The tower's uniform stance, as everywher
 
 ## 3. Accessors
 
-```
+```luna
 fn real(z: complex): double         // total, exact: the real component
 fn imag(z: complex): double         // total, exact: the imaginary component
 fn conj(z: complex): complex        // total, exact: a - bi (flips the imaginary sign)

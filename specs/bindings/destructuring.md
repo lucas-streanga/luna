@@ -16,7 +16,7 @@ element), so a shape mismatch is caught rather than hidden.
 
 Square brackets with bare targets bind by implicit integer keys `0, 1, 2, ...`:
 
-```
+```luna
 [a, b] = pair;           // a = pair[0], b = pair[1]
 [x, y, z] = triple;      // x = triple[0], y = triple[1], z = triple[2]
 ```
@@ -49,7 +49,7 @@ force length arithmetic against the source, complexity with no carried use case)
 rest element consumes the remaining values, and you choose whether to keep or drop
 them:
 
-```
+```luna
 [a, b, ...rest] = source;    // a, b bound; rest = a list of everything after
 [a, b, ..._]    = source;    // a, b bound; the tail is explicitly discarded
 ```
@@ -67,7 +67,7 @@ captured tail), and `[a, b, ..._]` (two plus a discarded tail). Silent loss neve
 
 `_` skips one position without binding it (wildcard spec §6):
 
-```
+```luna
 [a, _, c] = triple;      // bind positions 0 and 2, skip position 1
 ```
 
@@ -79,7 +79,7 @@ is distinct from `..._`, which discards *all* remaining positions.
 A positional pattern accepts a **stream** source (R103), with prefix-consumption
 semantics (stream §2.1) in place of §1.1's exact-length rule:
 
-```
+```luna
 let [a, b] = s.split(' ');    // pull two; further pieces stay in the (taken) stream
 let [head, ...rest] = s;      // pull one; rest is the SAME stream, advanced
 [x, ..._] = s;                // pull one; the tail is explicitly left behind
@@ -109,7 +109,7 @@ let [head, ...rest] = s;      // pull one; rest is the SAME stream, advanced
 Bracketed `key => target` pairs bind by explicit key, in the same syntax as a keyed table
 literal:
 
-```
+```luna
 ['name' => n, 'age' => a] = person;      // n = person['name'], a = person['age']
 ```
 
@@ -124,7 +124,7 @@ positional, §1.1): you asked for specific keys, and other keys are irrelevant.
 A named key that is not present in the source binds **`undefined`** (the absence sentinel,
 coalescing spec), the same result as `source['missingKey']`:
 
-```
+```luna
 ['name' => n, 'nickname' => nick] = person;   // nick = undefined if person has no 'nickname'
 ```
 
@@ -136,7 +136,7 @@ binding with the coalescing operators (`nick ?? "none"`).
 
 `_` as a keyed target acknowledges a key without binding it:
 
-```
+```luna
 ['name' => _, 'age' => a] = person;      // require/read 'name' but discard it; bind 'age'
 ```
 
@@ -164,7 +164,7 @@ what the literal can build, the pattern can take apart.
 
 A position may hold a **nested pattern** instead of a name, to any depth:
 
-```
+```luna
 let [[a, b], c] = pairs;                          // positional in positional
 let ['server' => ['host' => h, 'port' => p]] = config;   // keyed in keyed
 let ['points' => [[x1, y1], ...rest]] = shape;    // mixed, with a rest at depth
@@ -211,7 +211,7 @@ guard: a destructured parameter is **by value only**, `&` marks a whole named pa
 
 Destructuring binds with the same forms:
 
-```
+```luna
 let [a, b] = pair;           // let bindings
 var [a, b] = pair;           // var bindings (rebindable)
 const [a, b] = pair;         // const bindings (requires a comptime-known source)

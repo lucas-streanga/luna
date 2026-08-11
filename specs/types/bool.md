@@ -4,7 +4,7 @@
 the `lval`** like the other scalars. It is the simplest type in the language, one bit of
 information, two literals, no coercion.
 
-```
+```luna
 let ok: bool = true;
 let done = false;
 ```
@@ -24,7 +24,7 @@ Anywhere a boolean is expected, a condition in `if` / `while`, a `match` guard, 
 boolean operator, the value **must be a `bool`**. There is **no truthiness**: non-boolean values
 are not implicitly treated as true or false.
 
-```
+```luna
 if (count > 0) { ... }        // ok: a bool
 if (count) { ... }             // ERROR: int is not a bool
 if (name != "") { ... }        // ok: write the comparison
@@ -64,7 +64,7 @@ A `bool` does **not** implicitly coerce to or from `int` or `string`, and conver
 *different value* of a different type, which is a transformation, so it is a function, exactly as
 `toString` and `parseInt` are functions rather than `as` forms.
 
-```
+```luna
 b.toInt()             // true -> 1, false -> 0   (total; UFCS, same as toInt(b))
 b.toString()          // true -> "true", false -> "false"   (total; the ordinary toString)
 parseBool(s)          // "true" -> true, "false" -> false, else an error: bool!   (fallible)

@@ -70,7 +70,7 @@ The builder is realized as a table with the applied `stringBuilder` protocol (an
 table whose growable buffer is an ungranted per-table protocol member), so its operations
 are protocol functions reached with `->`:
 
-```
+```luna
 var b = builder();
 &b->append("Hello, ")->append(name)->append("!");   // chainable; & writes back
 let greeting = b->build();                           // immutable string

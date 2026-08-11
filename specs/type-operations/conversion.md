@@ -78,7 +78,7 @@ readable off the prefix at every call site.
 Luna has **no function overloading** (language overview), so there is a **single** `toString`,
 not one per type:
 
-```
+```luna
 const toString = fn (value: any): string => { ... };     // total; one function for all types
 ```
 
@@ -88,7 +88,7 @@ itself renderable by applying the well-known **`stringify` protocol**, whose one
 **required fn-typed member**: each application supplies its own renderer at apply, as an
 initializer (protocols §4.2), immutable thereafter —
 
-```
+```luna
 const stringify = proto {
   const get toString: fn (any): string;   // required: bound per application, at apply
 };
@@ -99,7 +99,7 @@ var user = ['name' => n] apply stringify(toString: fn (u: any): string => { ... 
 — and `toString` (the free function) dispatches through that member when the protocol is
 applied, falling back to a built-in rendering otherwise:
 
-```
+```luna
 const toString = fn (value: any): string => match {
   value is @stringify => value->stringify.toString(value),   // the application's own renderer
   _                   => builtinRender(value),               // default per built-in type

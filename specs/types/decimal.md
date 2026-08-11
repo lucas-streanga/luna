@@ -47,7 +47,7 @@ split does the work — `decimal` is exact radix-10 *arithmetic*; `rational` is 
 
 ## 3. `div`, and the `roundingMode` enum
 
-```
+```luna
 fn div(a: decimal, b: decimal, scale: int, rounding: roundingMode = {halfEven}): decimal
 
 export const roundingMode = enum { halfEven, halfUp, trunc, floor, ceiling };

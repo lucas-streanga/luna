@@ -8,7 +8,7 @@ safe: **a task shares no mutable state.** Everything crossing a spawn boundary i
 `const` (which is frozen, so safe to share by reference), so there are no data races by
 construction, which is why there is no function coloring: any function may be spawned.
 
-```
+```luna
 let p = spawn compute(x);       // start compute(x) as a task; p is its promise
 let v = await p;                // wait for the result: a value, or an error (§4)
 ```
@@ -169,7 +169,7 @@ deep-copied, the stream moves (its referent marked). So the task receives a copy
 parts plus the moved stream, and on the spawner's side the table survives, its copyable parts usable,
 while the moved stream element panics on access:
 
-```
+```luna
 var t = ['s' => makeStream(), 'n' => 5];
 spawn f(t);        // copyable parts deep-copied; the stream moves (referent marked **taken**)
 t['n'];            // 5: the copy is independent and usable
@@ -358,7 +358,7 @@ apply.
 cancellation machinery** — R115's scope-exit rule was the missing cancel primitive all
 along.
 
-```
+```luna
 awaitAny(...ps: promise): [int, any]!     // builtin: first completion wins
 ```
 
@@ -371,7 +371,7 @@ awaitAny(...ps: promise): [int, any]!     // builtin: first completion wins
   owned by whatever scope spawned them — reclaimed by that scope's exit as always
   (§6). Zero arguments is a compile error.
 
-```
+```luna
 timeout(f: fn, d: duration): any!               // spawns f itself: scope-owning
 awaitTimeout(p: promise, d: duration): any!     // for work the caller already spawned
 receiveTimeout(rx: stream, d: duration): any!   // next element, or timeoutError

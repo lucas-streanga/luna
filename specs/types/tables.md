@@ -17,7 +17,7 @@ A table maps **keys** to **values**. Depending on how it is used it behaves as a
 contiguous array, a hashmap, or a record/object, with no change in type and
 minimal overhead versus a raw array.
 
-```
+```luna
 var myTable = [];                 // empty table, always []
 myTable = [
   'name' => 'Lucas',
@@ -158,7 +158,7 @@ They even differ in result: `[5=>'a', 9=>'b'] as list` **panics** (not contiguou
 because narrowing is never implicit, passing a bare `table` where a `list` is required is a
 compile error; you choose `as list` (assert) or `values()` (produce) explicitly:
 
-```
+```luna
 someFn(tab)             // COMPILE ERROR: table is not implicitly a list
 someFn(tab as list)     // asserts tab is currently a list; typeError panic if not
 someFn(tab.values())    // always legal; builds a fresh list from tab's values
@@ -181,7 +181,7 @@ stored keys, since the keys are implicitly `0..n-1`; Amendment A).
 A list is sliced with the **`:` syntax**, which is **half-open** (the end index is excluded),
 the Python and Rust convention. A slice returns a new **`list`** (reindexed from 0):
 
-```
+```luna
 let mid  = xs[1:3];      // elements at indices 1 and 2 (end excluded): a 2-element list
 let tail = xs[2:];       // from index 2 to the end
 let head = xs[:3];       // from the start to index 2 (indices 0, 1, 2)
@@ -315,7 +315,7 @@ function (the catalogues) and every protocol function (protocols §2.4) returns 
 table (COW), and the caller decides whether to keep it or write it back. Write-back uses
 a caller-side reference:
 
-```
+```luna
 var sorted = myTable.sort();      // myTable unchanged; sorted is a new table
 &myTable.sort();                  // write-back: myTable becomes the sorted result
 &b->append("x");                  // the same convention through protocol space
@@ -331,7 +331,7 @@ Because a function's return value *is* the intended new table, operations that w
 otherwise return a removed element instead return the **shortened table**. Read the
 element first, then remove:
 
-```
+```luna
 var x = myTable.last();           // read the element
 &myTable.pop();                   // then shrink in place
 ```
@@ -501,7 +501,7 @@ Element space carries **no per-key permissions**. A table is fully readable and 
 on every key by whoever holds it — it is your own data, and there is nothing to
 encapsulate from yourself:
 
-```
+```luna
 var t = ['name' => 'Lucas'];
 t.name;                 // OK: full access, always
 t.age = 0;              // OK
@@ -593,7 +593,7 @@ table, and never conflict.
 A table-level constraint is an ordinary `constraint` declaration (constraints spec §1) with base `table`
 and a pure predicate over the whole table:
 
-```
+```luna
 const pair    = constraint t: table where count(t) == 2;
 const sorted  = constraint t: table where isSorted(values(t));
 const tagged  = constraint t: table where t.kind is string;

@@ -75,7 +75,7 @@ effect). Each is its own spec.
 Types combine with the **union** operator `|` ("one of") and the **intersection** operator `&`
 ("all of"):
 
-```
+```luna
 var x: stream | fn = fn (): null => null;      // a stream or a function
 var y: @proto1 & @proto2 = [] apply proto1 apply proto2;   // a table with both applied protocols
 var z: (@proto1 & @proto2) | null = null;
@@ -91,7 +91,7 @@ table composes roles) and constraint conjunctions (`byte & even`).
 
 Types are inferred where they are obvious, and written where they add clarity or constraint:
 
-```
+```luna
 var t = [];        // table
 var d = 0.0;       // double
 var n = 0;         // int

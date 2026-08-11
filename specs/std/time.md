@@ -1,6 +1,6 @@
 # `std.time`
 
-```
+```luna
 import std.time;
 ```
 
@@ -74,7 +74,7 @@ same-type, as everywhere (equality §1).
 
 ## 3. Constructors, extractors, text
 
-```
+```luna
 export const nanoseconds  = fn (n: int): duration;
 export const microseconds = fn (n: int): duration;
 export const milliseconds = fn (n: int): duration;
@@ -113,7 +113,7 @@ export const parseDuration = fn (s: string): duration!;
 
 ## 4. The clock
 
-```
+```luna
 export const time = capability;
 export const now = fn () use (time): instant;
 ```
@@ -124,7 +124,7 @@ clock would mean either a second instant type or cross-clock subtraction that
 compiles and lies. Readings never decrease and are immune to wall-clock adjustment.
 Elapsed time is subtraction:
 
-```
+```luna
 let started = now();
 work();
 let elapsed = now() - started;        // duration
@@ -139,7 +139,7 @@ tests is the path of least resistance, not a mocking framework.
 
 ## 5. `sleep`
 
-```
+```luna
 export const sleep = fn (d: duration) use (time): undefined;
 ```
 

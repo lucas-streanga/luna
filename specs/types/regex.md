@@ -22,7 +22,7 @@ side.
   error at the literal**, not a runtime surprise.
 - **First-class.** A `regex` is bound, passed, stored, and returned like any value.
 
-```
+```luna
 let year = ~"\d{4}";         // year : regex, compiled once
 matchYear(text, year);       // passed as a regex, not a string
 ```
@@ -37,7 +37,7 @@ or `int`, with its own literal.
 A regex literal is written `~"…"` — the sigil `~`, then a double-quoted pattern — and its
 type is inferred as `regex`:
 
-```
+```luna
 let digits = ~"\d+";
 let word   = ~"[A-Za-z_]\w*";
 let path   = ~"/usr/local/bin";      // slashes need no escaping
@@ -83,7 +83,7 @@ which engine runs it. They compose (`~"…"im`).
 | `x` | Verbose / extended: whitespace in the pattern is ignored and `#` starts a comment (§4). |
 | `b` | Backtracking engine: enables backreferences and lookbehind, at the cost of the linear-time guarantee (§5.2). |
 
-```
+```luna
 ~"hello"i            // case-insensitive
 ~"^\d+$"m            // multiline anchors
 ~"(\w+)\s+\1"b       // backreference: requires b (§5.2)
@@ -100,7 +100,7 @@ want one match or every match is a property of the operation, not of the pattern
 The `x` flag makes a pattern readable by ignoring whitespace and allowing `#` comments, so a
 long pattern can be spelled out across lines instead of packed onto one:
 
-```
+```luna
 let isoDate = ~"
   \d{4}    # year
   -
@@ -222,7 +222,7 @@ which are backtracking-only and ride the `b` engine's own deferral (§9).
 A `~"…"` literal is compiled at compile time. To compile a pattern known only at runtime
 (from configuration, or from user input), use the constructor:
 
-```
+```luna
 fn regex(pattern: string, flags: string = ""): regex!
 ```
 
@@ -233,7 +233,7 @@ fn regex(pattern: string, flags: string = ""): regex!
 - `flags` supplies the same flags as a literal (`"i"`, `"im"`, `"b"`, and so on) as a
   string, since there is no literal delimiter to attach them to.
 
-```
+```luna
 let r = try regex(config.pattern, "i");    // compile a user pattern, handle failure
 ```
 
@@ -262,7 +262,7 @@ point where the literal would still compile at compile time.
 **Interpolation composes pattern source.** A `${expr}` splices the comptime string in **as
 regex source**, so patterns can be assembled from comptime pieces:
 
-```
+```luna
 const DIGITS = ~"\d+".source;           // comptime-known pattern fragment
 let ipPart   = ~"${DIGITS}\.${DIGITS}"; // composed at compile time, compiled once
 ```
@@ -282,7 +282,7 @@ changes the pattern's meaning (that is composition, the intended use). To splice
 string as **literal text to match** (escaping metacharacters) rather than as source, use
 `regexEscape` inside the interpolation:
 
-```
+```luna
 fn regexEscape(str: string): string     // builtin free function; escapes all regex metacharacters
 ```
 
