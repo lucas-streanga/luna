@@ -7104,6 +7104,41 @@ escape table, an implementation question; and `lexer-testing-plan.md` §10's
 entry recording this gap is superseded rather than swept, the gap being
 what this closes.
 
+**R249 — a raw triple preserves `\r`, so a `'''` value depends on the file's
+line endings. Raw means raw.** `"""` and `'''` disagree about CRLF, and the
+disagreement is real rather than an oversight: in `"""` a `\r` before the
+newline is trailing whitespace, which R246 already strips, so a CRLF
+checkout and an LF checkout produce the same string; in `'''` nothing is
+stripped but the margin, so the `\r` is content and the two checkouts
+produce different values.
+
+**The hazard is stated rather than removed.** Line endings are the least
+durable bytes in a repository — `core.autocrlf`, an editor's default, and
+whoever happened to clone it — and `'''` is exactly the form reached for
+when the bytes matter, so this is where non-durability lands hardest. That
+is the same argument R246 used to justify stripping trailing whitespace in
+`"""`, and it does not carry across, because the two forms answer different
+questions. `"""` is for text that should read the same everywhere; `'''` is
+for content whose bytes are the point.
+
+**What `'''` promises is one sentence, and that is its whole value**: every
+byte between the delimiters, minus the margin. "Every byte except a `\r`
+before a newline" is not one sentence, the exception would be invisible in
+the source, and a form that quietly edits its content is not a raw form.
+Both rejected alternatives cost exactly that. Normalizing `\r\n` to `\n` in
+raw triples breaks the guarantee for one sequence and leaves no way to write
+a literal CRLF at all. Treating `\r` before a newline as trivia in *both*
+forms is tidier and uniform, but it takes a byte away from the one form
+whose purpose is keeping bytes.
+
+So the obligation moves out of the language: a project depending on a `'''`
+value pins its line endings in `.gitattributes`, exactly as it would for any
+other byte-exact fixture, and `"""` stays the right default for text that
+should not vary by checkout. Swept: `string.md`'s multi-line paragraph and
+`lexer.md` §4's rule list, both of which now say which form is
+checkout-independent and why. The golden `triple-crlf.lex` pins both
+behaviours, so a later normalization cannot land silently.
+
 ---
 
 ## Still open (out of scope of these rulings)

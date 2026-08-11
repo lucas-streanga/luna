@@ -135,7 +135,16 @@ string with more lines — same escape table, same interpolation — and `'''…
 no escapes at all, no interpolation, `\` and `$` ordinary bytes. Both strip a **margin**, the
 closing delimiter's indentation, from every content line; `"""` also strips each line's
 trailing whitespace, where `'''` preserves it, which is what makes `'''` the form for
-whitespace-sensitive content. `'''` needs no escapes because the closer must begin its line,
+whitespace-sensitive content.
+
+That split reaches line endings too (R249). A CRLF's `\r` is trailing whitespace, so `"""`
+strips it and a value reads the same however the file was checked out, while `'''` keeps it
+and the value differs between a CRLF and an LF checkout. **Raw means raw**: the guarantee
+`'''` makes is one sentence — every byte between the delimiters, minus the margin — and
+"every byte except a `\r` before a newline" would not be, would be invisible in the source,
+and would leave no way to write a literal CRLF. So the obligation sits with the repository,
+which pins line endings in `.gitattributes` as it would for any byte-exact fixture; `"""` is
+the right default for text that should not vary by checkout. `'''` needs no escapes because the closer must begin its line,
 so a mid-line `'''` is ordinary content and the containment problem `\'` solves for `'…'`
 does not arise.
 

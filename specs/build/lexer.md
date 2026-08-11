@@ -339,7 +339,11 @@ and `$` ordinary bytes. Six rules:
   durable in source — editors, `.editorconfig`, and CI hooks delete it — so a `"""` value
   never depends on bytes that get taken away, and `\u{20}` is the durable spelling. `'''` is
   where whitespace-sensitive content goes, and saying so at the call site is the signal a
-  reader and a formatter need.
+  reader and a formatter need. The **`\r` of a CRLF line ending follows the same split**
+  (R249): in `"""` it is trailing whitespace and is stripped, so a value reads the same from
+  a CRLF checkout as from an LF one; in `'''` it is content, so the value differs. Raw means
+  raw, and a project depending on a `'''` value pins its line endings in `.gitattributes` —
+  the obligation is a repository's, not the language's.
 - **A splice suspends the margin** (§1): inside `${…}` the content is code, so it may span
   lines with no margin obligation.
 
