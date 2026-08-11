@@ -183,8 +183,10 @@ func (p *preludeReader) at(k token.Kind) bool { return p.ok && p.tok.Kind == k }
 
 func (p *preludeReader) text() string { return p.f.Slice(p.tok.Offset, p.tok.Len) }
 
-// atWord matches an identifier by spelling. `from` and `as` are contextual rather than
-// reserved (R223), which is what keeps `import { parse as from } from m;` legal.
+// atWord matches an identifier by spelling. Only `from` needs this: it is unreserved
+// (modules §5, R223) and lexes as IDENT, so the from-clause is recognized positionally. `as`
+// is a real keyword (§0, `KW_AS`) and needs no such treatment — which together are what keep
+// `import { parse as from } from m;` legal, the alias target being an ordinary name.
 func (p *preludeReader) atWord(w string) bool { return p.at(token.Ident) && p.text() == w }
 
 // atSegment reports whether the current token can be a module-path segment.
