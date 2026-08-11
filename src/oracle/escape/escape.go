@@ -62,6 +62,21 @@ var allowed = [Regex + 1]string{
 // `\"` (string §5.1), so nothing there can be unknown.
 func (c Context) passthrough() bool { return c == Regex }
 
+// Allowed is the characters that may follow a backslash in ctx, or the empty string where
+// the context has no table — the regex, whose escapes pass through undecoded.
+//
+// Exported for the grammar generator, which turns the same rows into the escape rules the
+// editor grammars carry. Reading them from here rather than restating them is the point:
+// §5.1's table is what the lexer validates against, so a grammar built from it flags
+// exactly the escapes the lexer would raise L0005 for, and cannot slide out of step with
+// a ruling that changes a row.
+func Allowed(ctx Context) string {
+	if ctx.passthrough() || int(ctx) >= len(allowed) {
+		return ""
+	}
+	return allowed[ctx]
+}
+
 // Check examines the escape beginning at the backslash src[i], reporting how many bytes
 // it spans and, when it is not legal here, the code that condemns it.
 //

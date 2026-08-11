@@ -18,6 +18,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "regex"
+        },
+        {
+          "type": "SYMBOL",
           "name": "string"
         },
         {
@@ -41,15 +45,15 @@
     "comment": {
       "type": "TOKEN",
       "content": {
-        "type": "SEQ",
+        "type": "CHOICE",
         "members": [
           {
-            "type": "STRING",
-            "value": "//"
+            "type": "PATTERN",
+            "value": "\\/\\/[^\\n]*"
           },
           {
             "type": "PATTERN",
-            "value": "[^\\n]*"
+            "value": "\\/\\*[^*]*\\*+([^/*][^*]*\\*+)*\\/"
           }
         ]
       }
@@ -57,21 +61,15 @@
     "attribute": {
       "type": "TOKEN",
       "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "#["
-          },
-          {
-            "type": "PATTERN",
-            "value": "[^\\]]*"
-          },
-          {
-            "type": "STRING",
-            "value": "]"
-          }
-        ]
+        "type": "PATTERN",
+        "value": "#\\[[^\\]]*\\]"
+      }
+    },
+    "regex": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PATTERN",
+        "value": "~\"[^\"\\\\]*(?:\\\\[\\s\\S][^\"\\\\]*)*\"[imsxb]*"
       }
     },
     "string": {
@@ -80,80 +78,20 @@
         "type": "CHOICE",
         "members": [
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "\""
-              },
-              {
-                "type": "REPEAT",
-                "content": {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "PATTERN",
-                      "value": "[^\"\\\\]"
-                    },
-                    {
-                      "type": "SEQ",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": "\\"
-                        },
-                        {
-                          "type": "PATTERN",
-                          "value": "."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "type": "STRING",
-                "value": "\""
-              }
-            ]
+            "type": "PATTERN",
+            "value": "\"\"\"([^\"\\\\]|\\\\[\\s\\S]|\"[^\"\\\\]|\"\"[^\"\\\\])*\"\"\""
           },
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "'"
-              },
-              {
-                "type": "REPEAT",
-                "content": {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "PATTERN",
-                      "value": "[^'\\\\]"
-                    },
-                    {
-                      "type": "SEQ",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": "\\"
-                        },
-                        {
-                          "type": "PATTERN",
-                          "value": "."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              },
-              {
-                "type": "STRING",
-                "value": "'"
-              }
-            ]
+            "type": "PATTERN",
+            "value": "'''([^']|'[^']|''[^'])*'''"
+          },
+          {
+            "type": "PATTERN",
+            "value": "b?\"[^\"\\\\\\n]*(?:\\\\[^\\n][^\"\\\\\\n]*)*\""
+          },
+          {
+            "type": "PATTERN",
+            "value": "b?'[^'\\\\\\n]*(?:\\\\[^\\n][^'\\\\\\n]*)*'"
           }
         ]
       }
@@ -161,160 +99,29 @@
     "command": {
       "type": "TOKEN",
       "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "`"
-          },
-          {
-            "type": "REPEAT",
-            "content": {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "PATTERN",
-                  "value": "[^`\\\\]"
-                },
-                {
-                  "type": "SEQ",
-                  "members": [
-                    {
-                      "type": "STRING",
-                      "value": "\\"
-                    },
-                    {
-                      "type": "PATTERN",
-                      "value": "."
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "STRING",
-            "value": "`"
-          }
-        ]
+        "type": "PATTERN",
+        "value": "`[^`\\\\\\n]*(?:\\\\[^\\n][^`\\\\\\n]*)*`"
       }
     },
     "number": {
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "[0-9][0-9_]*(\\.[0-9][0-9_]*)?"
+        "value": "(?:0|[1-9](?:_?[0-9])*)\\.[0-9](?:_?[0-9])*(?:[eE][+-]?[0-9]+)?|(?:0|[1-9](?:_?[0-9])*)[eE][+-]?[0-9]+|0x[0-9a-fA-F](?:_?[0-9a-fA-F])*|0b[01](?:_?[01])*|0o[0-7](?:_?[0-7])*|0|[1-9](?:_?[0-9])*"
       }
     },
     "identifier": {
       "type": "TOKEN",
       "content": {
         "type": "PATTERN",
-        "value": "[a-zA-Z_][a-zA-Z0-9_]*!?"
+        "value": "[A-Za-z_][A-Za-z0-9_]*!?"
       }
     },
     "punctuation": {
       "type": "TOKEN",
       "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "???="
-          },
-          {
-            "type": "STRING",
-            "value": "??="
-          },
-          {
-            "type": "STRING",
-            "value": "+="
-          },
-          {
-            "type": "STRING",
-            "value": "-="
-          },
-          {
-            "type": "STRING",
-            "value": "*="
-          },
-          {
-            "type": "STRING",
-            "value": "/="
-          },
-          {
-            "type": "STRING",
-            "value": "%="
-          },
-          {
-            "type": "STRING",
-            "value": "???"
-          },
-          {
-            "type": "STRING",
-            "value": "??"
-          },
-          {
-            "type": "STRING",
-            "value": "?."
-          },
-          {
-            "type": "STRING",
-            "value": "|>"
-          },
-          {
-            "type": "STRING",
-            "value": "=>"
-          },
-          {
-            "type": "STRING",
-            "value": "->"
-          },
-          {
-            "type": "STRING",
-            "value": "..<"
-          },
-          {
-            "type": "STRING",
-            "value": "..."
-          },
-          {
-            "type": "STRING",
-            "value": ".."
-          },
-          {
-            "type": "STRING",
-            "value": "=="
-          },
-          {
-            "type": "STRING",
-            "value": "!="
-          },
-          {
-            "type": "STRING",
-            "value": "<="
-          },
-          {
-            "type": "STRING",
-            "value": ">="
-          },
-          {
-            "type": "STRING",
-            "value": "&&"
-          },
-          {
-            "type": "STRING",
-            "value": "||"
-          },
-          {
-            "type": "STRING",
-            "value": "@@"
-          },
-          {
-            "type": "PATTERN",
-            "value": "[-+*\\/%=<>!?&|@:;,.(){}\\[\\]$]"
-          }
-        ]
+        "type": "PATTERN",
+        "value": "\\?\\?\\?=|\\?\\?\\?|\\?\\?=|\\?\\?|\\?->|\\?\\.|\\?|\\.\\.\\.|\\.\\.<|\\.\\.|\\.|\\x7c\\x7c|\\x7c|&&|&|->|-=|-|=>|==|=|!=|!|<=|<|>=|>|\\+=|\\+|\\*=|\\*|\\/=|\\/|%=|%|@@|@|\\(|\\)|\\{|\\}|\\[|\\]|,|;|:|~"
       }
     }
   },
