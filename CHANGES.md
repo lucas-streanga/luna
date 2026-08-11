@@ -7021,6 +7021,89 @@ both of R242's and R243's remaining opens on unterminated literals are
 closed, and what stays open about `L0009` is only its *wording*, which
 §11 has always held to be volatile (R240).
 
+**R248 — escape validity is lexical, and the lexer raises it: `L0005`,
+`L0006`, `L0013`, and a new `L0016`.** R243 left open which phase checks
+escapes, and the answer had been drifting toward "the decoder" on an
+argument that turns out to be false. **The check is three-stage, and the
+stages are ordered**, each answering a different question about the same
+backslash pair:
+
+1. **Is the escape character in this context's row of string §5.1?** If not,
+   `L0005`. This is the whole of the check for `\q`, and for a legal-looking
+   escape in the wrong literal — `'\n'`, where single quotes carry only
+   `\'` and `\\`, or `b"\u{41}"`, where the bytes row excludes `\u{…}`.
+2. **Is its shape well formed?** `\u{…}` wants `{`, one to six hex digits,
+   `}` — otherwise `L0013` (R245). `\xNN` wants exactly two hex digits —
+   otherwise **`L0016`**, allocated here.
+3. **Is its value legal?** `\u{D800}` and `\u{110000}` are well formed and
+   name no scalar: `L0006`.
+
+Reaching stage 2 requires passing stage 1, which is what keeps the codes
+disjoint: `\x` in a double-quoted string is `L0005`, not `L0016`, because
+`x` is absent from that row entirely, while `\xZZ` in a bytes literal is
+`L0016`, `x` being legal there and only the digits wrong. The regex row
+needs no work at all — RE2's escape language passes through undecoded and
+Luna decodes exactly one escape, `\"` (string §5.1) — so everything is
+legal in `REGEX_BODY` by construction.
+
+**The argument for deferring to the decoder was mistaken and is corrected
+here.** It held that the lexer would have to re-scan a fast-path literal
+byte by byte, doing the work the fast path exists to avoid. It would not:
+`spanLiteral` already walks every byte and is already sitting on the
+backslash when it steps over the pair, so validity is a table lookup per
+escape and no extra pass. `L0006` was likewise called "genuinely decoding"
+and is a range check over hex digits the lexer already recognizes for
+`INT_HEX`. With both objections gone, what remains favours the lexer: it
+knows the literal form, which is the table's *key* and the one thing a
+later phase would have to re-derive; §11 lists all four codes in the
+lexer's own error summary; and §1.1 collects lexical errors and aborts at
+the phase boundary, which is where a malformed escape ought to stop a
+build.
+
+**R247 supplies the governing principle.** It ruled that the span-regex
+fast path should be *unobservable* — taken only when it provably succeeds,
+its output indistinguishable from the mode path's. Validating in both
+paths is what keeps that true. Validating in neither would also be
+consistent; validating in only one would break a property ruled on one
+ruling ago. There is one real constraint: `spanLiteral` doubles as the
+**probe** that chooses between the two shapes, so it must collect and
+report only on commit, or an escape sitting before a `${` is diagnosed
+twice — once while looking ahead and again when the mode path walks it.
+
+**Being pinned is not being alive.** All three existing codes were defined,
+titled, and checked against §11 by a three-party test, and referenced
+nowhere in `oracle/lexer`: `"\q"`, `'\n'`, `"\u{}"`, and `"\u{D800}"` all
+lexed clean. A pin over an unraised code reports agreement about a check
+that never runs — the same shape as the `go test` cache serving a stale
+pass and as a corpus reader silently skipping files, both found earlier in
+this same session. The rejected alternative, leaving the codes for a
+decoder that does not exist, would have left that state indefinitely.
+
+**One table, two questions.** Validation and decoding read the same five
+rows, so the table lives in one place: the lexer asks "is this legal", and
+whatever later turns a `STRING_DQ` span into a string value asks "what is
+its value". R240 already permits the split — a prefix names the stage that
+*defined* a check, not the one that runs it — but no split is needed if
+neither phase owns a private copy.
+
+**`L0012` stays for a backslash at end of input.** It competes with
+`L0005`, and the wording decides it: there is no following character to
+look up, so nothing can be absent from a table row, while §11's `L0012` row
+names *"a bare `\`"* as its own example and its condition — a byte that
+begins no token in the current mode — is exactly satisfied.
+
+§11 reaches **sixteen** codes. Swept: `lexer.md` §11 (the `L0016` row, the
+count, and the `INVALID` paragraph, where `L0016` joins `L0005`/`L0006`/
+`L0013` in emitting no token of its own, being inside a well-formed
+literal), `string.md` §5.1 (the staged check recorded where the table
+lives), `bytes.md` §7 (`\xNN`'s two-digit requirement now has a code).
+**Not yet swept, outside the spec**: `oracle/diagnostic` and `oracle/lexer`
+— no code was written for this ruling, so the code pin fails until it is,
+which is the intended signal. **Not ruled here**: which package holds the
+escape table, an implementation question; and `lexer-testing-plan.md` §10's
+entry recording this gap is superseded rather than swept, the gap being
+what this closes.
+
 ---
 
 ## Still open (out of scope of these rulings)

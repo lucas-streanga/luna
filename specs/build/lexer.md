@@ -568,6 +568,7 @@ per-instance and volatile. Tests pin the code and the primary span, never the pr
 | `L0013` | Malformed codepoint escape | `\u` not followed by `{`, 1–6 hex digits, `}` — `\u`, `\u{}`, `\u{XYZ}`, `\u{41` (R245). Distinct from `L0006`, which is a **well-formed** escape naming an invalid scalar | §0, string §5.1 |
 | `L0014` | Insufficient indentation | A non-blank content line of a `"""` or `'''` literal that does not begin with the margin — the closing delimiter's exact indentation bytes (R246). Mixed tabs and spaces land here, byte-matching being what lets §9 keep refusing to pick a tab width | §4, R246 |
 | `L0015` | Content after a multi-line opener | Anything but whitespace between a `"""` or `'''` opener and its newline; the opener owns the rest of its line (R246), which is what makes the first content line unexceptional | §4, R246 |
+| `L0016` | Malformed byte escape | `\x` not followed by exactly two hex digits, in a context where `\xNN` is legal at all — bytes literals only (bytes §7). `\x` in a string is `L0005` instead, `x` being absent from that row entirely (R248) | §4, string §5.1, R248 |
 
 **An `INVALID` token covers bytes no other production claims** (§0, R242) — which is a test
 about the *stream*, not about this table: a diagnostic does not oblige the lexer to emit
@@ -579,7 +580,7 @@ written (R247). That path is taken *precisely* when the literal holds no `${`, s
 interior structure to preserve, and one `INVALID` says what is true where a text token would
 assert the bytes are string content. The mode path emits real tokens and no `INVALID` for the
 same failure, which is not an inconsistency: it is reached only when a splice is present, and
-the splice really was lexed correctly. `L0005`, `L0006`, and `L0013` do **not** — an escape sits inside
+the splice really was lexed correctly. `L0005`, `L0006`, `L0013`, and `L0016` do **not** — an escape sits inside
 a well-formed literal, already covered by its `STRING_SQ` or its `ESCAPE_PAIR`, and an `INVALID`
 over it would overlap. Nor does `L0011`, every byte of the splice having been emitted as it was
 scanned. `L0001` and `L0002` are raised at ingress, where there is no stream at all.
@@ -598,7 +599,7 @@ None of these aborts — §1.1 collects lexical errors and the compile stops at 
 boundary — so each must also leave the scanner able to make progress, `L0009`/`L0010`/`L0011`
 being the ones where recovery is least obvious, since the mode stack must be unwound.
 
-No lexical error has a runtime counterpart: all thirteen are compile-time only, and none of them
+No lexical error has a runtime counterpart: all sixteen are compile-time only, and none of them
 corresponds to a catchable type in the errors §2 hierarchy.
 
 ## Flagged: complex, context-sensitive, or non-regular tokens

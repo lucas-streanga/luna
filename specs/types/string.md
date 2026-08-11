@@ -152,6 +152,18 @@ Three rules, each ruled (R150):
   that does not exist, where `\u`, `\u{}`, `\u{XYZ}`, and `\u{41` are not escapes at
   all. Two mistakes, two fixes, two messages — and the split is what lets the lexer
   make the token cover the escape's whole extent (lexer §0).
+**The check is staged, and the lexer runs it** (R248, closing R243's open question). Three
+questions about one backslash pair, in order, each reachable only by passing the one before:
+**is the escape character in this context's row?** — if not, `L0005`, which covers `\q` and
+also a legal-looking escape in the wrong literal, `'\n'` or `b"\u{41}"`; **is its shape well
+formed?** — `\u{…}` wants one to six hex digits in braces (`L0013`), `\xNN` wants exactly two
+(`L0016`); **is its value legal?** — a surrogate or a value above `10FFFF` is `L0006`. The
+ordering is what keeps the codes disjoint: `\x` in a double-quoted string is `L0005` rather
+than `L0016`, `x` being absent from that row entirely. The regex row needs no check at all,
+its escapes passing through to RE2 undecoded. The lexer owns this because it alone knows the
+literal form, which is this table's key; the same table later answers "what is its value" for
+whoever decodes.
+
 - **An unknown escape is a lex error.** Any `\` followed by a character not in its
   context's row is a compile error — never PHP's silent pass-through (`"\q"` staying
   `\q`), which is a silent-wrong-value.

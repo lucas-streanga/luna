@@ -168,7 +168,9 @@ let empty  = b"";                  // the empty bytes
 - **A bytes literal may not span lines** (R244, lexer §4): a raw newline ends it and raises
   `L0009`. Write `\n` — or `\x0a`, the two being the same octet here.
 - **Escapes** are the shared string escapes **plus `\xNN`**, a raw hex octet — the
-  authoritative table is string §5.1 (R150). `\xNN` is **bytes-only by ruling**: a raw
+  authoritative table is string §5.1 (R150). **Exactly two hex digits**, checked by the
+  lexer: `\x`, `\x8`, and `\xZZ` are `L0016` (R248). In a *string* the same `\x` is `L0005`
+  instead, the escape being absent from that row rather than misspelled here. `\xNN` is **bytes-only by ruling**: a raw
   byte in a *string* could break the UTF-8 validity guaranteed at ingress, but bytes have
   no validity to break — so `b"..."` covers both "text as bytes" and "arbitrary raw
   octets" in one form (no `\$` — no interpolation — and no `\u{}`; a codepoint's octets
