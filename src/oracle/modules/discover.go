@@ -34,9 +34,10 @@ const (
 // The error return is not a diagnostic channel — only "discovery could not proceed": an
 // unreadable entry, or an I/O failure on a file that exists.
 //
-// A file ingress rejects (invalid UTF-8, a leading BOM) cannot be lexed, so its own imports
-// go undiscovered. Sound for the same reason the early stop is: §1.1 reports the ingress
-// error and the compile aborts at the phase boundary.
+// A file ingress rejects (invalid UTF-8, a leading BOM) is still listed, with an empty prelude
+// and no edges. Being in the file set is what puts it in front of §1.1, which owns the lexical
+// codes and raises the error. Its own imports stay undiscovered, and that is sound because the
+// compile aborts at §1.1's boundary before anything could miss them.
 func Discover(fsys fs.FS, entry string) (Result, error) {
 	if !fs.ValidPath(entry) {
 		return Result{}, fmt.Errorf("modules: %q is not a valid path within the source root", entry)
@@ -65,13 +66,18 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 			return Result{}, fmt.Errorf("modules: reading %s: %w", file, err)
 		}
 
+		module := moduleOf(file, file == entry)
+
 		f, err := source.New(file, string(src))
 		if err != nil {
-			continue // ingress rejected the bytes; §1.1 reports it
+			// Ingress rejected the bytes, so the prelude cannot be read — but the file is still
+			// part of the program. Listing it is what puts it in §1.1's input, and §1.1 is what
+			// reports the ingress error; dropping it here would leave nobody to.
+			res.Files = append(res.Files, File{Path: file, Module: module})
+			continue
 		}
 
 		end, imports := readPrelude(f)
-		module := moduleOf(file, file == entry)
 		res.Files = append(res.Files, File{Path: file, Module: module, PreludeEnd: end})
 
 		for _, imported := range imports {

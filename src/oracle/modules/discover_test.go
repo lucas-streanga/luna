@@ -252,10 +252,13 @@ func TestMissingImportIsSkipped(t *testing.T) {
 	equal(t, "files", paths(res), []string{"app.luna", "real.luna"})
 }
 
-// TestIngressRejectedFileIsSkipped covers the documented hole: a file the lexer's ingress
-// refuses cannot have its imports read, so its dependencies go undiscovered. Sound because
-// §1.1 reports the ingress error and the compile aborts at that boundary.
-func TestIngressRejectedFileIsSkipped(t *testing.T) {
+// TestIngressRejectedFileIsListed pins the fix for a hole this suite originally asserted.
+//
+// A file the lexer's ingress refuses cannot have its prelude read, so its dependencies go
+// undiscovered — that part is unavoidable. What matters is that the file itself is still
+// listed: §1.1 lexes the discovered set and owns the lexical codes, so a file dropped here is
+// a BOM nobody reports, surfacing at §1.2 as a bogus unresolved import instead.
+func TestIngressRejectedFileIsListed(t *testing.T) {
 	for _, tc := range []struct{ name, bad string }{
 		{"leading BOM", "\ufeffimport hidden;\n"},
 		{"invalid UTF-8", "\xffimport hidden;\n"},
@@ -266,9 +269,27 @@ func TestIngressRejectedFileIsSkipped(t *testing.T) {
 				"bad.luna":    tc.bad,
 				"hidden.luna": "",
 			})
-			equal(t, "files", paths(res), []string{"app.luna"})
+			// bad.luna is present; hidden.luna is not, its import having been unreadable.
+			equal(t, "files", paths(res), []string{"app.luna", "bad.luna"})
 			equal(t, "edges", edges(res), []string{"(root)->bad"})
+
+			if got := res.Files[1].PreludeEnd; got != 0 {
+				t.Errorf("PreludeEnd = %d, want 0: no prelude was read", got)
+			}
 		})
+	}
+}
+
+// TestIngressRejectedEntryIsListed is the same rule at the root, where no edge exists to fall
+// back on: an unreadable entry must still reach §1.1 to be reported.
+func TestIngressRejectedEntryIsListed(t *testing.T) {
+	res := run(t, "app.luna", map[string]string{
+		"app.luna": "\ufeffimport dep;\n",
+		"dep.luna": "",
+	})
+	equal(t, "files", paths(res), []string{"app.luna"})
+	if len(res.Edges) != 0 {
+		t.Errorf("edges = %q, want none", edges(res))
 	}
 }
 
