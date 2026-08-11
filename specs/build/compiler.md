@@ -158,6 +158,13 @@ Three rules make the stage sound:
   rather than a token test: `const` and `export` need lookahead to `= import` before discovery
   knows whether the prelude has ended.
 
+A file whose bytes **ingress rejects** — invalid UTF-8, a leading BOM (lexical-structure §1) —
+stays in the file set (R251). Its prelude cannot be read, so it contributes no edges; but
+dropping it would mean §1.1 never lexes it, and §1.1 owns the lexical codes, so the bad byte
+would be reported by no phase at all and would then surface at §1.2 as an unresolved import
+naming a file that plainly exists. The file set is *the files the program consists of*, not the
+files discovery could parse.
+
 **Discovery raises no diagnostic** (R250). It answers *which files* and nothing else: a path
 resolving to no file is skipped, not reported, and §1.2 reports it from the retained edges.
 Cycles likewise do not trouble it (the visited set terminates them); their *diagnosis*, with
@@ -187,6 +194,14 @@ resolves each path to a module identity (relative to the root, empty path for th
 spec §3), diagnoses **cycles** — with the full cycle path in the error, from the edges §1.0
 kept — and unresolved imports, either aborting the compile (modules spec §2), and produces the
 **topological order**.
+
+Three rules on what it reports (R251). **Every** cycle is reported, not the first: §3 has a
+phase run to completion and collect, and the required cycle path constrains the algorithm to
+one that produces a path rather than one that merely detects that a cycle exists. An edge
+resolving to the **root's file** is its own error rather than a cycle (modules spec §3). And a
+**`std.*` edge is never an unresolved import**: modules spec §10 makes `std` a virtual root
+with no tree behind it and discovery follows nothing there (R250), so those edges reach no file
+by construction and are excluded before reporting.
 
 It is also where the **prelude rule** is enforced (R250, superseding R190's placement of it in
 §1.3): any `KW_IMPORT` past a file's prelude end (§1.0) is invalid. The check needs no

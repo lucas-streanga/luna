@@ -74,6 +74,14 @@ by two different paths). Crucially, paths are **relative to the root and carry n
 `strings.luna` under the root is the module `strings`, `utils/parse.luna` is `utils.parse`. The
 **root module itself has the empty path** `""`.
 
+**The root module cannot be imported** (R251). Its file sits in the tree like any other, so
+`import app;` would resolve to it and hand one file a second identity — `""` and `app` — which
+is the two-paths ambiguity this section exists to prevent, arriving through the one module
+exempted from the naming rule. An import resolving to the root's file is an error of its own,
+raised by import validation (compiler §1.2). It is deliberately *not* reported as a cycle,
+though it closes one: a cycle report sends the reader hunting for a dependency to invert, when
+the fix is to stop importing the entry.
+
 This makes module identity **project-name-independent and rename-safe**. No module path contains
 a project name, so renaming or moving the project as a whole breaks nothing: every internal path
 (`utils.parse`, and so on) is unchanged. The project name is external metadata with no bearing

@@ -7238,6 +7238,63 @@ discovery does with the reserved root while no stdlib tree exists is its
 own question. And whether §1.2's concurrency with §1.1 and §1.3 is
 exploited or merely permitted.
 
+**R251 — importing the root module is its own error, and three smaller
+module rules settled while §1.0 was built.**
+
+**The root module cannot be imported.** modules §3 gives the root the empty
+path, but the root's *file* sits in the tree like any other — `app.luna` —
+so `import app;` resolves to it and that file acquires a second identity.
+modules §3 forbids exactly this, in its own words: paths are root-relative
+"so a module's path is the same everywhere it is referenced (no
+relative-path ambiguity where the same module could be reached by two
+different paths)". A root reachable both as `""` and as `app` is that
+ambiguity, arriving through the one module §3 exempted from the naming
+rule.
+
+Ruled: an import resolving to the root's file is an error in its own right,
+raised by §1.2, which holds the file set and recognizes the condition
+exactly.
+
+Rejected, each worse in a different way. **Treating it as an ordinary
+import** hands one file two module paths, which modules §7 cannot carry —
+provenance is a fixed compile-time fact about where a name came from, and
+two paths make it two answers. **Reporting it as a cycle** is what falls
+out of the implementation, the edge genuinely closing a loop, but it names
+the wrong problem: a cycle report sends the reader hunting for a dependency
+to invert when the fix is to stop importing the entry. **Giving the root an
+ordinary path** would dissolve the ambiguity by removing the special case,
+but the empty path is what keeps module identity project-name-independent
+(§3), and that rename-safety is worth more than the uniformity.
+
+**A file whose bytes ingress rejects stays in the file set.** Discovery
+cannot read its prelude, so it contributes no edges — but dropping it
+altogether means §1.1 never lexes it, and §1.1 is what owns the lexical
+codes, so invalid UTF-8 or a leading BOM would be reported by no phase at
+all and would then surface at §1.2 as an unresolved import naming a file
+that plainly exists. The file set is *the files the program consists of*,
+not the files discovery could parse.
+
+**`std.*` edges are not unresolved imports.** modules §10 makes `std` a
+virtual root with no tree behind it, and R250 has discovery follow nothing
+there, so every `std.*` edge reaches no file **by construction**. §1.2
+excludes them before reporting, or importing the standard library would be
+a list of errors.
+
+**Every cycle is reported, each with its full path.** compiler §3 has a
+phase run to completion and collect, so stopping at the first cycle is the
+wrong shape; and §1.2 already owes the path, which constrains the algorithm
+to one that produces it rather than one that merely detects a cycle exists.
+
+Swept: `modules.md` §3 (the root is not importable, with the two-paths
+argument it already makes); `compiler.md` §1.0 (ingress-rejected files stay
+in the set) and §1.2 (the root-import error, the `std` exclusion, every
+cycle with its path).
+
+**Not ruled here.** Whether a *consumer* may import a library's root once
+packaging exists: modules §11 defers the mounting question entire, and this
+rule governs a single compilation. And the error's code, for the reason
+R250 gave — there is still no modules error summary to allocate it in.
+
 ---
 
 ## Still open (out of scope of these rulings)

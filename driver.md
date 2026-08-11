@@ -58,14 +58,15 @@ its span invariants, not a diagnostic.
 
 ---
 
-## Decided, not yet built
+## §1.2, when we build it
 
-From the §1.2 design pass, agreed and unrecorded elsewhere:
+Ruled by R251 and waiting on code — the spec has them, this lists them so the shape is in one
+place:
 
-- **Importing the root module is its own error**, not a cycle report. The entry is module `""`
-  (modules §3) but is also reachable by filename, and two identities for one file is something
-  §7's provenance rules cannot carry. Needs a ruling.
-- **§1.2 excludes `std.*` edges** before reporting unresolved imports — they have no file by
-  design (modules §10).
-- **All cycles are reported**, not the first, per §3's collect-everything model. The full path
-  is required, so three-colour DFS rather than Kahn's.
+- **An edge resolving to the root's file is its own error**, not a cycle report.
+- **`std.*` edges are never unresolved imports** — no tree behind the virtual root.
+- **Every cycle is reported, each with its full path.** The path requirement is what picks the
+  algorithm: three-colour DFS produces one off the stack, Kahn's does not.
+
+Its inputs are discovery's `Result` plus the token streams, per §5 above. Still open: the `M`
+codes, which need the modules error summary that does not exist yet (R250).
