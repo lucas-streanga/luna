@@ -73,11 +73,12 @@ about whether `SHEBANG` includes its newline (§0 was right, §2's prose has bee
 fixture asserting `#[test]`, which is not Luna, and four files that violated FORMAT.md's
 no-trailing-newline limit.
 
-Two conditions are **unreachable from goldens** and want Go table tests instead, exactly as
-FORMAT.md says: a line comment or shebang terminated by end of input rather than a newline, and
-end of input inside a single-line literal on the fast path — under R244 both need a file with no
-trailing newline, which the format cannot represent. The fuzz suite (§6) covers them; the
-regression corpus does not.
+**Built: `TestEndOfInput`** in `eof_test.go` covers what a golden cannot express, exactly as
+FORMAT.md directs: a line comment or shebang terminated by end of input rather than a newline,
+and end of input inside a single-line literal — under R244 both need a file with no trailing
+newline, which the format cannot represent. Nine cases, including the backslash-at-EOF pair that
+shows the fast and mode paths differing by design (R247). The fuzz suite reaches these too, but
+on inputs nobody chose; these name them.
 
 ## 3. Exhaustive maximal-munch sweep
 
