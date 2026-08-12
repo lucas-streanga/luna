@@ -7972,6 +7972,134 @@ runtime-supplied paragraph). The corpus is **429** `luna` blocks and two
 `text` blocks more than R258 left it, and no declaration in it now lacks an
 initializer.
 
+**R260 — `specs/build/grammar.md` exists.** R253 fixed its shape and R254–R259
+cleared what stood in its way; this is the file, and R253's three deferred
+sweep sites land with it.
+
+**What it is.** 117 nonterminals in nine groups, over lexer §0's token names
+as terminals, `::=` after lexical-structure §2. The expression grammar is
+stratified — thirteen tiers, thirteen nonterminals, loosest first — so the
+non-associative tiers (range, comparison, equality, conditional) reject
+`a < b < c` and `a ? b : c ? d : e` by production shape rather than by a
+check. The type and pattern grammars are separate sections, as
+associativity §2 and match §2.1 always had them, and a fifth category is
+named outright: the **closed sub-grammars**, whose interiors are not
+expressions — `apply`'s initializer list, the `use` clause, the named-argument
+head, the declaration bodies, and the enum payload shape.
+
+**Every terminal is real and every nonterminal resolves**, checked
+mechanically rather than by eye: no production names a token absent from
+lexer §0; each nonterminal is defined exactly once; `File` is the only one
+appearing on no right-hand side, a second such being dead grammar; and the
+`Keyword` class enumerates exactly lexer §10's **49**, which is the pin that
+catches a keyword added to the lexer and forgotten in the one position
+R252 lets keywords appear.
+
+**Writing it found seven things**, which is the return R253 predicted from
+converting prose into productions. Six were fixed in place and are recorded
+in the file's cross-reference notes: the type grammar's **missing grouping
+production** (fixed as associativity §2 tier 0, a form the corpus used and
+tier 5's own note instructed); `is` / `as` taking a whole `Type`, which is
+why `v is int | string` needs no parentheses; the **prelude being two
+productions rather than a filter**, which is what makes a misplaced import
+fail to derive as compiler §1.3 asserts; **`error` missing from `Primary`**
+in the first draft, a token with three roles that is easy to enumerate as
+two, caught by tracing `throw error('wrong count')`; the **enum payload
+shape**, which needed a production scoped to `VariantDecl` because putting a
+bracketed form in `Type` would have granted shape types language-wide and
+undone `shape-type.md`'s deferral by accident; and the corpus's **one
+bracketed type**, `awaitAny`'s `[int, any]!` (concurrency §5.1), which is
+that same non-existent form used in earnest — corrected to `list!` with the
+pair named in the comment, matching how channels §1 already spells the
+identical shape of value. That the corpus held one legal bracketed form and
+one illegal one, indistinguishable by eye, is the argument for productions
+in miniature.
+
+**The seventh is open and is flagged in the file rather than decided here.**
+**`moduleof` is specified as an operator and exists as no token.** modules
+§7.1 and the types overview both call it "a unary, compile-time prefix
+operator (not a function)" — the exact sibling of `declared`, which is
+`KW_DECLARED` — yet it appears in **neither** keywords.md §3, lexer §0, nor
+operators.md §0, "the master catalogue of every operator". So `moduleof
+parse` lexes as `IDENT IDENT` and derives nothing. The grammar carries it
+provisionally as the spelling-match `IDENT("moduleof")`, that being the only
+form using terminals that exist, and the flag says plainly that this is not
+a recommendation. The three candidates — a fiftieth keyword (moving lexer
+§10's counts and the pinned inventory), a positional spelling-match like
+`from` (R223), or a predeclared comptime function taking parentheses — differ
+in language surface, not just notation, so this is a ruling of its own.
+
+**`P` codes: the table lands, the numbers do not.** grammar §11 is the
+summary the first syntax code will be allocated in. None is allocated now,
+on R250's and R251's rule: a code allocated before there is an implementation
+to raise it and a test to pin it is a code nothing checks. The point of
+landing the table with the file is that the first `P` code has a home — which
+is exactly what those two rulings lacked when they had to defer their `M`
+codes, and what R257 lacked again for its `S` code.
+
+**Not ruled here.** The **LR(1) claim**: associativity §4 asserted it, this
+ruling neither confirms nor retires it, and the sentence there is now marked
+unverified with a pointer to where it will be tested. grammar §11 records
+the one junction already known to need two tokens — `KW_EXPORT? KW_CONST
+IDENT ASSIGN` must see whether `KW_IMPORT` follows — which R250 predicted in
+as many words. R253 commissions the spec-literal parser that answers the
+general question, and it is the next artifact.
+
+Swept: `specs/index.md` (the row, under "Modules, tooling & implementation",
+after `lexer.md` so the pair reads tokens-then-productions);
+`associativity.md` (the header, naming this file the mechanical form and
+itself the readable one — neither superseding the other, a tier's rationale
+here and its derivation there — and §4's LR(1) sentence, narrowed to the
+local claim it can support); `compiler.md` §1.3 (the grammar named, and the
+`P` codes assigned to the file that owns them, the phase description
+otherwise unchanged); `concurrency.md` §5.1 (`awaitAny`'s return type).
+
+
+**R261 — `moduleof` is a keyword, the fiftieth.** R260 flagged it: modules
+§7.1 and the types overview both specify it as "a unary, compile-time prefix
+operator (not a function)" — the exact sibling of `declared`, which is
+`KW_DECLARED` — while it appeared in **none** of the three inventories that
+should carry it: keywords.md §3, lexer §0, and operators.md §0, "the master
+catalogue of every operator". So `moduleof parse` lexed as `IDENT IDENT` and
+derived nothing, and modules §7.1's own three examples were unparsable.
+
+Ruled: it is a keyword. The argument is `declared`, which it matches in
+every respect that decides the question — a compile-time unary prefix whose
+operand is **exactly one binding name**, never an expression (modules §7.1's
+own words: "`moduleof a, b`, `moduleof x.y`, and `moduleof expr` are
+ungrammatical"). An operand that cannot be an expression cannot be spelled
+as a call, which is what rules out the third candidate below; and two
+operators with one shape should not have two lexical treatments.
+
+Rejected. **A positional spelling-match**, as `from` (R223) and `get` / `set`
+(R232) get: those work because each sits in a position where nothing else
+may appear, and `moduleof x` sits in general expression position, where
+recognizing `IDENT IDENT` would make the rule about adjacency rather than
+place. **A predeclared comptime function**, `moduleof(x)`: it reads a
+*binding*, not a value, so there is nothing for an argument to evaluate to —
+modules §7.1 turns on that distinction, and §7.1's rejection of member
+access (`moduleof strings.parse`) is the same point.
+
+Two consequences accepted, both small. The word is **reserved**, so
+`moduleof` is no longer usable as an identifier — no corpus site used it as
+one. And the counts move: lexer §10 is now **134 tokens over 138 rows**,
+**50** keyword (48 word-shaped plus the two compounds), which the
+three-party inventory pin checks across §0's table, §10's prose, and
+`token.Kind` — the check R232 exists because of.
+
+Swept, and the sweep is what the pins make cheap: `keywords.md` §3;
+`lexer.md` §0 (the row, beside `declared`), §3 and §10 (the counts);
+`operators.md` §0; `associativity.md` §1 tier 12 (`declared` and `moduleof`
+now named together as the two degenerate members); `grammar.md` §0.3, §0.9's
+`Keyword` class, §10's pin, and the flag, which is discharged. In `src/`:
+`token/kind.go`, `lexer/tables.go`, `highlight/highlight.go` — whose
+`classOf` panics on an unmapped kind rather than defaulting, and did — plus
+`cmd/gengrammar`'s three derived artifacts, regenerated. Goldens:
+`kw-remaining.lex` extended, and **`kw-moduleof.lex`** added, covering the
+operator form, the discard form modules §7.1 writes, the word boundary
+(`moduleofx`, `moduleo`, `premoduleof` are all `IDENT`), and `moduleof` as a
+path segment, which R252 admits now that it is a keyword at all.
+
 ---
 
 ## Still open (out of scope of these rulings)
