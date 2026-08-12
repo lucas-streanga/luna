@@ -138,13 +138,13 @@ R96's mutable-static replacement, now expressible:
 
 ```luna
 let [tx, rx] = channel();
-spawn fn () => {
+spawn (fn () => {
   var count = 0;                              // the "mutable static", owned, race-free
   foreach (req in rx) {
     count += 1;
     req.reply.send(count);                    // reply sinks travel inside requests
   }
-}();
+})();                                         // parenthesized: an invoked literal (grammar §4)
 
 // a client (holding a copy of tx):
 let [rtx, rrx] = channel();

@@ -59,8 +59,9 @@ PathSegment   ::= IDENT | WILDCARD | Keyword
 
 Declaration   ::= Attribute* BindingDecl
                 | TestDecl
-BindingDecl   ::= KW_EXPORT? BindingKw Binder COLON IDENT("type") ASSIGN Type SEMICOLON
-                | KW_EXPORT? BindingKw Binder (COLON Type)? ASSIGN Expr SEMICOLON
+BindingDecl   ::= KW_EXPORT? BindingKw Binder COLON IDENT("type") ASSIGN TypeOnly SEMICOLON
+                | KW_EXPORT? BindingKw Binder (COLON Type)? ASSIGN Initializer SEMICOLON
+Initializer   ::= KW_COMPTIME? DeclLit | Expr
 BindingKw     ::= KW_CONST | KW_LET | KW_VAR
 Binder        ::= IDENT (QUESTION | BANG)? | DestructurePattern
 TestDecl      ::= KW_TEST STRING_SQ UseClause? Block
@@ -103,13 +104,17 @@ BindTarget    ::= IDENT | WILDCARD | DestructurePattern
 
 ```ebnf
 Expr          ::= Assignment
-Assignment    ::= WordPrefix (AssignOp Assignment)?
+Assignment    ::= WordPrefix
+                | AssignTarget AssignOp Assignment
+AssignTarget  ::= (IDENT | WILDCARD) Postfix*
+                | DestructurePattern
 AssignOp      ::= ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | STAR_ASSIGN | SLASH_ASSIGN
                 | PERCENT_ASSIGN | COALESCE_ASSIGN | NULL_COALESCE_ASSIGN
 
 WordPrefix    ::= WordOp WordPrefix
                 | KW_DECLARED IDENT
                 | KW_MODULEOF IDENT
+                | FnLit
                 | Conditional
 WordOp        ::= KW_COPY | KW_TRY | KW_SPAWN | KW_AWAIT | KW_COMPTIME | KW_COMPTYPE | KW_THROW
 
@@ -132,9 +137,8 @@ Postfix       ::= LPAREN ArgList? RPAREN
                 | Subscript
                 | DOT IDENT
                 | OPT_ACCESS IDENT
-                | ARROW MemberRef
-                | OPT_PROTO_ACCESS MemberRef
-MemberRef     ::= IDENT (DOT IDENT)?
+                | ARROW IDENT
+                | OPT_PROTO_ACCESS IDENT
 Subscript     ::= LBRACKET RBRACKET
                 | LBRACKET Expr RBRACKET
                 | LBRACKET Expr? COLON Expr? RBRACKET
@@ -155,11 +159,9 @@ Primary       ::= Literal
                 | KW_ERROR
                 | TableLit
                 | VariantLit
-                | FnLit
                 | GenLit
                 | MatchExpr
                 | TryCatchExpr
-                | DeclLit
                 | LPAREN Expr RPAREN
 
 TableLit      ::= LBRACKET TableEntries? RBRACKET
@@ -229,6 +231,11 @@ InitList      ::= IDENT COLON Expr (COMMA IDENT COLON Expr)* COMMA?
 
 ```ebnf
 Type          ::= FnType | UnionType
+TypeOnly      ::= IntersectType (BAR IntersectType)+
+                | PostfixType (AMP PostfixType)+
+                | PrimaryType (BANG | QUESTION)+
+                | FnType
+                | LPAREN TypeOnly RPAREN
 FnType        ::= KW_FN LPAREN TypeList? RPAREN COLON Type
 TypeList      ::= Type (COMMA Type)* COMMA?
 UnionType     ::= IntersectType (BAR IntersectType)*
@@ -422,6 +429,14 @@ Tier by tier, the notes that are not obvious from the shape:
 - **Tier 12 word prefixes bind the whole expression below assignment** (associativity §3), which
   is the right-recursion in `WordPrefix`. `declared` and `moduleof` are the degenerate members —
   each takes exactly one binding name, never an expression (type §4, modules §7.1, R261).
+- **`FnLit` is a word prefix too** (R264), and that is where its ambiguity went. A literal with
+  an *expression* body is greedy — `fn () => n * 2` is `fn () => (n * 2)` — so nothing may
+  follow it, exactly as nothing may follow `copy` or `try`. Leaving it in `Primary` gave every
+  tier between there and assignment a second reading: `(fn () => n) * 2`, `(fn () => t).count`,
+  `(fn () => x) = 5`. Sitting at tier 12 it has no such competitor, and `fn (…) =>` reads as
+  what associativity §3 already describes — a prefix taking the entire expression to its right.
+  The cost is that an **immediately-invoked literal is parenthesized**, `(fn () => { … })()`,
+  which is the same rule the `use` clause carries one production above (capabilities §5.2).
 
 **`AMP` is not a tier, and that is why associativity §1 never lists it.** A reference "exists
 only as an argument" (variables §5.1), so `&` is argument-position punctuation rather than an
@@ -559,6 +574,7 @@ diagnostic stays precise (associativity §4's rule for `&`, generalized).
 | A non-constant attribute payload | semantic analysis (attributes §3.2) | "comptime-evaluable" needs to know what the callee is |
 | A table key that is not a string or an int | semantic analysis (tables §3.1) | no grammar checks a value's type |
 | `KW_SELF` outside a proto block | semantic analysis (protocols §2.4) | position is not enough; the enclosing declaration is |
+| `x->P.m` as two postfixes rather than one qualified access | semantic analysis (protocols §3.1) | whether `P` names a proto is symbol knowledge; letting the grammar decide made `->a.b` derive two ways |
 | `IDENT("get")` / `IDENT("set")` as ordinary names | nothing — they are ordinary names (R232) | recognized positionally in a member head only |
 | An empty `File` | nothing | a module with no declarations is legal and useless |
 
@@ -569,9 +585,15 @@ productions live in §0 and are not duplicated here — so this table is an inde
 second source of truth. Its purpose is mechanical: a count that a test can assert, and a list
 that makes an omission visible, exactly as lexer §10 does for tokens.
 
-**127 nonterminals over nine groups.** By §0's grouping: **17** file and declarations, **12**
-statements, **24** expressions, **20** primaries, **22** declaration literals and closed
+**129 nonterminals over nine groups.** By §0's grouping: **18** file and declarations, **12**
+statements, **24** expressions, **20** primaries, **23** declaration literals and closed
 sub-grammars, **8** types, **13** patterns, **10** literals, **1** keyword class.
+
+**The grammar is unambiguous over the corpus**, which `internal/ebnf` checks by running §0
+against every ` ```luna ` block and counting derivations. That is the question associativity
+§4 asserted and nothing tested until R264; it is a check rather than a proof, since it speaks
+only for the inputs the corpus contains, but it is the strongest statement available and it
+failed on 31 blocks before the productions below were straightened.
 
 **Each is defined exactly once**, and `File` is the only one that appears on no right-hand
 side — it is the start symbol, and a second such nonterminal would be dead grammar.
