@@ -176,7 +176,7 @@ table is a map.
 | Examples | `examples/` | Worked programs: the one-billion-row challenge, log scanning, serialization, testing. |
 | Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
-| Associativity | `associativity.md` | Precedence and associativity: the expression and type grammars, word-prefix binding, resolved drift, parser-blocking questions. |
+| Associativity | `associativity.md` | The two binding tables the parser implements — expression tiers and type-position tiers — word-prefix binding, and the positional rules that decide which table applies. |
 | std.introspection | `introspection.md` | The introspection module (R127): principles, the two query tiers, `comptype`; capability-free by theorem. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |
