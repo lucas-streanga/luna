@@ -7749,6 +7749,89 @@ first commitment).
 call-argument case. Naming the type first is the answer for now, and a
 one-idiom cost does not justify new syntax before anyone has missed it.
 
+**R257 — a module's top level holds declarations only; the grammar admits a
+statement there and semantic analysis rejects it.** The question surfaced
+from R253's fragment convention: 139 of the corpus's 431 `luna` blocks put a
+statement at column 0, and whether those are programs or fragments turned
+out to rest on something the spec had never said either way. modules §1 and
+§4 and compiler §7.4 all say "top-level **declarations**" without ever
+ruling out anything else, while the language's headline promise is that a
+file runs directly like a script.
+
+**The grammar admits it**, which is the half that matters for R253. This is
+the third instance of a split the corpus already makes twice: a misplaced
+`import` is admitted structurally and rejected by §1.2 (R250), and a
+non-argument prefix `&` is "accepted uniformly" by the parser and rejected
+by semantic analysis, "keeping the grammar regular and the diagnostic
+precise" (associativity §4). The dividend is immediate — every one of the
+431 blocks parses from one start symbol, so R253's label set collapses from
+four classes to three, and no statement-sequence start symbol is needed.
+
+**Semantic analysis rejects it**, and capabilities §7 is what forces the
+shape of the answer. `main`'s `use` clause is "a complete, machine-checked
+upper bound on the whole program's authority" — a reviewer reads the
+program's entire permission surface off one line. Top-level code runs
+outside `main` and has no `fn` header to carry a `use` clause, so either its
+grant is **∅** or §7's guarantee is false. Given ∅, a top-level statement
+can express almost nothing: no effect is reachable, so all that remains is
+mutating an already-declared top-level binding, and `_ = expr` is a
+statement too. The feature costs a rule and buys an idiom nobody has
+written — every complete program in the corpus, `index.md`'s taste and all
+four `examples/`, is imports plus `const` and nothing else.
+
+Rejected, each on its own grounds. **Admitting it under the ∅ grant** keeps
+§7 intact but delivers the paragraph above: a scripting affordance that
+cannot print. **A top-level `use` directive** would make init authority
+explicit and preserve §7's read-it-off-the-top property, but it is new
+surface for one narrow case and needs its own rule for non-root modules.
+**A script body replacing `main`** is that proposal wearing different
+clothes, and it additionally collides with root discovery — modules §3
+finds the project root *by* the `main` file, so a root with no `main` has no
+root.
+
+**Every module's top level, not only the entry's.** A file is a module (§1);
+a rule about what a module contains should not ask which one. Initialization
+is unaffected and still means what compiler §7.4 says: initializer
+expressions evaluate in dependency order, and now provably run no statements.
+
+**The code is an `S`, and its number is deferred.** This was first written
+as `M0006` and is corrected here before it could set a precedent. The
+argument for `M` was R240's "a prefix records where a check was *defined*,
+not where it lives" — but that sentence is scoped to **migration**, its own
+clause saying so: *"when a check migrates to an earlier phase, as checks do,
+it keeps its original code."* It governs a check that already has a prefix;
+it licenses nothing about allocating a new one. Initial allocation is
+compiler §3.1's table, which scopes `M` to "§1.0 discovery, §1.2 import
+validation" — both phases that hold token streams, neither able to tell a
+declaration from a statement. A check born in §1.4 is an `S`.
+
+Which *spec* owns a rule and which *stage* owns its code are separate
+questions, and conflating them is what produced the error: modules §1 states
+this rule and keeps it, exactly as keywords.md owns the keyword set while
+lexer §11 owns the `L` codes. The number waits on a semantic error summary,
+which does not exist — the same deferral R250 and R251 took for `M` before
+§12 was written, on the same reasoning: a code allocated before there is a
+table to pin it against is a code nothing checks. modules §12 gains a note
+saying where the rule's code went, so the gap is not refilled by mistake.
+
+**Corpus impact: none that is real.** No complete program in the corpus has
+a top-level statement. The 139 blocks that do are illustrative snippets —
+`myTable.name = 'Lucas';`, `['name' => n] = person;` — and most were already
+not modules, naming bindings that no surrounding code declares. Nothing
+checks them today and nothing is planned to: the gate R253 commissions is a
+**parse** gate, and all 139 parse.
+
+A fence, since the motivation will recur: if a script form is ever wanted,
+this is the ruling it retires, and it must answer capabilities §7 — not by
+weakening the upper bound, but by giving init an authority the reader can
+see as easily as `main`'s one line.
+
+Swept: `modules.md` §1 (the rule, the grammar/semantics split, and the
+deferred `S` code), §12 (a note that this rule's code is a semantic one and
+why, so the row is not added here later); `capabilities.md` §7 (why the
+upper bound is total — nothing executes outside `main` that could hold
+authority, with initializers' ∅ grant named alongside §8's comptime floor).
+
 ---
 
 ## Still open (out of scope of these rulings)

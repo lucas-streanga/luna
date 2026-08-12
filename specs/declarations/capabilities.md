@@ -382,6 +382,12 @@ const main = fn () use (io, argv) => { ... };
 Here `io` is a capability the runtime grants; `argv` is nocopy immutable data (the program's
 arguments), reached by `use` because it is nocopy, but **not** a capability (§3).
 
+**Nothing executes outside `main` that could hold authority**, which is what makes the bound
+below total rather than nearly total. A module's top level is declarations only (modules §1,
+R257), so module initialization evaluates initializer expressions and runs no statements; and
+an initializer sits in no `use` clause, so its grant is empty — the same floor §8 fixes for
+comptime. A file therefore cannot reach outside before `main` is entered.
+
 The consequence is powerful: **`main`'s `use` clause is a complete, machine-checked upper
 bound on the whole program's authority.** If `main` names only `io`, the program can do
 io and nothing else, no network, no process spawning, no ffi, no secret revelation, because

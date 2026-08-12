@@ -17,6 +17,16 @@ declaration:
   redundant with the path and could disagree with it, so it is not allowed.
 - **Top-level `export` declarations are the module's exports**; top-level declarations without
   `export` are private to the module.
+- **A module's top level holds declarations and nothing else** (R257). A bare statement there —
+  an assignment, a call, a `foreach`, a `_ =` discard — is an error in every module, not only
+  the root's. The **grammar admits it** and **semantic analysis rejects it**, the same split
+  R250 uses for a misplaced `import` and associativity §4 for a non-argument `&`: the
+  restriction needs no symbol knowledge, but stating it in the grammar would file a module rule
+  under `P` and cost the diagnostic its precision. The code is therefore an `S`, not one of
+  §12's — the check runs in compiler §1.4, which is what owns the prefix (compiler §3.1) — and
+  its number waits on a semantic error summary, which does not exist yet. That is the same
+  deferral R250 and R251 took before §12 existed: a code allocated before there is a table to
+  pin it against is a code nothing checks.
 
 ```luna
 // file: text/strings.luna   , this file is the module `text.strings`
@@ -474,6 +484,13 @@ Discovery (compiler §1.0) raises none of these — it answers *which files* and
 (R250). Every row below is import validation's (§1.2), except `M0005`, which travels as the
 code on the error `Discover` returns: at that point there is no file to anchor a span to, which
 is the shape `source.Error` already established for ingress.
+
+**Not an `M` code, and the boundary is worth stating** (R257): §1's rule that a module's top
+level holds declarations only is a **module rule with a semantic code**. `M` covers §1.0 and
+§1.2 (compiler §3.1), phases that hold token streams; telling a declaration from a statement
+needs a syntax tree, so the check is semantic analysis's (§1.4) and its code is an `S`. Which
+*spec* owns a rule and which *stage* owns its code are different questions — keywords.md owns
+the keyword set while lexer §11 owns `L` codes, and the same split applies here.
 
 | Code | Title | Raised when | Authority |
 |-|-|-|-|
