@@ -70,11 +70,23 @@ a raw string reaching `openFile` is caught at the signature instead of at the OS
 
 ### 2.1 The standard handles
 
-```luna
+```text
 export const stdin:  file;
 export const stdout: file;
 export const stderr: file;
 ```
+
+**These three are supplied by the runtime, and the block above is a description of them
+rather than source** (R259). A file descriptor is not a value a program can write: there is
+no literal for `@fileDescriptor`, no pure expression yields one, and an effectful one is
+unavailable here because module initialization runs under the empty grant (R257). So the
+declarations have a type and no initializer, which Luna does not admit (R255 — there are no
+prototypes), and the fence says `text` to stop the block claiming otherwise. This is the
+one place in the standard library where that shows: the *functions* alongside them are
+equally runtime-supplied, but a function's placeholder is spellable — `=> {}` leaves the
+whole contract, name, parameters and result, intact — and a value's is not, the initializer
+being the entire content. Nothing about the handles' semantics is in doubt; only the
+notation is missing.
 
 The three standard handles are **`const file`** values, and `const` is what lets them break
 the single-owner rule safely: a `const` value is shared **by reference** across tasks with no

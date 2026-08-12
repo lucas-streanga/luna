@@ -58,12 +58,20 @@ export const timezone = proto {
   const get isFixed: bool;         // true for fixed offsets, false for rule-carrying zones
 };
 
-export const utc = /* the fixed UTC timezone value */;
 export const zone = fn (id: string): @timezone! => {};          // IANA lookup; unknown id errors
 export const offset = fn (d: duration): @timezone => {};        // fixed offset; out-of-range panics
 export const localZone = fn () use (time): @timezone => {};     // the machine's zone: an effect
+
+export const utc = offset(seconds(0));                          // the zero offset; `id` is "UTC"
 ```
 
+- **`utc` is the zero offset, not a distinguished zone.** UTC *is* +00:00 — no rules, no
+  DST, always zero — so it needs no origin of its own and is defined as `offset(seconds(0))`:
+  `isFixed` is true, and it is pure and comptime-eligible like any other `offset`, which is
+  what lets it serve as the default argument it is used as throughout this module. The zero
+  offset **renders its `id` as `"UTC"`** rather than `"+00:00"`, which is why `"UTC"` appears
+  in the `id` examples above; the two name the same value. (`seconds` is `std.time`'s, reached
+  across the same seam as `duration` and the `time` capability — R132's contract, above.)
 - **Zones and offsets are not the same thing, on purpose.** `zone('America/Chicago')`
   carries the full IANA ruleset and performs DST automatically; `offset(hours(-6))` is
   a frozen number with no rules. One `timezone` type, two origins, distinguished by

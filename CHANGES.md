@@ -7904,6 +7904,74 @@ in `is.md`, `command.md`, `int.md`, `numeric-tower.md`, `double.md`,
 columns were re-flowed per block where the wrapping pushed them out of true.
 The corpus is **430** `luna` blocks and one `text` block more than before.
 
+
+**R259 — the value prototypes: `utc` is derived, the standard handles are
+described rather than declared, and the gap between them is named.** R255
+ruled that Luna has no prototypes and left four declarations standing that
+had a type and no initializer — the last unparsable declarations in the
+corpus. They turned out to be two different things.
+
+**`utc` was never a prototype; it is a derivation nobody had written.** UTC
+*is* +00:00 — no rules, no DST, always zero — so it needs no origin of its
+own: `export const utc = offset(seconds(0));`. `offset` is pure, total and
+`use`-free, so the initializer is comptime-eligible and legal under R257's
+empty grant, which is what lets `utc` go on serving as the default argument
+it is used as throughout datetime. The one thing this decides rather than
+discovers is rendering: the zero offset's `id` is **`"UTC"`**, not
+`"+00:00"`, which is what the §2 examples already assumed. Rejected: a
+distinguished UTC zone beside the offset, which would give one value two
+origins and put a hidden special case inside a function documented as "a
+frozen number with no rules."
+
+**The three standard handles cannot be written, and the reason is worth
+recording.** `stdin`, `stdout` and `stderr` are `@fileDescriptor` values
+the runtime supplies. There is no literal for a protocol refinement, no pure
+expression yields a descriptor, and the effectful route closed with R257 —
+module initialization runs under the empty grant, so `= openFile(…)` is not
+available. They must also stay *values* rather than becoming calls, because
+`println(line, fd: file = stdout)` uses them as default arguments, and a
+`stdout()` default would demand `io` wherever the default is evaluated.
+Ruled: the block is fenced `text` and says in prose that the runtime
+supplies them.
+
+**Why that is a notation gap and not a language gap**, which is the correction
+this ruling exists to make. The *functions* beside them are equally
+runtime-supplied — FFI is deferred (capabilities §9), so no Luna source
+reaches a syscall, and every effectful `=> {}` in std is a placeholder for a
+native implementation. The asymmetry is only that Luna can **spell** the
+function placeholder with the whole contract intact — name, parameters,
+result — and cannot spell the value one, an initializer being the entire
+content of a value declaration. Nothing about the handles' semantics is in
+doubt.
+
+Rejected, and the second one is why this is written down. **A
+runtime-provided declaration form** — new syntax meaning "the runtime
+supplies this" — buys three sites and adds language surface to make a
+documentation block parse; the function next to it is equally fictional and
+already accepted. **The write-once optional** (`let stdout?: file = null;`,
+variables §1.2) parses, and fails on semantics rather than taste: it types
+the handles `file | null`, which no `fd: file` default accepts, so every use
+site narrows forever; it forces `let`, discarding the `const` that §2.1's
+own cross-task-sharing argument rests on; and it still does not express the
+runtime's write, which no Luna statement can perform under R257. A `text`
+fence is wrong about the container; that would be wrong about the language,
+and the container is the cheaper error. **Inventing a constructor**
+(`stdHandle(0)`) puts fiction in the spec to satisfy a parser, which R258
+already refused.
+
+**Not ruled here.** Whether the standard library's native boundary wants a
+notation at all. It is invisible today because `=> {}` covers the function
+case and prose covers this one, and it becomes a real question when FFI
+lands (capabilities §9, deferred) or when std is written in Luna rather than
+provided by the oracle in Go (R241). Recorded so that decision is taken on
+its own merits and not inferred from a fence label.
+
+Swept: `datetime.md` §2 (the derivation, the `"UTC"` rendering, the
+`std.time` seam that `seconds` crosses); `io.md` §2.1 (the fence and the
+runtime-supplied paragraph). The corpus is **429** `luna` blocks and two
+`text` blocks more than R258 left it, and no declaration in it now lacks an
+initializer.
+
 ---
 
 ## Still open (out of scope of these rulings)
