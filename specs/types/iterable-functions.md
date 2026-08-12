@@ -70,8 +70,11 @@ themselves consumed.
 
 ### 1.6 Reading the signatures
 
-- **Receiver first.** Signatures begin `fn name(it: iterable, …)`; `combine` is the one
-  constructor-style exception, noted at its entry.
+- **Receiver first.** Signatures begin `const name = fn (it: iterable, …)`; `combine` is the one
+  constructor-style exception, noted at its entry. Every entry is written as a real
+  declaration with an empty body (R255): there are no function prototypes in Luna, so a
+  catalogue entry is an ordinary `const` binding a `fn` literal, and the body is `{}`
+  because the catalogue specifies the signature and the prose specifies the behaviour.
 - **Parameter order:** `it`, required operands, function hooks (`transformFn` /
   `predicateFn` / `compareFn` / `keyFn`), `mode`, then result-shaping flags
   (`preserveKeys`, `all`, `recursive`, `depth`).
@@ -125,7 +128,7 @@ identical.
 
 #### isEmpty()
 ```luna
-fn isEmpty(it: iterable): bool
+const isEmpty = fn (it: iterable): bool => {};
 ```
 **O(1).** True if there are no elements. On a stream, peeks one element: the stream is
 started (a bounded side effect) but nothing is consumed. Replaces the retired table `empty`
@@ -133,7 +136,7 @@ started (a bounded side effect) but nothing is consumed. Replaces the retired ta
 
 #### count()
 ```luna
-fn count(it: iterable): int
+const count = fn (it: iterable): int => {};
 ```
 **O(1) table / O(n) stream, consumes.** Number of elements. On a stream, exhausts it; to
 count and keep the data, `collect` first.
@@ -142,8 +145,8 @@ count and keep the data, `collect` first.
 
 #### first() · last()
 ```luna
-fn first(it: iterable): any
-fn last(it: iterable): any
+const first = fn (it: iterable): any => {};
+const last = fn (it: iterable): any => {};
 ```
 **first O(1) · last O(1) table / O(n) stream (consumes).** First / last value; `undefined`
 if empty. On a stream, `first` consumes exactly one element (`peek`, stream-api §2, buffers
@@ -151,8 +154,8 @@ without consuming); `last` runs to the end with O(1) working memory.
 
 #### keyFirst() · keyLast()
 ```luna
-fn keyFirst(it: iterable): any
-fn keyLast(it: iterable): any
+const keyFirst = fn (it: iterable): any => {};
+const keyLast = fn (it: iterable): any => {};
 ```
 **keyFirst O(1) · keyLast O(1) table / O(n) stream (consumes).** First / last key;
 `undefined` if empty. On an implicit-key stream (§1.2), `keyFirst` is `0` and `keyLast` is
@@ -162,15 +165,15 @@ fn keyLast(it: iterable): any
 
 #### find()
 ```luna
-fn find(it: iterable, value: any = null, key: any = null, compareFn?,
-        mode: enum {values, keys, both, either} = {values}): any
+const find = fn (it: iterable, value: any = null, key: any = null, compareFn?,
+                 mode: enum {values, keys, both, either} = {values}): any => {};
 ```
 **O(n), short-circuits.** The first value satisfying the match; `undefined` if none. With no
 operands, returns the first value. Uses `==` unless `compareFn` (`fn(a, b): bool`) is set.
 
 #### keyOf()
 ```luna
-fn keyOf(it: iterable, value: any, compareFn?, all: bool = false): any
+const keyOf = fn (it: iterable, value: any, compareFn?, all: bool = false): any => {};
 ```
 **O(n), short-circuits (consumes with `all`).** The first key whose value matches `value`;
 `undefined` if none. With `all = true`, a table of every matching key. The key-returning
@@ -178,8 +181,8 @@ complement of `find`.
 
 #### exists()
 ```luna
-fn exists(it: iterable, value: any = null, key: any = null, compareFn?,
-          mode: enum {values, keys, both, either} = {values}): bool
+const exists = fn (it: iterable, value: any = null, key: any = null, compareFn?,
+                   mode: enum {values, keys, both, either} = {values}): bool => {};
 ```
 **O(1) / O(n), short-circuits.** True if at least one value / key / either / both matches.
 O(1) when matching keys only on a table; O(n) otherwise. Use for equality tests; use `some`
@@ -187,8 +190,8 @@ for predicate tests.
 
 #### some() · every()
 ```luna
-fn some(it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool
-fn every(it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool
+const some = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool => {};
+const every = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool => {};
 ```
 **O(n), short-circuit.** Whether any / all elements satisfy `predicateFn` (`fn(x): bool`).
 With `predicateFn` omitted, tests truthiness.
@@ -200,7 +203,7 @@ Transformers are lazy on streams: they return a new stream that runs only as it 
 
 #### map()
 ```luna
-fn map(it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable
+const map = fn (it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable => {};
 ```
 **O(n), lazy on streams.** Transforms each value via `transformFn` (`fn(value): any`). In
 `{keys}` mode keys are passed; in `{both}`, `fn(value, key): [key, value]`. In `{keys}` /
@@ -208,7 +211,7 @@ fn map(it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): 
 
 #### filter()
 ```luna
-fn filter(it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): iterable
+const filter = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): iterable => {};
 ```
 **O(n), lazy on streams.** Keeps elements where `predicateFn` (`fn(value): bool`) returns
 true. `{keys}` passes keys; `{both}` passes `fn(value, key): bool`. Keys are preserved —
@@ -216,14 +219,14 @@ implicit stream keys go sparse exactly as a list's would; follow with `values` t
 
 #### mapLeaves()
 ```luna
-fn mapLeaves(it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable
+const mapLeaves = fn (it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable => {};
 ```
 **O(n), lazy on streams.** Recursively descends to every leaf and applies `transformFn`.
 Table-valued elements are retained data, so descent stays lazy per element.
 
 #### each()
 ```luna
-fn each(it: iterable, callbackFn: fn, mode: enum {values, keys, both} = {values}): iterable
+const each = fn (it: iterable, callbackFn: fn, mode: enum {values, keys, both} = {values}): iterable => {};
 ```
 **O(n), lazy on streams.** Side-effecting iteration. Returns its input, so it chains; on a
 stream it is a lazy tap, running `callbackFn` as elements flow through. Returning `false`
@@ -231,7 +234,7 @@ from `callbackFn` stops early — on a stream, the result ends (downstream sees 
 
 #### reduce()
 ```luna
-fn reduce(it: iterable, reductionFn?, initial: any = null): any
+const reduce = fn (it: iterable, reductionFn?, initial: any = null): any => {};
 ```
 **O(n), consumes.** Folds via `reductionFn` (`fn(carry, item): any`), starting from
 `initial`. O(1) working memory beyond the accumulator — and therefore the deliberate escape
@@ -239,7 +242,7 @@ hatch for building retained data from a stream by hand.
 
 #### keyCase()
 ```luna
-fn keyCase(it: iterable, uppercase: bool): iterable
+const keyCase = fn (it: iterable, uppercase: bool): iterable => {};
 ```
 **O(n), lazy on streams.** Upper- or lower-cases every string key.
 
@@ -247,8 +250,8 @@ fn keyCase(it: iterable, uppercase: bool): iterable
 
 #### values() · keys()
 ```luna
-fn values(it: iterable): iterable
-fn keys(it: iterable): iterable
+const values = fn (it: iterable): iterable => {};
+const keys = fn (it: iterable): iterable => {};
 ```
 **O(n), lazy on streams.** Values-only / keys-as-values, reindexed sequentially from 0.
 `values` is the reindexer that composes after any key-disturbing stage
@@ -257,7 +260,7 @@ fn keys(it: iterable): iterable
 
 #### column()
 ```luna
-fn column(it: iterable, column: string|int, newKeyColumn?: string|int): iterable
+const column = fn (it: iterable, column: string|int, newKeyColumn?: string|int): iterable => {};
 ```
 **O(n), lazy on streams.** From an iterable of rows (tables), extracts the value at key
 `column` from each row. With `newKeyColumn` set, keys the result by that column's value;
@@ -265,7 +268,7 @@ otherwise reindexes from 0.
 
 #### flip()
 ```luna
-fn flip(it: iterable): iterable
+const flip = fn (it: iterable): iterable => {};
 ```
 **O(n), lazy on streams.** Swaps each key with its value. On a table, colliding keys
 overwrite in order; on a stream, duplicates flow through and resolve only at `collect`
@@ -273,14 +276,14 @@ overwrite in order; on a stream, duplicates flow through and resolve only at `co
 
 #### combine()
 ```luna
-fn combine(keys: iterable, values: iterable): iterable
+const combine = fn (keys: iterable, values: iterable): iterable => {};
 ```
 **O(n), lazy on streams.** Constructor-style (no receiver): pairs the values of `keys` with
 the values of `values` into a new iterable. Output kind follows the first operand.
 
 #### chunk()
 ```luna
-fn chunk(it: iterable, length: int, preserveKeys: bool = true): iterable
+const chunk = fn (it: iterable, length: int, preserveKeys: bool = true): iterable => {};
 ```
 **O(n), lazy on streams (O(length) working memory).** Splits into successive sub-tables of
 `length` elements; on a stream, each completed chunk is yielded as one element.
@@ -288,7 +291,7 @@ fn chunk(it: iterable, length: int, preserveKeys: bool = true): iterable
 
 #### flatten()
 ```luna
-fn flatten(it: iterable, depth: int = -1, preserveKeys: bool = false): iterable
+const flatten = fn (it: iterable, depth: int = -1, preserveKeys: bool = false): iterable => {};
 ```
 **O(n), lazy on streams.** Flattens nested tables. `depth = -1` flattens fully. Reindexes by
 default, since keys collide across levels (combiners reindex, R90).
@@ -301,8 +304,8 @@ they are the traversal-order counterpart of the key-addressed `slice`
 
 #### take() · skip()
 ```luna
-fn take(it: iterable, n: int): iterable
-fn skip(it: iterable, n: int): iterable
+const take = fn (it: iterable, n: int): iterable => {};
+const skip = fn (it: iterable, n: int): iterable => {};
 ```
 **O(n), lazy on streams.** At most the first `n` elements / everything after the first `n`.
 `take` short-circuits: it stops pulling upstream once satisfied, so
@@ -310,8 +313,8 @@ fn skip(it: iterable, n: int): iterable
 
 #### takeWhile() · dropWhile()
 ```luna
-fn takeWhile(it: iterable, predicateFn: fn): iterable
-fn dropWhile(it: iterable, predicateFn: fn): iterable
+const takeWhile = fn (it: iterable, predicateFn: fn): iterable => {};
+const dropWhile = fn (it: iterable, predicateFn: fn): iterable => {};
 ```
 **O(n), lazy on streams.** Yield until / discard until `predicateFn` (`fn(value): bool`) is
 first false. `takeWhile` short-circuits like `take`.
@@ -320,8 +323,8 @@ first false. `takeWhile` short-circuits like `take`.
 
 #### merge()
 ```luna
-fn merge(it: iterable, ...its: iterable,
-         recursive: bool = false, preserveKeys: bool = false): iterable
+const merge = fn (it: iterable, ...its: iterable,
+                  recursive: bool = false, preserveKeys: bool = false): iterable => {};
 ```
 **O(n), lazy on streams.** Appends `its` onto `it` in order: integer keys reindex from 0 and
 append, string keys overwrite by key. This is exactly the spread fold (spread §1), so
@@ -334,10 +337,10 @@ concatenation, duplicate string keys flowing through in order and resolving at `
 
 #### diff() · intersect()
 ```luna
-fn diff(it: iterable, ...tabs: table,
-        compareFn?, mode: enum {values, keys, both} = {both}): iterable
-fn intersect(it: iterable, ...tabs: table,
-             compareFn?, mode: enum {values, keys, both} = {values}): iterable
+const diff = fn (it: iterable, ...tabs: table,
+                 compareFn?, mode: enum {values, keys, both} = {both}): iterable => {};
+const intersect = fn (it: iterable, ...tabs: table,
+                      compareFn?, mode: enum {values, keys, both} = {values}): iterable => {};
 ```
 **O(n²), lazy on streams.** Keeps elements of `it` **not present in all** / **present in
 all** of `tabs`. Keys preserved. Uses `==` unless `compareFn` (`fn(a, b): bool`) is set. The
@@ -346,8 +349,8 @@ Under `mode = {both}`, equal iff key **and** value equal.
 
 #### distinct() · unique()
 ```luna
-fn distinct(it: iterable, compareFn?): iterable
-fn unique(it: iterable, compareFn?): iterable
+const distinct = fn (it: iterable, compareFn?): iterable => {};
+const unique = fn (it: iterable, compareFn?): iterable => {};
 ```
 **O(n), lazy on streams (working memory grows with distinct values seen).** Both drop
 duplicate values, first occurrence winning, using `==` unless `compareFn` is set. They
@@ -356,7 +359,7 @@ original keys of the surviving elements.
 
 #### replace()
 ```luna
-fn replace(it: iterable, ...replacements: table, recursive: bool = false): iterable
+const replace = fn (it: iterable, ...replacements: table, recursive: bool = false): iterable => {};
 ```
 **O(n), lazy on streams.** Replaces values in `it` by matching key against `replacements`.
 When `recursive` and a matched value is a table, descends and replaces within it.
@@ -365,8 +368,8 @@ When `recursive` and a matched value is a table, descends and replaces within it
 
 #### prepend() · append()
 ```luna
-fn prepend(it: iterable, value: any): iterable
-fn append(it: iterable, value: any): iterable
+const prepend = fn (it: iterable, value: any): iterable => {};
+const append = fn (it: iterable, value: any): iterable => {};
 ```
 **prepend O(n) table / O(1) stream · append O(1), lazy on streams.** Add `value` at the
 front / back. On a table, `prepend` reindexes a list and `append` is O(1) amortized; on a
@@ -374,8 +377,8 @@ stream both are lazy stages.
 
 #### remove()
 ```luna
-fn remove(it: iterable, value: any = null, key: any = null, compareFn?,
-          mode: enum {values, keys, both, either} = {values}, all: bool = false): iterable
+const remove = fn (it: iterable, value: any = null, key: any = null, compareFn?,
+                   mode: enum {values, keys, both, either} = {values}, all: bool = false): iterable => {};
 ```
 **O(n), lazy on streams.** Removes the first matching element, or every match with
 `all = true` — the matcher-family complement of `filter` (equality match rather than
@@ -385,7 +388,7 @@ predicate). To count removals, diff `count()` around the call.
 
 #### random()
 ```luna
-fn random(it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table
+const random = fn (it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table => {};
 ```
 **O(n), consumes.** Picks `num` random elements, drawing from **`rng`** — a required
 randomness stream (`std.random`, R139: the old optional `randFn?` was doubly unsound —
@@ -404,30 +407,30 @@ numeric aggregates ignore values that are not `int` or `double`.
 
 #### sum() · average() · product()
 ```luna
-fn sum(it: iterable): int | double
-fn average(it: iterable): int | double
-fn product(it: iterable): int | double
+const sum = fn (it: iterable): int | double => {};
+const average = fn (it: iterable): int | double => {};
+const product = fn (it: iterable): int | double => {};
 ```
 **O(n), consumes.** Sum / mean / product of the numeric values.
 
 #### min() · max()
 ```luna
-fn min(it: iterable, compareFn?): any
-fn max(it: iterable, compareFn?): any
+const min = fn (it: iterable, compareFn?): any => {};
+const max = fn (it: iterable, compareFn?): any => {};
 ```
 **O(n), consumes.** Least / greatest value by standard comparison, or by `compareFn`
 (`fn(a, b): int`). `undefined` if empty.
 
 #### mode()
 ```luna
-fn mode(it: iterable, compareFn?): any
+const mode = fn (it: iterable, compareFn?): any => {};
 ```
 **O(n), consumes (working memory grows with distinct values).** The most frequent value;
 ties resolve to the first occurrence.
 
 #### join()
 ```luna
-fn join(it: iterable, glue: string = '', finalGlue?: string = null): string
+const join = fn (it: iterable, glue: string = '', finalGlue?: string = null): string => {};
 ```
 **O(n), consumes.** Concatenates values into a string separated by `glue`. `finalGlue` sets
 a distinct separator before the last element (`"a, b and c"`); on a stream this costs one
@@ -440,7 +443,7 @@ can be applied unconditionally to normalize.
 
 #### toStream()
 ```luna
-fn toStream(src: iterable | bytes): stream
+const toStream = fn (src: iterable | bytes): stream => {};
 ```
 **O(1), lazy.** On a stream, the identity. On a table, adapts retained data into the stream
 interface (stream spec §5.1) without copying — the memory is already spent; this exists for
@@ -453,7 +456,7 @@ packed byte buffer), but its unambiguous element unit earns it this bridge and d
 
 #### collect()
 ```luna
-fn collect(it: iterable): table
+const collect = fn (it: iterable): table => {};
 ```
 **O(1) table / O(n) stream, consumes.** On a table, the identity. On a stream, consumes it
 into retained data — **the only stream→retained bridge**, and the visible O(n) cost (§1.3).

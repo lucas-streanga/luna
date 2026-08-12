@@ -388,9 +388,13 @@ each family; §8 gives the normative global order.
 
 Notes. The pipe tokens are written with the hex escape `\x7c` (Go regex for `|`) so the
 patterns survive markdown table rendering byte-for-byte. There is
-no unary `+`, no `===`/`!==`, no ternary, no bitwise tokens, and no `&&=`
-/`||=` (numeric-operators §1.1; associativity §4; int §8). `:` serves annotations
-(`x: int`), slice bounds (`xs[1:3]`, `xs[:]`, tables §3), and default-bearing signatures.
+no unary `+`, no `===`/`!==`, no bitwise tokens, and no `&&=`
+/`||=` (numeric-operators §1.1; associativity §4; int §8). The **conditional** `c ? a : b`
+does exist (R254, associativity §1 tier 11) and needs no token of its own: it is `QUESTION`
+and `COLON`, both already here, resolved by position like every other dual-role token — which
+is why this note previously and wrongly listed it among the absent forms. `:` serves
+annotations (`x: int`), slice bounds (`xs[1:3]`, `xs[:]`, tables §3), default-bearing
+signatures, and the conditional's arm separator.
 `#` occurs only as part of `ATTR_OPEN` (attributes §3), or as the leading `#!` of a
 first-line shebang (§2) — a bare `#` anywhere else is a lex error. (`*` was the import glob until R136 retired it; bare-path imports mean "everything" now.) `SLASH` and `SLASH_ASSIGN`
 compete only with the two comment forms, and the **next** byte decides between them (`//`, `/*`,

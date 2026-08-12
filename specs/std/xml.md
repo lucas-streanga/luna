@@ -23,7 +23,7 @@ string constraint should answer (§3).
 ## 2. Reading
 
 ```luna
-export const fromXml = fn (v: xml): table!;
+export const fromXml = fn (v: xml): table! => {};
 ```
 
 Pure, comptime-eligible, source-agnostic; the entry into `xml` is the validation, and the

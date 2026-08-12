@@ -132,7 +132,7 @@ characters.
 
 ## 6. Equality
 
-```luna
+```text
 fn equal(a: string, b: string): bool {
   if a.byteLength != b.byteLength      return false   // O(1)
   if a.isInline && b.isInline          return a.word == b.word   // O(1), one masked compare

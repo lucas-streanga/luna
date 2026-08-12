@@ -39,12 +39,12 @@ any machine.
 ## 2. The read family
 
 ```luna
-export const readI16 = fn (b: bytes, offset: int, endianness: endian): i16;
-export const readU16 = fn (b: bytes, offset: int, endianness: endian): u16;
-export const readI32 = fn (b: bytes, offset: int, endianness: endian): i32;
-export const readU32 = fn (b: bytes, offset: int, endianness: endian): u32;
-export const readI64 = fn (b: bytes, offset: int, endianness: endian): int;
-export const readU64 = fn (b: bytes, offset: int, endianness: endian): uint;
+export const readI16 = fn (b: bytes, offset: int, endianness: endian): i16 => {};
+export const readU16 = fn (b: bytes, offset: int, endianness: endian): u16 => {};
+export const readI32 = fn (b: bytes, offset: int, endianness: endian): i32 => {};
+export const readU32 = fn (b: bytes, offset: int, endianness: endian): u32 => {};
+export const readI64 = fn (b: bytes, offset: int, endianness: endian): int => {};
+export const readU64 = fn (b: bytes, offset: int, endianness: endian): uint => {};
 ```
 
 - **The width lives in the name, not a parameter.** A size enum

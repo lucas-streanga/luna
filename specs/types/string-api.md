@@ -86,7 +86,7 @@ retired with the whole flag model, R92/R102: producers now always return streams
 
 #### toString()
 ```luna
-fn toString(value: any): string
+const toString = fn (value: any): string => {};
 ```
 Every value's canonical string form. Defined for all types; for `table` it is the
 same rendering used by `println`. The identity function on `string`.
@@ -99,16 +99,16 @@ deliberately omitted for now; it is a larger design in its own right.)
 
 #### repeat()
 ```luna
-fn repeat(str: string, times: nat): string
+const repeat = fn (str: string, times: nat): string => {};
 ```
 `"ab".repeat(3)` is `"ababab"`; `times = 0` yields `""` (a negative count, formerly a
 silent `""`, is unrepresentable: `nat`, R228).
 
 #### chr() / parse helpers
 ```luna
-fn chr(codepoint: nat): string             // one-codepoint string from a scalar value
-fn parseInt(str: string): int!             // parse; error if not a valid integer
-fn parseDouble(str: string): double!       // parse; error if not a valid double
+const chr = fn (codepoint: nat): string => {};             // one-codepoint string from a scalar value
+const parseInt = fn (str: string): int! => {};             // parse; error if not a valid integer
+const parseDouble = fn (str: string): double! => {};       // parse; error if not a valid double
 ```
 `chr` is the inverse of taking a single `codepoints()` element. A `codepoint` that is
 not a Unicode scalar value (a surrogate `0xD800..0xDFFF`, or above `0x10FFFF`)
@@ -125,22 +125,22 @@ must be consumed with `try` or an errorable binding.
 
 #### isEmpty()
 ```luna
-fn isEmpty(str: string): bool
+const isEmpty = fn (str: string): bool => {};
 ```
 True iff `byteLength == 0`. O(1). (`str == ""` also works and is equally O(1).)
 
 #### contains() · startsWith() · endsWith()
 ```luna
-fn contains(str: string, needle: string, caseInsensitive: bool = false): bool
-fn startsWith(str: string, prefix: string, caseInsensitive: bool = false): bool
-fn endsWith(str: string, suffix: string, caseInsensitive: bool = false): bool
+const contains = fn (str: string, needle: string, caseInsensitive: bool = false): bool => {};
+const startsWith = fn (str: string, prefix: string, caseInsensitive: bool = false): bool => {};
+const endsWith = fn (str: string, suffix: string, caseInsensitive: bool = false): bool => {};
 ```
 O(n).
 
 #### indexOf() · lastIndexOf()
 ```luna
-fn indexOf(str: string, needle: string, from: nat = 0, caseInsensitive: bool = false): nat?
-fn lastIndexOf(str: string, needle: string, caseInsensitive: bool = false): nat?
+const indexOf = fn (str: string, needle: string, from: nat = 0, caseInsensitive: bool = false): nat? => {};
+const lastIndexOf = fn (str: string, needle: string, caseInsensitive: bool = false): nat? => {};
 ```
 The **byte offset** of the first / last match, or **`null`** if absent (R228: a miss is
 an answer, not a sentinel — `nat?` structurally rules out the old `-1`, and `??` /
@@ -148,7 +148,7 @@ an answer, not a sentinel — `nat?` structurally rules out the old `-1`, and `?
 
 #### count()
 ```luna
-fn count(str: string, needle: string, caseInsensitive: bool = false): nat
+const count = fn (str: string, needle: string, caseInsensitive: bool = false): nat => {};
 ```
 Number of non-overlapping occurrences of `needle`. O(n). An empty `needle` panics
 (`emptyNeedle` — the rule below).
@@ -169,9 +169,9 @@ zero-byte step — the same emptiness — and panics `emptyNeedle` (§8).
 
 #### matches() · find() · findAll() (regex)
 ```luna
-fn matches(str: string, pattern: regex): bool
-fn find(str: string, pattern: regex): table?
-fn findAll(str: string, pattern: regex): stream
+const matches = fn (str: string, pattern: regex): bool => {};
+const find = fn (str: string, pattern: regex): table? => {};
+const findAll = fn (str: string, pattern: regex): stream => {};
 ```
 `regex` is its own type (a compiled pattern, kept separate so a pattern is compiled
 once and reused, rather than recompiled from a string on every call). `matches` tests
@@ -200,7 +200,7 @@ question and a position-returning variant is deferred until need.
 
 #### regexEscape()
 ```luna
-fn regexEscape(str: string): string
+const regexEscape = fn (str: string): string => {};
 ```
 Escapes all regex metacharacters in a string so it can be matched as literal text.
 **This is the one function, ruled** (R217): a builtin free function, one name, one
@@ -217,7 +217,7 @@ exists, and there was never anything to delegate.)
 
 #### slice()
 ```luna
-fn slice(str: string, offset: nat, length: nat? = null): string
+const slice = fn (str: string, offset: nat, length: nat? = null): string => {};
 ```
 A substring beginning at byte `offset` for `length` bytes; **`null` means "to the
 end"**, the default (the `finalGlue` pattern, §8 — absence spelled as absence; the
@@ -229,7 +229,7 @@ land on codepoint boundaries, or it panics (`stringBoundaryError`, errors §2, R
 
 #### isCodepointBoundary()
 ```luna
-fn isCodepointBoundary(str: string, offset: int): bool
+const isCodepointBoundary = fn (str: string, offset: int): bool => {};
 ```
 The **probe form** to `slice`'s assertion — the hard/soft pairing the language uses
 everywhere (`canReveal`/`reveal`, `peek`/`foreach`; R228). True iff
@@ -240,9 +240,9 @@ it guards, a negative one answering `false`.
 
 #### before() · after() · between()
 ```luna
-fn before(str: string, sep: string): string     // up to the first sep, or all of str
-fn after(str: string, sep: string): string       // after the first sep, or ""
-fn between(str: string, open: string, close: string): string
+const before = fn (str: string, sep: string): string => {};     // up to the first sep, or all of str
+const after = fn (str: string, sep: string): string => {};       // after the first sep, or ""
+const between = fn (str: string, open: string, close: string): string => {};
 ```
 Convenience extractors over `indexOf` + `slice`. All borrow. An empty `sep` follows
 `indexOf`'s rule (§5): found at offset 0, so `before(s, "")` is `""` and
@@ -251,17 +251,17 @@ refuse `""`, §5).
 
 #### trim() · trimStart() · trimEnd()
 ```luna
-fn trim(str: string, cutset: string = whitespace): string
-fn trimStart(str: string, cutset: string = whitespace): string
-fn trimEnd(str: string, cutset: string = whitespace): string
+const trim = fn (str: string, cutset: string = whitespace): string => {};
+const trimStart = fn (str: string, cutset: string = whitespace): string => {};
+const trimEnd = fn (str: string, cutset: string = whitespace): string => {};
 ```
 Remove leading/trailing characters in `cutset` (default: Unicode whitespace). The
 result borrows.
 
 #### padStart() · padEnd()
 ```luna
-fn padStart(str: string, width: nat, fill: string = " "): string
-fn padEnd(str: string, width: nat, fill: string = " "): string
+const padStart = fn (str: string, width: nat, fill: string = " "): string => {};
+const padEnd = fn (str: string, width: nat, fill: string = " "): string => {};
 ```
 Pad to `width` **grapheme** clusters (the visually meaningful unit for alignment) with
 `fill`. No-op if already at least `width` wide.
@@ -272,10 +272,10 @@ Pad to `width` **grapheme** clusters (the visually meaningful unit for alignment
 
 #### toUpper() · toLower() · toTitle() · fold()
 ```luna
-fn toUpper(str: string): string
-fn toLower(str: string): string
-fn toTitle(str: string): string
-fn fold(str: string): string        // case-folded form, for case-insensitive keys
+const toUpper = fn (str: string): string => {};
+const toLower = fn (str: string): string => {};
+const toTitle = fn (str: string): string => {};
+const fold = fn (str: string): string => {};        // case-folded form, for case-insensitive keys
 ```
 Full Unicode case mapping, not ASCII-only. `fold` produces the canonical
 case-insensitive form (what `caseInsensitive: true` compares under), useful as a map
@@ -283,8 +283,8 @@ key.
 
 #### replace() · replaceFirst()
 ```luna
-fn replace(str: string, target: string, with: string, caseInsensitive: bool = false): string
-fn replaceFirst(str: string, target: string, with: string, caseInsensitive: bool = false): string
+const replace = fn (str: string, target: string, with: string, caseInsensitive: bool = false): string => {};
+const replaceFirst = fn (str: string, target: string, with: string, caseInsensitive: bool = false): string => {};
 ```
 Replace all / the first occurrence. Returns a new string (immutability). An empty
 `target` in `replace` panics (`emptyNeedle`, §5 — every-match); `replaceFirst` is
@@ -292,14 +292,14 @@ determinate on `""` and inserts `with` at offset 0 (§5).
 
 #### reverse()
 ```luna
-fn reverse(str: string): string
+const reverse = fn (str: string): string => {};
 ```
 Reverses by **grapheme cluster**, so combining marks and emoji sequences stay intact.
 O(n).
 
 #### normalize()
 ```luna
-fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
 ```
 Unicode normalization. Needed so that visually identical strings built differently
 (precomposed vs. combining) compare and hash equal after normalizing.
@@ -310,7 +310,7 @@ Unicode normalization. Needed so that visually identical strings built different
 
 #### split()
 ```luna
-fn split(str: string, sep: string | int, limit: nat = 0): stream
+const split = fn (str: string, sep: string | int, limit: nat = 0): stream => {};
 ```
 Split on a `string` separator, or into fixed-width chunks of `int` bytes (the union
 replaces an overload). `limit > 0` caps the number of pieces, the last holding the
@@ -321,14 +321,14 @@ borrow.
 
 #### lines()
 ```luna
-fn lines(str: string): stream
+const lines = fn (str: string): stream => {};
 ```
 Split on line boundaries (`\n`, `\r\n`, and Unicode line breaks), terminators removed.
 Pieces borrow.
 
 #### join()
 ```luna
-fn join(it: iterable, glue: string = '', finalGlue?: string = null): string
+const join = fn (it: iterable, glue: string = '', finalGlue?: string = null): string => {};
 ```
 `join` is the catalogue function (iterable-functions §2.10), listed here for
 discoverability: it concatenates the elements of any iterable (each coerced via
@@ -347,8 +347,8 @@ per unit — `collect()` retains a list (§1). None allocate per element for ASC
 
 #### bytes() · toBytes()
 ```luna
-fn bytes(str: string): stream              // the producer: yields each byte (int 0..255)
-fn toBytes(src: string | iterable): bytes  // the conversion: the packed bytes value
+const bytes = fn (str: string): stream => {};              // the producer: yields each byte (int 0..255)
+const toBytes = fn (src: string | iterable): bytes => {};  // the conversion: the packed bytes value
 ```
 Two operations, split along the producer/conversion seam (R102). `bytes()` is the
 **iteration view**, a stream of `byte` (int `0..255`). `toBytes()` is the **conversion**
@@ -365,15 +365,15 @@ string.
 
 #### codepoints()
 ```luna
-fn codepoints(str: string): stream   // elements are string
+const codepoints = fn (str: string): stream => {};   // elements are string
 ```
 One element per Unicode scalar value. The safe technical unit; no Unicode-version
 dependence.
 
 #### graphemes() / characters()
 ```luna
-fn graphemes(str: string): stream    // elements are string
-fn characters(str: string): stream   // alias of graphemes
+const graphemes = fn (str: string): stream => {};    // elements are string
+const characters = fn (str: string): stream => {};   // alias of graphemes
 ```
 One element per grapheme cluster, what a person points at as a character. This is the
 correct default for user-facing iteration; `characters` is the friendly alias and
@@ -381,7 +381,7 @@ never means codepoints.
 
 #### isValidUtf8()
 ```luna
-fn isValidUtf8(str: string): bool
+const isValidUtf8 = fn (str: string): bool => {};
 ```
 Always `true` for a live `string` (validity is an invariant, string-representation §8).
 Present for the boundary case of bytes about to become a string; the validating
@@ -398,7 +398,7 @@ the two functions below exist precisely because Luna does not do what C assumes.
 
 #### cString()
 ```luna
-fn cString(str: string): string
+const cString = fn (str: string): string => {};
 ```
 Returns a string with a single NUL byte appended. It is defined to be exactly
 `"$str\u{0}"` (one interpolation, string §5; the `\0` spelling this entry once used is
@@ -409,7 +409,7 @@ to hand to C. Because the terminator is a real, counted byte, the result's
 
 #### cStringLength()
 ```luna
-fn cStringLength(str: string): nat
+const cStringLength = fn (str: string): nat => {};
 ```
 The number of bytes up to and including the **first** NUL, which is the length C will
 actually see. This is an O(n) scan, not a field read, because a Luna string's

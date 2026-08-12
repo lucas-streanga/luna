@@ -76,7 +76,7 @@ gapping. `bytes` rejects (except append-at-end); explicit growth is `fill`.
 ### 3.1 `fill`: deliberate growth
 
 ```luna
-fn fill(b: bytes, length: int, value: byte = 0): bytes    // grow to `length`, new octets set to `value`
+const fill = fn (b: bytes, length: int, value: byte = 0): bytes => {};    // grow to `length`, new octets set to `value`
 ```
 
 `fill` grows the buffer to `length`, setting any newly added octets to `value` (zero by
@@ -89,9 +89,9 @@ default). This is the **explicit** way to extend a buffer, replacing the rejecte
 ## 4. Slicing and conversion
 
 ```luna
-fn slice(b: bytes, start: int, end: int): bytes          // a sub-buffer b[start:end], end excluded
-fn toList(b: bytes): list                                 // a list of int (0..255); COPIES and expands
-fn cString(b: bytes): bytes                               // ensure a trailing NUL (0x00); for FFI
+const slice = fn (b: bytes, start: int, end: int): bytes => {};          // a sub-buffer b[start:end], end excluded
+const toList = fn (b: bytes): list => {};                                 // a list of int (0..255); COPIES and expands
+const cString = fn (b: bytes): bytes => {};                               // ensure a trailing NUL (0x00); for FFI
 ```
 
 - **Slicing** `b[start:end]` (or `slice`) returns a **`bytes`** sub-buffer — **half-open**,
@@ -118,7 +118,7 @@ valid UTF-8. So it is a **function returning `string!`**, not a total `toString`
 `as` narrowing (`as` never runs conversions, `as` spec §3):
 
 ```luna
-fn fromBytes(b: bytes): string!        // string.fromBytes: validates UTF-8, throws if invalid
+const fromBytes = fn (b: bytes): string! => {};        // string.fromBytes: validates UTF-8, throws if invalid
 ```
 
 `string.fromBytes(b)` validates the octets as UTF-8 and returns a `string`, or throws a

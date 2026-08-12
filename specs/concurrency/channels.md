@@ -20,7 +20,7 @@ tx.send(job);                   // values flow in; copies of tx can flow to many
 ## 1. Creation
 
 ```luna
-fn channel(capacity: int = 0): list      // [sink, stream]
+const channel = fn (capacity: int = 0): list => {};      // [sink, stream]
 ```
 
 `channel(capacity)` returns a two-element list — the **sink** (send end) and the
@@ -89,7 +89,7 @@ write end (equality §2, §6, R181).
 ## 4. Sending
 
 ```luna
-fn send(tx: sink, v: any): undefined
+const send = fn (tx: sink, v: any): undefined => {};
 ```
 
 - **The sent value crosses by the spawn taxonomy** (concurrency §2.1), unchanged:
@@ -115,7 +115,7 @@ fn send(tx: sink, v: any): undefined
 There is **no whole-channel `close`**. Completion is **per-handle**:
 
 ```luna
-fn finish(tx: sink): undefined
+const finish = fn (tx: sink): undefined => {};
 ```
 
 `finish(tx)` relinquishes **this handle**: further sends through it panic
@@ -128,7 +128,7 @@ second `finish` on the same handle panics (misuse, loud).
 Per-handle finishing is why multi-producer completion needs **no coordination**: nobody
 can close the channel out from under a sibling; each producer finishes its own handle and
 the stream ends exactly when the last one does. (The name is `finish`, not `close`,
-because `close` is taken with a different shape — `fn close(fd: file) use (io)`, std.io —
+because `close` is taken with a different shape — `const close = fn (fd: file) use (io)`, std.io —
 whose `use (io)` requirement a union signature cannot carry per-arm, a sink's finishing
 needing no capability; one name, one signature, functions §3.4. The io spelling's former
 `&fd` drift was resolved by R121: no `&`, the stream convention.)

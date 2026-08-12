@@ -132,7 +132,7 @@ error {
   the runtime's crash reporter holds the capability and reveals at its boundary, the
   secret §5.1 pattern. The one
   bit that is *not* secret is whether the error was thrown:
-  **`fn wasThrown(e: error): bool`** — the unforgeable test the old
+  **`const wasThrown = fn (e: error): bool`** — the unforgeable test the old
   `stacktrace.isEmpty()` idiom provided, now a dedicated predicate disclosing no
   contents and needing no capability.
 - **`cause`** links a wrapping error to the error it wraps (§6.2), `null` when there is no
@@ -159,7 +159,7 @@ members, R96; tables' element space): **equality compares what the author declar
 what the runtime attaches is not identity.**
 
 ```luna
-fn toTable(e: error): table     // total: the identity surface, reified
+const toTable = fn (e: error): table => {};     // total: the identity surface, reified
 ```
 
 **`toTable`** converts an error to a table of its identity surface — `message`, the
@@ -182,20 +182,24 @@ wrapping interlock exactly.)
 
 ## 3. Defining an error
 
-An error type is defined with the `error` block and bound to a variable, the same way a
-protocol is defined with `proto`:
+An error type is defined with the `error` block and bound to a `const`, the same way a
+protocol is defined with `proto` (R126):
 
 ```luna
-myError = error {
+const myError = error {
   code?: int;
   detail?: string;
 };
 ```
 
-`error` is both the definition keyword (`myError = error { ... }`) and the name of the
+`error` is both the definition keyword (`const myError = error { ... }`) and the name of the
 root type (`| error`, `catch (_: error)`), exactly as `proto` is both keyword and type. An
-error definition binds like any value; a module exports an error type by exporting its
-variable.
+error definition binds like any value, so it takes a binding keyword like any value — the
+declaration is `const`, and a module exports an error type by exporting that declaration
+(`export const myError = error { … };`). Fields are separated by `;`, as a `proto` block's
+member declarations are. (This section and the `ioError` family formerly wrote the form with
+no binding keyword at all, and io-errors.md separated its fields with `,`; both corrected by
+R254, the grammar sweep's find.)
 
 A definition with no explicit parent **implicitly extends the root `error`**, so
 `myError` above is a declarable error by construction (it is not under `panic`, §2). Its
@@ -214,7 +218,7 @@ ordinary function (reachable by UFCS, `message(err)`), not a method on the error
 An error extends another with `error : Parent`:
 
 ```luna
-diskError = error : myError {
+const diskError = error : myError {
   path?: string;
 };
 ```
@@ -240,7 +244,7 @@ The hierarchy is fixed at compile time. Throwing an error never creates a new ty
 An error whose fields are all optional may be constructed with no arguments:
 
 ```luna
-myError = error : someOtherError {
+const myError = error : someOtherError {
   newField?: string;
 };
 
@@ -274,7 +278,7 @@ An error is **immutable after construction**: `e.code` reads, there is no `e.cod
 
 An error definition has no constructor method and no `this`. Setting fields *is*
 construction: `myError(code: 11)` assigns `code`, with no code to write. A hand-written
-initializer that only copies arguments into fields, such as a `fn (code) { this.code =
+initializer that only copies arguments into fields, such as a `fn (code) => { this.code =
 code }`, is exactly what field construction already does, so it is unnecessary, and
 `this` (an implicit receiver) does not exist in Luna: receivers are always explicit or
 absent (functions and protocols spec), and errors carry no methods to need one.
@@ -314,7 +318,7 @@ and is caught by a `try` expression (§8.1), exactly as a declared error type wo
 it had been the corpus's failure primitive by usage, defined nowhere):
 
 ```luna
-fn die(msg: string): never         // raises the `died` panic carrying msg; no ! — panics are unchecked
+const die = fn (msg: string): never => {};         // raises the `died` panic carrying msg; no ! — panics are unchecked
 ```
 
 A builtin free function that **raises a panic** — the `died` panic type, runtime-minted on

@@ -30,9 +30,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"luna/internal/spec"
@@ -724,6 +727,10 @@ func main() {
 		return
 	}
 
+	// Only from here on does anything get written, so this is where the tree becomes
+	// something that has to be put back.
+	watchSignals()
+
 	var survivors, broken, unexpected []mutant
 	start := time.Now()
 	for i, m := range selected {
@@ -747,6 +754,17 @@ func main() {
 		case uncompilable:
 			fmt.Println("did not compile — the mutant is malformed, not the suite")
 			broken = append(broken, m)
+		case interrupted:
+			fmt.Println("not run — interrupted")
+		}
+		if sig, yes := stopping(); yes {
+			// Leave here rather than falling through to the summary. An interrupted run
+			// has established nothing, and printing "0 survived" over the handful that
+			// did run would report a pass for work that was never done — the same
+			// fail-open check.sh's --count=1 and missing-tool rules exist to refuse.
+			fmt.Fprintf(os.Stderr, "\nmutate: interrupted after %d of %d; nothing is concluded\n",
+				i+1, len(selected))
+			os.Exit(128 + int(sig))
 		}
 	}
 
@@ -774,13 +792,131 @@ const (
 	survived
 	hung
 	uncompilable
+	interrupted
 )
+
+// pending is the file this tool has rewritten and not yet put back, held so that a path
+// which cannot run a defer can still restore it. Guarded because the signal handler reads
+// it from its own goroutine while run writes it from main's.
+//
+// One mutant is live at a time — run is sequential, deliberately, since two mutants at once
+// would each be tested against the other's defect — so a single slot is the whole state.
+//
+// stopping is the half that is easy to leave out, and the test caught its absence: restoring
+// on a signal is useless on its own, because main is still running and will apply the *next*
+// mutant a moment later, after the handler has already tidied up. The flag is what makes the
+// restore final.
+var pending struct {
+	sync.Mutex
+	path     string
+	original []byte
+	sig      syscall.Signal // non-zero once a signal has been seen
+}
+
+// apply records the file and writes the mutation, both under one lock, so an interrupt can
+// only land wholly before or wholly after — never in the window between a write and the
+// note saying it happened.
+//
+// It reports false once a signal has been seen, which is how the loop learns to stop.
+func apply(path string, original []byte, mutated string) (bool, error) {
+	pending.Lock()
+	defer pending.Unlock()
+	if pending.sig != 0 {
+		return false, nil
+	}
+	pending.path, pending.original = path, original
+	if err := os.WriteFile(path, []byte(mutated), 0o644); err != nil {
+		// A partial write is exactly what the original is kept for.
+		_ = os.WriteFile(path, original, 0o644)
+		pending.path, pending.original = "", nil
+		return false, err
+	}
+	return true, nil
+}
+
+// disarm puts the file back, if it is still out. Idempotent, because the ordinary return
+// path and the signal path both call it and either may come first. A failed write is
+// swallowed: this runs during shutdown, where there is nothing useful left to do with an
+// error and reporting it would only delay the restore.
+func disarm() {
+	pending.Lock()
+	defer pending.Unlock()
+	restoreLocked()
+}
+
+// stop marks the run as ending and puts back whatever is out. After this, apply refuses,
+// so the tree stays as it was found no matter how long the process takes to die.
+func stop(s syscall.Signal) {
+	pending.Lock()
+	defer pending.Unlock()
+	pending.sig = s
+	restoreLocked()
+}
+
+func restoreLocked() {
+	if pending.path == "" {
+		return
+	}
+	_ = os.WriteFile(pending.path, pending.original, 0o644)
+	pending.path, pending.original = "", nil
+}
+
+// stopping reports the signal seen, if any, so the loop can leave promptly rather than
+// running the suite once per remaining mutant with nothing mutated — and so it can exit
+// with the status that signal deserves.
+func stopping() (syscall.Signal, bool) {
+	pending.Lock()
+	defer pending.Unlock()
+	return pending.sig, pending.sig != 0
+}
+
+// watchSignals restores the live mutant when the run is interrupted, then re-raises.
+//
+// This exists because a **terminating signal runs no deferred function**, and Ctrl-C is the
+// likely interruption: mutation is the minutes-long step of check.sh, so it is the one a
+// person actually stops. Without this, the mutant applied at that moment stays applied — a
+// checked-in source file quietly holding a deliberate defect, which is the single failure
+// this tool must never have. (It has happened: `source.go`'s BOM check was found reading
+// `if false`, and the three failures it caused looked like a design bug rather than a
+// leftover.)
+//
+// Restoring is only half of it, and the half that is easy to mistake for the whole: this
+// was written first as a bare restore, and the test caught main calmly applying the *next*
+// mutant a moment later, after the handler had already tidied up. stop() sets the flag that
+// makes the restore final.
+//
+// The exit status stays honest from both directions: main leaves with 128+signal as soon as
+// it is between mutants, and this goroutine re-raises for the case where it is not. A run
+// stopped by Ctrl-C must not look like one that finished and found nothing.
+func watchSignals() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		s := <-sigs
+		sig, ok := s.(syscall.Signal)
+		if !ok {
+			sig = syscall.SIGINT
+		}
+		stop(sig)
+		fmt.Fprintf(os.Stderr, "\nmutate: interrupted; the tree is back as it was\n")
+
+		// main leaves by the same status as soon as it notices, which is immediately
+		// between mutants. This path is for when it cannot: it is inside a `go test` that
+		// may take the full timeout to return. Re-raise so the wait is bounded by the
+		// signal rather than by the suite.
+		signal.Reset(s)
+		_ = syscall.Kill(os.Getpid(), sig)
+		time.Sleep(5 * time.Second)
+		os.Exit(128 + int(sig))
+	}()
+}
 
 // run applies one mutant, runs the suite, and puts the file back.
 //
-// The original is held in memory and restored by a defer, so an interrupted run leaves the
-// tree as it found it — this rewrites checked-in source, and that is the one thing it must
-// never get wrong.
+// The original is held in memory and restored on every path out: a defer for the ordinary
+// and panicking ones, an explicit disarm before each os.Exit (which skips defers), and
+// watchSignals for interruption (which skips them too). This rewrites checked-in source,
+// and that is the one thing it must never get wrong.
 func run(root string, m mutant) (outcome, []string) {
 	path := filepath.Join(root, m.file)
 	original, err := os.ReadFile(path)
@@ -788,18 +924,25 @@ func run(root string, m mutant) (outcome, []string) {
 		fmt.Fprintf(os.Stderr, "\nmutate: %v\n", err)
 		os.Exit(1)
 	}
-	defer func() { _ = os.WriteFile(path, original, 0o644) }()
 
 	// Exactly one occurrence, or the mutation is ambiguous — and an ambiguous one applied
-	// somewhere unreached is indistinguishable from a weak suite.
+	// somewhere unreached is indistinguishable from a weak suite. Checked before arming,
+	// because nothing has been written yet and there is nothing to put back.
 	if n := strings.Count(string(original), m.old); n != 1 {
 		fmt.Fprintf(os.Stderr, "\nmutate: %q matches %d times in %s, want 1\n", m.name, n, m.file)
 		os.Exit(1)
 	}
+
+	defer disarm()
+
 	mutated := strings.Replace(string(original), m.old, m.new, 1)
-	if err := os.WriteFile(path, []byte(mutated), 0o644); err != nil {
+	switch applied, err := apply(path, original, mutated); {
+	case err != nil:
 		fmt.Fprintf(os.Stderr, "\nmutate: %v\n", err)
 		os.Exit(1)
+	case !applied:
+		// Interrupted between mutants. Nothing was written, so there is nothing to judge.
+		return interrupted, nil
 	}
 
 	cmd := exec.Command("go", "test", "-count=1", "-timeout", "60s", "./...")

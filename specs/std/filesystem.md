@@ -40,11 +40,11 @@ always — there is no `chdir` (std.process §3, R134).
 ## 2. The pure half: path operations
 
 ```luna
-export const join      = fn (base: path, ...parts: string): path;
-export const dirname   = fn (p: path): path;
-export const basename  = fn (p: path): string;
-export const extension = fn (p: path): string?;    // null when there is none
-export const normalize = fn (p: path): path;       // collapses '.', '..', '//'
+export const join      = fn (base: path, ...parts: string): path => {};
+export const dirname   = fn (p: path): path => {};
+export const basename  = fn (p: path): string => {};
+export const extension = fn (p: path): string? => {};    // null when there is none
+export const normalize = fn (p: path): path => {};       // collapses '.', '..', '//'
 ```
 
 Path manipulation is string math: no capability, comptime-eligible (`const cfg =
@@ -62,8 +62,8 @@ suspension point (concurrency §6.1).
 ### 3.1 Probing
 
 ```luna
-export const exists = fn (p: path) use (filesystem): bool;
-export const stat   = fn (p: path) use (filesystem): @fileInfo!;
+export const exists = fn (p: path) use (filesystem): bool => {};
+export const stat   = fn (p: path) use (filesystem): @fileInfo! => {};
 
 export const fileInfo = proto {
   const get size: int;              // bytes
@@ -86,8 +86,8 @@ export const entryKind = enum { file, directory, symlink, other };
 ### 3.2 Enumerating
 
 ```luna
-export const entries = fn (dir: path) use (filesystem): stream!;   // immediate children
-export const walk    = fn (dir: path) use (filesystem): stream!;   // recursive descent
+export const entries = fn (dir: path) use (filesystem): stream! => {};   // immediate children
+export const walk    = fn (dir: path) use (filesystem): stream! => {};   // recursive descent
 ```
 
 Both are stream producers (R102; a million-entry directory costs nothing to start),
@@ -103,12 +103,12 @@ axis (§5).
 ### 3.3 Creating, destroying, moving
 
 ```luna
-export const createDir = fn (p: path, recursive: bool = false) use (filesystem): undefined!;
-export const delete    = fn (p: path, recursive: bool = false) use (filesystem): undefined!;
-export const rename    = fn (from: path, to: path) use (filesystem): undefined!;
-export const copy      = fn (from: path, to: path) use (filesystem): undefined!;
-export const tempDir   = fn (prefix: string = '') use (filesystem): path!;
-export const tempFile  = fn (prefix: string = '') use (filesystem): file!;
+export const createDir = fn (p: path, recursive: bool = false) use (filesystem): undefined! => {};
+export const delete    = fn (p: path, recursive: bool = false) use (filesystem): undefined! => {};
+export const rename    = fn (from: path, to: path) use (filesystem): undefined! => {};
+export const copy      = fn (from: path, to: path) use (filesystem): undefined! => {};
+export const tempDir   = fn (prefix: string = '') use (filesystem): path! => {};
+export const tempFile  = fn (prefix: string = '') use (filesystem): file! => {};
 ```
 
 - **`createDir(p, recursive: true)`** is `mkdir -p`; the bare form errors on a missing

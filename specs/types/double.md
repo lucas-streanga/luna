@@ -74,9 +74,9 @@ used carefully in `match` and sorting.
 ### 2.1 Checking for special values
 
 ```luna
-fn isNan(x: double): bool         // true iff x is nan (the reliable nan test, since x == x fails for nan)
-fn isInf(x: double): bool          // true iff x is inf or -inf
-fn isFinite(x: double): bool       // true iff x is neither nan nor inf
+const isNan = fn (x: double): bool => {};         // true iff x is nan (the reliable nan test, since x == x fails for nan)
+const isInf = fn (x: double): bool => {};          // true iff x is inf or -inf
+const isFinite = fn (x: double): bool => {};       // true iff x is neither nan nor inf
 ```
 
 `isNan` is the correct way to test for nan, because `x == nan` and even `x == x` do not work
@@ -89,7 +89,7 @@ IEEE `==` and IEEE ordering are not well-behaved (§2), so anything that needs a
 relation over doubles, **sorting** and **`match` value-patterns** (match spec), uses a **total
 order** instead, defined over every double including the infinities and nan:
 
-```luna
+```text
 -inf  <  negative finite  <  0.0  <  positive finite  <  inf  <  nan
 ```
 
@@ -193,11 +193,11 @@ two are disjoint representations and converting **transforms** the value (`as` n
 `as` spec §3). Conversion is by function:
 
 ```luna
-fn toDouble(n: int): double        // int to double; exact for |n| <= 2^53, lossy above (mantissa is 52 bits)
-fn trunc(d: double): int!          // toward zero          — the policy verbs, each fallible
-fn round(d: double): int!          // nearest; ties away from zero
-fn floor(d: double): int!          // toward -inf
-fn ceil(d: double): int!           // toward +inf
+const toDouble = fn (n: int): double => {};        // int to double; exact for |n| <= 2^53, lossy above (mantissa is 52 bits)
+const trunc = fn (d: double): int! => {};          // toward zero          — the policy verbs, each fallible
+const round = fn (d: double): int! => {};          // nearest; ties away from zero
+const floor = fn (d: double): int! => {};          // toward -inf
+const ceil = fn (d: double): int! => {};           // toward +inf
 ```
 
 - **`int` to `double`** is total but **lossy for large magnitudes**: a `double`'s 52-bit

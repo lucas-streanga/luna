@@ -138,12 +138,12 @@ Runtime-tier exports are `fn`; comptime-tier exports are `comptime fn`. All resu
 ### 4.1 Runtime tier
 
 ```luna
-export const typeName = fn (t: type): string;
-export const kindOf = fn (t: type): kind;
-export const isNullable = fn (t: type): bool;
-export const isSubtype = fn (t: type, of: type): bool;
-export const unionMembers = fn (t: type): list;
-export const baseOf = fn (t: type): type?;
+export const typeName = fn (t: type): string => {};
+export const kindOf = fn (t: type): kind => {};
+export const isNullable = fn (t: type): bool => {};
+export const isSubtype = fn (t: type, of: type): bool => {};
+export const unionMembers = fn (t: type): list => {};
+export const baseOf = fn (t: type): type? => {};
 ```
 
 - **`typeName(t)`**, the type's display name: `"int"`, `"byte"`, `"int | double"`. The
@@ -191,10 +191,10 @@ export const baseOf = fn (t: type): type?;
 
 ```luna
 comptype v                                   // OPERATOR, not an export: the declaration descriptor
-export const fields = comptime fn (t: type): list;
-export const variants = comptime fn (t: type): list;
-export const attributes = comptime fn (t: type): table;
-export const constraintPredicate = comptime fn (t: type): fn;
+export const fields = comptime fn (t: type): list => {};
+export const variants = comptime fn (t: type): list => {};
+export const attributes = comptime fn (t: type): table => {};
+export const constraintPredicate = comptime fn (t: type): fn => {};
 ```
 
 - **`comptype v`** is an **operator and a keyword, not an export** (keywords §3): the
@@ -344,10 +344,10 @@ Notes pinned by the derivation (R128):
 ### 4.4 The protocol axis
 
 ```luna
-export const protoName = fn (p: proto): string;
-export const declaresIdentityEquality = fn (p: proto): bool;
-export const members = fn (p: proto): list;
-export const requirements = fn (p: proto): list;
+export const protoName = fn (p: proto): string => {};
+export const declaresIdentityEquality = fn (p: proto): bool => {};
+export const members = fn (p: proto): list => {};
+export const requirements = fn (p: proto): list => {};
 export const binding = enum { constBinding, letBinding, varBinding };
 ```
 
@@ -453,10 +453,10 @@ What the old section got right survives, restated on the corrected foundation:
 ### 4.6 The function axis
 
 ```luna
-export const capabilitiesOf = fn (f: fn): list;
-export const params = fn (f: fn): list;
-export const paramTypes = fn (t: type): list?;
-export const returnType = fn (t: type): type?;
+export const capabilitiesOf = fn (f: fn): list => {};
+export const params = fn (f: fn): list => {};
+export const paramTypes = fn (t: type): list? => {};
+export const returnType = fn (t: type): type? => {};
 ```
 
 The split that governs this section is already ratified in functions §3.2: **the

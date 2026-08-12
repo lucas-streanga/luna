@@ -152,7 +152,7 @@ Commands compose into pipelines with **`pipe`**, a built-in variadic function (R
 next stage's stdin and yields a **new `command` value** (a pipeline is itself a command):
 
 ```luna
-fn pipe(first: command, second: command, ...rest: command): command
+const pipe = fn (first: command, second: command, ...rest: command): command => {};
 ```
 
 ```luna
@@ -203,11 +203,11 @@ Introspection is **pure**, no effect, no capability, so it lives with the comman
 Reading structure preserves argument boundaries, so it is always safe:
 
 ```luna
-fn isPipeline(c: command): bool      // whether c has more than one stage
-fn stageCount(c: command): int       // number of stages (1 for a single command)
-fn stages(c: command): list          // the stages, a list of commands ([c] for a single command)
-fn program(c: command): string       // the program name of a single-stage command
-fn argsOf(c: command): list          // the argument list of a single-stage command
+const isPipeline = fn (c: command): bool => {};      // whether c has more than one stage
+const stageCount = fn (c: command): int => {};       // number of stages (1 for a single command)
+const stages = fn (c: command): list => {};          // the stages, a list of commands ([c] for a single command)
+const program = fn (c: command): string => {};       // the program name of a single-stage command
+const argsOf = fn (c: command): list => {};          // the argument list of a single-stage command
 ```
 
 - **`argsOf`, not `args`** (R188): bare `args` is taken — std.process exports
@@ -226,7 +226,7 @@ fn argsOf(c: command): list          // the argument list of a single-stage comm
 For logging and debugging, a command renders to **structured JSON**, not a shell string:
 
 ```luna
-fn debugJson(c: command): json
+const debugJson = fn (c: command): json => {};
 ```
 
 The return is **`json`, not bare `string`** (R188): a JSON-producing function returning an

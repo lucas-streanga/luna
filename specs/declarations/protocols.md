@@ -397,7 +397,7 @@ Removal is a built-in free function mirroring dynamic `apply` — not a keyword,
 operator:
 
 ```luna
-fn unapply(tab: table, protocol: proto): table!
+const unapply = fn (tab: table, protocol: proto): table! => {};
 ```
 
 `&tab.unapply(p)` mutates in place by ordinary write-back. There is deliberately no

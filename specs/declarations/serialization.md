@@ -39,8 +39,8 @@ data. The type is the escaping decision.
 ## 2. The two entry points
 
 ```luna
-const toJson = comptime fn (ct: comptype): fn (any): json;   // generated, tags honored
-fn toJsonDynamic(v: any): json;                              // structural, tags erased
+const toJson = comptime fn (ct: comptype): fn (any): json => {};   // generated, tags honored
+const toJsonDynamic = fn (v: any): json => {};                              // structural, tags erased
 ```
 
 - **`toJson`** is the attribute-aware **generator** of attributes §4: it walks the

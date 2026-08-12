@@ -23,7 +23,7 @@ A module's artifact depends on its own source **and** on the **public interface 
 imports**: if an imported module changes a function's result type, a dependent's artifact is stale
 even though the dependent's own file is untouched. So the key is:
 
-```luna
+```text
 key(M) = own_key(M) + { interface_hash(I) : I in imports(M) }
 ```
 
@@ -85,7 +85,7 @@ The interface is what a dependent could compile differently against, reached tra
   `members(p)` row shape, exactly). Two definitions that share a name but differ in content
   must hash differently.
 - **Transitively-reachable types, even private ones exposed through a public signature.** If an
-  exported `fn f(): Internal` returns a non-exported `Internal`, then `Internal`'s structure is
+  exported `const f = fn (): Internal` returns a non-exported `Internal`, then `Internal`'s structure is
   observable through `f` (a dependent can `match` and destructure the result), so `Internal`'s
   structure is in the interface even though it is not itself exported. Missing this silently
   miscompiles dependents when a "private" type that leaks through a public API changes.

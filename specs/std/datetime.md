@@ -59,9 +59,9 @@ export const timezone = proto {
 };
 
 export const utc = /* the fixed UTC timezone value */;
-export const zone = fn (id: string): @timezone!;          // IANA lookup; unknown id errors
-export const offset = fn (d: duration): @timezone;        // fixed offset; out-of-range panics
-export const localZone = fn () use (time): @timezone;     // the machine's zone: an effect
+export const zone = fn (id: string): @timezone! => {};          // IANA lookup; unknown id errors
+export const offset = fn (d: duration): @timezone => {};        // fixed offset; out-of-range panics
+export const localZone = fn () use (time): @timezone => {};     // the machine's zone: an effect
 ```
 
 - **Zones and offsets are not the same thing, on purpose.** `zone('America/Chicago')`
@@ -90,10 +90,10 @@ export const localZone = fn () use (time): @timezone;     // the machine's zone:
 ```luna
 export const create = fn (year: int, month: int, day: int,
                           hour: int = 0, minute: int = 0, second: int = 0,
-                          nano: int = 0, zone: @timezone = utc): @datetime!;
-export const now = fn (zone: @timezone = utc) use (time): @datetime;
-export const fromUnixSeconds = fn (n: int, zone: @timezone = utc): @datetime!;
-export const parseDatetime = fn (s: string): @datetime!;
+                          nano: int = 0, zone: @timezone = utc): @datetime! => {};
+export const now = fn (zone: @timezone = utc) use (time): @datetime => {};
+export const fromUnixSeconds = fn (n: int, zone: @timezone = utc): @datetime! => {};
+export const parseDatetime = fn (s: string): @datetime! => {};
 ```
 
 - **The default timezone is UTC, and the language decided it** (R133): reading the
@@ -164,18 +164,18 @@ to when the duration ladder stopped at `hours`:
 ## 6. Derivation and comparison
 
 ```luna
-export const next     = fn (dt: @datetime, day: weekday): @datetime;   // strictly after dt
-export const previous = fn (dt: @datetime, day: weekday): @datetime;   // strictly before dt
-export const startOfDay   = fn (dt: @datetime): @datetime;
-export const startOfWeek  = fn (dt: @datetime): @datetime;             // ISO: Monday
-export const startOfMonth = fn (dt: @datetime): @datetime;
-export const startOfYear  = fn (dt: @datetime): @datetime;
-export const endOfDay     = fn (dt: @datetime): @datetime;             // last nanosecond
-export const endOfMonth   = fn (dt: @datetime): @datetime;
-export const withZone  = fn (dt: @datetime, z: @timezone): @datetime;  // same instant, re-zoned
-export const isBefore  = fn (a: @datetime, b: @datetime): bool;        // instant order
-export const isAfter   = fn (a: @datetime, b: @datetime): bool;
-export const sameMoment = fn (a: @datetime, b: @datetime): bool;       // instant ==, zone-blind
+export const next     = fn (dt: @datetime, day: weekday): @datetime => {};   // strictly after dt
+export const previous = fn (dt: @datetime, day: weekday): @datetime => {};   // strictly before dt
+export const startOfDay   = fn (dt: @datetime): @datetime => {};
+export const startOfWeek  = fn (dt: @datetime): @datetime => {};             // ISO: Monday
+export const startOfMonth = fn (dt: @datetime): @datetime => {};
+export const startOfYear  = fn (dt: @datetime): @datetime => {};
+export const endOfDay     = fn (dt: @datetime): @datetime => {};             // last nanosecond
+export const endOfMonth   = fn (dt: @datetime): @datetime => {};
+export const withZone  = fn (dt: @datetime, z: @timezone): @datetime => {};  // same instant, re-zoned
+export const isBefore  = fn (a: @datetime, b: @datetime): bool => {};        // instant order
+export const isAfter   = fn (a: @datetime, b: @datetime): bool => {};
+export const sameMoment = fn (a: @datetime, b: @datetime): bool => {};       // instant ==, zone-blind
 ```
 
 "Monday next week" is `dt.startOfWeek().addWeeks(1)` — or `dt.next({monday})` when

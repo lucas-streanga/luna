@@ -28,7 +28,7 @@ inline, by a `gen` block (§1.4). Calling a generator returns a stream; the retu
 `stream`:
 
 ```luna
-const naturals = fn (): stream {
+const naturals = fn (): stream => {
   var n = 0;
   while (true) {
     yield n;              // bare yield: implicit keys 0, 1, 2, ... (§1.1)
@@ -36,7 +36,7 @@ const naturals = fn (): stream {
   }
 };
 
-const entries = fn (t: table): stream {
+const entries = fn (t: table): stream => {
   foreach (k => v in t) {
     yield k => v;          // explicit keys: yields a key and a value
   }
@@ -202,7 +202,7 @@ let errLines = gen use (io) {
   `use (` after a `gen` head is the declaration clause, joining `fn` and `test` in R112's
   decided-at-one-token list. The former deliberately does **not** reuse the type's name:
   `stream {}` collides in return-annotation position with the generator's own canonical
-  spelling (`fn (): stream { ... }`), and the house already separates literal former from
+  spelling (`fn (): stream => { ... }`), and the house already separates literal former from
   type name — backticks construct a `command`, slashes a `regex`, `gen` a `stream` (R221;
   promoted-`stream` is the recorded road not taken).
 - **No parameters.** A `gen` block is invoked at construction; a parameterized producer is
@@ -215,7 +215,7 @@ let errLines = gen use (io) {
 pull:
 
 ```luna
-const walk = fn (node: table): stream {
+const walk = fn (node: table): stream => {
   yield node['value'];
   foreach (c in node['children']) { yield from walk(c); }
 };
@@ -494,7 +494,7 @@ sources as it is itself consumed.
 - **Inline streams: ruled, the `gen` block** (R221, §1.4) — a keyword-introduced literal,
   pure sugar over the immediately-invoked anonymous generator, with `use` composing on
   the head. The former is deliberately not the type's name (`stream {}` collides with
-  `fn (): stream { ... }` in annotation position; the command/regex precedent separates
+  `fn (): stream => { ... }` in annotation position; the command/regex precedent separates
   former from type).
 - **Bidirectional generators: axed** (R224). `yield` is one-way; two-way communication is
   a channel pair (`channel()`, channels §1), and a value-returning yield would be a

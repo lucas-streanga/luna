@@ -21,7 +21,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 8 conjunction | `&&` | left | short-circuits |
 | 9 disjunction | `\|\|` | left | short-circuits |
 | 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
-| 11 | *(retired, R146 — was the pipeline `\|>`, retired/pipeline.md; the tier number is kept so tier-12 citations stand)* | — | — |
+| 11 conditional | `c ? a : b` | **none** | non-chainable: `a ? b : c ? d : e` is a parse error, because match §6's open-ended form *is* the guard chain and a chained ternary would be a second spelling for it (the `===`/`\|>` argument, §4). Nesting is by parentheses, either arm. Looser than `??`, so `x ?? y ? a : b` is `(x ?? y) ? a : b`; tighter than the word prefixes, so `try c ? a : b` is `try (c ? a : b)`. The `?` is position-resolved like `&` and `!`: expression position is the conditional, declaration position is the optional marker (`let n?: T`, `name?: T = null`, a proto member's `name[?]:`), and `T?` is the type grammar's. (This tier was R146's retired pipeline slot; the retirement is recorded in §4, and tier-12 citations still stand.) |
 | 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` `declared` | right | see §3: word prefixes bind the **whole expression** below assignment; `declared` is the degenerate member (R158) — its operand is exactly **one binding name**, never a general expression (type §4), so precedence barely bites, but it lives here as the word prefix it is |
 | 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (string §3) |
 
@@ -49,7 +49,17 @@ string interpolation is lexical, not an operator; `...` is pattern punctuation (
 Position decides which table applies: `&x` in an argument is a reference (variables §5.1),
 `A & B` in an annotation is the meet; `!x` in an expression negates, `T!` in a type adds the
 error arm; same rule as `error` and `comptype` (dual keyword/type, errors §3, introspection
-§4.2). **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
+§4.2).
+
+**Type position is entered from exactly four places**, and nowhere else (R256): after a `:` in
+an annotation, parameter, member, field, or typed binder; on the right of `is` / `as`; inside a
+declaration form that takes one (`constraint i: T`, an `enum` variant payload, a `catch` head);
+and after `: type` in a binding, which is how a type expression reaches **value** position at
+all — none of this table's constructors (`|`, `&`, postfix `?` / `!`, `fn (params): T`) has an
+expression production, so `const number: type = int | double;` parses because of the
+annotation, not in spite of it (type §2). In expression position `fn` therefore always begins a
+function *literal*, never a type, which is what lets `fn` commit its production one token in
+(functions §3, R45). **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
 tables above, a type occurs in it only after a `:`, and `|` is therefore the union operator
 inside a type and the alternation separator outside one (§4).
 
@@ -80,6 +90,14 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
 
 **Resolved by ruling (were open):**
 
+- **The conditional operator `c ? a : b` exists** (R254), tier 11 above, **non-chainable**.
+  It was specified nowhere and used at four sites, while lexer §5 listed it among the tokens
+  Luna does *not* have — the grammar sweep's find. Non-chainability is the same argument that
+  retired `===` and `|>`: match §6's open-ended form already *is* the multi-way conditional
+  expression, so a chained ternary would be a second spelling for one mechanism, and Luna
+  prefers the tier-5/6/7 answer (`none`) wherever a chain has another spelling. It occupies
+  the tier number R146 vacated when the pipeline `|>` was retired (retired/pipeline.md); the
+  retirement stands, and tier-12 citations are unaffected either way.
 - **Compound assignments exist**: `+=` `-=` `*=` `/=` `%=` `??=` `???=`, tier 13 above, sugar with
   single evaluation of the target. `&&=`/`||=` excluded for now (no demonstrated need;
   addable later without breakage).

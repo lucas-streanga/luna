@@ -76,7 +76,7 @@ type position requires a protocol"). Same text, statically decided, like C's `*`
 **Within type position, `@X` is an application refinement only when `X` is a protocol.** Whether `X` is a
 protocol is a **static** fact (protocols are declared, the type universe is closed,
 value-representation §4.1, and nothing is constructed at runtime), so semantic analysis always knows
-it. If `X` in `@X` (type position) resolves to a non-protocol, for example `const p = int | table;
+it. If `X` in `@X` (type position) resolves to a non-protocol, for example `const p: type = int | table;
 var x: @p = ...`, where `p` is a *type*, not a protocol, it is a **compile error** ("`@` in type
 position requires a protocol; `p` is a type"). The **parser stays context-free**: it parses `@X`
 into one node regardless of what `X` is; **semantic analysis** then assigns the meaning (application
@@ -105,6 +105,33 @@ type = string | int` names a type. This is the same act the declaration forms al
 `enum`, `constraint`, `protocol`, or `capability` declaration binds a type to a name (types spec);
 `const name: type = <type expression>` generalizes it to any type expression, including unions and
 the primitive types themselves.
+
+**The `: type` annotation is required, and it is what makes the right-hand side parse at all**
+(R256). Value position is the *expression* grammar, and the type grammar's own constructors have
+no expression production: there is no infix `|` (only `||`), no infix `&` (only prefix `&x` and
+`&&`), and no postfix `?` or `!` (associativity §1). So `int | double` is not an expression, and
+without the annotation the parser has nothing to build. The annotation puts the right-hand side
+in **type position**, decided at one token and before the `=` is even reached — the same
+positional trick that leaves `from` unreserved (R223) and `get` / `set` ordinary identifiers
+(R232).
+
+Forms that already **are** expressions need no annotation and are untouched: a bare name
+(`const alias = number;`), `@x`, `declared x`, `comptype x`. That is why `export const file =
+@fileDescriptor;` (std.io §2, and §5 below) is legal exactly as written — `@` is a prefix
+operator in the expression grammar, so its result is an ordinary value.
+
+`fn` is the one form where omitting the annotation produced not an error but a **different tree**,
+which is why the rule is stated here rather than left to convention. `const sqrt = fn (d: double):
+double;` has no annotation, so `fn` begins a function *literal*, and a literal's `=>` is mandatory
+(functions §3, R45): a parse error, rather than a silent binding of `sqrt` to the *type* `fn
+(double): double`. A `fn` type reaching value position is spelled `const sig: type = fn (double):
+double;`.
+
+One consequence, accepted: a type expression cannot be a bare **call argument**.
+`isSubtype(x, int | double)` has no annotation to key on, and inferring one from the callee's
+parameter type would be symbol knowledge, which parsing does not have (compiler §1.3). Name the
+type first (`const t: type = int | double; isSubtype(x, t)`); passing an already-named type is
+unaffected, and is what the catalogue does throughout.
 
 A `type` binding is `let` or `const` — **equivalent here**, as for any interior-free immutable
 (the strings ladder, string §1): an inline primitive has nothing for `const` to additionally

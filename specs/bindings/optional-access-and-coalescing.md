@@ -148,6 +148,6 @@ states, two behaviors:
 | absent (`undefined`) | coalesces | coalesces |
 | present `null` | passes through | coalesces |
 
-**Associativity & mixing.** Both coalescers share one precedence, left-associative, sitting just above the ternary. `a ?? b ?? c` → `(a ?? b) ?? c` is fine. When `??` and `???` appear at the same level, the parser **requires parentheses** rather than silently applying left-associativity: write `(a ?? b) ??? c`, never `a ?? b ??? c`.
+**Associativity & mixing.** Both coalescers share one precedence — **right**-associative, tier 10, sitting just tighter than the conditional (associativity §1, which is authoritative for the binding table). `a ?? b ?? c` → `a ?? (b ?? c)`, the natural chain: the fallback of the fallback. The two **mix freely** on that one tier, so `a ?? b ??? c` parses and needs no parentheses. (This paragraph formerly said left-associative and parentheses-required, contradicting the table on both counts; corrected by R254, the grammar sweep's find.)
 
 **Chaining yields `undefined`.** A broken `?.` chain always resolves to `undefined`, never `null`, so it composes correctly with the safe `??`.

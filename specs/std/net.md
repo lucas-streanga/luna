@@ -39,9 +39,9 @@ capabilities gate **establishment**; moving bytes on an established connection i
 ## 2. TCP
 
 ```luna
-export const dial   = fn (host: string, p: port) use (egress): connection!;
-export const listen = fn (p: port) use (ingress): listener!;
-export const connections = fn (l: listener): stream!;    // the accept stream
+export const dial   = fn (host: string, p: port) use (egress): connection! => {};
+export const listen = fn (p: port) use (ingress): listener! => {};
+export const connections = fn (l: listener): stream! => {};    // the accept stream
 ```
 
 - **`dial`** connects; `host` is a name or an IP literal, and resolution happens inside
@@ -72,9 +72,9 @@ export const connections = fn (l: listener): stream!;    // the accept stream
 ## 3. UDP
 
 ```luna
-export const udpBind   = fn (p: port) use (ingress): udp!;
-export const send      = fn (sock: udp, host: string, p: port, data: bytes) use (egress): undefined!;
-export const datagrams = fn (sock: udp): stream!;
+export const udpBind   = fn (p: port) use (ingress): udp! => {};
+export const send      = fn (sock: udp, host: string, p: port, data: bytes) use (egress): undefined! => {};
+export const datagrams = fn (sock: udp): stream! => {};
 ```
 
 Connectionless, so the datagram — not a byte stream — is the unit: `datagrams(sock)`

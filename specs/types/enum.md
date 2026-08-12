@@ -213,7 +213,7 @@ the annotated binding, the parameter type, or the return type:
 ```luna
 let d: shape = {point};                  // target: shape
 someFn({circle ['radius' => 5]});        // target: someFn's parameter type
-fn f(): shape => {point};                // target: the return type
+const f = fn (): shape => {point};                // target: the return type
 ```
 
 This is how the string API writes an enum default, `= {nfc}` with the parameter typed `enum
@@ -290,7 +290,7 @@ An **anonymous** enum is an enum type written inline, with no name, most commonl
 signature:
 
 ```luna
-fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
 ```
 
 Anonymous enums exist for **one-off closed sets**, where a named top-level declaration would be

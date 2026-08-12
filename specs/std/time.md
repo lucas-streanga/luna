@@ -75,21 +75,21 @@ same-type, as everywhere (equality §1).
 ## 3. Constructors, extractors, text
 
 ```luna
-export const nanoseconds  = fn (n: int): duration;
-export const microseconds = fn (n: int): duration;
-export const milliseconds = fn (n: int): duration;
-export const seconds      = fn (n: int): duration;
-export const minutes      = fn (n: int): duration;
-export const hours        = fn (n: int): duration;
+export const nanoseconds  = fn (n: int): duration => {};
+export const microseconds = fn (n: int): duration => {};
+export const milliseconds = fn (n: int): duration => {};
+export const seconds      = fn (n: int): duration => {};
+export const minutes      = fn (n: int): duration => {};
+export const hours        = fn (n: int): duration => {};
 
-export const wholeNanoseconds  = fn (d: duration): int;
-export const wholeMicroseconds = fn (d: duration): int;
-export const wholeMilliseconds = fn (d: duration): int;
-export const wholeSeconds      = fn (d: duration): int;
-export const wholeMinutes      = fn (d: duration): int;
-export const wholeHours        = fn (d: duration): int;
+export const wholeNanoseconds  = fn (d: duration): int => {};
+export const wholeMicroseconds = fn (d: duration): int => {};
+export const wholeMilliseconds = fn (d: duration): int => {};
+export const wholeSeconds      = fn (d: duration): int => {};
+export const wholeMinutes      = fn (d: duration): int => {};
+export const wholeHours        = fn (d: duration): int => {};
 
-export const parseDuration = fn (s: string): duration!;
+export const parseDuration = fn (s: string): duration! => {};
 ```
 
 - **Constructors are total** and pure (comptime-eligible: `const retryDelay =
@@ -115,7 +115,7 @@ export const parseDuration = fn (s: string): duration!;
 
 ```luna
 export const time = capability;
-export const now = fn () use (time): instant;
+export const now = fn () use (time): instant => {};
 ```
 
 **One clock: monotonic.** High resolution is a quality of implementation (nanosecond
@@ -140,7 +140,7 @@ tests is the path of least resistance, not a mocking framework.
 ## 5. `sleep`
 
 ```luna
-export const sleep = fn (d: duration) use (time): undefined;
+export const sleep = fn (d: duration) use (time): undefined => {};
 ```
 
 - **A suspension point, always.** Cancellation delivers here (cooperative,

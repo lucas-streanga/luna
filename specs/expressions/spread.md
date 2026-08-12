@@ -140,7 +140,7 @@ Spread contributes a table's **entries**, and an entry that is itself a table ar
 depth is a *policy*, and policies get functions, not operators:
 
 ```luna
-fn flatten(it: iterable, depth: int = -1, preserveKeys: bool = false): iterable
+const flatten = fn (it: iterable, depth: int = -1, preserveKeys: bool = false): iterable => {};
 ```
 
 `flatten` (iterable-functions §2.5) is the explicit form, and its policy knobs are the

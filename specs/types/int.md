@@ -95,12 +95,12 @@ does not compute an alternative value. When wrapping or saturation is the *inten
 (not an error to detect), explicit operations produce those values:
 
 ```luna
-fn wrappingAdd(a: int, b: int): int         // two's-complement wraparound (no panic)
-fn wrappingSub(a: int, b: int): int
-fn wrappingMul(a: int, b: int): int
-fn saturatingAdd(a: int, b: int): int       // clamp to int min/max on overflow (no panic)
-fn saturatingSub(a: int, b: int): int
-fn saturatingMul(a: int, b: int): int
+const wrappingAdd = fn (a: int, b: int): int => {};         // two's-complement wraparound (no panic)
+const wrappingSub = fn (a: int, b: int): int => {};
+const wrappingMul = fn (a: int, b: int): int => {};
+const saturatingAdd = fn (a: int, b: int): int => {};       // clamp to int min/max on overflow (no panic)
+const saturatingSub = fn (a: int, b: int): int => {};
+const saturatingMul = fn (a: int, b: int): int => {};
 ```
 
 - **Wrapping** gives two's-complement wraparound, the intended math for hashing, checksums, and

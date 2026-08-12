@@ -14,7 +14,7 @@ lives here.
 
 ```luna
 export const argv = capability;
-export const args = fn () use (argv): list;
+export const args = fn () use (argv): list => {};
 ```
 
 `args()` returns the program's arguments as a list of strings, `args()[0]` the program

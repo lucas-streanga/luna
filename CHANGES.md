@@ -7335,6 +7335,420 @@ Python-style `import os` — retires this with it.
 Swept: `modules.md` §3 (the rule) and §5 (the sentence it depends on, now
 marked as load-bearing beyond its own paragraph).
 
+**R253 — the grammar becomes a spec of its own: `specs/build/grammar.md`,
+stratified, written over token names, and validated by a spec-literal
+parser built before the oracle's.** compiler §1.3 has specified the parse
+*phase* since it was written — context-free, lossless CST, error-tolerant,
+fully parallel — and there has never been a grammar for it to implement.
+The corpus holds exactly one production, lexical-structure §2's `IDENT ::=
+…`, and nothing else: no expression grammar, no statement grammar, no
+declaration grammar. What stands in for one is associativity.md's two tier
+tables, its pointer at match §2.1 for pattern position, and a scatter of
+**grammar notes stranded in topic specs** — enum §3's rule that `{` after
+`=>` opens a block, so a variant-literal body is parenthesized (R45);
+control-flow's postfix modifiers, which never chain; associativity §4's
+prefix `&`, accepted uniformly and rejected by semantics; constraints §1's
+`where`, which can never appear in a type, that being what lets the
+braceless form parse; R252's keyword path segments. Those are decisions
+already taken and presently unfindable, and collecting them is the larger
+half of the case for the artifact — larger than writing productions nobody
+has written yet.
+
+**The file is `specs/build/grammar.md`, and `lexer.md` is its template.**
+It is the same job one level up: a spec that collects from every other one,
+is authoritative for form, and leaves meaning where it lives. The structure
+transfers whole — the productions in one place, the sections keeping their
+*notes* rather than a second copy of the rows, an inventory section whose
+counts a test asserts, an error summary, a flagged section for the corners,
+and a cross-reference-notes section recording the gaps the sweep found.
+Rejected: **extending `associativity.md`**, which is a binding table derived
+from operators §0, and precedence is one chapter of a grammar rather than
+the grammar; and **folding it into compiler §1.3**, which owns the
+pipeline, where the language's shape does not belong. The name is
+`grammar.md` and not `parser.md` because §1.3 already owns the component —
+and the asymmetry with `lexer.md`, which is named for its component and
+carries modes and positions, is deliberate: the parser's implementation
+surface (recovery points, CST node shapes, trivia attachment) stays with
+compiler §1.3, tooling §2, and `driver.md`.
+
+**Authority: `grammar.md` owns form, the topic specs own meaning.** The
+lexer's model exactly — keywords.md is the keyword authority and lexer.md
+is the authority for how those words tokenize. So match.md stays
+authoritative for what a pattern means and `grammar.md` owns the
+production; each production cites its source spec, and each topic spec
+keeps its examples and gains a `grammar §n` cross-reference. Where prose
+and grammar disagree, the grammar is the shape and the disagreement is a
+ruling and a sweep. That is where the artifact earns its cost, not a side
+effect of paying it.
+
+**Terminals are lexer §0 token names, never spellings**: `KW_MATCH LBRACE`,
+not `match {`. This is what makes the two specs compose, and it buys a
+day-one mechanical pin of the kind lexer-testing-plan §1 already runs on
+the token table — every terminal is a real constant, checked both ways.
+R252 gets one free: `PathSegment` admits every keyword token, so a
+`Keyword` nonterminal enumerates §0's keyword category and a count against
+§10's **49** catches a dropped row. The metasyntax is `::=`, following
+lexical-structure §2 rather than introducing a second notation beside the
+corpus's one existing production. And the consequence that is easiest to
+miss: **a string literal is not a terminal.** Since R236 and R239 the lexer
+emits `INTERP_OPEN`, `INTERP_IDENT`, `DOLLAR_TEXT` and content runs, so
+interpolation — and the command and regex literals with it — has
+productions over sub-tokens. That is a section of the grammar, not a row in
+it.
+
+**Precedence is stratified: thirteen tiers, thirteen nonterminals.** The
+deciding argument is not tidiness but the **non-associative tiers** — 5
+(range), 6 (comparison) and 7 (equality) are `none`, so `a..b..c`, `a < b <
+c` and `a == b == c` are errors that today are prose and under
+stratification are the production shape. That is R242's direction, a tested
+property converted into a structural one, applied to the parser. Rejected:
+a flat `Expr ::= Expr BinOp Expr` with associativity §1 carried alongside
+as a disambiguation rule, which is what most language specifications do and
+is markedly cheaper to write — but it makes *is this grammar ambiguous* an
+unanswerable question, and the validation ruled below depends on that
+question having an answer. `associativity.md` stays the reader-facing
+summary of the same facts; `grammar.md` carries the mechanical form.
+
+**Three grammars, and a fourth category that is not one.** Expression /
+statement, type, and pattern — the split the corpus already makes
+(associativity §1, §2, and its pointer at match §2.1) — each its own
+section. Set apart from all three: the forms whose interior is a **closed
+sub-grammar** rather than an expression — `apply P(...)`'s initializer list
+(R158, "never an expression"), the `use (...)` clause in both its positions
+(R112), the `name:` head of a named argument, decided at one token, and
+`fn`'s fixed header order (R45). Naming them as a category is what stops an
+expressions-everywhere grammar from swallowing them.
+
+**The grammar is permissive by rule: a restriction belongs in it only when
+it is decidable with no symbol knowledge.** associativity §4 already
+establishes the principle for one case — the parser accepts prefix `&`
+uniformly and semantic analysis rejects non-argument uses, "keeping the
+grammar regular and the diagnostic precise". Generalized, stated, and
+carrying its list: prefix `&` anywhere; an `import` outside the prelude,
+structurally admitted with §1.2 having aborted first (R250); `get` and
+`set` as ordinary identifiers recognized positionally (R232); `{Enum.variant}`
+qualification. Unstated, the rule does not survive contact with readers:
+every later hand pushes one more semantic check into the CFG.
+
+**A spec-literal parser is built, and built before the oracle's.** This
+reverses lexer-testing-plan §7 — and it reverses it for §7's own stated
+reason. There, transcription could reach only what RE2 expresses, roughly
+550 of the lexer's ~1,600 lines, and *every* bug found while building the
+lexer lived in the half it could not reach: the mode stack, the margins,
+the closer lookahead, the escapes. A parser's entire job **is** the CFG, so
+a transcription reaches all of it. Three things follow that nothing else in
+the plan provides. **Ambiguity is detected** over the corpus rather than
+asserted — associativity §4's LR(1) claim currently has nothing behind it.
+**The grammar is validated before the recursive-descent parser exists**, so
+that parser has a spec to be differential-tested against instead of being
+the definition of what it implements. And it delivers the **parse gate**,
+which lexer-testing-plan §9 already names as the strong one: a lexing gate
+is permissive by construction — `pub`, `caps.io`, `use (&io)` and `!T` all
+lex clean — where a parse gate over the 436 corpus blocks is the
+corpus-wide retired-spelling audit no gate performs today. The cost is a
+third artifact to keep in step, and the mitigation is the second difference
+from §7's case: it is generated **from** the spec's own productions rather
+than maintained beside them, so it cannot drift by construction. Order:
+sweep, then `grammar.md`, then the spec-literal parser over all 436 blocks,
+then the oracle's recursive-descent parser, differential against it.
+
+**`P` codes land with the grammar, not after it.** compiler §3.1 assigns
+`P` to §1.3 and names lexer §11 the worked example. R250 and R251 each had
+to defer their `M` code for one reason — there was no summary table to
+allocate it in — and lexer-testing-plan §0 records that the code table is
+what made the lexer's error tests writable at all. `grammar.md` carries its
+error summary from its first version rather than acquiring one later.
+
+**Not ruled here.** The **fragment convention**: lexer-testing-plan §10
+counted 31 labeled blocks using `...` as an elision, which lex cleanly
+(`...` is `SPREAD`) and will never parse, so the parse gate needs a second
+label separating complete programs from fragments. It falls due when the
+gate lands, and its shape — a second fence label, a per-block marker, a
+directory — has no evidence behind it yet. The **grammar class as a
+claim**: associativity §4 says LR(1), and this ruling neither confirms nor
+retires it, because the spec-literal parser is what will answer it. A
+general parser is chosen for that reason — so the grammar is not shaped by
+a generator's limits before anyone knows what the grammar is. And the
+**exact metasyntax and extraction mechanism** (by fence label or by
+section), which are mechanical and settle when the file is written.
+
+**Swept: nothing yet, deliberately.** The artifact this ruling governs does
+not exist, and an index row pointing at an absent file is precisely the
+drift this process exists to prevent. Three sites land *with* `grammar.md`
+and are named here so they are not missed: `specs/index.md` (a row under
+"Modules, tooling & implementation", beside `lexer.md`); `associativity.md`
+§1–§2 (a cross-reference naming `grammar.md` as the mechanical form and
+itself as the summary, and §4's LR(1) sentence marked as pending the
+check); and `compiler.md` §1.3 (a pointer to the grammar, the phase
+description otherwise unchanged).
+
+**R254 — the grammar sweep's findings: the conditional operator exists and
+was specified nowhere, and four places where the corpus contradicted
+itself.** R253's sweep read every section header of all 96 specs and all 436
+`luna` blocks end to end. Five things it found are ruled here, because a
+grammar cannot be written over a corpus that disagrees with itself about the
+function literal.
+
+**The conditional `c ? a : b` exists, tier 11, non-chainable.** It was
+specified in no table and used at four sites — `std/json.md` §2 inside a
+`luna` block, `secret.md` §5.1, `internals/…-tables.md` §2, and `type.md`
+§4, where the inference claim `var u = cond() ? 5 : 5.0` infers `int |
+double` *rests* on it. Meanwhile lexer §5 listed it among the forms Luna
+does **not** have, beside `===` and the bitwise operators. Nothing caught
+this because `QUESTION` and `COLON` are both ordinary tokens: the absent
+form lexed perfectly at every site that used it. Ruled: it exists, and the
+lexer needs nothing — like `&`, `!` and `@`, the `?` is resolved by
+position, expression position being the conditional and declaration
+position the optional marker (`let n?: T`, `name?: T = null`, a proto
+member's `name[?]:`), with `T?` belonging to the type grammar. It takes
+associativity **tier 11**, which the coalescing spec had already fixed by
+writing that the coalescers sit "just above the ternary" — a sentence that
+referred to a tier that did not exist, and is true for the first time now.
+
+**Non-chainable** is the one part of this the sweep decided rather than
+recovered, and the argument is the one that retired `===` and `|>`: match
+§6's open-ended form already **is** the multi-way conditional expression, so
+`a ? b : c ? d : e` would be a second spelling for one mechanism. Luna
+already answers `none` at tiers 5, 6 and 7 wherever a chain has another
+spelling, and this is that rule's fourth application. Rejected:
+right-associative chaining, which is what every other language with the
+operator does and what a reader coming from one will try — the cost is real
+and is a parse error rather than a silent misreading, and `match` is one
+line away. Nesting by parentheses works in either arm. The tier number is
+the slot R146 vacated retiring the pipeline `|>`; that retirement stands,
+recorded now in associativity §4 rather than as a table row, and tier-12
+citations are unaffected either way.
+
+**`??` and `???` are right-associative and mix freely.** associativity §1
+tier 10 and optional-access-and-coalescing's Rulings section contradicted
+each other on **both** counts — right versus left, and mixes-freely versus
+parentheses-required — while associativity §4 claimed nothing was open.
+Ruled: associativity §1 is authoritative, being the file whose whole job is
+the binding table; the coalescing spec's paragraph is corrected. `a ?? b ??
+c` is `a ?? (b ?? c)`, the fallback of the fallback, which is also the
+reading that makes the chain mean what it looks like.
+
+**An error declaration takes `const`, like every other declaration.** All
+**20** sites in the corpus wrote `myError = error { … };` and `export
+ioError = error { … };` with no binding keyword, across `errors.md` (3),
+`io-errors.md` (16) and `exec.md` (1) — and **zero** wrote the form with
+one. What decides it is errors §3's own two sentences: an error is bound
+"the same way a protocol is defined with `proto`", and "an error definition
+binds like any value". Both are true and neither survives the spelling the
+section then demonstrates — every one of the 13 `proto` sites writes `const
+NAME = proto {…}` (R126), and a value that binds like any value takes a
+binding keyword like any value. The `export` form settles it independently:
+`export` applies to a declaration, and `export ioError = …` is an
+assignment, which modules §1 does not admit.
+
+**Error fields are `;`-separated**, as a `proto` block's members are.
+`errors.md` used `;` and `io-errors.md` and `io.md` used `,`; the two forms
+described the same construct. `;` wins because the error body is a
+declaration list, not a literal — the same reason proto members carry it —
+and because enum variants already own the comma-separated reading.
+
+**The `fn` arrow is mandatory, and a block body is an expression that
+carries no terminator of its own.** functions §3 (R45) states the arrow is
+mandatory and rests its LL(1) claim on it: `fn` commits the production and
+each junction is decided by its next token (`use`, `:`, `=>`). **13** sites
+wrote `fn (…) [use (…)] [: T] { … }` with no arrow — including *every*
+generator example in the corpus (`fn (): stream {`, three sites) — which
+would have made `{` a fourth junction token and cost R45 the property it
+was claiming. Ruled: R45 stands and the 13 sites are corrected. Both bodies
+are **expressions**: `=> expr` and `=> { … }` alike, the block form being
+multi-statement rather than a different kind of thing. A block is
+`LBRACE Statement* RBRACE` and nothing more — the `;` in `const f = fn ()
+=> { … };` belongs to the **declaration**, which is why the same literal
+takes none in expression position (`each(xs, fn (x) => { g(x); })`) or as a
+match arm's body. Rejected: a trailing semicolon-less expression as the
+block's value, Rust-style — `return` is how a Luna block yields one, every
+corpus example writes it, and the alternative would add a production the
+language has never used.
+
+**Corpus hygiene, swept with the above.** Three `import` statements in
+modules §5's block were unterminated, two lines below that section's own
+grid showing them terminated. And five blocks fenced ` ```luna ` were not
+Luna in any form — a set-builder expression (build-cache §1), an algorithm
+sketch in paren-less pseudo-Go (`internals/…-strings.md` §6), a line of
+JSON output (json §2), an ordering diagram (double §2.2), and a list of
+bare type names (numeric-tower §1.4) — now fenced as `text` and `json`. The
+corpus is **431** `luna` blocks after the retagging.
+
+**Not ruled here.** The **fragment convention** (R253's open item), which
+the sweep resized: lexer-testing-plan §10 counted 31 elision blocks, and the
+real picture is four-valued, not two — 59 elision lines, **110 blocks whose
+content is the `fn name(params): T` signature *notation*** rather than
+Luna, the not-Luna class now retagged, and a long tail of blocks that are
+expressions rather than programs (`@5`, `x is int`, `` `grep -n foo` ``).
+The signature notation itself needs no ruling — iterable-functions §1.6
+already calls it notation and functions §1 makes every function a lambda
+bound to a variable — but it needs a *label*, and one site uses it with a
+body (`enum.md` §3.2) and one writes `export fn` (json §2), which are drift
+against a notation rather than a second declaration form. Recorded so the
+gate's first run is not a surprise.
+
+Swept: `associativity.md` §1 (tier 11, replacing R146's tombstone row) and
+§4 (the conditional, and the pipeline retirement relocated);
+`lexer.md` §5 (the no-ternary claim struck, `:`'s roles extended);
+`optional-access-and-coalescing.md` Rulings (associativity and mixing);
+`errors.md` §3 (the `const`, the `;` rule, the two claims that decide both)
+and §4/§5 (two declarations), §5.1 (a prose `fn`);
+`io-errors.md` §1–§2 (17 declarations, and the field separator);
+`io.md` §2 (a prose `ioError` shape) and §1 (a `fn` arrow);
+`exec.md` §4 (one declaration);
+`capabilities.md` §3.1, §4, §7 (five `fn` arrows, one missing `const`);
+`stream.md` §1, §1.5, §8 and `stream-api.md` §1 (six `fn` arrows);
+`modules.md` §5 (three terminators);
+`incremental-compilation-build-cache.md` §1, `internals/internal-representation-of-strings.md` §6,
+`json.md` §2, `double.md` §2.2, `numeric-tower.md` §1.4 (fence labels).
+
+**R255 — Luna has no prototypes: the corpus's two signature notations were
+mistakes, and every catalogue entry becomes a real declaration.**
+Superseding R254's "not ruled here", which expected the notations to need a
+*label*. They needed deleting.
+
+The corpus described an export's signature two ways, neither executable:
+
+```
+fn has(tab: table, key: any): bool                              // A: 174 lines
+export const exists = fn (p: path) use (filesystem): bool;      // B: 111 lines
+```
+
+**A has no production at all** — there is no named-function declaration form
+in Luna, functions being lambdas bound to variables (functions §1) — so it
+fails loudly wherever it is read. **B is the dangerous one**, and it is what
+forces this ruling rather than a label. With a `use` clause it does not
+parse, capabilities being deliberately absent from the type grammar
+(functions §3). *Without* one it parses **clean and means something else**:
+`fn (params): T` is a type expression (associativity §2 tier 5) and types
+are first-class values (`const number: type = int | double;`, type §2), so
+`export const sqrt = fn (d: double): double;` binds `sqrt` to a **type
+value** rather than declaring a function. A parse gate passes math.md's
+entire export list while every line of it means the wrong thing — the exact
+failure R253's validation argument exists to catch, and the one a labelling
+convention could never have caught, because labelling only decides whether
+the gate *looks*.
+
+Ruled: **there are no function prototypes in Luna, and no value prototypes
+either.** A catalogue entry is an ordinary declaration binding a `fn`
+literal, with an empty body:
+
+```luna
+const has = fn (tab: table, key: any): bool => {};
+export const exists = fn (p: path) use (filesystem): bool => {};
+```
+
+The `=>` is mandatory (R45, R254) — the arrow is what makes the right side a
+literal instead of a type, which is precisely the distinction B lost. The
+body is `{}` because the catalogue specifies a *signature* and the prose
+specifies the behaviour.
+
+**The cost, accepted and named.** `=> {}` returns `undefined` where the
+signature says `bool`, so 289 declarations now carry a body that contradicts
+their return type. This is invisible to a parse gate and fatal to any
+semantic gate over the corpus — recorded here so that gate's authors meet it
+as a known quantity rather than 289 surprises. Rejected: `=> die('spec')`,
+which type-checks by way of `never` (never §1) and would have been sound,
+but reads as noise repeated 289 times in a reference catalogue where the
+reader wants the signature and nothing else.
+
+**Three value prototypes are left standing, deliberately, because fixing
+them means inventing API.** `io.md` §2.1's `export const stdin: file;` and
+its two siblings, and `datetime.md` §2's `export const utc = /* the fixed
+UTC timezone value */;`. Each declares that an export exists with a type and
+supplies no value a program could write — the same defect one level over,
+and the honest fixes (`stdHandle(0)`, `offset(seconds(0))`) either invent a
+function or change what the spec claims the value *is*. They are the
+remaining unparsable declarations in the corpus and they need an owner's
+decision, not a sweep's.
+
+Also recorded, since the grammar will meet it: an entry whose result is
+itself a function type now reads `const toJson = comptime fn (ct: comptype):
+fn (any): json => {};`. The inner `fn (any): json` is a **type**, and the
+`=>` binds to the outer literal — deterministic, because a `fn` type carries
+no arrow and `=>` cannot extend a type (match §2.1's terminator rule), but
+it is the corpus's densest collision between the type grammar's tier 5 and
+the expression grammar's function literal.
+
+Swept: `iterable-functions.md` §1.6 (the notation's charter, rewritten) and
+§2 (47 entries); `string-api.md` (45), `indexable-functions.md` (17),
+`math.md` (24), `datetime.md` (19), `time.md` (15), `filesystem.md` (15),
+`io.md` (14), `introspection.md` (14), `random.md` (9), `double.md` (8),
+`command.md` (7), `binary.md` (6), `int.md` (6), `net.md` (6), `bytes.md`
+(5), `functions.md` (5, including §3.1's two entries whose *return type* was
+an elided `...`, now written without an annotation), `secret.md` (4),
+`complex.md` (4), `stream-api.md` (4), `channels.md` (3), `rational.md` (3),
+`errors.md` (2), `enum.md` (2), `exec.md` (2), `json.md` (2), `regex.md`
+(2), and one each in `csv.md`, `decimal.md`, `process.md`, `protocols.md`,
+`serialization.md`, `spread.md`, `stringBuilder.md`, `xml.md`, `yaml.md`.
+Prose mentions of notation A retired at three sites: `channels.md` §5,
+`errors.md` §2.2, `incremental-compilation-build-cache.md` §1.3.
+
+**R256 — a type expression reaches value position only under a `: type`
+annotation, which is what makes it parse.** R255 left a question standing:
+why did `const sqrt = fn (d: double): double;` bind a *type* instead of
+failing, and what stops the next such trap. Chasing it found that `fn` was
+never the special case — it was the only type head that failed **quietly**.
+
+**No type expression has an expression production.** The expression tiers
+have no infix `|` (only `||`), no infix `&` (only prefix `&x` and `&&`), and
+no postfix `?` or `!` (associativity §1). So `int | double`, `string?` and
+`@P & @Q` are not expressions, and `const number: type = int | double;` —
+type §2's own headline form, written that way at every site in the corpus —
+had **no grammar at all**. Every type value except one fails loudly in value
+position today. `fn (params): T` is the exception, because it is the single
+type-grammar form that also begins an expression form, so it produced a
+tree: the wrong one, silently.
+
+Ruled: **value position is the expression grammar, and a type expression
+enters it only through a `: type` annotation**, which puts the right-hand
+side in type position. The parser decides at the annotation, one token, before
+it reaches the `=` — keying on the *spelling* `type` in one position, the
+move R223 already makes for `from` in a from-clause and R232 for `get` /
+`set` in proto member heads. This is not a new restriction invented to patch
+`fn`; it is the rule that was always required for any type value to parse,
+and which the corpus has silently obeyed everywhere.
+
+**What is untouched**: forms that already are expressions — a bare name,
+`@x`, `declared x`, `comptype x`. `export const file = @fileDescriptor;`
+(std.io §2) stays legal exactly as written, `@` being a prefix operator
+whose result is an ordinary value; type §5 leans on that and continues to.
+
+**What it buys beyond closing the trap.** R45's LL(1) sentence becomes true
+as written: `fn` in expression position can only begin a literal, so `fn`
+really does commit the production and each junction really is one token.
+Without the rule the literal and the type share a prefix to the `=>`, `fn`
+commits nothing, and the grammar needs left-factoring to stay LL(1) — which
+would work, and would still leave the silent tree. It also settles a second
+ambiguity before it was reached: if table-literal keys are arbitrary
+expressions, `[fn (int): string => x]` is otherwise ambiguous between a
+one-element table holding a literal and a one-entry table keyed by a `fn`
+*type*. Expression position is now always the literal.
+
+**The cost, accepted.** A type expression cannot be a bare **call
+argument**: `isSubtype(x, int | double)` has no annotation to key on, and
+inferring one from the callee's parameter type is symbol knowledge, which
+compiler §1.3 denies the parser. Name the type first. Passing an
+already-named type is unaffected, and is what the catalogue does throughout,
+so the idiom this costs is one the corpus never used. Rejected: **inferring
+type position from the annotation's resolved kind**, which is the same
+symbol knowledge one step removed; and **parenthesizing `fn` types in value
+position** (`const t = (fn (double): double);`), which was the first fix
+considered and fails on its own terms — the inside of a parenthesized
+expression is still expression position, and it does nothing for `int |
+double`, leaving the general case unparsable while patching one head.
+
+Swept: `type.md` §2 (the rule, its rationale, the `fn` case, and the
+call-argument consequence) and §1.1 (`const p = int | table` → `const p:
+type = int | table`, the corpus's one violation, in prose);
+`associativity.md` §2 (where type position is entered — the four places, and
+what that means for `fn`); `functions.md` §3 (what licenses R45's
+first commitment).
+
+**Not ruled here.** Whether a **type-quotation form** is ever wanted for the
+call-argument case. Naming the type first is the answer for now, and a
+one-idiom cost does not justify new syntax before anyone has missed it.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -181,7 +181,12 @@ that is an expression or a block. **The errorability `!` belongs to the return t
 fused `!=>` arrow exists. (An earlier drafting habit wrote `: int !=> {`, detaching the
 postfix `!` from its type; technically the same parse, stylistically wrong, and normalized
 corpus-wide.) Parsing is LL(1) by construction: `fn` commits the
-production, and each junction is decided by its next token (`use`, `:`, `=>`). One
+production, and each junction is decided by its next token (`use`, `:`, `=>`). What licenses
+that first commitment is R256: in **expression** position `fn` can only begin a literal, a `fn`
+*type* reaching value position solely under a `: type` annotation (type §2), which puts it in
+type position instead. Without that rule `fn (` would begin either form and the two would share
+a prefix all the way to the `=>`, so `fn` would commit nothing — and `const sqrt = fn (d:
+double): double;` would silently bind a type rather than fail (R255, R256). One
 disambiguation rule, pinned because the fenced variant literal also uses braces (enum
 §3.3): **after `=>`, a `{` always opens a block**; an expression body that is a variant
 literal takes parentheses, `fn (): mode => ({read})`. The same rule governs match arms
@@ -264,9 +269,9 @@ through a bare-`fn` slot, but it does **not** erase errorability: a throwing fun
 "any function, which may error":
 
 ```luna
-fn f(cb: fn): ...            // cb is any non-errorable callable; signature unchecked
-fn e(cb: fn!): ...           // cb is any callable, errorable or not; calls need try/handling
-fn g(cb: fn (int): string)   // cb's parameters and result ARE checked (§3, §3.2)
+const f = fn (cb: fn) => {};                 // cb is any non-errorable callable; signature unchecked
+const e = fn (cb: fn!) => {};                // cb is any callable, errorable or not; calls need try/handling
+const g = fn (cb: fn (int): string) => {};   // cb's parameters and result ARE checked (§3, §3.2)
 ```
 
 The reasoning is the no-laundering rule (§3, §4): an error rides a return value, so a
@@ -495,7 +500,7 @@ A parameter may declare a **default value**, in which case it is **not required*
 omitting it is not a deficit (§3.3): the default is supplied.
 
 ```luna
-fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
 normalize(s)            // form defaults to {nfc}; not a deficit
 ```
 
@@ -583,8 +588,8 @@ pattern): the variadic is the trailing rest of the **positional** parameter subl
 what follows it sits outside positional space entirely.
 
 ```luna
-fn merge(it: iterable, ...its: iterable,
-         recursive: bool = false, preserveKeys: bool = false): iterable
+const merge = fn (it: iterable, ...its: iterable,
+                  recursive: bool = false, preserveKeys: bool = false): iterable => {};
 
 merge(a, b, c)                        // its = [b, c]
 merge(a, b, c, recursive: true)       // post-variadic options: named-only, necessarily

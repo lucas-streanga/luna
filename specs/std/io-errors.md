@@ -13,7 +13,7 @@ caller can do about it*, and every type carries the raw number for diagnostics, 
 dispatch:
 
 ```luna
-export ioError = error { path: path?, errno: int? };   // the family root
+export const ioError = error { path: path?; errno: int? };   // the family root
 ```
 
 `path` is the path involved (`null` where none applies); `errno` is the raw value for logs
@@ -23,24 +23,24 @@ user code is a design smell the hierarchy exists to prevent.
 ## 2. The hierarchy
 
 ```luna
-export fileNotFound     = error : ioError {};   // ENOENT, ENXIO, ENODEV: nothing is there
-export notADirectory    = error : ioError {};   // ENOTDIR: a path component is the wrong kind
-export isADirectory     = error : ioError {};   // EISDIR: opened a directory for writing
-export permissionDenied = error : ioError {};   // EACCES, EPERM, ETXTBSY: not allowed
-export readOnlyTarget   = error : permissionDenied {};   // EROFS: a write on a read-only fs
-export alreadyExists    = error : ioError {};   // EEXIST: exclusive-create found a file
-export directoryNotEmpty = error : ioError {};  // ENOTEMPTY: non-recursive delete of a full dir
-                                                //   (std.filesystem §3.3, R135)
-export invalidPath      = error : ioError {};   // ENAMETOOLONG, ELOOP: filesystem-relative
-                                                //   invalidity the static `path` constraint
-                                                //   (std.filesystem §1, R135) cannot see
-export tooManyOpenFiles = error : ioError {};   // EMFILE, ENFILE: descriptor exhaustion
-export outOfSpace       = error : ioError {};   // ENOSPC, EDQUOT, EFBIG: the device or quota
-export connectionRefused = error : ioError {};  // ECONNREFUSED (std.net §4, R143)
-export connectionReset  = error : ioError {};   // ECONNRESET, EPIPE on a dead peer
-export hostUnreachable  = error : ioError {};   // EHOSTUNREACH, ENETUNREACH
-export addressInUse     = error : ioError {};   // EADDRINUSE
-export dnsError         = error : ioError {};   // name resolution failed (no errno; the resolver's own class)
+export const fileNotFound     = error : ioError {};   // ENOENT, ENXIO, ENODEV: nothing is there
+export const notADirectory    = error : ioError {};   // ENOTDIR: a path component is the wrong kind
+export const isADirectory     = error : ioError {};   // EISDIR: opened a directory for writing
+export const permissionDenied = error : ioError {};   // EACCES, EPERM, ETXTBSY: not allowed
+export const readOnlyTarget   = error : permissionDenied {};   // EROFS: a write on a read-only fs
+export const alreadyExists    = error : ioError {};   // EEXIST: exclusive-create found a file
+export const directoryNotEmpty = error : ioError {};  // ENOTEMPTY: non-recursive delete of a full dir
+                                                      //   (std.filesystem §3.3, R135)
+export const invalidPath      = error : ioError {};   // ENAMETOOLONG, ELOOP: filesystem-relative
+                                                      //   invalidity the static `path` constraint
+                                                      //   (std.filesystem §1, R135) cannot see
+export const tooManyOpenFiles = error : ioError {};   // EMFILE, ENFILE: descriptor exhaustion
+export const outOfSpace       = error : ioError {};   // ENOSPC, EDQUOT, EFBIG: the device or quota
+export const connectionRefused = error : ioError {};  // ECONNREFUSED (std.net §4, R143)
+export const connectionReset  = error : ioError {};   // ECONNRESET, EPIPE on a dead peer
+export const hostUnreachable  = error : ioError {};   // EHOSTUNREACH, ENETUNREACH
+export const addressInUse     = error : ioError {};   // EADDRINUSE
+export const dnsError         = error : ioError {};   // name resolution failed (no errno; the resolver's own class)
 ```
 
 Grouping notes: `fileNotFound` folds the device-absent errnos (`ENXIO`, `ENODEV`) because a

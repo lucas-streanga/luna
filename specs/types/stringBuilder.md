@@ -43,7 +43,7 @@ A builder is a value of type `@stringBuilder` (protocols §6): a table with the
 ## 2. Construction
 
 ```luna
-fn builder(seed: string = "", capacityHint: nat = 0): @stringBuilder
+const builder = fn (seed: string = "", capacityHint: nat = 0): @stringBuilder => {};
 ```
 
 `builder()` returns a fresh empty builder. `seed` optionally starts the builder with an

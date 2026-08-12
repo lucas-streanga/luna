@@ -7,7 +7,7 @@ the language's own tools, the capability model, protocols, streams, constraints,
 ```luna
 import std.io;
 
-const main = fn () use (io) {
+const main = fn () use (io) => {
   println("hello");
 };
 ```
@@ -108,19 +108,19 @@ export const openFile = fn (
   mode:           enum {read, write, append} = {read},
   format:         enum {text, binary}        = {text},
   sourceEncoding: enum {utf8, utf16le, utf16be, latin1} = {utf8},
-) use (io): file!;
+) use (io): file! => {};
 ```
 
 Opening is the canonical **expected failure**, so the return is `file!` (errors §2, §7). The
 error family is the **`ioError` hierarchy**, specified in full, errno-grounded for the
 current target, in the io-errors spec: `fileNotFound`, `notADirectory`, `isADirectory`,
 `permissionDenied` (with `readOnlyTarget`), `alreadyExists`, `invalidPath`,
-`tooManyOpenFiles`, `outOfSpace`, all under `ioError = error { path: path?, errno: int? }`,
+`tooManyOpenFiles`, `outOfSpace`, all under `const ioError = error { path: path?; errno: int? }`,
 caught by **type**, never by errno-switching.
 
 ```luna
-export const close = fn (fd: file) use (io): undefined;
-export const flush = fn (fd: file) use (io): undefined;
+export const close = fn (fd: file) use (io): undefined => {};
+export const flush = fn (fd: file) use (io): undefined => {};
 ```
 
 `close` releases the handle and marks the file's terminal state; any later operation on a
@@ -144,10 +144,10 @@ a contract**: flush timing and error reporting are only defined through explicit
 
 ```luna
 export const println  = fn (line: string, fd: file = stdout,
-                            lineEnding: string = platform.lineEnding) use (io): undefined;
-export const print    = fn (text: string, fd: file = stdout) use (io): undefined;
+                            lineEnding: string = platform.lineEnding) use (io): undefined => {};
+export const print    = fn (text: string, fd: file = stdout) use (io): undefined => {};
 export const printerr = fn (line: string,
-                            lineEnding: string = platform.lineEnding) use (io): undefined;
+                            lineEnding: string = platform.lineEnding) use (io): undefined => {};
 ```
 
 All three return **`undefined`**: printing is a statement, and a non-`undefined` return would
@@ -161,10 +161,10 @@ delimiter is expressible; the default reads `platform.lineEnding` (§10).
 
 ```luna
 export const lines = fn (fd: file, lineEnding: string = platform.lineEnding,
-                         includeLineEnding: bool = false) use (io): stream;
-export const chunks   = fn (fd: file, size: int) use (io): stream;
-export const readAll  = fn (fd: file) use (io): string | bytes;
-export const readLine = fn (fd: file = stdin) use (io): string?;
+                         includeLineEnding: bool = false) use (io): stream => {};
+export const chunks   = fn (fd: file, size: int) use (io): stream => {};
+export const readAll  = fn (fd: file) use (io): string | bytes => {};
+export const readLine = fn (fd: file = stdin) use (io): string? => {};
 ```
 
 - **`lines`** is **text-mode only** (a `panic` on a binary file, the exact symmetry of `seek`
@@ -197,11 +197,11 @@ Re-traversal is explicit: `seek(fd, 0)` and a fresh `lines(fd)`.
 ## 7. Writing and seeking
 
 ```luna
-export const append     = fn (fd: file, data: string | bytes) use (io): undefined;
+export const append     = fn (fd: file, data: string | bytes) use (io): undefined => {};
 export const appendLine = fn (fd: file, line: string,
-                              lineEnding: string = platform.lineEnding) use (io): undefined;
-export const write      = fn (fd: file, data: string | bytes) use (io): undefined;
-export const seek       = fn (fd: file, pos: int) use (io): undefined;
+                              lineEnding: string = platform.lineEnding) use (io): undefined => {};
+export const write      = fn (fd: file, data: string | bytes) use (io): undefined => {};
+export const seek       = fn (fd: file, pos: int) use (io): undefined => {};
 ```
 
 `append` writes at the **end** regardless of cursor; `write` writes **at the cursor** and is

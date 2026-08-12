@@ -168,9 +168,9 @@ stated as a table:
 | **Assignment** (collects a table, §6) | `const fs = import std.filesystem;` | `const fs = import { stat, exists } from std.filesystem;` |
 
 ```luna
-import text.strings                                 // every export name, bare
-import { parse, split } from text.strings           // exactly these names
-import { parse as strParse } from text.strings      // with a rename (collisions, §8)
+import text.strings;                                // every export name, bare
+import { parse, split } from text.strings;          // exactly these names
+import { parse as strParse } from text.strings;     // with a rename (collisions, §8)
 ```
 
 - **Bare** (`import path;`): brings **all** `export` names into scope — the happy path for

@@ -18,7 +18,7 @@ spec §1). Calling it returns a lazy, not-yet-started stream. Bare `yield v` pro
 implicit keys `0, 1, 2, …`; `yield k => v` produces explicit keys (stream §1.1, R93).
 
 ```luna
-const countTo = fn (n: int): stream {
+const countTo = fn (n: int): stream => {
   var i = 0;
   while (i < n) { yield i; i = i + 1; }
 };
@@ -39,8 +39,8 @@ These query a stream with at most **one element of lookahead**, never full consu
 (stream spec §3).
 
 ```luna
-fn peek(s: stream): any            // the next value, buffered (not consumed); undefined if empty
-fn isConsumed(s: stream): bool     // whether the stream can still produce (runs nothing; R222)
+const peek = fn (s: stream): any => {};            // the next value, buffered (not consumed); undefined if empty
+const isConsumed = fn (s: stream): bool => {};     // whether the stream can still produce (runs nothing; R222)
 ```
 
 - **`peek`** runs the generator just far enough to produce the first element, buffers it,
@@ -79,8 +79,8 @@ bound it first (`s.take(n)`); the guard question stays open (§6).
 ## 4. Restarting
 
 ```luna
-fn restart(s: stream): stream      // re-run the generator from the start; source-dependent
-fn canRestart(s: stream): bool     // whether this stream's source supports restart
+const restart = fn (s: stream): stream => {};      // re-run the generator from the start; source-dependent
+const canRestart = fn (s: stream): bool => {};     // whether this stream's source supports restart
 ```
 
 `restart` re-runs the generator from the beginning, valid only when the source can be

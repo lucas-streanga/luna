@@ -93,7 +93,7 @@ floats.
 
 ### 1.4 Arbitrary-precision and exact (built-in, heap-backed)
 
-```luna
+```text
 decimal       // arbitrary-precision base-10 (exact decimal fractions)
 rational      // exact fraction (a pair of integers, kept reduced)
 complex       // a pair of doubles (real, imaginary)

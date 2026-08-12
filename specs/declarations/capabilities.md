@@ -101,7 +101,7 @@ For the `use`-clause to be a **complete** manifest of a function's authority (§
 comptime sandbox (§8) to hold, a capability must reach a scope **only** through `use`, and never
 through any value-carrying channel. It does not, because it is nocopy (and always `const`, §1):
 
-- **Not a parameter.** `fn (c: revealSecret) { ... }` is illegal: passing an argument copies it
+- **Not a parameter.** `fn (c: revealSecret) => { ... }` is illegal: passing an argument copies it
   into the parameter slot, and a capability cannot be copied. So a capability cannot be smuggled
   in as a function argument (the hole this closes: otherwise a function could reveal without
   declaring `use (revealSecret)`, voiding the absence guarantee).
@@ -226,11 +226,11 @@ Capability requirements **propagate transitively up the call graph**: calling a 
 requires a capability requires the caller to hold it too.
 
 ```luna
-const println = fn (s: string) use (io) { ... };        // holds io
+const println = fn (s: string) use (io) => { ... };        // holds io
 
-const greet = fn () use (io) { println("hi"); };        // must hold io: it calls println
+const greet = fn () use (io) => { println("hi"); };        // must hold io: it calls println
 
-const broken = fn () { println("hi"); };                     // COMPILE ERROR: calls println,
+const broken = fn () => { println("hi"); };                     // COMPILE ERROR: calls println,
                                                              // which needs io, but declares none
 ```
 
@@ -376,7 +376,7 @@ every other function obtains a capability only by receiving it transitively from
 downward.
 
 ```luna
-main = fn () use (io, argv) { ... };
+const main = fn () use (io, argv) => { ... };
 ```
 
 Here `io` is a capability the runtime grants; `argv` is nocopy immutable data (the program's

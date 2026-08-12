@@ -98,7 +98,7 @@ precision, full uniformity, the "unions instead" doctrine.)
 Beyond `as secret` (the default form), the **constructor** attaches gates:
 
 ```luna
-const secret = fn (raw: string|bytes|table, ...gates: type): secret
+const secret = fn (raw: string|bytes|table, ...gates: type): secret => {};
 
 const a = raw as secret;                     // ≡ secret(raw): gated by the default, [@revealSecret]
 const b = secret(raw, @dbCred);              // gated by dbCred
@@ -193,9 +193,9 @@ value redacts itself wherever it goes, and only `reveal` (§5) exposes it.
 The underlying value is obtained only through `reveal`:
 
 ```luna
-fn reveal(s: secret): string | bytes | table   // the payload; narrow with `as` or `match` (R113)
-fn canReveal(s: secret): bool                  // gate set ⊆ frame grant — the probe form (R113)
-fn gatesOf(s: secret): list                    // the gate set as typeids, in construction order (R220)
+const reveal = fn (s: secret): string | bytes | table => {};   // the payload; narrow with `as` or `match` (R113)
+const canReveal = fn (s: secret): bool => {};                  // gate set ⊆ frame grant — the probe form (R113)
+const gatesOf = fn (s: secret): list => {};                    // the gate set as typeids, in construction order (R220)
 ```
 
 - **`reveal` checks the secret's gate set against the executing frame's grant** (R79):

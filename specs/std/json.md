@@ -78,10 +78,10 @@ resolution rather than an exception to it.
 ```luna
 export const toJson = comptime fn (ct: comptype, skipFunctions: bool = false,
                                    includeProtocols: bool = false,
-                                   revealSecrets: fn? = null): fn (any): json;   // generated, tags honored
-export fn toJsonDynamic(v: any, skipFunctions: bool = false,
-                        includeProtocols: bool = false,
-                        revealSecrets: fn? = null): json;                        // structural, tags erased
+                                   revealSecrets: fn? = null): fn (any): json => {};   // generated, tags honored
+export const toJsonDynamic = fn (v: any, skipFunctions: bool = false,
+                                 includeProtocols: bool = false,
+                                 revealSecrets: fn? = null): json => {};                        // structural, tags erased
 ```
 
 - **`toJson`** is the attribute-aware **generator** (attributes §4): it walks the
@@ -118,7 +118,7 @@ an object of its `get`-granted **per-table** members, recursively serialized, se
 **application order** (not aesthetics: it is the requirement-safe replay order, a
 requirer never preceding its requirement, protocols §7):
 
-```luna
+```json
 {"host": "x", "@@": {"person": {"name": "Lucas", "visits": 3}, "employee": {"badge": 7}}}
 ```
 
@@ -182,7 +182,7 @@ revealer path can error beyond fn values; and a revealer may decline by returnin
 ## 3. Reading
 
 ```luna
-export const fromJson = fn (j: json): table!;
+export const fromJson = fn (j: json): table! => {};
 ```
 
 - **The parameter is the constraint, and the constraint is the validation.** Callers reach

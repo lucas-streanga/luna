@@ -22,7 +22,7 @@ differ on scalars like `no` and `on`); the predicate must pin a version (§3).
 ## 2. Reading
 
 ```luna
-export const fromYaml = fn (v: yaml): table!;
+export const fromYaml = fn (v: yaml): table! => {};
 ```
 
 Pure, comptime-eligible, source-agnostic; the entry into `yaml` is the validation, and the

@@ -228,7 +228,7 @@ A `~"…"` literal is compiled at compile time. To compile a pattern known only 
 (from configuration, or from user input), use the constructor:
 
 ```luna
-fn regex(pattern: string, flags: string = ""): regex!
+const regex = fn (pattern: string, flags: string = ""): regex! => {};
 ```
 
 - `regex(userPattern)` compiles `userPattern` into a `regex` at runtime.
@@ -288,7 +288,7 @@ string as **literal text to match** (escaping metacharacters) rather than as sou
 `regexEscape` inside the interpolation:
 
 ```luna
-fn regexEscape(str: string): string     // builtin free function; escapes all regex metacharacters
+const regexEscape = fn (str: string): string => {};     // builtin free function; escapes all regex metacharacters
 ```
 
 `regexEscape("a.b")` returns `"a\.b"`, so `~"${regexEscape(name)}"` matches the literal text

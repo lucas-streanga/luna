@@ -67,7 +67,7 @@ const countLines = fn (path: string) use (exec): int! => {
 ## 2. `run`: stdout, or throw on failure
 
 ```luna
-fn run(cmd: command) use (exec): string!
+const run = fn (cmd: command) use (exec): string! => {};
 ```
 
 `run` executes `cmd`, and:
@@ -97,7 +97,7 @@ exit code *without* a throw, use `capture` (§3), which is the form that surface
 ## 3. `capture`: the full result, never throwing on non-zero
 
 ```luna
-fn capture(cmd: command) use (exec): @commandResult!
+const capture = fn (cmd: command) use (exec): @commandResult! => {};
 ```
 
 `capture` executes `cmd` and returns a **result value** describing what happened, **without
@@ -152,7 +152,7 @@ A command or pipeline fails when any stage exits non-zero (for `run`) or cannot 
 (for either function). Failure is a `commandError`, a declarable error type (errors §4):
 
 ```luna
-commandError = error {
+const commandError = error {
   stage:    command;     // which stage of the pipeline failed
   exitCode: int;         // that stage's non-zero exit status
   stderr:   string;      // that stage's captured standard error

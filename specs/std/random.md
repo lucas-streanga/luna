@@ -35,9 +35,9 @@ let roll = nextInt(rng, 1, 6);
 
 ```luna
 export const entropy = capability;
-export const randomSeed   = fn () use (entropy): int;
-export const randomBytes  = fn (n: int) use (entropy): bytes;
-export const randomStream = fn () use (entropy): stream;    // ≡ prng(randomSeed())
+export const randomSeed   = fn () use (entropy): int => {};
+export const randomBytes  = fn (n: int) use (entropy): bytes => {};
+export const randomStream = fn () use (entropy): stream => {};    // ≡ prng(randomSeed())
 ```
 
 - **The capability is `entropy`, not `random`** — deliberately: the catalogue's element
@@ -55,11 +55,11 @@ exactly where it should: a build cannot depend on entropy it did not declare.
 ## 3. The pure half: `prng` and the `next*` family
 
 ```luna
-export const prng = fn (seed: int): stream;    // infinite, pure, deterministic
+export const prng = fn (seed: int): stream => {};    // infinite, pure, deterministic
 
-export const nextInt    = fn (rng: stream, lo: int, hi: int): int;  // inclusive, unbiased
-export const nextDouble = fn (rng: stream): double;                 // [0, 1), 53-bit
-export const nextBool   = fn (rng: stream): bool;
+export const nextInt    = fn (rng: stream, lo: int, hi: int): int => {};  // inclusive, unbiased
+export const nextDouble = fn (rng: stream): double => {};                 // [0, 1), 53-bit
+export const nextBool   = fn (rng: stream): bool => {};
 ```
 
 - **The algorithm is pinned and part of the contract: PCG-64** — Go `math/rand/v2`'s
@@ -121,8 +121,8 @@ Two operations that must not share a spelling:
 must be:
 
 ```luna
-fn random(it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table
-fn shuffle(tab: table, rng: stream): table
+const random = fn (it: iterable, rng: stream, num: int = 1, preserveKeys: bool = true): table => {};
+const shuffle = fn (tab: table, rng: stream): table => {};
 ```
 
 Optional-with-a-default was the unsoundness (§1): a pure catalogue function cannot
