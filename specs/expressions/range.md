@@ -25,7 +25,7 @@ membership want:
 
 ```luna
 foreach (v in 1..10) {}        // v takes 1 through 10 inclusive
-match (code) { 200..299 => "ok" }   // matches 200 through 299 inclusive
+_ = match (code) { 200..299 => "ok" };  // matches 200 through 299 inclusive
 ```
 
 Inclusivity is **consistent in every position** `..` appears (value and match), because the one

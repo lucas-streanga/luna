@@ -95,7 +95,8 @@ The base enum has three members with a uniform meaning — `values` puts values 
 `keys` puts keys in play, `both` puts both in play:
 
 ```luna
-mode: enum {values, keys, both} = {values}
+const each = fn (it: iterable, callbackFn: fn,
+                 mode: enum {values, keys, both} = {values}): iterable => {};
 ```
 
 Two families extend or restrict the base set, each for a specific reason:

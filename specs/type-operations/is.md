@@ -111,7 +111,7 @@ To obtain a value of the tested type, produce a **new binding**, with `as` or a 
 
 ```luna
 if (x is int) { const n = x as int; foo(n); }   // explicit
-match (x) { n: int => foo(n) }                    // idiomatic
+_ = match (x) { n: int => foo(n) };               // idiomatic
 ```
 
 This is a deliberate consequence of the no-control-flow-analysis guarantee (compiler spec §1.4.1):

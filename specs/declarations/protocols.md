@@ -57,9 +57,13 @@ a keyword.
 
 A `proto` block contains member declarations and nothing else. Each declaration is:
 
-```luna
+```text
 <const | let | var> [get] [set] name[?]: type [= default];
 ```
+
+That is a schematic — `<…>` a choice, `[…]` optional — not Luna, which is why it is not
+fenced as such. The production it sketches is `MemberDecl`, grammar §0.5, which is
+authoritative for the form; what follows here is what each part *means*.
 
 ```luna
 const person = proto {

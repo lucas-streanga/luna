@@ -112,7 +112,7 @@ shape that every error inherits as its prefix (value-representation §4.2), so t
 fields are present on every error and readable on any `error`-typed value without
 narrowing:
 
-```luna
+```text
 error {
   message: string;        // human-readable description; "" if none
   stacktrace: secret;     // the trace: a secret-wrapped table of frames (R111); written only by throw (§6.1)
@@ -352,9 +352,11 @@ throw error('bad config', [key => 'timeout', value => -1]);
 A handler reads it off the base error:
 
 ```luna
+try {
+  risky();
 } catch (e) {
   let k = e.data?.key ?? "unknown";
-}
+};
 ```
 
 **There are no anonymous error types.** A `throw [k => v]` does *not* mint an implicit
@@ -563,7 +565,7 @@ another.
 try {
 } catch (e) {
   // e is the caught error, typed root `error`; may be a declarable error or a panic
-}
+};
 ```
 
 The `try`/`catch` **block** is the **catch-all**: a bare `catch (e)` catches the **root `error`**, so
@@ -625,7 +627,7 @@ try {
 } catch (e: diskError) {    // catches diskError and its subtypes; e is a diskError
 } catch (p: panic) {        // catches any panic (OOM, typeError, arityError, ...)
 } catch (e) {               // everything else: the remaining declarable errors
-}
+};
 ```
 
 - **`catch (e)`**, everything; `e` inherits the root `error` (match §2). `catch (e: error)` says the

@@ -30,10 +30,11 @@ type Problem struct {
 // spec's examples are checked by eye. Every block passes through the oracle here, and
 // cmd/highlight -strict is what turns that into a gate.
 //
-// Fence recognition matches internal/spec exactly: an unindented ```luna line, closed by
-// the next line whose first non-space is a backtick fence. Keeping the two identical means
-// the corpus the tests lex and the corpus the docs render are the same set of blocks, and
-// neither can quietly include one the other misses.
+// Fence recognition matches internal/spec exactly: a line whose trimmed text is ```luna —
+// so a fence indented inside a list item counts — closed by the next line whose first
+// non-space is a backtick fence. Keeping the two identical means the corpus the tests lex
+// and the corpus the docs render are the same set of blocks, and neither can quietly
+// include one the other misses.
 func Markdown(path, md string) (string, []Problem) {
 	var (
 		out      []string

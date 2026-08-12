@@ -170,8 +170,8 @@ declared, invoked under the call's frame grant — so the idiomatic call **deleg
 the site** (capabilities §5.2):
 
 ```luna
-toJson(cfg, revealSecrets: fn (s: secret): string | bytes | table =>
-    canReveal(s) ? reveal(s) : '<secret>') use (dbCred, revealStackTrace)
+_ = toJson(cfg, revealSecrets: fn (s: secret): string | bytes | table =>
+        canReveal(s) ? reveal(s) : '<secret>') use (dbCred, revealStackTrace);
 ```
 
 A revealed `table` is serialized recursively (secrets inside it meet the same revealer);

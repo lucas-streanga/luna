@@ -185,10 +185,10 @@ declaration is *closed*, because a declaration **defines** a complete shape whil
 **probes** one. So:
 
 ```luna
-{circle ['radius' => 5]}                        // ok: exactly the declared field, typed int
-{circle ['radius' => 5, 'colour' => 'red']}     // error: 'colour' is not a declared field
-{circle []}                                      // error: 'radius' is missing
-{circle ['radius' => "big"]}                     // error: 'radius' must be int
+_ = {circle ['radius' => 5]};                     // ok: exactly the declared field, typed int
+_ = {circle ['radius' => 5, 'colour' => 'red']};  // error: 'colour' is not a declared field
+_ = {circle []};                                  // error: 'radius' is missing
+_ = {circle ['radius' => "big"]};                 // error: 'radius' must be int
 ```
 
 The check runs **at compile time when the payload is statically known** (the common case, a
@@ -252,12 +252,12 @@ consumer. A variant pattern is `{variant payloadPattern}`, and when the payload 
 payload pattern is **exactly the match table pattern** (match §4):
 
 ```luna
-match (s) {
+_ = match (s) {
   {circle ['radius' => r]} => area(r),     // circle tag; payload table matched, r bound
   {square ['side' => n]}   => n * n,
   {labeled name}           => name,          // string payload bound to name
   {point}                  => 0,             // no payload
-}
+};
 ```
 
 - `{circle ['radius' => r]}` matches the `circle` variant and destructures its table payload with

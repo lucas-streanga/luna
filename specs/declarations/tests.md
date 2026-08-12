@@ -51,8 +51,11 @@ The runner **spawns each test as a task** and awaits the promises:
 
 ```luna
 // the runner, morally:
-foreach (t in <tests>) { promises->push(spawn t()); }
-foreach (name => p in promises) { results[name] = try await p; }
+var promises = [];
+foreach (t in tests) { &promises.append(spawn t.run()); }
+
+var results = [];
+foreach (p in promises) { &results.append(try await p); }
 ```
 
 Everything the vision asked for falls out of rulings already made: **parallel** because

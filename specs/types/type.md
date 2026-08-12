@@ -346,11 +346,11 @@ the **application refinement** `@P` (§5, §1.1: in type position, "a table guar
 matching an application-refinement pattern is defined as a **protocol-membership test** (is `P` applied, an `@@` check), not a `typeid` equality:
 
 ```luna
-match (x) {
+_ = match (x) {
   b: @stringBuilder => b->stringBuilder.append("!"),   // b is guaranteed to have stringBuilder applied
   _: @otherProto    => {},                            // tested, not bound: nothing to reach through
   _                 => {},
-}
+};
 ```
 
 The type test `@stringBuilder` does **not** compile to `@x == @stringBuilder` (that is false, `@x` is

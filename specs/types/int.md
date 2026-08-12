@@ -75,7 +75,7 @@ try {
   process(sum);                   // success path stays inside the block
 } catch (e: overflowError) {
   // handle the anticipated overflow: fall back, clamp, or fail the unit of work
-}
+};
 ```
 
 This is the correct shape for the two-category design: overflow is an invariant violation, so

@@ -218,7 +218,9 @@ bindings, live in a single **`where` guard** after the pattern, not inside the p
 arm matches iff the pattern matches **and** the guard holds:
 
 ```luna
-[1, 2, _, x] where x is int && x > 10 => {},
+_ = match (v) {
+  [1, 2, _, x] where x is int && x > 10 => {},
+};
 ```
 
 Here the positions are simple (two literals, a discard, a binding `x`), and the `where` guard
@@ -229,8 +231,10 @@ to `int`, put the type in the **position** with a typed binding (§2.2), which b
 `x` of type `int`:
 
 ```luna
-[1, 2, _, x: int] where x > 10 => {},        // x: int binds x AS int; the guard is a pure value condition
-[1, 2, _, x] where x is int && x > 10 => {}, // also valid: x is the union type; `is int` is a boolean guard
+_ = match (v) {
+  [1, 2, _, x: int] where x > 10 => {},        // x: int binds x AS int; the guard is a pure value condition
+  [1, 2, _, x] where x is int && x > 10 => {}, // also valid: x is the union type; `is int` is a boolean guard
+};
 ```
 
 The first form is idiomatic when you want `x` typed as `int` in the body: the **typed binding**
@@ -266,11 +270,11 @@ value at runtime. It reuses destructuring syntax (destructuring spec), with sub-
 destructuring has bindings.
 
 ```luna
-match (msg) {
+_ = match (msg) {
   ['type' => "move", 'x' => x, 'y' => y] => moveTo(x, y),   // tag matched, x and y bound
   ['type' => "stop"]                     => stop(),
   _                                      => ignore(),
-}
+};
 ```
 
 The rules follow destructuring exactly, so shape matching and destructuring stay consistent:
@@ -321,9 +325,9 @@ Binding a sub-value **and** matching its shape in one pattern (an "as-pattern," 
 and the need is met with no new syntax: bind the whole value and access its parts in the body.
 
 ```luna
-match (msg) {
+_ = match (msg) {
   ['user' => u] => useWhole(u, u['name']),    // bind the whole user; read parts in the body
-}
+};
 ```
 
 This is a deliberate omission, not a gap: adding an as-pattern would overload `as` (a checked-
@@ -546,8 +550,8 @@ The result type of a match is the **union of its arm-body types** (plus `undefin
 non-exhaustive, §9):
 
 ```luna
-match (x) { 1 => "a", 2 => "b", _ => "c" }     // string
-match (x) { 1 => 10, 2 => "b", _ => true }      // int | string | bool
+_ = match (x) { 1 => "a", 2 => "b", _ => "c" };  // string
+_ = match (x) { 1 => 10, 2 => "b", _ => true };   // int | string | bool
 ```
 
 If the union is not statically decidable, the result type is **`any`** (the honest fallback for

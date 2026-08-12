@@ -176,8 +176,8 @@ const toJson = comptime fn (ct: comptype): fn (any): json => {   // json: a stri
   // Extract what generation needs into PLAIN data: names and tags are strings.
   var cols = [];
   foreach (f in ct.fields) {
-    cols->push(['key' => f.name,
-                'out' => f.attributes.jsonTag?.tag ?? f.name]);
+    &cols.append(['key' => f.name,
+                  'out' => f.attributes.jsonTag?.tag ?? f.name]);
   }
   // Return the specialized serializer. It const-captures `cols` (functions §2.1),
   // ordinary strings in an ordinary table, and walks the value at runtime.

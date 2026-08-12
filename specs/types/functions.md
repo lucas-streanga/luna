@@ -114,7 +114,7 @@ each(xs, fn (x: int) => sum = sum + x);         // COMPILE ERROR: sum is a const
 let total = fold(xs, 0, fn (acc: int, x: int): int => acc + x);   // return the state
 
 var out = [];
-&out.push(x * 2) foreach (x in xs);   // or mutate through a reference, in statement position
+&out.append(x * 2) foreach (x in xs);   // or mutate through a reference, in statement position
 ```
 
 The `&` form is the point, not a workaround: the mutable state appears **in the

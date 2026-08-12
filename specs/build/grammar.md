@@ -182,9 +182,10 @@ MatchExpr     ::= MatchKw LPAREN Expr RPAREN LBRACE MatchArms? RBRACE
                 | MatchKw LBRACE GuardArms? RBRACE
 MatchKw       ::= KW_MATCH | KW_MATCH_BANG
 MatchArms     ::= MatchArm (COMMA MatchArm)* COMMA?
-MatchArm      ::= Pattern (KW_WHERE Expr)? FAT_ARROW Expr
+MatchArm      ::= Pattern (KW_WHERE Expr)? FAT_ARROW ArmBody
 GuardArms     ::= GuardArm (COMMA GuardArm)* COMMA?
-GuardArm      ::= Expr FAT_ARROW Expr
+GuardArm      ::= Expr FAT_ARROW ArmBody
+ArmBody       ::= Block | Expr
 
 TryCatchExpr  ::= KW_TRY Block CatchClause+
 CatchClause   ::= KW_CATCH LPAREN CatchBinder RPAREN Block
@@ -585,12 +586,12 @@ productions live in §0 and are not duplicated here — so this table is an inde
 second source of truth. Its purpose is mechanical: a count that a test can assert, and a list
 that makes an omission visible, exactly as lexer §10 does for tokens.
 
-**129 nonterminals over nine groups.** By §0's grouping: **18** file and declarations, **12**
-statements, **24** expressions, **20** primaries, **23** declaration literals and closed
+**130 nonterminals over nine groups.** By §0's grouping: **18** file and declarations, **12**
+statements, **24** expressions, **21** primaries, **23** declaration literals and closed
 sub-grammars, **8** types, **13** patterns, **10** literals, **1** keyword class.
 
-**The grammar is unambiguous over the corpus**, which `internal/ebnf` checks by running §0
-against every ` ```luna ` block and counting derivations. That is the question associativity
+**Every ` ```luna ` block in the corpus derives, and derives exactly once**, which
+`internal/ebnf` checks by running §0 over each of them. That is the question associativity
 §4 asserted and nothing tested until R264; it is a check rather than a proof, since it speaks
 only for the inputs the corpus contains, but it is the strongest statement available and it
 failed on 31 blocks before the productions below were straightened.
@@ -658,6 +659,12 @@ argument's head is an `IDENT` and `KW_ERROR` is not one.
 (functions §3, enum §3), so a variant-literal body is parenthesized: `=> ({read})`. The rule is
 in the *body* production rather than in `Primary`, which is why `FnBody ::= Block | Expr` lists
 `Block` first — an ordered choice at that one junction, and the only one in this file.
+
+**A match arm's body is `Block | Expr` too**, and for the same reason: functions §3 pins the
+`{`-opens-a-block rule and says outright that it "governs match arms", which only holds if an
+arm may carry a block at all. `ArmBody` is therefore `FnBody`'s twin. What an arm with a block
+body *yields* is `undefined` — a block has no value (R254), and match §9 already admits
+`undefined` into a match's result type, so nothing new enters the type system by it.
 
 ## Cross-reference notes: gaps found, and their resolutions
 

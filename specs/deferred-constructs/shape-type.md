@@ -56,9 +56,13 @@ never *when* it checks — only *what the compiler can read*.
 
 The analysis leaves exactly one corpus-shaped form:
 
-```luna
+```text
 const circle = shape ['radius' => int];
 ```
+
+Fenced as text, not Luna, and the reason is this file's own thesis: `shape` is not a form
+the language has, so a block claiming to be Luna would assert the opposite of the page it
+sits on. Nothing in `deferred-constructs/` is Luna, for the same reason.
 
 - **A const-only declaration form** (the R137 constraint discipline), braceless, reusing
   the R211 payload spelling (brackets, `=>` rows — braces belong to enums and blocks).
