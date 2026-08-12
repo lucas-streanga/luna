@@ -1,6 +1,12 @@
 # Associativity and precedence
 
-The binding table the parser implements. Sources: the operator catalogue (operators §0), the
+The binding table the parser implements. This file is the **readable form** — two tables, tightest
+to loosest, with the rationale per row; `grammar.md` is the **mechanical form**, where the same
+facts are thirteen expression nonterminals and six type ones, and where the non-associative rows
+below become production shapes rather than prose. Neither supersedes the other: a tier's
+*rationale* lives here, its *derivation* lives there.
+
+Sources: the operator catalogue (operators §0), the
 positional dual-role rule (operators: `&`, `!`, `@`, `error`, `comptype` resolved by
 position), and the rulings in the specs cited per row. Expression grammar and **type
 grammar** are separate tables, because type position is its own grammatical world (operators
@@ -22,7 +28,7 @@ grammar** are separate tables, because type position is its own grammatical worl
 | 9 disjunction | `\|\|` | left | short-circuits |
 | 10 coalescing | `??` `???` | right | `a ?? b ?? c` is `a ?? (b ?? c)`, the natural chain; `???` (null-or-absent coalesce, coalescing spec) sits on the same tier and mixes freely |
 | 11 conditional | `c ? a : b` | **none** | non-chainable: `a ? b : c ? d : e` is a parse error, because match §6's open-ended form *is* the guard chain and a chained ternary would be a second spelling for it (the `===`/`\|>` argument, §4). Nesting is by parentheses, either arm. Looser than `??`, so `x ?? y ? a : b` is `(x ?? y) ? a : b`; tighter than the word prefixes, so `try c ? a : b` is `try (c ? a : b)`. The `?` is position-resolved like `&` and `!`: expression position is the conditional, declaration position is the optional marker (`let n?: T`, `name?: T = null`, a proto member's `name[?]:`), and `T?` is the type grammar's. (This tier was R146's retired pipeline slot; the retirement is recorded in §4, and tier-12 citations still stand.) |
-| 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` `declared` | right | see §3: word prefixes bind the **whole expression** below assignment; `declared` is the degenerate member (R158) — its operand is exactly **one binding name**, never a general expression (type §4), so precedence barely bites, but it lives here as the word prefix it is |
+| 12 prefix, word | `copy` `try` `spawn` `await` `comptime` `comptype` `throw` `declared` `moduleof` | right | see §3: word prefixes bind the **whole expression** below assignment; `declared` and `moduleof` are the degenerate members (R158, R261) — each takes exactly **one binding name**, never a general expression (type §4, modules §7.1), so precedence barely bites, but they live here as the word prefixes they are |
 | 13 assignment | `=` `+=` `-=` `*=` `/=` `%=` `??=` `???=` | right, statement-ish | compound `a op= b` is `a = a op b` with the **target evaluated once** (`t[f()] += 1` calls `f` once); `??=` assigns on absence, `???=` on absence or `null` (coalescing spec); requires the same rebindability as `=` (a `var`, or an element write); there is no `&&=`/`||=` for now; `.=` died with `.` (string §3) |
 
 Postfix **statement modifiers** (`expr if (c)`, `expr foreach (...)`, `expr while (...)`,
@@ -130,7 +136,11 @@ that would *usually* be caught but is a trap where it isn't. Nesting is by paren
   it answered no longer arises.** A type appears in a pattern only after a `:` (match §2.1), so
   **`|` is the union operator inside a type and the alternation separator everywhere else**, and
   the two readings never occupy the same position. `n: int | string` is a union; `1 | 2` is an
-  alternation. No parenthesization rule is needed, and the grammar stays LR(1) with one-token
-  decisions for a better reason than a carve-out: at an `IDENT` or `_`, peek for `:`. The
+  alternation. No parenthesization rule is needed, and this position stays a one-token
+  decision for a better reason than a carve-out: at an `IDENT` or `_`, peek for `:`. (This
+  sentence formerly claimed LR(1) for the grammar as a whole. That claim is **unverified** and
+  now has somewhere to be tested — grammar §0 is the grammar, and R253 commissions a
+  spec-literal parser to answer it; grammar §11 records the one junction known to need two
+  tokens. The local claim here stands on its own.) The
   parentheses survive only for the rare inverse, using a *typed* pattern as an alternative,
   `(_: string) | 5` (match §2.1, §5).

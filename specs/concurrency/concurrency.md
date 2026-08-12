@@ -359,7 +359,7 @@ cancellation machinery** — R115's scope-exit rule was the missing cancel primi
 along.
 
 ```luna
-const awaitAny = fn (...ps: promise): [int, any]! => {};     // builtin: first completion wins
+const awaitAny = fn (...ps: promise): list! => {};   // builtin: first completion wins; [index, value]
 ```
 
 - **First completion wins**; an already-completed entrant wins immediately; ties break

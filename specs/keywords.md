@@ -55,6 +55,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `as` | checked narrowing (tier 6); also the import alias (`import { parse as jsonParse }`). **Never a binder**: the constraint form is `constraint i: int where ...`, not `int as i` (R87) | as, modules §8 |
 | `apply` | protocol application: the expression operator (`[] apply P(name: v)`, `@P`-typed, never errorable; **infix, tier 1a** — associativity §1, R158, not the tier-12 default) **and** the requirement declaration inside a `proto` block (`apply otherProto;`). The dynamic form is the free function `apply()`, an ordinary call, not a keyword use; its inverse `unapply()` is likewise a free function (protocols §4.6), no keyword at all | protocols §4, §7 |
 | `declared` | a binding's declared type | type §4 |
+| `moduleof` | a binding's defining module — a compile-time table, not a function; the provenance sibling of `declared`, and reserved for the same reason: its operand is a bare binding name, so it cannot be spelled as a call (R261) | modules §7.1 |
 | `use` | referential capture, in two positions with one meaning (capabilities flow where `use` names them): the declaration clause on a `fn` / `test` header, and the **call-site delegation clause** (`f(x) use (io)`, R112) | functions §2.2, capabilities §4, §5.2 |
 
 ## 4. Value and contextual keywords

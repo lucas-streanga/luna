@@ -50,6 +50,7 @@ Positionally-overloaded tokens (`&`, `!`, `@`) get **one row per meaning**, mark
 | `@x` | type | type-of | value position: the value's `type`; type position: application-refinement `@P` | type §1.1 |
 | `@@x` | type | applied protocols | the value's applied-protocol set; total over `any`, `[]` for any non-table (R126) | protocols §8, introspection |
 | `declared x` | type | declared-type | the binding's declared (static) type | type §4 |
+| `moduleof x` | module | provenance | the module the binding `x` is defined in, as a compile-time `table`; like `declared`, its operand is exactly one binding name, never an expression | modules §7.1 |
 | `&x` | reference | reference | pass-by-reference / write-back marker (**prefix, value position**; distinct from infix `&` intersection) | variables §5.1 |
 | `copy x` | reference | deep copy | an independent deep copy of a value | variables §5.2 |
 | `A & B` | type | intersection | the type meet ("all of"), canonical and total (**infix, type position**; distinct from prefix `&` reference); protocol applications are the common case (`@P & @Q`) | type §3.1, protocols |

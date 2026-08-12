@@ -225,7 +225,9 @@ parallelism.
 ### 1.3 Parse
 
 A pure **context-free** pass: tokens to a syntax tree, per module, with no type knowledge and no
-name resolution. Parsing is **fully parallel** across modules (§2): each module's tokens are
+name resolution. **The grammar is `grammar.md`** — that file is authoritative for the shape of
+the language and owns the `P` codes this phase raises; this section owns the phase's behaviour.
+Parsing is **fully parallel** across modules (§2): each module's tokens are
 independent given only the discovered file set (§1.0) — the DAG is not needed here. The
 grammar admits an `import` only in the prelude, so a misplaced one is a syntax error — but
 §1.2 enforces the prelude rule first and aborts at its boundary (R250), so that rejection is a

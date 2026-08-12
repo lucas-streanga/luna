@@ -75,6 +75,7 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `as` | `KW_AS` | keyword §3 | `\bas\b` |
 | `apply` | `KW_APPLY` | keyword §3 | `\bapply\b` |
 | `declared` | `KW_DECLARED` | keyword §3 | `\bdeclared\b` |
+| `moduleof` | `KW_MODULEOF` | keyword §3 | `\bmoduleof\b` |
 | `use` | `KW_USE` | keyword §3 | `\buse\b` |
 | `true` | `KW_TRUE` | keyword §3 | `\btrue\b` |
 | `false` | `KW_FALSE` | keyword §3 | `\bfalse\b` |
@@ -247,10 +248,10 @@ appears solely in `#[` (attributes §3, §5).
 
 ## 3. Keywords
 
-Reserved words per keywords.md §1–§4: 47 word-shaped keywords plus two compound tokens,
+Reserved words per keywords.md §1–§4: 48 word-shaped keywords plus two compound tokens,
 `match!` and `yield from` (R223). Recommended implementation: lex an `IDENT` (§7) and
 promote via a lookup table, with the one-token peeks of §8 for the compounds, rather
-than running 49 patterns; §0 gives the per-word regex for completeness. The word-shaped
+than running 50 patterns; §0 gives the per-word regex for completeness. The word-shaped
 keywords all follow `\bword\b`; the two compounds carry their own patterns there.
 
 Notes. `in`, `by`, and `self` are contextual per keywords.md (foreach heads, range steps,
@@ -524,7 +525,7 @@ source of truth. Its purpose is mechanical: a count that can be asserted in a te
 that makes an omission visible. R232 fixed a "47 patterns" claim standing over a 49-row table;
 this section exists so that class of drift fails loudly instead of hiding.
 
-**133 tokens over 137 rows.** By §0's category column: **5** trivia, **49** keyword (47
+**134 tokens over 138 rows.** By §0's category column: **5** trivia, **50** keyword (48
 word-shaped plus the compounds `KW_MATCH_BANG` and `KW_YIELD_FROM`), **10** literal, **37**
 operator, **10** punctuation, **10** delimiter (five openers, five closers), **3** interp,
 **6** content, **2** identifier, **1** error.
@@ -533,7 +534,7 @@ operator, **10** punctuation, **10** delimiter (five openers, five closers), **3
 owns two rows (point and exponent form), `BYTES` owns two (`b"…"`, `b'…'`), and `INVALID` owns
 three — the two error productions and the catch-all — so those seven rows are three names.
 `STRING_SQ`/`STRING_DQ` look like the same case and are not: two rows, two genuine names. §3's
-49 matches keywords.md §1–§4 exactly.
+50 matches keywords.md §1–§4 exactly.
 
 Every row now names a token (R242). The arithmetic used to carry a third case, rows that were
 not tokens at all, and it is gone: the error productions emit `INVALID` alongside their
