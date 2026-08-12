@@ -316,14 +316,15 @@ application failed and the table is unchanged. No partially-applied state is obs
   gone — the operator applies to *any* table expression, checked entirely at compile
   time.
 
-- **The `apply` function** is the dynamic form: a built-in free function (R91), used
-  when the protocol or the initializers are runtime data:
+- **The `applyDynamic` function** is the dynamic form: a built-in free function (R91),
+  used when the protocol or the initializers are runtime data. It carries a distinct name
+  because `apply` is a reserved word (keywords §3) and so cannot be a callee (R265):
 
-  ```
-  fn apply(tab: table, protocol: proto, initializers?: table = null): table!
+  ```luna
+  const applyDynamic = fn (tab: table, protocol: proto, initializers?: table = null): table! => {};
   ```
 
-  `&tab.apply(p)` mutates in place by ordinary write-back (and so requires a `var`
+  `&tab.applyDynamic(p)` mutates in place by ordinary write-back (and so requires a `var`
   binding, variables spec). Because the protocol and initializer keys are runtime
   values, this form is **errorable** — the single residual failure of the whole model
   (§4.4).
@@ -351,7 +352,7 @@ No code runs: initializers are typed data, installed by machinery. There is deli
 no constructor concept — no ordering semantics, no partially initialized value, no
 overloading; anything smarter than typed installation is a factory function (§4.5).
 
-In the dynamic form the same list is an ordinary table: `tab.apply(person,
+In the dynamic form the same list is an ordinary table: `tab.applyDynamic(person,
 ['name' => "Lucas"])`, with the same rules checked at runtime.
 
 ### 4.3 Idempotency and re-application
@@ -369,7 +370,7 @@ the dynamic form otherwise.
 ### 4.4 Failure modes
 
 The operator form has none (§4.1). The dynamic forms have exactly one error,
-`applyError`, covering, from `apply()`: a required member missing from the initializer
+`applyError`, covering, from `applyDynamic()`: a required member missing from the initializer
 table, an initializer key naming no granted per-table member (unknown, definition-fixed,
 or ungranted), an initializer value failing the member's type or constraint, and
 re-application with initializers (§4.3); and from `unapply()` (§4.6): removal of a
@@ -393,7 +394,7 @@ just a function. Errorability, if any, is the function's own and is declared in 
 
 ### 4.6 Removal: `unapply`
 
-Removal is a built-in free function mirroring dynamic `apply` — not a keyword, not an
+Removal is a built-in free function mirroring `applyDynamic` — not a keyword, not an
 operator:
 
 ```luna
@@ -567,7 +568,7 @@ yields the table's applied protocols as an application-ordered list of `proto` v
 
 ```luna
 if (@@b.exists(stringBuilder)) {}       // membership, by value (iterable-functions §2.3)
-foreach (p in @@b) { &other.apply(p); } // protocols are data; re-apply elsewhere
+foreach (p in @@b) { &other.applyDynamic(p); } // protocols are data; re-apply elsewhere
 _ = protoName(p);                       // the name string (std.introspection §4.4, R127)
 _ = members(p);                         // declaration rows, granted-value readers (§4.4, R129)
 ```

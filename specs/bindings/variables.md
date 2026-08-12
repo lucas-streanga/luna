@@ -103,21 +103,27 @@ runtime flag and raises `writeOnceViolationError`:
 
 ```luna
 let handle?: stream = null;
-if (a) handle = openA();
-if (b) handle = openB();           // runtime writeOnceViolationError if a and b both hold
+handle = openA() if (a);
+handle = openB() if (b);           // runtime writeOnceViolationError if a and b both hold
 ```
 
 ### 1.3 Every declaration must be initialized
 
 A variable declaration **must** provide an initializer. There is no uninitialized
-declaration form: `var x: int;` is a **compile error**. You write `var x: int = 0`, or, for
+declaration form: `var x: int;` is a **syntax error**. You write `var x: int = 0`, or, for
 a value that is not yet known, an **optional** initialized to `null`:
 
-```luna
-var x: int;             // COMPILE ERROR: a declaration must be initialized
+```text
+var x: int;             // SYNTAX ERROR: a declaration must be initialized
 var x: int = 0;         // OK
 let x?: int = null;     // OK: "not set yet" is an explicit null, filled once later (§1.2)
 ```
+
+The first line is a **syntax** error, not a semantic one, which is why this block is not
+fenced as Luna: the initializer is part of the declaration's production (grammar §0.1), so
+there is nothing to reject later — an uninitialized declaration does not parse. That is the
+strongest form the rule can take, and it is why the block above cannot be a compiling
+example of its own subject.
 
 This is not merely stylistic; it is what lets Luna's compiler do **no control-flow analysis**
 (compiler spec). "Is this variable assigned before it is used?" is the classic question that

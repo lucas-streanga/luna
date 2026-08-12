@@ -13,7 +13,7 @@ import { filesystem, path } from std.filesystem;   // capability (use clauses) +
 const fs = import std.filesystem;                   // the function surface, namespaced (R136)
 ```
 
-Function names like `delete`, `copy`, `join`, `exists` are too valuable to dump bare,
+Function names like `delete`, `copyFile`, `join`, `exists` are too valuable to dump bare,
 so the *importer-collects* idiom (modules §6) is the documented convention: `fs.delete(p)`,
 `fs.join(dir, name)`. The capability cannot ride in the table — capability tokens never
 inhabit value slots (capabilities §3.1), and a `use` clause names *bindings* (R19) — so
@@ -106,7 +106,7 @@ axis (§5).
 export const createDir = fn (p: path, recursive: bool = false) use (filesystem): undefined! => {};
 export const delete    = fn (p: path, recursive: bool = false) use (filesystem): undefined! => {};
 export const rename    = fn (from: path, to: path) use (filesystem): undefined! => {};
-export const copy      = fn (from: path, to: path) use (filesystem): undefined! => {};
+export const copyFile  = fn (from: path, to: path) use (filesystem): undefined! => {};
 export const tempDir   = fn (prefix: string = '') use (filesystem): path! => {};
 export const tempFile  = fn (prefix: string = '') use (filesystem): file! => {};
 ```
@@ -118,7 +118,7 @@ export const tempFile  = fn (prefix: string = '') use (filesystem): file! => {};
   the most destructive call in the standard library, and R108's named argument makes
   it read as loudly as it should at every call site. There is no separately-named
   `deleteAll` to reach for by accident.
-- **`copy` is file-only** in alpha; recursive tree copy is deferred (§5) rather than
+- **`copyFile` is file-only** in alpha; recursive tree copy is deferred (§5) rather than
   half-specified.
 - **`tempDir` / `tempFile`** create uniquely-named entries in the platform temp
   location — the primitive tests.md's per-test-resources deferral has been waiting on.
@@ -149,6 +149,6 @@ axes, so the error tree does not mirror the module split.
 - **Symlinks** (creation, `readLink`, `lstat`, `walk`'s follow option) — one axis,
   deferred together.
 - **Watching** — carried from the R121 record.
-- **Recursive `copy`** — with a metadata-preservation decision it should not prejudge.
+- **Recursive copy** — with a metadata-preservation decision it should not prejudge.
 - **`cwd(): path`** — a read-only gated read, if real use demands it (std.process §3
   holds the no-`chdir` rule either way).

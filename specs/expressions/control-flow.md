@@ -6,8 +6,8 @@ are lazy streams (range spec), so a counted loop is `foreach` over a range. Ever
 construct has both a **block** form and a **postfix** form, so one-liners read naturally.
 
 ```luna
-foreach (v in xs) { use(v); }        // block
-use(v) foreach (v in xs);             // postfix (one-liner)
+foreach (v in xs) { visit(v); }        // block
+visit(v) foreach (v in xs);             // postfix (one-liner)
 
 while (more()) { step(); }            // block
 step() while (more());                // postfix
@@ -41,8 +41,8 @@ which is checked narrowing and would be a different meaning, as spec; `in` reads
 iteration and conflicts with nothing):
 
 ```luna
-foreach (v in xs)        { use(v); }         // value only
-foreach (k => v in xs)   { use(k, v); }       // key and value
+foreach (v in xs)        { visit(v); }         // value only
+foreach (k => v in xs)   { visit(k, v); }       // key and value
 ```
 
 - **`foreach (v in xs)`** binds each element's **value** to `v`.
@@ -165,7 +165,7 @@ Every control-flow construct has a **postfix** form: a single statement followed
 control clause, which desugars to the block form wrapping that one statement.
 
 ```luna
-use(v)   foreach (v in xs);      // desugars to: foreach (v in xs) { use(v); }
+visit(v)   foreach (v in xs);      // desugars to: foreach (v in xs) { visit(v); }
 step()   while (more());          // desugars to: while (more()) { step(); }
 warn()   if (bad);                // desugars to: if (bad) { warn(); }
 ```

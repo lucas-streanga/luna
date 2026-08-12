@@ -13,7 +13,7 @@ caller can do about it*, and every type carries the raw number for diagnostics, 
 dispatch:
 
 ```luna
-export const ioError = error { path: path?; errno: int? };   // the family root
+export const ioError = error { path: path?; errno: int?; };   // the family root
 ```
 
 `path` is the path involved (`null` where none applies); `errno` is the raw value for logs

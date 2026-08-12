@@ -266,9 +266,9 @@ if (x is int) {
   foo(x);          // x is STILL its declared type here (e.g. int | string), not narrowed
   let n = x as int; foo(n);   // to use it as int, produce a narrowed binding
 }
-match (x) {
-  n: int => foo(n); // idiomatic: the arm binds a fresh n of type int
-}
+_ = match (x) {
+  n: int => foo(n),  // idiomatic: the arm binds a fresh n of type int
+};
 ```
 
 This is a deliberate design choice tied to the compiler guarantee: Luna does **no control-flow

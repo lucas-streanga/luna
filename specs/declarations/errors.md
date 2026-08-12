@@ -58,7 +58,7 @@ error                     (root: catchable; constructable, the throwaway §5.2; 
 │   │   └── useAfterConsumed  (re-consumption of an exhausted stream; stream §2)
 │   ├── died              (the `die(msg)` failure panic — the user-invocable arm, runtime-minted; §5.2, R215)
 │   └── ... (runtime-defined)
-├── applyError            (dynamic protocol application/removal: `apply()` / `unapply()`; protocols §4.4, §4.6)
+├── applyError            (dynamic protocol application/removal: `applyDynamic()` / `unapply()`; protocols §4.4, §4.6)
 ├── timeoutError          (a deadline expired: `timeout` / `awaitTimeout` / `receiveTimeout`; concurrency §5.1, R142 — declarable, a timeout is expected and recoverable)
 └── ... (user-defined: a definition with no explicit parent extends the root directly, §4)
 ```

@@ -704,7 +704,7 @@ Three properties keep this local and predictable:
 A caller must handle a throwing function's result with `try` or an errorable binding; a
 non-throwing function's result needs neither. This is the same errorability an errorable
 protocol function declares (`: self!`, string-builder §3.3) and the same the dynamic
-`apply()` function carries (`table!`, protocols §4.4).
+`applyDynamic()` function carries (`table!`, protocols §4.4).
 
 **`main` is no exception.** If `main` can throw and does not handle it, `main` **must be declared
 `fn!`**, exactly as any other function that lets an error escape. A `fn!` `main` is the deliberate,

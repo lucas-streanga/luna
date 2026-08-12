@@ -31,7 +31,7 @@ languages, and it matters most in loops:
 foreach (path in paths) {
   let h = open(path);
   defer h.close();          // runs at the end of THIS iteration's block, each time
-  use(h);
+  process(h);
 }                            // each h is closed as its iteration ends, not all at function exit
 ```
 

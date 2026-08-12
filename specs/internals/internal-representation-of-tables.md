@@ -373,7 +373,7 @@ The three dynamic surfaces that *look* like they need name-lookup are all served
 shared static descriptor per proto** (name → offset → typeid; a handful of members, linear
 scan or better), never a per-value structure:
 
-- **dynamic `apply()` / `unapply()`** (protocols §4.4, §4.6, R123): the initializer table's
+- **dynamic `applyDynamic()` / `unapply()`** (protocols §4.4, §4.6, R123): the initializer table's
   runtime name-strings resolve through the descriptor to struct slots;
 - **`@@` serialization** (`includeProtocols`, json §2.1, R125): the name → granted-member
   enumeration walks the descriptor and reads fields by offset;

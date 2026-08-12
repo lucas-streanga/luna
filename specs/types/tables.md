@@ -185,7 +185,7 @@ the Python and Rust convention. A slice returns a new **`list`** (reindexed from
 let mid  = xs[1:3];      // elements at indices 1 and 2 (end excluded): a 2-element list
 let tail = xs[2:];       // from index 2 to the end
 let head = xs[:3];       // from the start to index 2 (indices 0, 1, 2)
-let copy = xs[:];        // a full shallow copy
+let whole = xs[:];       // a full shallow copy
 ```
 
 - **Half-open**: `xs[a:b]` is indices `a` through `b - 1`, so `xs[0:len]` is the whole list and

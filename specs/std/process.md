@@ -27,7 +27,7 @@ any other authority. This module is the home that capability row's flag promised
 
 ```luna
 export const env = capability;
-export const envVars = fn () use (env): table;   // 'PATH' => secret, 'HOME' => secret, ...
+export const envVars = fn () use (env): table => {};   // 'PATH' => secret, 'HOME' => secret, ...
 ```
 
 Designed in exec (R42), **relocated here** (R134): it sat there because exec passes
