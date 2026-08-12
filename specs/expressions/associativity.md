@@ -40,6 +40,7 @@ string interpolation is lexical, not an operator; `...` is pattern punctuation (
 
 | Tier | Forms | Associativity | Notes |
 |-|-|-|-|
+| 0 grouping | `( T )` | — | a parenthesized type is that type; the parentheses group and mean nothing else. Numbered 0 so tiers 1–5 keep their numbers and every citation stands. Two uses, one optional and one not: **readable emphasis** where the tiers already agree (`(@P & @Q) \| null`, the overview's convention, tier 4), and **required** wherever a tier binds looser than intended — chiefly tier 5, whose result type extends greedily right, so `(fn (): int) \| string` is a union of two types where `fn (): int \| string` is one function type returning a union. There is no tuple type, so `( T )` is never a one-element anything |
 | 1 postfix | `T!` `T?` | left, stackable | `string?!` ≡ `string!?` ≡ `string \| null \| error` (errors §7, value-representation §3.1), order-independent by canonicalization |
 | 2 refinement | `@P` | prefix | application refinement; `@X` on a non-protocol is a compile error (protocols spec) |
 | 3 intersection | `&` | left, canonical | commutative after interning (`@Q & @P` ≡ `@P & @Q`, type §3.1) |
@@ -59,7 +60,16 @@ all — none of this table's constructors (`|`, `&`, postfix `?` / `!`, `fn (par
 expression production, so `const number: type = int | double;` parses because of the
 annotation, not in spite of it (type §2). In expression position `fn` therefore always begins a
 function *literal*, never a type, which is what lets `fn` commit its production one token in
-(functions §3, R45). **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
+(functions §3, R45).
+
+**Grouping is not one of those four**, and this is the corollary that catches people: tier 0's
+`( T )` and the expression grammar's `( expr )` are different productions sharing a glyph, and
+which one a `(` opens is settled by the position already in force — a parenthesis never
+*switches* grammars. So `@(int | double)` does not parse: `@`'s operand is value position, the
+parenthesis opens an expression, and `int | double` is not one. Nor would it mean anything if
+it did — `@` on something already a type is a compile error (types overview), and the question
+it is reaching for is `x is (int | double)`, where `is` has put the right-hand side in type
+position and the parentheses are optional. **Pattern position is a third grammar**, specified in match §2.1: it is neither of the
 tables above, a type occurs in it only after a `:`, and `|` is therefore the union operator
 inside a type and the alternation separator outside one (§4).
 
