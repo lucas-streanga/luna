@@ -23,8 +23,12 @@ Conventions used throughout:
   `SHEBANG`, `LINE_COMMENT` and `BLOCK_COMMENT` are emitted by the lexer (R236) and dropped by
   the parser (compiler §1.1), so they appear in no production. Re-attaching them to the lossless
   CST is compiler §1.3's and tooling §2's business, not this file's.
-- **Trailing commas are uniform**: every comma-separated list admits one after its last element
-  and requires it nowhere. Stated once here rather than justified per production.
+- **Every comma-separated list has one shape**, `Item (COMMA Item)* COMMA?`, wrapped in a named
+  nonterminal and made optional by its parent where the list may be empty. A trailing comma is
+  admitted everywhere and required nowhere. The shape is uniform on purpose: putting the comma
+  on the *item* instead — `Item ::= … COMMA?` inside `Item*` — makes the separator optional
+  altogether and derives `[10 20]`, which eight productions did until R263 (see the
+  cross-reference notes).
 - **Productions are fenced ` ```ebnf `**, so an extractor can find them and no corpus tool that
   keys on ` ```luna ` (R258) is disturbed.
 - **The grammar is permissive by rule**: a restriction lives here only when it is decidable with
@@ -55,10 +59,11 @@ PathSegment   ::= IDENT | WILDCARD | Keyword
 
 Declaration   ::= Attribute* BindingDecl
                 | TestDecl
-BindingDecl   ::= KW_EXPORT? BindingKw Binder (COLON Type)? ASSIGN Expr SEMICOLON
+BindingDecl   ::= KW_EXPORT? BindingKw Binder COLON IDENT("type") ASSIGN Type SEMICOLON
+                | KW_EXPORT? BindingKw Binder (COLON Type)? ASSIGN Expr SEMICOLON
 BindingKw     ::= KW_CONST | KW_LET | KW_VAR
-Binder        ::= IDENT QUESTION? | DestructurePattern
-TestDecl      ::= KW_TEST STRING_SQ Block
+Binder        ::= IDENT (QUESTION | BANG)? | DestructurePattern
+TestDecl      ::= KW_TEST STRING_SQ UseClause? Block
 
 Attribute     ::= ATTR_OPEN IDENT (LPAREN AttrArgs? RPAREN)? RBRACKET
 AttrArgs      ::= AttrArg (COMMA AttrArg)* COMMA?
@@ -157,9 +162,10 @@ Primary       ::= Literal
                 | DeclLit
                 | LPAREN Expr RPAREN
 
-TableLit      ::= LBRACKET TableEntry* RBRACKET
-TableEntry    ::= Attribute* (Expr FAT_ARROW)? Expr COMMA?
-                | SPREAD Expr COMMA?
+TableLit      ::= LBRACKET TableEntries? RBRACKET
+TableEntries  ::= TableEntry (COMMA TableEntry)* COMMA?
+TableEntry    ::= Attribute* (Expr FAT_ARROW)? Expr
+                | SPREAD Expr
 VariantLit    ::= LBRACE VariantName Expr? RBRACE
 VariantName   ::= IDENT (DOT IDENT)?
 
@@ -170,11 +176,13 @@ ParamList     ::= Param (COMMA Param)* COMMA?
 Param         ::= AMP? BindTarget QUESTION? (COLON Type)? (ASSIGN Expr)?
                 | SPREAD IDENT (COLON Type)?
 
-MatchExpr     ::= MatchKw LPAREN Expr RPAREN LBRACE MatchArm* RBRACE
-                | MatchKw LBRACE GuardArm* RBRACE
+MatchExpr     ::= MatchKw LPAREN Expr RPAREN LBRACE MatchArms? RBRACE
+                | MatchKw LBRACE GuardArms? RBRACE
 MatchKw       ::= KW_MATCH | KW_MATCH_BANG
-MatchArm      ::= Pattern (KW_WHERE Expr)? FAT_ARROW Expr COMMA?
-GuardArm      ::= Expr FAT_ARROW Expr COMMA?
+MatchArms     ::= MatchArm (COMMA MatchArm)* COMMA?
+MatchArm      ::= Pattern (KW_WHERE Expr)? FAT_ARROW Expr
+GuardArms     ::= GuardArm (COMMA GuardArm)* COMMA?
+GuardArm      ::= Expr FAT_ARROW Expr
 
 TryCatchExpr  ::= KW_TRY Block CatchClause+
 CatchClause   ::= KW_CATCH LPAREN CatchBinder RPAREN Block
@@ -190,22 +198,26 @@ ProtoLit      ::= KW_PROTO LBRACE ProtoItem* RBRACE
 ProtoItem     ::= KW_APPLY IDENT SEMICOLON
                 | IDENT("identityEquality") SEMICOLON
                 | MemberDecl
-MemberDecl    ::= BindingKw IDENT("get")? IDENT("set")? IDENT QUESTION? COLON Type
-                  (ASSIGN Expr)? SEMICOLON
+MemberDecl    ::= BindingKw Grants IDENT QUESTION? COLON Type (ASSIGN Expr)? SEMICOLON
+                | BindingKw Grants IDENT QUESTION? ASSIGN Expr SEMICOLON
+Grants        ::= IDENT("get")? IDENT("set")?
 
-EnumLit        ::= KW_ENUM LBRACE VariantDecl* RBRACE
-VariantDecl    ::= IDENT (COLON VariantPayload)? COMMA?
+EnumLit        ::= KW_ENUM LBRACE VariantDecls? RBRACE
+VariantDecls   ::= VariantDecl (COMMA VariantDecl)* COMMA?
+VariantDecl    ::= IDENT (COLON VariantPayload)?
 VariantPayload ::= PayloadShape | Type
-PayloadShape   ::= LBRACKET PayloadField* RBRACKET
-PayloadField   ::= StringLit FAT_ARROW Type COMMA?
+PayloadShape   ::= LBRACKET PayloadFields? RBRACKET
+PayloadFields  ::= PayloadField (COMMA PayloadField)* COMMA?
+PayloadField   ::= StringLit FAT_ARROW Type
 
 ErrorLit      ::= KW_ERROR (COLON IDENT)? LBRACE ErrorField* RBRACE
 ErrorField    ::= IDENT QUESTION? COLON Type SEMICOLON
 
 ConstraintLit ::= KW_CONSTRAINT IDENT COLON Type (KW_WHERE Expr)+
 CapabilityLit ::= KW_CAPABILITY (LBRACE CapList RBRACE)?
-AttributeLit  ::= KW_ATTRIBUTE LBRACKET AttrParam* RBRACKET
-AttrParam     ::= StringLit FAT_ARROW Type (ASSIGN Expr)? COMMA?
+AttributeLit  ::= KW_ATTRIBUTE LBRACKET AttrParams? RBRACKET
+AttrParams    ::= AttrParam (COMMA AttrParam)* COMMA?
+AttrParam     ::= StringLit FAT_ARROW Type (ASSIGN Expr)?
 
 UseClause     ::= KW_USE LPAREN CapList RPAREN
 CapList       ::= IDENT (COMMA IDENT)* COMMA?
@@ -220,13 +232,16 @@ Type          ::= FnType | UnionType
 FnType        ::= KW_FN LPAREN TypeList? RPAREN COLON Type
 TypeList      ::= Type (COMMA Type)* COMMA?
 UnionType     ::= IntersectType (BAR IntersectType)*
-IntersectType ::= RefineType (AMP RefineType)*
-RefineType    ::= AT IDENT | PostfixType
+IntersectType ::= PostfixType (AMP PostfixType)*
 PostfixType   ::= PrimaryType (BANG | QUESTION)*
 PrimaryType   ::= IDENT
+                | AT IDENT
                 | KW_SELF
                 | KW_ERROR
                 | KW_COMPTYPE
+                | KW_PROTO
+                | KW_NULL
+                | KW_UNDEFINED
                 | KW_FN
                 | EnumLit
                 | LPAREN Type RPAREN
@@ -247,14 +262,16 @@ PrimaryPattern ::= WILDCARD (COLON Type)?
 LiteralPattern ::= MINUS? (IntLit | DOUBLE | KW_INF)
                  | StringLit | KW_TRUE | KW_FALSE | KW_NULL | KW_UNDEFINED | KW_NAN
 RangePattern   ::= LiteralPattern (RANGE | RANGE_EXCL) LiteralPattern
-TablePattern   ::= LBRACKET TablePatEntry* RBRACKET
-TablePatEntry  ::= (KeyLit FAT_ARROW)? Pattern COMMA?
-                 | SPREAD (IDENT | WILDCARD) COMMA?
-VariantPattern ::= LBRACE VariantName Pattern? RBRACE
+TablePattern    ::= LBRACKET TablePatEntries? RBRACKET
+TablePatEntries ::= TablePatEntry (COMMA TablePatEntry)* COMMA?
+TablePatEntry   ::= (KeyLit FAT_ARROW)? Pattern
+                  | SPREAD (IDENT | WILDCARD)
+VariantPattern  ::= LBRACE VariantName Pattern? RBRACE
 
-DestructurePattern ::= LBRACKET DestrEntry* RBRACKET
-DestrEntry     ::= (KeyLit FAT_ARROW)? BindTarget COMMA?
-                 | SPREAD (IDENT | WILDCARD) COMMA?
+DestructurePattern ::= LBRACKET DestrEntries? RBRACKET
+DestrEntries    ::= DestrEntry (COMMA DestrEntry)* COMMA?
+DestrEntry      ::= (KeyLit FAT_ARROW)? BindTarget
+                  | SPREAD (IDENT | WILDCARD)
 
 KeyLit         ::= StringLit | MINUS? IntLit
 ```
@@ -552,9 +569,9 @@ productions live in §0 and are not duplicated here — so this table is an inde
 second source of truth. Its purpose is mechanical: a count that a test can assert, and a list
 that makes an omission visible, exactly as lexer §10 does for tokens.
 
-**119 nonterminals over nine groups.** By §0's grouping: **17** file and declarations, **12**
-statements, **24** expressions, **17** primaries, **19** declaration literals and closed
-sub-grammars, **8** types, **11** patterns, **10** literals, **1** keyword class.
+**127 nonterminals over nine groups.** By §0's grouping: **17** file and declarations, **12**
+statements, **24** expressions, **20** primaries, **22** declaration literals and closed
+sub-grammars, **8** types, **13** patterns, **10** literals, **1** keyword class.
 
 **Each is defined exactly once**, and `File` is the only one that appears on no right-hand
 side — it is the start symbol, and a second such nonterminal would be dead grammar.
@@ -652,6 +669,14 @@ against the spec that owns it.
 - **An attribute's payload is table-shaped, not argument-shaped.** The first draft reused
   `ArgList`, so it accepted `#[route(path: '/users')]` — a spelling the language does not have —
   and rejected `#[route('path' => '/users')]`, which attributes §3 gives verbatim.
+- **Eight list productions made their separator optional** (R263). `TableEntry`, `MatchArm`,
+  `GuardArm`, `VariantDecl`, `PayloadField`, `AttrParam`, `TablePatEntry` and `DestrEntry` each
+  carried a trailing `COMMA?` while appearing inside an `Item*` repetition, which admits the
+  comma-less list: `[10 20]`, `enum { a b c }`, `match (x) { 1 => "a" 2 => "b" }` all derived.
+  Seven other lists already used the correct `Item (COMMA Item)* COMMA?` shape, so the file
+  carried two spellings for one job and one of them was wrong. It is a **wrong-accept**, not an
+  ambiguity, so the corpus gate would have stayed green over it — found instead by scoping the
+  spec-literal parser, which is the argument for building that tool before trusting this file.
 - **Capture cannot reach module scope, and the spec says it does.** functions §2.1 says a
   function captures "every copyable binding it references" as a deep-`const` snapshot at
   closure-creation time, with no scope qualifier. Applied to module level that breaks
