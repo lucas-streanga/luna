@@ -8179,6 +8179,232 @@ instead); `control-flow.md` (the new §4 and the renumbering);
 `\$` and the margin interaction in one triple — the case the specs
 disagreed about and no test had reached.
 
+**R263 — eight list productions put the comma on the item, which made the
+separator optional altogether.** grammar.md carried two shapes for one job.
+Seven lists were written `Item (COMMA Item)* COMMA?`, which is correct.
+Eight — `TableEntry`, `MatchArm`, `GuardArm`, `VariantDecl`, `PayloadField`,
+`AttrParam`, `TablePatEntry`, `DestrEntry` — were written `Item ::= … COMMA?`
+*inside* an `Item*` repetition, and that admits the comma-less list: `[10 20]`,
+`enum { a b c }` and `match (x) { 1 => "a" 2 => "b" }` all derived.
+
+Ruled: one shape everywhere, `Item (COMMA Item)* COMMA?`, wrapped in a named
+nonterminal and made optional by its parent where the list may be empty. The
+rule is stated once in grammar.md's conventions rather than justified per
+production, and it carries its own counterexample so the wrong shape is not
+rediscovered as a simplification.
+
+**Why this is worth a ruling rather than a quiet fix**: it is a
+**wrong-accept**, not an ambiguity, so the corpus gate would have stayed
+green over it forever — every real block still parsed. Nothing in the
+apparatus R253 commissioned would have caught it. It was found by *scoping*
+the spec-literal parser, before a line of that tool existed, which is the
+argument for building it stated in miniature: the exercise of making a
+grammar executable finds things that reading it does not.
+
+Swept: `grammar.md` §0.4 (`TableEntries`, `MatchArms`, `GuardArms`), §0.5
+(`VariantDecls`, `PayloadFields`, `AttrParams`), §0.7 (`TablePatEntries`,
+`DestrEntries`), the conventions note, and §10's counts.
+
+**R264 — the spec-literal parser exists, the grammar is unambiguous over the
+corpus, and getting there took five ambiguity fixes and one correction to the
+checker itself.** R253 commissioned this tool and R260 wrote the grammar it
+runs. It is `src/internal/ebnf`: a reader for grammar.md's ` ```ebnf ` blocks,
+a desugar to BNF, an Earley recognizer, and a driver that lexes every corpus
+block with the **real** lexer and parses it from `File`. It has no content of
+its own — that is the whole design constraint, and the reason lexer-testing-plan
+§7's objection to a transcription does not transfer: there, a transcription
+could only reach the RE2-expressible half of the lexer; here, the CFG is the
+entire job.
+
+**Earley, and not a generator.** An LL or LR tool demands left-factoring and
+left-recursion elimination, and those rewrites would make the running artifact
+structurally different from §0 — losing the one property that makes it worth
+having. A PEG would be worse: ordered choice *resolves* ambiguity silently,
+where detecting it is half the point. Earley takes the grammar unchanged.
+
+**The desugar is the one place this can lie**, and it is tested first: if
+`A B?` rewrites wrongly the tool measures a language grammar.md does not
+describe, and every result after it is worthless — the same fail-open shape
+lexer-testing-plan §1 guards for the spec reader. Each rewrite is pinned
+against a hand-computed language, both the strings it must accept and the
+strings it must reject, since a yes-only test passes a desugar that admits
+too much.
+
+**The checker was unsound on its first run, and the failure was silent.**
+Ambiguity was measured by counting completed *start* items — but Earley
+deduplicates items, so two derivations finishing through the same `File`
+production are one item and the count reads "1". Only ambiguity at the very
+top production was ever visible, and the test that was supposed to prove
+otherwise passed because its toy grammar happened to have two `File`
+productions. Rewritten to record **why** each item entered the chart and walk
+back from the accepting item, which is parse-forest ambiguity and the real
+question. Two tests now hold it: ambiguity one level below the start symbol,
+which the old code could not see, and the converse — ambiguity in a subtree no
+parse uses must *not* be reported, or the check cries wolf on ordinary
+grammars.
+
+**Six gaps in the grammar, found by running it.** `PrimaryType` was missing
+the type-valued keywords (`KW_UNDEFINED`, `KW_NULL`, `KW_PROTO` — `fn (…):
+undefined` alone is 20 corpus sites); `@P` took no postfix, so `@timezone!`
+did not derive; `Binder` admitted `?` and not `!`, so errors §7's `let v!:
+string` did not; `TestDecl` had lost its `UseClause?` in R260's own drafting;
+**R256 was prose only** — §5 explained the `: type` rule and no production
+implemented it; and `MemberDecl` demanded an annotation where the corpus
+writes `const get append = fn (…)` without one.
+
+**Five ambiguities, each fixed structurally rather than by a preference
+rule.** `ConstraintLit` is braceless and was a `Primary`, so the expression
+grammar stole its tail (`constraint i: int where f(i)` also derived as a call
+on `constraint i: int where f`) — fixed by `Initializer`, which is R137's own
+companion ruling, *"constraint literals are const-initializer-only"*, that the
+grammar had failed to encode. Assignment accepted any expression as a target,
+so `fn () => x = 5` derived both ways — fixed by `AssignTarget`, which encodes
+associativity tier 13's existing rebindability rule. R256's encoding overlapped
+the general form on bare names — fixed by `TypeOnly`, whose alternatives all
+require a type-only constructor, with parentheses transparent (`LPAREN TypeOnly
+RPAREN`) so grouping never changes what a form *is*. `x->P.m` competed with
+`->P` then `.m` — whether `P` names a proto is symbol knowledge, so
+qualification became semantic and the arrow takes one identifier. And the
+largest: **the function literal.**
+
+**`FnLit` is a word prefix** (tier 12), not a `Primary`. A literal with an
+expression body is greedy — `fn () => n * 2` is `fn () => (n * 2)` — so
+nothing may follow it, exactly as nothing follows `copy` or `try`. As a
+`Primary` it gave every tier between there and assignment a second reading:
+`(fn () => n) * 2`, `(fn () => t).count`, `(fn () => x) = 5`. Making it
+non-postfixable was not enough, because binary operators steal a tail too;
+only tier 12 has no competitor. And the position is right on its own terms —
+`fn (…) =>` *is* a prefix taking the entire expression to its right, which is
+associativity §3's definition of a word prefix. The cost is accepted and is a
+language change: **an immediately-invoked literal is parenthesized**,
+`spawn (fn () => { … })();`. That is the rule capabilities §5.2 already gives
+the `use` clause one production above, and the corpus used the bare form once.
+
+**One more, found only after those cleared**: a match arm's body may be a
+`Block`. functions §3 pins the `{`-opens-a-block rule and says outright that
+it "governs match arms", which holds only if an arm can carry a block; R258's
+`=> {}` fill had been producing arms the grammar rejected. `ArmBody` is
+`FnBody`'s twin, and a block-bodied arm yields `undefined`, which match §9
+already admits into a match's result type.
+
+**The result: 427 of 427 blocks derive, each exactly once.** That is the
+question associativity §4 asserted and nothing had ever tested. It is a check
+and not a proof — it speaks for the inputs the corpus holds — but it is the
+strongest statement available, and it failed on 31 blocks before the fixes
+above.
+
+Swept: `grammar.md` §0.1, §0.3, §0.4, §0.5, §0.6, §0.7 (the productions), §4
+(`AMP` and `FnLit`'s notes), §9 (three new admitted rows), §10 (counts and the
+unambiguity claim), and the flagged list. Added: `src/internal/ebnf`
+(`grammar.go`, `parse.go`, `earley.go`, `load.go`) with `desugar_test.go` and
+`spec_test.go`; the latter carries the corpus gate lexer-testing-plan §9 named
+as the strong one, and the static pins that replace the shell pipelines R260
+was verified with by hand.
+
+**R265 — the corpus made to parse: two API names that collided with keywords,
+one block that was always a syntax error, and the rest that were never Luna.**
+R264's gate reported 58 failures on its first run. None was a grammar gap after
+the six above; the remainder were the corpus's own.
+
+**Two std names collided with reserved words**, and both are renamed rather
+than unreserved. `std.filesystem` exported **`copy`** (§3.3) while `copy` is
+the deep-copy operator (keywords §3) — now **`copyFile`**, which also reads
+better against `copyFile` being file-only in alpha. And protocols §4.1's
+dynamic form was *"the free function `apply()`"* while `apply` is the
+application operator — now **`applyDynamic()`**. A reserved word cannot be a
+callee, so both were unwritable as specified. keywords §3 now records the
+reason against `apply` itself, so the collision reads as a decision rather
+than an oversight — the treatment R261 gave `moduleof`.
+
+**`push` is a name no catalogue has.** Three sites called it (`tests.md` §3,
+`functions.md` §2.1, `attributes.md` §4); the iterable catalogue's name is
+**`append`**. The parse gate cannot see this — `push` is an identifier — so it
+took reading. Recorded because it is the first finding that names what the
+gate is *not*: syntax is checked, vocabulary is not.
+
+**`var x: int;` is a syntax error, not a compile error.** variables §1.3
+demonstrates the uninitialized declaration it forbids, and the initializer is
+part of the production, so there is nothing left to reject downstream. The
+block is fenced `text` and the prose upgraded, with the observation that this
+is why the block cannot be a compiling example of its own subject.
+
+**Three blocks were never Luna**, and are `text` now: protocols §2's member
+skeleton (`<const | let | var> [get] [set] …`, a different notation, now
+pointing at grammar §0.5's `MemberDecl` as authoritative for the form);
+tests §3's `<tests>` placeholder — replaced by real Luna, since §4 specifies
+the `tests` table it was standing in for, which also repaired `t()` to
+`t.run()` and a list keyed by name; and `shape-type.md` §5, whose `shape […]`
+is a **deferred construct**, so a `luna` fence asserted the opposite of the
+page it sat on.
+
+**And seventeen blocks were complete constructs missing a terminator.** These
+were R258's unfinished business rather than a new class: that sweep's
+classifier looked for unterminated *lines*, and `match (x) { … }` and `try { … }
+catch (…) { … }` end in `}` while being expressions that need their `;`. Twelve
+took a terminator, four took a wrapper (two bare match arms, a `} catch` that
+wanted its `try`, a lone parameter that wanted its signature), and errors §2.1's
+root `error { … }` shape became `text` — you do not *declare* the root type.
+
+The word "fragment" is retired with them. R253 anticipated a class of blocks
+that were Luna but not files, and R258 collapsed the label set on the bet that
+the class could be emptied. It can: **427 of 427**, one label, no exceptions.
+
+Swept: `filesystem.md` §0/§3.3/§5 and `index.md` (`copyFile`);
+`protocols.md` §2/§4.1/§4.6/§8, `keywords.md` §3, `operators.md` §0,
+`errors.md` §2, `functions.md` §5, `internal-representation-of-tables.md`
+(`applyDynamic`); `tests.md` §3, `functions.md` §2.1, `attributes.md` §4
+(`append`); `variables.md` §1.2 and §1.3; `control-flow.md`, `defer.md`,
+`tables.md` §2.5 (reserved words used as ordinary names); `errors.md`,
+`range.md`, `is.md`, `int.md`, `match.md`, `enum.md`, `type.md`, `json.md`,
+`iterable-functions.md` (terminators and wrappers); `shape-type.md` §5.
+Also `internal/highlight/markdown.go`, whose doc comment claimed fence
+recognition required an unindented fence while the code three lines below
+trimmed leading space — the corpus is **427** blocks, not the 426 an
+unindented-only count reports.
+
+**R266 — four new worked programs, and the `args()[0]` contradiction they
+surfaced.** `examples/` held four programs and covered four things; the areas
+with no worked program at all were the ones a reader most needs one for.
+Added, each chosen for a hole rather than for a feature: **`disk-report.md`**
+(std.filesystem — `walk` as a stream, `stat`'s `@fileInfo`, per-element `try`
+so one unreadable entry does not lose the scan); **`tree-grep.md`**
+(concurrency — `spawn` fans out, a channel fans in, and per-handle `finish`
+does what a Go `sync.WaitGroup` does, which the 1BRC example's parallel
+postscript deferred as "the exercise it genuinely is"); **`release.md`**
+(std.exec and `command` — `run` versus `capture` chosen per call, a `secret`
+that no frame in the file can reveal, `debugJson` redacting it in the failure
+path); **`config.md`** (constraints and protocols — the loader's return type
+*is* the validation, plus `???` for a JSON document that may spell "not set"
+as either absent or `null`).
+
+Writing them surfaced one real contradiction: **std.process §1 fixes
+`args()[0]` as the program name (the C convention), and two examples indexed
+from `args()[0]` as the first *argument*.** `one-billion-rows.md` then died on
+exactly the invocation that was correct (`count() != 1`), and `log-scan.md`
+opened its own executable. The §1 sentence even cites "the convention the
+examples already use," which `index.md`'s taste program does and those two did
+not. std.process is authoritative and `index.md` agrees with it, so the two
+examples are the error: `arguments[1]`, `count() != 2`. No ruling was needed
+for the *rule*, only for the sweep — recorded here because a convention that
+two of five call sites got wrong is one worth a log entry.
+
+Two observations, deliberately not ruled here. **A comparison operand is not a
+target-typing site**: enum §3.2 lists the annotation, the parameter, and the
+return type, so `info->kind == {file}` has nothing to infer from and
+`disk-report.md` writes the qualified `{entryKind.file}` (§3.3's optional form).
+Adding `==` to the list is a one-line ruling if the bare form is wanted; it is
+not obviously right, since it would make the enum of a literal depend on the
+*other* operand's type. And **std.crypto and std.http are both deferred**
+(R140, R143), which is why neither the dedupe-by-hash nor the fetch-many
+program anyone would expect in `examples/` is here: exec is the honest escape
+hatch for both today, and a worked program built on it would read as an
+endorsement.
+
+Swept: `examples/disk-report.md`, `examples/tree-grep.md`,
+`examples/release.md`, `examples/config.md` (new);
+`examples/one-billion-rows.md` and `examples/log-scan.md` (the `args()` index);
+`index.md`'s examples row. The corpus is **431** parsing blocks.
+
 ---
 
 ## Still open (out of scope of these rulings)

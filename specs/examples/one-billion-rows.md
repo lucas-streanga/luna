@@ -11,9 +11,9 @@ import std.process;
 
 const main = fn () use (io, argv): int! => {
   let arguments = args();
-  die('usage: brc <measurements.txt>') if (arguments.count() != 1);
+  die("usage: ${arguments[0]} <measurements.txt>") if (arguments.count() != 2);
 
-  var fd = openFile(arguments[0] as path);      // file!: in this fn!, failure propagates
+  var fd = openFile(arguments[1] as path);      // file!: in this fn!, failure propagates
   defer close(fd);
 
   var agg = [];                                  // station => ['min','max','sum','count']

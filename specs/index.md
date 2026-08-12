@@ -173,7 +173,7 @@ table is a map.
 | std.io errors | `io-errors.md` | The `ioError` hierarchy, errno-grounded for linux-x86-64. |
 | Keywords | `keywords.md` | The reserved-word inventory, contextual keywords, predeclared names, and flagged definition gaps. |
 | Any | `any.md` | The top type: universal operations vs narrow-first, the F22 rule. |
-| Examples | `examples/` | Worked programs: the one-billion-row challenge, log scanning, serialization, testing. |
+| Examples | `examples/` | Worked programs: the one-billion-row challenge, log scanning, serialization, testing, a disk report, a parallel grep, a release script, a config loader. |
 | Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
 | Associativity | `associativity.md` | The two binding tables the parser implements — expression tiers and type-position tiers — word-prefix binding, and the positional rules that decide which table applies. |
