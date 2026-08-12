@@ -105,6 +105,7 @@ const (
 	KwAs
 	KwApply
 	KwDeclared
+	KwModuleof
 	KwUse
 	KwTrue
 	KwFalse
@@ -266,6 +267,7 @@ var infos = [...]info{
 	KwAs:               {"KW_AS", Keyword},
 	KwApply:            {"KW_APPLY", Keyword},
 	KwDeclared:         {"KW_DECLARED", Keyword},
+	KwModuleof:         {"KW_MODULEOF", Keyword},
 	KwUse:              {"KW_USE", Keyword},
 	KwTrue:             {"KW_TRUE", Keyword},
 	KwFalse:            {"KW_FALSE", Keyword},

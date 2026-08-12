@@ -1,0 +1,33 @@
+moduleof parse;
+_ = moduleof someLocal;
+moduleofx moduleo premoduleof;
+import moduleof.x;
+---
+KW_MODULEOF 0..8 "moduleof"
+WHITESPACE 8..9 " "
+IDENT 9..14 "parse"
+SEMICOLON 14..15 ";"
+WHITESPACE 15..16 "\n"
+WILDCARD 16..17 "_"
+WHITESPACE 17..18 " "
+ASSIGN 18..19 "="
+WHITESPACE 19..20 " "
+KW_MODULEOF 20..28 "moduleof"
+WHITESPACE 28..29 " "
+IDENT 29..38 "someLocal"
+SEMICOLON 38..39 ";"
+WHITESPACE 39..40 "\n"
+IDENT 40..49 "moduleofx"
+WHITESPACE 49..50 " "
+IDENT 50..57 "moduleo"
+WHITESPACE 57..58 " "
+IDENT 58..69 "premoduleof"
+SEMICOLON 69..70 ";"
+WHITESPACE 70..71 "\n"
+KW_IMPORT 71..77 "import"
+WHITESPACE 77..78 " "
+KW_MODULEOF 78..86 "moduleof"
+DOT 86..87 "."
+IDENT 87..88 "x"
+SEMICOLON 88..89 ";"
+WHITESPACE 89..90 "\n"

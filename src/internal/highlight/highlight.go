@@ -123,6 +123,7 @@ var classes = map[token.Kind]string{
 	token.KwAs:        classKeyword,
 	token.KwApply:     classKeyword,
 	token.KwDeclared:  classKeyword,
+	token.KwModuleof:  classKeyword,
 	token.KwUse:       classKeyword,
 
 	token.KwTrue:      classConst,

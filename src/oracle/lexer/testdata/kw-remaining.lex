@@ -1,4 +1,4 @@
-enum error capability attribute test export import defer by try catch throw copy spawn await comptime comptype is as apply declared use
+enum error capability attribute test export import defer by try catch throw copy spawn await comptime comptype is as apply declared moduleof use
 ---
 KW_ENUM 0..4 "enum"
 WHITESPACE 4..5 " "
@@ -42,5 +42,7 @@ KW_APPLY 117..122 "apply"
 WHITESPACE 122..123 " "
 KW_DECLARED 123..131 "declared"
 WHITESPACE 131..132 " "
-KW_USE 132..135 "use"
-WHITESPACE 135..136 "\n"
+KW_MODULEOF 132..140 "moduleof"
+WHITESPACE 140..141 " "
+KW_USE 141..144 "use"
+WHITESPACE 144..145 "\n"

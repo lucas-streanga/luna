@@ -55,6 +55,7 @@ var keywords = map[string]token.Kind{
 	"as":         token.KwAs,
 	"apply":      token.KwApply,
 	"declared":   token.KwDeclared,
+	"moduleof":   token.KwModuleof,
 	"use":        token.KwUse,
 	"true":       token.KwTrue,
 	"false":      token.KwFalse,
