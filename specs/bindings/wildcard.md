@@ -40,7 +40,7 @@ referred back to.
 no binding to assign to); it borrows assignment syntax to express "run this for its
 effects, drop its value."
 
-```
+```luna
 _ = someFunc();     // call someFunc, explicitly ignore what it returns
 ```
 
@@ -60,9 +60,9 @@ a declaration.
 In a call, `_` marks an **open argument**, producing a function of the remaining
 parameters. It is **sugar for a lambda** (functions spec §6), never new functionality:
 
-```
-add(5, _)                 // sugar for: fn (x) => add(5, x)
-f(_, 5, _)                // sugar for: fn (a, c) => f(a, 5, c)
+```luna
+let add5 = add(5, _);     // sugar for: fn (x) => add(5, x)
+let g    = f(_, 5, _);    // sugar for: fn (a, c) => f(a, 5, c)
 ```
 
 The non-blank arguments are fixed (captured by value, per the function capture rules); each
@@ -82,7 +82,7 @@ partial application. The two are syntactically distinct, so there is no ambiguit
 In a `match`, `_` is the **match-anything pattern**. It matches any value and binds
 nothing, so it is the catch-all / default arm:
 
-```
+```luna
 let label = match (value) {
   0  => 'zero',
   1  => 'one',
@@ -106,7 +106,7 @@ In a parameter list, `_` declares a **parameter that exists but is not used**. T
 parameter still occupies its position (so later parameters line up with the caller's
 arguments), but it is not named and cannot be referenced in the body:
 
-```
+```luna
 xs.reduce(fn (_, item) => item);         // want each item, not the running carry
 ```
 
@@ -122,7 +122,7 @@ parameters are each independent unused slots: `fn (_, _, z) => z`.
 In a destructuring binding, `_` **skips a position**: the value at that position is not
 bound to any name.
 
-```
+```luna
 let [first, _, third] = triple;      // bind positions 0 and 2, skip position 1
 ```
 

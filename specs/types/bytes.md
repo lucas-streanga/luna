@@ -55,7 +55,7 @@ apply to elements directly; no distinct byte type is needed (§6).
 Indexing follows the global `.`/`[]` rule (tables §3), but `bytes` has no static string keys,
 so access is by integer offset with `[]`:
 
-```
+```luna
 let b: bytes = [];        // empty buffer
 b[] = 65;                 // append: b is now [65], length 1
 b[0] = 66;                // in-bounds modify: b is now [66]
@@ -75,8 +75,8 @@ gapping. `bytes` rejects (except append-at-end); explicit growth is `fill`.
 
 ### 3.1 `fill`: deliberate growth
 
-```
-fn fill(b: bytes, length: int, value: byte = 0): bytes    // grow to `length`, new octets set to `value`
+```luna
+const fill = fn (b: bytes, length: int, value: byte = 0): bytes => {};    // grow to `length`, new octets set to `value`
 ```
 
 `fill` grows the buffer to `length`, setting any newly added octets to `value` (zero by
@@ -88,10 +88,10 @@ default). This is the **explicit** way to extend a buffer, replacing the rejecte
 
 ## 4. Slicing and conversion
 
-```
-fn slice(b: bytes, start: int, end: int): bytes          // a sub-buffer b[start:end], end excluded
-fn toList(b: bytes): list                                 // a list of int (0..255); COPIES and expands
-fn cString(b: bytes): bytes                               // ensure a trailing NUL (0x00); for FFI
+```luna
+const slice = fn (b: bytes, start: int, end: int): bytes => {};          // a sub-buffer b[start:end], end excluded
+const toList = fn (b: bytes): list => {};                                 // a list of int (0..255); COPIES and expands
+const cString = fn (b: bytes): bytes => {};                               // ensure a trailing NUL (0x00); for FFI
 ```
 
 - **Slicing** `b[start:end]` (or `slice`) returns a **`bytes`** sub-buffer — **half-open**,
@@ -117,8 +117,8 @@ Converting `bytes` to `string` is **fallible**, because arbitrary octets are not
 valid UTF-8. So it is a **function returning `string!`**, not a total `toString` and not an
 `as` narrowing (`as` never runs conversions, `as` spec §3):
 
-```
-fn fromBytes(b: bytes): string!        // string.fromBytes: validates UTF-8, throws if invalid
+```luna
+const fromBytes = fn (b: bytes): string! => {};        // string.fromBytes: validates UTF-8, throws if invalid
 ```
 
 `string.fromBytes(b)` validates the octets as UTF-8 and returns a `string`, or throws a
@@ -157,7 +157,7 @@ would (§2). No new scalar type.
 A `bytes` value can be written literally with the **`b` prefix** on a quote, `b"..."` or
 `b'...'` (the quote style does not matter, since a bytes literal does not interpolate):
 
-```
+```luna
 let sig    = b"\x89PNG\r\n";      // the PNG signature: raw octets via \xNN plus text
 let method = b"GET ";              // ASCII text as bytes
 let empty  = b"";                  // the empty bytes
@@ -165,8 +165,12 @@ let empty  = b"";                  // the empty bytes
 
 - **The value is the UTF-8 octets of the enclosed text**, as a **compile-time constant**
   `bytes`. `b"GET "` is the four octets `71 69 84 32`, known at parse time.
+- **A bytes literal may not span lines** (R244, lexer §4): a raw newline ends it and raises
+  `L0009`. Write `\n` — or `\x0a`, the two being the same octet here.
 - **Escapes** are the shared string escapes **plus `\xNN`**, a raw hex octet — the
-  authoritative table is string §5.1 (R150). `\xNN` is **bytes-only by ruling**: a raw
+  authoritative table is string §5.1 (R150). **Exactly two hex digits**, checked by the
+  lexer: `\x`, `\x8`, and `\xZZ` are `L0016` (R248). In a *string* the same `\x` is `L0005`
+  instead, the escape being absent from that row rather than misspelled here. `\xNN` is **bytes-only by ruling**: a raw
   byte in a *string* could break the UTF-8 validity guaranteed at ingress, but bytes have
   no validity to break — so `b"..."` covers both "text as bytes" and "arbitrary raw
   octets" in one form (no `\$` — no interpolation — and no `\u{}`; a codepoint's octets

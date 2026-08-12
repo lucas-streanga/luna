@@ -24,8 +24,8 @@ the former `onNoGet` / `onNoSet` enums are retired for good (R98, retired/table-
 ## 1. Keyed introspection
 
 #### has()
-```
-fn has(tab: table, key: any): bool
+```luna
+const has = fn (tab: table, key: any): bool => {};
 ```
 **O(1).** Key presence. Distinct from `exists` (iterable-functions §2.3), which defaults to
 an O(n) value scan.
@@ -35,14 +35,14 @@ are fully accessible to their holder, and protocol-member grants are compile-tim
 assertions, protocols §3.1. `has` covers the remaining question, presence.)
 
 #### isList()
-```
-fn isList(tab: table): bool
+```luna
+const isList = fn (tab: table): bool => {};
 ```
 **O(1).** True iff the table is a list, incrementing `int` keys from 0.
 
 #### isContiguousMemory()
-```
-fn isContiguousMemory(tab: table): bool
+```luna
+const isContiguousMemory = fn (tab: table): bool => {};
 ```
 **O(1).** True iff stored contiguously. Any string key ⇒ false.
 
@@ -68,43 +68,43 @@ no permissions and no seal (tables §5, §6 — R98, R109). Removers return the 
 table (tables §4.1) — read the element first (`last()`, `first()`), then shrink.
 
 #### slice()
-```
-fn slice(tab: table, offset: any, length: int = 0, preserveKeys: bool = true): table
+```luna
+const slice = fn (tab: table, offset: any, length: int = 0, preserveKeys: bool = true): table => {};
 ```
 **O(n).** A subsection starting at key `offset` for `length` elements. `preserveKeys =
 false` reindexes from 0. The keyed `offset` is what makes this indexable; the
 traversal-order cuts are `take` / `skip` (iterable-functions §2.6).
 
 #### splice()
-```
-fn splice(tab: table, offset: any, length: int = 0, replacement: table = []): table
+```luna
+const splice = fn (tab: table, offset: any, length: int = 0, replacement: table = []): table => {};
 ```
 **O(n).** Removes a section and substitutes `replacement`.
 
 #### insert()
-```
-fn insert(tab: table, key: any, value: any): table
+```luna
+const insert = fn (tab: table, key: any, value: any): table => {};
 ```
 **O(n).** Inserts `value` at `key`, shifting subsequent list elements. Sugar over `splice`.
 
 #### pad()
-```
-fn pad(tab: table, size: int, value: any): table
+```luna
+const pad = fn (tab: table, size: int, value: any): table => {};
 ```
 **O(n).** Grows the table to `size` elements with `value`. Negative `size` pads the front.
 
 #### fill()
-```
-fn fill(tab: table, keys: iterable, value: any): table
+```luna
+const fill = fn (tab: table, keys: iterable, value: any): table => {};
 ```
 **O(n).** Sets `value` for each key in `keys` — only the *values* of `keys` are used, so
 `keys` may be a stream such as `0..10` (and is taken, iterable-functions §1.5). The primary
 is written by key, which is what makes `fill` indexable.
 
 #### pop() · shift()
-```
-fn pop(tab: table): table
-fn shift(tab: table): table
+```luna
+const pop = fn (tab: table): table => {};
+const shift = fn (tab: table): table => {};
 ```
 **pop O(1) · shift O(1) / O(n).** Remove the last / first element; read it via `last()` /
 `first()` beforehand. `shift` is O(1) unless a list must be internally converted. (On a
@@ -112,14 +112,14 @@ stream, the same shapes are traversal: `skip(1)` for the front; the back require
 consumption.)
 
 #### unset()
-```
-fn unset(tab: table, key: any): table
+```luna
+const unset = fn (tab: table, key: any): table => {};
 ```
 **O(1) / O(n).** Removes `key`. O(1) for hashmap storage; O(n) if a list must reindex.
 
 #### clear()
-```
-fn clear(tab: table): table
+```luna
+const clear = fn (tab: table): table => {};
 ```
 **O(1).** Empties the table.
 
@@ -136,11 +136,11 @@ escapes this rule is `random` (reservoir sampling, bounded memory), which is ite
 retained data from a stream by hand.
 
 #### sort()
-```
-fn sort(tab: table,
-        mode: enum {values, keys, keyThenValue, valueThenKey} = {values},
-        order: enum {ascending, descending} = {ascending},
-        compareFn?, combineFn?): table
+```luna
+const sort = fn (tab: table,
+                 mode: enum {values, keys, keyThenValue, valueThenKey} = {values},
+                 order: enum {ascending, descending} = {ascending},
+                 compareFn?, combineFn?): table => {};
 ```
 **O(n·log n).** Quicksort. `mode` selects the sort operand; `keyThenValue` / `valueThenKey`
 stand in place of `both` (sorting needs a primary key and a tiebreak; an unordered pair is
@@ -148,31 +148,31 @@ undefined for it) and combine key and value via `combineFn`, or `+` if unset. `c
 (`fn(a, b): int`, negative, zero, or positive) overrides the default comparison.
 
 #### reverse()
-```
-fn reverse(tab: table): table
+```luna
+const reverse = fn (tab: table): table => {};
 ```
 **O(n).** Reverses element order.
 
 #### shuffle()
-```
-fn shuffle(tab: table, rng: stream): table
+```luna
+const shuffle = fn (tab: table, rng: stream): table => {};
 ```
 **O(n).** Randomizes order, drawing from **`rng`** — required (std.random §5, R139;
 the old optional `randFn?` was unsound and fn-shaped PRNGs are unimplementable).
 
 #### groupBy()
-```
-fn groupBy(tab: table, keyFn?, mode: enum {values, keys, both} = {values},
-           preserveKeys: bool = true): table
+```luna
+const groupBy = fn (tab: table, keyFn?, mode: enum {values, keys, both} = {values},
+                    preserveKeys: bool = true): table => {};
 ```
 **O(n).** Groups elements into `groupKey => table-of-members`. `keyFn` (`fn(value): any`)
 computes each element's group; with it omitted, groups by value. `mode` follows the
 callback-transform family (iterable-functions §1.7).
 
 #### partition()
-```
-fn partition(tab: table, predicateFn: fn, mode: enum {values, keys, both} = {values},
-             preserveKeys: bool = true): table
+```luna
+const partition = fn (tab: table, predicateFn: fn, mode: enum {values, keys, both} = {values},
+                      preserveKeys: bool = true): table => {};
 ```
 **O(n).** Splits into `[passed, failed]` by `predicateFn` (`fn(value): bool`).
 

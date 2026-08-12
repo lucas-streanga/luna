@@ -9,7 +9,7 @@ literal, interpolation, and `pipe()` pipelines (R146) — is the built-in `comma
 (types/command.md): **built-in type, std-module effect**, the same shape as
 `secret`/`revealSecret` (R172).
 
-```
+```luna
 import { exec, run, capture } from std.exec;   // the capability travels by name
 ```
 
@@ -27,7 +27,7 @@ with its own capability, exactly as the backend splits `os` from `os/exec`.
 
 ## 1. Execution is a capability
 
-```
+```luna
 export const exec = capability;
 ```
 
@@ -55,7 +55,7 @@ of the program: user code wraps a credential with `secret(...)`, passes the comm
 (redacted in every log and error), and the runner reveals it once, at the syscall, so the
 raw value never appears in user-visible output.
 
-```
+```luna
 const countLines = fn (path: string) use (exec): int! => {
   let out = try run(`wc -l ${path}`);
   return parseFirstInt(out);
@@ -66,8 +66,8 @@ const countLines = fn (path: string) use (exec): int! => {
 
 ## 2. `run`: stdout, or throw on failure
 
-```
-fn run(cmd: command) use (exec): string!
+```luna
+const run = fn (cmd: command) use (exec): string! => {};
 ```
 
 `run` executes `cmd`, and:
@@ -83,7 +83,7 @@ failed command impossible to ignore, because failure propagates as an error rath
 sitting in a return value to be checked (contrast the `$?`-inspection footgun of shell
 scripts).
 
-```
+```luna
 let files = try run(`ls ${dir}`);     // stdout, or the thrown commandError propagates
 ```
 
@@ -96,15 +96,15 @@ exit code *without* a throw, use `capture` (§3), which is the form that surface
 
 ## 3. `capture`: the full result, never throwing on non-zero
 
-```
-fn capture(cmd: command) use (exec): @commandResult!
+```luna
+const capture = fn (cmd: command) use (exec): @commandResult! => {};
 ```
 
 `capture` executes `cmd` and returns a **result value** describing what happened, **without
 throwing on a non-zero exit**. The result is a table wearing the `commandResult` protocol —
 the R135 `@fileInfo` pattern, a typed read-only record:
 
-```
+```luna
 export const commandResult = proto {
   const get stdout:   string;    // captured standard output
   const get stderr:   string;    // captured standard error
@@ -117,7 +117,7 @@ for "no match", `diff` exits 1 for "files differ", `test` exits 1 for "false". U
 those would throw for an ordinary, expected outcome; `capture` hands back the exit code so
 the caller decides what it means:
 
-```
+```luna
 let r = try capture(`grep ${pattern} ${file}`);
 matched(r->stdout)   if (r->exitCode == 0);      // 0: found
 noMatch()            if (r->exitCode == 1);      // 1: no match (not an error)
@@ -151,8 +151,8 @@ failed `run` from being silently ignored.
 A command or pipeline fails when any stage exits non-zero (for `run`) or cannot be spawned
 (for either function). Failure is a `commandError`, a declarable error type (errors §4):
 
-```
-commandError = error {
+```luna
+const commandError = error {
   stage:    command;     // which stage of the pipeline failed
   exitCode: int;         // that stage's non-zero exit status
   stderr:   string;      // that stage's captured standard error

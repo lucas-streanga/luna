@@ -60,11 +60,11 @@ operand (`someDouble as complex`, §4). The tower's uniform stance, as everywher
 
 ## 3. Accessors
 
-```
-fn real(z: complex): double         // total, exact: the real component
-fn imag(z: complex): double         // total, exact: the imaginary component
-fn conj(z: complex): complex        // total, exact: a - bi (flips the imaginary sign)
-fn magnitude(z: complex): double    // total: |z| = √(a² + b²), computed hypot-style
+```luna
+const real = fn (z: complex): double => {};         // total, exact: the real component
+const imag = fn (z: complex): double => {};         // total, exact: the imaginary component
+const conj = fn (z: complex): complex => {};        // total, exact: a - bi (flips the imaginary sign)
+const magnitude = fn (z: complex): double => {};    // total: |z| = √(a² + b²), computed hypot-style
 ```
 
 - `real` and `imag` are the exits from the type: **there is no `complex as double`**

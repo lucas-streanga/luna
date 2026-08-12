@@ -5,7 +5,7 @@ condition), and a conditional, `if`. There is no C-style `for`: it is redundant,
 are lazy streams (range spec), so a counted loop is `foreach` over a range. Every control-flow
 construct has both a **block** form and a **postfix** form, so one-liners read naturally.
 
-```
+```luna
 foreach (v in xs) { use(v); }        // block
 use(v) foreach (v in xs);             // postfix (one-liner)
 
@@ -40,7 +40,7 @@ which-nests-which trap, and the block forms exist for exactly that.
 which is checked narrowing and would be a different meaning, as spec; `in` reads as ordinary
 iteration and conflicts with nothing):
 
-```
+```luna
 foreach (v in xs)        { use(v); }         // value only
 foreach (k => v in xs)   { use(k, v); }       // key and value
 ```
@@ -79,7 +79,7 @@ in a way that affects the next; each iteration gets its own).
 The value (or key) binding position may **destructure** (destructuring spec), so iterating a
 collection of structured elements binds their parts directly:
 
-```
+```luna
 foreach ([x, y] in points)        { plot(x, y); }        // each element is a [x, y] list
 foreach (k => [lo, hi] in ranges) { span(k, lo, hi); }    // value destructured
 ```
@@ -94,7 +94,7 @@ rules (exact-length lists, partial keyed, `...rest`) are the destructuring spec'
 `while` evaluates a **`bool`** condition (no truthiness, bool spec) and runs its body while the
 condition holds:
 
-```
+```luna
 while (queue.isEmpty() == false) { handle(queue.pop()); }
 ```
 
@@ -134,7 +134,7 @@ intervening loop is added; a label (when introduced) says what it means and surv
 Every control-flow construct has a **postfix** form: a single statement followed by a trailing
 control clause, which desugars to the block form wrapping that one statement.
 
-```
+```luna
 use(v)   foreach (v in xs);      // desugars to: foreach (v in xs) { use(v); }
 step()   while (more());          // desugars to: while (more()) { step(); }
 warn()   if (bad);                // desugars to: if (bad) { warn(); }

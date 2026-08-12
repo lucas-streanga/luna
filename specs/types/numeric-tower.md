@@ -93,7 +93,7 @@ floats.
 
 ### 1.4 Arbitrary-precision and exact (built-in, heap-backed)
 
-```
+```text
 decimal       // arbitrary-precision base-10 (exact decimal fractions)
 rational      // exact fraction (a pair of integers, kept reduced)
 complex       // a pair of doubles (real, imaginary)
@@ -137,10 +137,10 @@ machinery is written from scratch.
 In an expression combining two values of the **same family** but different widths, the result takes
 the **widest** operand's type, and the narrower operand widens implicitly (losslessly):
 
-```
-someI8 + someI32       // i32   (the i8 widens to i32)
-someU16 + someUint     // uint  (the u16 widens to uint)
-someFloat + someDouble // double (the float widens to double, losslessly)
+```luna
+_ = someI8 + someI32;       // i32   (the i8 widens to i32)
+_ = someU16 + someUint;     // uint  (the u16 widens to uint)
+_ = someFloat + someDouble; // double (the float widens to double, losslessly)
 ```
 
 This is safe because within-family widening loses no information (a subset relation for integers, a
@@ -157,12 +157,12 @@ rounded result is a computed new value, which is never `as` (as spec §3, R124).
 Between families, there is **no implicit conversion**; you convert with an explicit function
 (conversion spec):
 
-```
-someInt + someDouble          // ERROR: different families, no implicit crossing
-someInt.toDouble() + someDouble   // OK: explicit widening to double, then double arithmetic
+```luna
+_ = someInt + someDouble;            // ERROR: different families, no implicit crossing
+_ = someInt.toDouble() + someDouble; // OK: explicit widening to double, then double arithmetic
 
-someInt + someUint            // ERROR: signed and unsigned are different families
-someInt.toUint() + someUint   // OK: explicit (and checked: a negative int cannot become uint)
+_ = someInt + someUint;              // ERROR: signed and unsigned are different families
+_ = someInt.toUint() + someUint;     // OK: explicit (and checked: a negative int cannot become uint)
 ```
 
 The families that require explicit crossing are: **signed integers, unsigned integers, floats, and
@@ -310,13 +310,16 @@ Nothing here is open: three questions are resolved, and the two remainders are
   held in **canonical form as an invariant** (reduced, denominator positive), which
   makes equality structural and `1/2`-vs-`2/4` unrepresentable. There is still no
   user-facing `bigint`; the bignum stays internal, with two public faces.)*
-- **Literals for the wider types — deferred** (R216). Whether `decimal` and the
-  unsigned/float types ever get literal forms (suffixes, or context-driven) rides the
-  literal grammar, and the deferral is cheap because the standing answer already covers
-  the need: **the comptime-folded constructor is the literal story** (R161's own ruling,
+- **Literals for the wider types — deferral reaffirmed, not spent** (R216, reaffirmed R238).
+  This rode "the literal grammar", and the literal grammar has now been ruled (lexer §4)
+  **without** adding a suffix or a context-driven form, so the standing answer stands
+  unchanged: **the comptime-folded constructor is the literal story** (R161's own ruling,
   applied three times since — `parseDecimal("19.99")`, `parseRational("1/3")`,
   `complex(3.0, -4.0)` all fold at build time). A dedicated suffix would buy spelling,
-  not capability; it waits until it earns grammar.
+  not capability; it waits until it earns grammar, and may still be considered later.
+  One consequence is now load-bearing elsewhere: because no wider-type literal exists,
+  **every integer literal is an `int`**, which is exactly what lets a too-large literal be
+  diagnosed in parsing with no type information (int §7, R238).
 - **Bit operations — deferred** (R216). Bitwise `and`/`or`/`xor`/`not` and shifts on the
   integer types (arithmetic vs logical shift, shift-amount edges) wait for the bitwise
   spec as a whole (int §8, operators §0.4): the natural tokens `&` and `|` are spoken

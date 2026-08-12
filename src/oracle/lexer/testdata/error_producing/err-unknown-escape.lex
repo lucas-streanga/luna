@@ -1,0 +1,45 @@
+let a = "\q";
+let b = '\n';
+let c = b"\u{41}";
+let d = `\n`;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "a"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+STRING_DQ 8..12 "\"\\q\""
+!L0005 9..11
+SEMICOLON 12..13 ";"
+WHITESPACE 13..14 "\n"
+KW_LET 14..17 "let"
+WHITESPACE 17..18 " "
+IDENT 18..19 "b"
+WHITESPACE 19..20 " "
+ASSIGN 20..21 "="
+WHITESPACE 21..22 " "
+STRING_SQ 22..26 "'\\n'"
+!L0005 23..25
+SEMICOLON 26..27 ";"
+WHITESPACE 27..28 "\n"
+KW_LET 28..31 "let"
+WHITESPACE 31..32 " "
+IDENT 32..33 "c"
+WHITESPACE 33..34 " "
+ASSIGN 34..35 "="
+WHITESPACE 35..36 " "
+BYTES 36..45 "b\"\\u{41}\""
+!L0005 38..40
+SEMICOLON 45..46 ";"
+WHITESPACE 46..47 "\n"
+KW_LET 47..50 "let"
+WHITESPACE 50..51 " "
+IDENT 51..52 "d"
+WHITESPACE 52..53 " "
+ASSIGN 53..54 "="
+WHITESPACE 54..55 " "
+COMMAND 55..59 "`\\n`"
+!L0005 56..58
+SEMICOLON 59..60 ";"
+WHITESPACE 60..61 "\n"

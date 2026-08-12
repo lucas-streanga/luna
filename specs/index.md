@@ -50,13 +50,14 @@ section, and `_` because this match chooses to be exhaustive. First matching arm
 bottom.
 
 The intended distribution is a single `luna` binary that is the whole toolchain, runner, compiler,
-formatter, and language server, and a static library for embedding. No implementation exists yet;
-this repository is the language's design.
+formatter, and language server, and a static library for embedding. The Go toolchain that compiles
+the emitted source ships **inside** that binary (R233, compiler §0.1), so installing Luna never
+means installing Go. No implementation exists yet; this repository is the language's design.
 
 ## Backend
 
-Luna compiles to **Go source**, which the Go toolchain then compiles to a native binary. Go is the
-chosen backend because:
+Luna compiles to **Go source**, which a bundled, pinned Go toolchain then compiles to a native
+binary. Go is the chosen backend because:
 
 - Its semantics are close enough to Luna's that little is lost in translation.
 - It is a well-performing language with a high-quality garbage collector, which Luna uses directly.
@@ -74,7 +75,8 @@ $ luna myprogram.luna
 ```
 
 Runs the program. Imports are filesystem-based, so one file may pull in many Luna modules. Build
-artifacts are cached under `$HOME/.lunalang/`, and rebuilds are incremental, so after the first run
+artifacts are cached under `$HOME/.lunalang/` — the bundled Go toolchain's own build cache included,
+so one directory holds everything (R233) — and rebuilds are incremental, so after the first run
 there is no start-up cost, which is what keeps direct execution scripting-fast.
 
 ```
@@ -120,7 +122,7 @@ table is a map.
 | String | `string.md` | The immutable UTF-8 `string` type: binding, the units doctrine, no concat operator, the builder's place, interpolation + the R150 escape table. |
 | String API | `string-api.md` | The function catalogue over `string`: construction, search, slicing, transformation, splitting, views, C-interop. |
 | Bytes | `bytes.md` | The packed, mutable, growable byte buffer type. |
-| Regex | `regex.md` | The compiled regular-expression type and its `/.../` literal. |
+| Regex | `regex.md` | The compiled regular-expression type and its `~"…"` literal (R237). |
 | Command | `command.md` | The structured, inert program/pipeline type built from a backtick literal. |
 | Secret | `secret.md` | The self-redacting sensitive-payload type, read only via `reveal`. |
 | Type | `type.md` | The `type` type: a type as a first-class, comparable value. |
@@ -174,7 +176,7 @@ table is a map.
 | Examples | `examples/` | Worked programs: the one-billion-row challenge, log scanning, serialization, testing. |
 | Tests | `tests.md` | The `test` declaration, the runner, isolation via tasks, the capability-shaped test table. |
 | Await | `await.md` | Collecting a task: parking, move-out results, consumed promises, cancellation deferred. |
-| Associativity | `associativity.md` | Precedence and associativity: the expression and type grammars, word-prefix binding, resolved drift, parser-blocking questions. |
+| Associativity | `associativity.md` | The two binding tables the parser implements — expression tiers and type-position tiers — word-prefix binding, and the positional rules that decide which table applies. |
 | std.introspection | `introspection.md` | The introspection module (R127): principles, the two query tiers, `comptype`; capability-free by theorem. |
 | std.io | `io.md` | The first standard module: the `io` capability, files, printing, streams. |
 | std.json | `json.md` | The `json` type, `toJson` / `toJsonDynamic`, `fromJson`. |

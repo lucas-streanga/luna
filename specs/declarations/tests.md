@@ -7,7 +7,7 @@ throws for failure, capabilities for effects.
 
 ## 1. The `test` declaration
 
-```
+```luna
 test 'validate the lexer works' {
   let toks = lex("let x = 1;");
   throw error('wrong count') if (toks.count() != 5);
@@ -49,7 +49,7 @@ behavior, not new mechanism.
 
 The runner **spawns each test as a task** and awaits the promises:
 
-```
+```luna
 // the runner, morally:
 foreach (t in <tests>) { promises->push(spawn t()); }
 foreach (name => p in promises) { results[name] = try await p; }
@@ -70,8 +70,8 @@ exposes a **`const` table** for programmatic access, `std.test`'s `tests`, keyed
 and **every test gets a callable `run`** (function values are first-class, carrying their
 requirement set on the value, capabilities §3.1, R39):
 
-```
-tests['reads the fixture file']
+```luna
+_ = tests['reads the fixture file'];
 // ['name' => 'reads the fixture file', 'requirements' => [io], 'run' => fn (): undefined!]
 
 _ = try tests['reads the fixture file'].run();   // legal anywhere; the call checks the

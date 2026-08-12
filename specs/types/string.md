@@ -70,7 +70,7 @@ The builder is realized as a table with the applied `stringBuilder` protocol (an
 table whose growable buffer is an ungranted per-table protocol member), so its operations
 are protocol functions reached with `->`:
 
-```
+```luna
 var b = builder();
 &b->append("Hello, ")->append(name)->append("!");   // chainable; & writes back
 let greeting = b->build();                           // immutable string
@@ -121,7 +121,32 @@ their shared rows):
 | `'…'` single-quoted string | `\'` `\\` only (above — literal strings stay literal) |
 | `b"…"` bytes literal | `\n` `\t` `\r` `\\` `\"` `\xNN` (one raw byte) — no `\$` (no interpolation), no `\u{}` (bytes §7) |
 | `` `…` `` command literal | `` \` `` `\\` `\$` |
-| `/…/` regex literal | the regex spec's own escape language (`\/` plus RE2's), passed through undecoded (regex §2) |
+| `~"…"` regex literal | the regex spec's own escape language (RE2's), passed through undecoded; Luna decodes exactly one escape, `\"`, so a quote can appear inside the delimiters (regex §2, R237) |
+
+**A backslash-newline is not an escape pair** (R244, R246). A raw newline ends a single-quote
+or double-quote string literal — and bytes and command literals with them — so a trailing `\`
+cannot carry the literal onto the next line; the newline raises `L0009` with its caret on the
+opening quote. That holds inside `"""` too, where `\<newline>` is an unknown escape rather
+than a line continuation (`L0005`): `\n` already spells the intent, and leaving it an error
+keeps the continuation addable later without breaking anything.
+
+**Multi-line text has its own forms** (R246, lexer §4): `"""…"""`, which is a double-quoted
+string with more lines — same escape table, same interpolation — and `'''…'''`, which is raw:
+no escapes at all, no interpolation, `\` and `$` ordinary bytes. Both strip a **margin**, the
+closing delimiter's indentation, from every content line; `"""` also strips each line's
+trailing whitespace, where `'''` preserves it, which is what makes `'''` the form for
+whitespace-sensitive content.
+
+That split reaches line endings too (R249). A CRLF's `\r` is trailing whitespace, so `"""`
+strips it and a value reads the same however the file was checked out, while `'''` keeps it
+and the value differs between a CRLF and an LF checkout. **Raw means raw**: the guarantee
+`'''` makes is one sentence — every byte between the delimiters, minus the margin — and
+"every byte except a `\r` before a newline" would not be, would be invisible in the source,
+and would leave no way to write a literal CRLF. So the obligation sits with the repository,
+which pins line endings in `.gitattributes` as it would for any byte-exact fixture; `"""` is
+the right default for text that should not vary by checkout. `'''` needs no escapes because the closer must begin its line,
+so a mid-line `'''` is ordinary content and the containment problem `\'` solves for `'…'`
+does not arise.
 
 Three rules, each ruled (R150):
 
@@ -129,9 +154,25 @@ Three rules, each ruled (R150):
   taste**: a raw byte in a *string* could break the UTF-8 validity guaranteed at
   ingress (lexical-structure §1 — a lone `\xFF` is not valid UTF-8), so `\xNN` is
   **bytes-only**, while `\u{…}` encodes a codepoint to valid UTF-8 *by construction*.
-  Surrogates (`\u{D800}`–`\u{DFFF}`) and values above `\u{10FFFF}` are lex errors.
-  Without `\u{…}`, control and invisible characters would be unwritable in strings,
-  since the raw-byte door is (correctly) closed.
+  Surrogates (`\u{D800}`–`\u{DFFF}`) and values above `\u{10FFFF}` are lex errors
+  (`L0006`). Without `\u{…}`, control and invisible characters would be unwritable in
+  strings, since the raw-byte door is (correctly) closed. **Malformed is a separate
+  error from invalid** (`L0013`, R245): `\u{D800}` is well formed and names a scalar
+  that does not exist, where `\u`, `\u{}`, `\u{XYZ}`, and `\u{41` are not escapes at
+  all. Two mistakes, two fixes, two messages — and the split is what lets the lexer
+  make the token cover the escape's whole extent (lexer §0).
+**The check is staged, and the lexer runs it** (R248, closing R243's open question). Three
+questions about one backslash pair, in order, each reachable only by passing the one before:
+**is the escape character in this context's row?** — if not, `L0005`, which covers `\q` and
+also a legal-looking escape in the wrong literal, `'\n'` or `b"\u{41}"`; **is its shape well
+formed?** — `\u{…}` wants one to six hex digits in braces (`L0013`), `\xNN` wants exactly two
+(`L0016`); **is its value legal?** — a surrogate or a value above `10FFFF` is `L0006`. The
+ordering is what keeps the codes disjoint: `\x` in a double-quoted string is `L0005` rather
+than `L0016`, `x` being absent from that row entirely. The regex row needs no check at all,
+its escapes passing through to RE2 undecoded. The lexer owns this because it alone knows the
+literal form, which is this table's key; the same table later answers "what is its value" for
+whoever decodes.
+
 - **An unknown escape is a lex error.** Any `\` followed by a character not in its
   context's row is a compile error — never PHP's silent pass-through (`"\q"` staying
   `\q`), which is a silent-wrong-value.

@@ -5,10 +5,10 @@ evaluates to a **`bool`**. It is total (it never panics), it never transforms th
 narrows the tested binding. It is the non-asserting counterpart to `as` (as spec): where `as`
 *asserts* a type and panics on mismatch, `is` merely *reports* the answer.
 
-```
+```luna
 const x: int | string = getIt();
-x is int        // true or false, a bool
-x is string     // the complement (for a two-member union)
+_ = x is int;    // true or false, a bool
+_ = x is string; // the complement (for a two-member union)
 ```
 
 ---
@@ -51,11 +51,11 @@ test is the **predicate over the base** (constraints §7); and for **`@P`** it i
 test, a value property never encoded in the typeid (type §5). One question — membership —
 answered by whichever mechanism the type's shape requires.
 
-```
-v is int              // primitive
-v is int | string     // union: true if v is either
-v is byte             // constraint: true if v is an int in 0..255
-v is @drawable        // protocol: true if v is a table with the applied drawable protocol
+```luna
+_ = v is int;          // primitive
+_ = v is int | string; // union: true if v is either
+_ = v is byte;         // constraint: true if v is an int in 0..255
+_ = v is @drawable;    // protocol: true if v is a table with the applied drawable protocol
 ```
 
 Because Luna's type universe is statically closed and each value carries its type
@@ -100,7 +100,7 @@ constraint's, and `is` adds no new surface.
 `is` is a **test only**. It does **not** change the type of the tested binding, not even inside a
 branch guarded by it:
 
-```
+```luna
 if (x is int) {
   foo(x);              // x still has its declared type here (e.g. int | string), NOT narrowed to int
 }
@@ -109,7 +109,7 @@ if (x is int) {
 To obtain a value of the tested type, produce a **new binding**, with `as` or a `match` arm (as spec
 §7):
 
-```
+```luna
 if (x is int) { const n = x as int; foo(n); }   // explicit
 match (x) { n: int => foo(n) }                    // idiomatic
 ```

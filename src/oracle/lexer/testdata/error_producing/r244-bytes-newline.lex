@@ -1,0 +1,31 @@
+let a = b"oops;
+let b = b'also;
+let c = 2;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "a"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+INVALID 8..15 "b\"oops;"
+!L0009 8..10
+WHITESPACE 15..16 "\n"
+KW_LET 16..19 "let"
+WHITESPACE 19..20 " "
+IDENT 20..21 "b"
+WHITESPACE 21..22 " "
+ASSIGN 22..23 "="
+WHITESPACE 23..24 " "
+INVALID 24..31 "b'also;"
+!L0009 24..26
+WHITESPACE 31..32 "\n"
+KW_LET 32..35 "let"
+WHITESPACE 35..36 " "
+IDENT 36..37 "c"
+WHITESPACE 37..38 " "
+ASSIGN 38..39 "="
+WHITESPACE 39..40 " "
+INT_DEC 40..41 "2"
+SEMICOLON 41..42 ";"
+WHITESPACE 42..43 "\n"

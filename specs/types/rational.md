@@ -51,11 +51,11 @@ mixed-family arithmetic — `r + 1` is a compile error; construct the operand
 
 The two exact types interconvert with no silent loss in either direction:
 
-```
-fn toRational(d: decimal): rational                    // total and exact, always
-fn exactDecimal(r: rational): decimal!                 // exact, or an error
-fn toDecimal(r: rational, scale: int,
-             rounding: roundingMode = {halfEven}): decimal   // total: every rational rounds
+```luna
+const toRational = fn (d: decimal): rational => {};                    // total and exact, always
+const exactDecimal = fn (r: rational): decimal! => {};                 // exact, or an error
+const toDecimal = fn (r: rational, scale: int,
+                      rounding: roundingMode = {halfEven}): decimal => {};   // total: every rational rounds
 ```
 
 - **`toRational` is total and exact** — a decimal already *is* rational-shaped

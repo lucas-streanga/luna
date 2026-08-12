@@ -5931,6 +5931,2047 @@ enumerated under the first. Also verified, no change needed: §3.2's
 recorded rejection), and §5's `var x?: T = null` is the ruled optional
 spelling (variables §1.2). Swept: `undefined.md` (§1, §7 → Resolved).
 
+**R232 — lexer.md brought current: `gen` and `yield from` land, `meta` and
+`from` leave, `get`/`set` ruled identifiers; the keyword count made honest.**
+The pre-implementation audit of lexer.md against its authorities found four
+rulings that never reached it — the token inventory is the first thing an
+implementation consumes, so the sweep debt came due. **In**: `KW_GEN`
+(`\bgen\b`, R221 — keywords.md §1 had the row, the lexer did not) and
+`KW_YIELD_FROM` (R223's compound token), pattern `\byield[ \t\r\n]+from\b`,
+attempted before `KW_YIELD` exactly as `KW_MATCH_BANG` precedes `KW_MATCH`;
+the two words separate by whitespace only, the regex normative — a comment
+between them defeats the fold — which is the lexical fact behind stream
+§1.5's parenthesize-to-bare-yield-`from` casualty. **Out**: `KW_META`
+(retired R96, its keywords.md row deleted in R99 — but R101's lexer sweep
+landed `?->` without removing the row, a missed site standing since) and
+`KW_FROM` with its "reserved everywhere" note (G1's first resolution,
+superseded by R223: `from` is unreserved, `IDENT` to the lexer, contextual
+to the import grammar; the lexer's G1 bullet now records both halves of the
+history). **Ruled here**: `get` / `set` — R99 added them to keywords §4 as
+contextual modifiers without fixing their lexing, and the lexer was silent;
+they follow the `panic` pattern, **identifiers, never reserved**, recognized
+positionally by the parser in proto member heads
+(`<const|let|var> [get] [set] name`), which keeps `get` and `set` usable as
+ordinary member and binding names. The alternative — reserving them like
+`in`/`by`/`self` — was rejected: those three sit where expressions do and
+must stay unbindable, while `get`/`set` occupy one closed declaration head
+where position already disambiguates, and reserving two catalogue-plausible
+names buys nothing. **The count**: §3 claimed "47 patterns" over a 49-row
+table; the inventory is now stated as 47 word-shaped keywords plus the two
+compound tokens, 49 in all, matching keywords.md §1–§4 exactly. Discovered
+in the same pass and fixed: operators.md's `yield` row predated R223 and
+showed only suspension — delegation added, with the §1.5 cite. Import,
+deliberately, gets **no** compound-token analogue: after a braced import
+list the from-clause is the only legal continuation, so the parser matches
+the identifier by spelling (the ECMAScript mechanism — `from` is unreserved
+there too), whereas `yield` is followed by an arbitrary expression, which is
+exactly why delegation alone needed the fold and carries the parenthesize
+casualty; the mechanism is now stated at the syntax it governs (modules §5).
+Not swept:
+the tooling grammars (shiki-luna.ts, the vscode tmLanguage, tree-sitter) —
+their keyword alternation is R85-era (`meta`, `from`, `view`; no `gen`) and
+stale across many rulings, not just these; derived artifacts, regenerated as
+a batch when the grammar is next published, not per-ruling. Swept:
+`lexer.md` (§3 intro, table, notes, §8 ordering, G1 bullet), `keywords.md`
+(§4 `get`/`set` row), `operators.md` (§0 yield row), `modules.md` (§5
+selective bullet).
+
+**R233 — the Go toolchain is bundled, not required: one pin serves as both
+build toolchain and emitted-`go.mod` floor, three components are dropped
+from the shipped bundle, and Go's build cache moves under
+`$HOME/.lunalang/`.** The implementation's first decision forced a spec
+question the corpus had left unstated: "the backend is Go source handed to
+the Go toolchain" (compiler §0) never said *whose* toolchain, and the answer
+decides whether installing Luna means installing Go. **It does not** — the
+pinned toolchain ships inside the `luna` binary. That is what makes the
+single-binary claim (index, "the whole toolchain, runner, compiler,
+formatter, and language server") true rather than nearly true, and it is the
+difference between a language that emits Go and a language whose users must
+know that it does. **The pin is dual-purpose**, which is what promotes it
+from packaging to design: it is simultaneously the toolchain that builds a
+program and the language floor of the single static `go.mod` the emitter
+writes (compiler §1.8), and because the toolchain travels with it that
+floor has **no user-facing version to negotiate** — nobody downstream can be
+too old. Pinned at **Go 1.26.5**, matching the sandbox that builds the
+compiler (claude-agent-plan §A.1), bumped deliberately, never by drift.
+**Licensing, checked rather than assumed**: Go is BSD-3-Clause, which
+permits redistribution in binary form inside a closed product, with an
+attribution notice in the accompanying materials and no endorsement implied
+— but a stock distribution ships **33 license files**, not one, and three
+components carry terms the rest do not. All three are **excluded from the
+bundle**: `cmd/vendor/github.com/google/pprof` (Apache-2.0, reachable only
+through `go tool pprof`), `crypto/internal/boring` (an
+OpenSSL/SSLeay/ISC/Intel-BSD composite whose SSLeay half carries the
+advertising clause, inert unless built with `GOEXPERIMENT=boringcrypto`),
+and the race detector's `.syso` blobs (built from LLVM `compiler-rt`, dual
+NCSA/MIT, and the one component Go ships with no license file beside it).
+None is reachable when emitting machine code, so each would attach an
+obligation to every `luna` distribution in exchange for code that never
+runs. The rejected alternative was **shipping the tarball intact**, and its
+argument is real and was weighed: an unmodified tree carries its own 33
+license files and satisfies the source-redistribution clause automatically,
+where a curated bundle must curate notices to match. It loses anyway,
+because the notice artifact is required either way — intactness buys
+convenience, not compliance — and convenience is a poor reason to ship an
+advertising clause and an unlicensed-in-tree binary blob. The exclusions are
+a *distribution* boundary, not a development one: the sandbox keeps all
+three, so testing-strategy §7's `-race` gate is untouched. **The consequence
+that reaches the cache**: current Go distributions ship **no precompiled
+standard library**, so the bundle must carry Go's `src/` (which R193's
+two-environment-variable cross-compilation needs regardless) and the first
+build on a user's machine compiles the standard-library packages it touches
+before anything is warm. That cost is paid once and cached — and the cache
+is **Luna's**, rooted under `$HOME/.lunalang/` rather than the user's
+default `GOCACHE`, so the two layers compiler §1.8 already composes are
+evicted by one owner; a bundled toolchain writing to a cache Luna does not
+own would leak build state the eviction model cannot see. Root only: the
+layout beneath it, and whether Go's cache ages out on the incremental
+spec's §4.2 schedule, stay open and are recorded there. **Not ruled here**,
+deliberately: the notice artifact's contents, and the trademark question
+(the Go marks may be retained on substantially unmodified redistribution,
+but the exclusions above make this bundle modified — a `trademark@go`
+question before any binary ships, not a spec question). Swept: `compiler.md`
+(§0.1 new bundled-toolchain paragraph, §1.8 assemble-and-build), `index.md`
+(distribution paragraph, Backend, Using the compiler),
+`incremental-compilation-build-cache.md` (intro, §5 open question).
+
+**R234 — Luna self-hosts, and that splits R192's one artifact in two: the
+comptime evaluator follows the compiler into Luna, the oracle stays Go,
+test-only and permanent, and the compiler may never import it.** The
+decision is to **self-host** — the production compiler written in Luna —
+taken for a reason stronger than dogfooding: testing-strategy §1 concedes
+that the alpha front-end is shared between oracle and backend and therefore
+*not* differential-tested, "closable later by an independent front-end," and
+a Luna-written front-end **is** that front-end. Self-hosting also puts the
+language's own performance on the critical path of every build, which is the
+point: the overflow-enforcement tax and the cost of tree-walking over tagged
+unions stop being speculation and become findings. **Bootstrap late, not
+early**, and the rejected alternative is recorded with its argument intact —
+bootstrapping early on a minimal subset, to avoid translating a large Go
+compiler later. It fails on its premise: nothing is ever *translated*,
+because the **spec** is the source of truth and the differential harness
+grades a from-scratch Luna implementation automatically, so the cost being
+avoided does not exist, while the cost incurred — every ruling applied to two
+implementations through the churn years — is real and recurring. It also
+fights itself, since a compiler written in a deliberately minimal subset
+dogfoods the subset, not the language. So: idiomatic full Luna, after the
+surface is frozen and std has grown what a compiler needs (filesystem, exec,
+process, a hash, platform — `claude-agent-plan` §F's "io, stringBuilder, and
+perhaps 1–2 others" is about a third of it). **Vocabulary, fixed before it
+collides**: this corpus already uses **self-hosted backend** for *native
+codegen replacing Go* (R170, string-representation §11.1), a different axis
+entirely. **Self-hosting** is the compiler being written in Luna, and it
+removes no Go whatever — the backend still emits Go source and R233 still
+bundles the Go toolchain. **The split.** R192 gave one artifact two duties.
+Self-hosting cannot hold both: the **evaluator** is a component of the
+compiler, in-process, producing values that land in the compiler's own IR and
+typetable, so it follows the compiler into Luna; the **oracle's** entire
+value is being an implementation the compiler under test did not produce, so
+it stays Go. R192's four grounds against generate-and-run survive untouched —
+they concern comptime being in-process — but its economy does not: "the
+two-implementations cost is bounded by structure" was the argument for one
+artifact, and the duplication is now the product, bought deliberately for
+independence. **The oracle is a test instrument that ships exactly once**: it
+is alpha v0, the first shippable Luna, and stops shipping when a stable
+Luna-written compiler exists. It is nonetheless **permanent**, because after
+self-hosting testing-strategy §3's script-vs-compiled pair degenerates — one
+compiler drives both paths, so it tests the run/cache path, not two readings
+of the semantics — leaving oracle-vs-compiled as the only pair with two
+independent implementations behind it; retiring the oracle would end
+differential testing outright. **"Frozen" is re-read, not relaxed**: frozen
+*to the agent loop*, the `:ro` mount that stops an agent editing its way past
+a failing differential, never feature-complete — a reference that cannot
+track rulings drifts from the spec on the first one after it is written, and
+then every divergence is ambiguous, compiler bug or stale oracle. **The
+compiler may never import the oracle**, gated on the build graph rather than
+on intention. The **Go-FFI route** — a Luna compiler calling the Go oracle
+for comptime — is rejected in full, first because it would convert the oracle
+from a check on the compiler into a dependency of it, making an oracle bug a
+*production miscompilation* and paying for two implementations to get one's
+worth of testing; and on three mechanical grounds besides: `unsafeFfi` is a
+**C** FFI riding cgo, forfeiting R193's two-environment-variable
+cross-compilation for the one program that most needs both targets; it is not
+even a foreign boundary, since Luna compiles *to* Go and both sides would
+share one runtime and one GC; and `unsafeFfi` is deferred to its own spec,
+which would put an unwritten spec on self-hosting's critical path.
+**Bifurcated into §6.2/§6.3**, both of which were written as hand-discipline
+about *Go* code: fusion-proof float arithmetic stays a discipline for the Go
+oracle and becomes **structural** for a Luna evaluator (per-node emission
+never puts two float operations in one Go expression), and the
+no-bare-Go-map-iteration fence becomes *unviolatable* for a Luna evaluator,
+which has no Go map to reach for. One requirement replaces what the
+unification gave free: evaluator and oracle must fold floats **to the same
+bits**, a disagreement there being indistinguishable from a real differential
+failure. Transcendental agreement survives — a Luna evaluator reaches Go's
+`math` through `std.math`, longer chain, identical callee. Swept:
+`compiler.md` (§6.1 rewritten, §6.2 float fence, §6.3 order fence and the
+transcendental channel), `internal-representation-of-streams.md` (§2.1's R192
+parity note, §2.2's folding-vs-fusion bullet — both said "oracle" where they
+meant the evaluator). Also swept, outside the spec corpus:
+`testing-strategy.md` (§1, §3), `claude-agent-plan.md` (Phase 0.2). **Not
+ruled here**: when the bootstrap happens, and whether Phase 1's Go-written
+compiler is kept alongside the interpreter as a second reference.
+
+**R235 — F2's predecessor set enumerated, inverted: the division side is the
+closed one, `}` and the three mode-path closers join it, and the mode openers
+finally get names.** The pre-implementation pass over lexer.md found F2's
+regex-vs-division rule stated as a list of *regex* positions — "after
+operators, `(`, `[`, `{`, `,`, `;`, `=>`, `=`, `return`, **and the other
+prefix positions**" — which is not a rule an implementation or a test can
+consume, and which had left `}` unclassified in either direction. The defect
+is structural, not sloppiness: the regex-allowed side is open-ended (every
+operator, every declaration keyword, every opener), so any enumeration of it
+trails off. **Inverted, the rule closes**: `/` is division exactly when the
+previous significant token can end a value, otherwise it opens a regex — and
+the division side is **25 tokens**, written out in F2 as a table. The other
+85 allow a regex, as do the two no-predecessor positions, start-of-file and
+just after `INTERP_OPEN`. *Significant* excludes what §2 skips. **`RPAREN` is
+unconditional, and Luna earns that where JavaScript cannot**: there, `)` is
+undecidable from the token alone because a brace-less body lets an expression
+follow it (`if (c) /re/.test(x)`), which is parser knowledge. Luna has no
+such form, every control-flow construct being either block (`{` follows) or
+postfix (`;` follows), so no `)` precedes an expression. **`RBRACE` is
+unconditional as a consequence of tables being bracket-delimited** (`['name'
+=> 'Lucas']`): the braces that close a *value* are enum-variant literals
+(`{point}`) and `match`, both ordinary, while the brace that closes a *block*
+is a statement boundary where a regex could begin in principle — except the
+no-discard rule (errors §540) makes a regex-leading statement unreachable,
+since the legal spelling is `_ = /re/…`. Tracking block-vs-value on the brace
+stack was **considered and rejected as not lexer-decidable**: `{point}` and
+`{point;}` diverge arbitrarily far past the `{`, and §1.1 grants the lexer no
+parser feedback, lexing being a complete phase over all files in parallel.
+**The three mode-path closers are the entries most easily missed**, because
+the two halves of the fact live in different sections: §4's span regexes are
+the no-`${` fast path only (F1, F3), so an interpolated literal ends not at
+`STRING_DQ`/`REGEX`/`COMMAND` but at `DQ_CLOSE`/`REGEX_CLOSE`/`CMD_CLOSE` —
+omit them and `"a${x}b" / 2` opens a regex. **`KW_SELF` likewise**: a
+value-ender that §3's value-keyword list does not name, that list enumerating
+the six literal-denoting words. **`WILDCARD` and `QUESTION` are placed on the
+safe side of an asymmetry** rather than on a semantic argument, neither being
+plausibly followed by a regex: misclassifying toward division is benign — one
+`SLASH`, a parse error in place, §1.1's collect-don't-abort recovery
+unharmed — while misclassifying toward regex is destructive, the scanner
+hunting the next unescaped `/` and swallowing arbitrary source into a ruined
+token stream. Anything genuinely indifferent therefore belongs on the
+division side. The one token where this reasoning does **not** license
+conservatism is `BANG`: `!` is prefix logical-not and a regex literal is an
+expression, so `!` directly followed by one is grammatically constructible,
+and unlike the other dual-role tokens (`&`, `@`, `?`) its
+regex-allowed classification is a requirement. Recorded with it: **the flag
+is per-frame state on the mode stack, not a global** — `INTERP_EXPR` lexes
+with the full `DEFAULT` rule set, so entering a splice resets it to
+regex-allowed and popping restores the enclosing frame's; one global boolean
+gets either `"${x}" / 2` or `"${/re/.source}"` wrong depending on which way
+it leaks. **The opener gap, closed in the same pass**: §6 named the three
+mode *closers* and only described the openers, in a file otherwise exact
+enough about its inventory to have caught a 47-vs-49 keyword discrepancy
+(R232). They are now `DQ_OPEN`, `REGEX_OPEN`, `CMD_OPEN` — mode-path only,
+none a division position — and the consequence is stated where it was
+previously implicit: the same source construct reaches the parser as
+**one token or a delimited sequence** depending on whether the fast path
+applied — F1/F3's optimization, not two grammars.
+Swept: `lexer.md` (§1 mode table, §5 slash note, §6 openers and
+closers, F2 rewritten). Not swept: the tooling grammars, on R232's precedent:
+their alternation is stale across many rulings and is regenerated as a batch
+when the grammar is next published. **Not ruled here**, both live and both
+touching this file: whether comments and whitespace are *retained* for the
+formatter (§2 still marks all four trivia forms "skipped", which a formatter
+cannot work from), and the position model (byte offsets in tokens versus rune
+columns at the diagnostic boundary, with LSP wanting UTF-16 regardless).
+
+**R236 — the two lexer opens closed together: whitespace and comments
+become emitted *trivia* tokens, and tokens carry byte spans with line and
+rune column computed on demand.** Both were flagged unruled by R235 and
+both are settled here, because they are the same question asked twice —
+what a token stream must carry for consumers the compiler itself is not.
+**Trivia.** §2's four forms (`WHITESPACE`, `SHEBANG`, `LINE_COMMENT`,
+`BLOCK_COMMENT`) were marked *skipped*; they are now **emitted**,
+collectively the **trivia** tokens. The forcing argument is the formatter:
+`luna -f` (compiler §0.1) cannot reproduce text the lexer discarded, and it
+is the sole consumer that needs it — the parser filters trivia out with one
+predicate over the stream. The rejected alternative was a
+**trivia-suppressing lexer mode**, off for compilation and on for the
+formatter and language server. It buys a shorter stream and costs the thing
+this file just spent R235 arguing against: two token streams for one source
+construct, hence two behaviours to test and a standing risk that formatter
+and compiler disagree about what a file contains. One stream, one filter.
+Two consequences recorded where they land: **spans now tile the source
+exactly** — monotonic, gapless, summing to file length — promoting a
+partial invariant into a total one for any consumer checking positions; and
+**trivia attachment is deliberately left undecided**, the stream staying
+flat with no leading/trailing binding of a comment to a neighbouring token,
+because whether a trailing `// …` belongs to the line above or below is
+formatting policy and the formatter spec is pending. A flat stream lets
+that spec choose; an attached one would freeze the answer before the
+question is asked. One interaction swept in passing: `KW_YIELD_FROM`'s fold
+**consumes** the run between the two words, so its span covers them both
+and no `WHITESPACE` token is emitted inside the compound — the same fact
+R223's "a comment between them defeats the fold" states from the other
+side. **Positions.** Tokens carry a **byte offset and length** — a span,
+not a copy, the source buffer being retained for anyone wanting the lexeme
+— and line/rune column are **computed, never stored**. Bytes win on four
+counts, none of them convenience: the scanner is byte-native over text the
+ingress check has already validated (lexical-structure §1); the tiling
+invariant above is exact in bytes and only approximate in anything else;
+slicing a line out for an error snippet needs byte indices regardless; and
+the language server wants **UTF-16 code units**, a third encoding, so a
+conversion layer exists no matter what and is cheapest with one canonical
+origin to convert from. The corpus already leaned this way without saying
+so: lexical-structure §1 refuses to strip a BOM *precisely* to keep byte
+offset 0 meaningful for the shebang rule. Diagnostics nonetheless report a
+**rune** column, being what a person counts, and it stays off the common
+path — a line-start table built once per file, binary search to the line,
+then a rune count over that line's prefix alone, bounded by line length
+rather than file length, and never run at all by a compile that emits no
+diagnostic. **The pure-ASCII fast path costs nothing** because the pass
+that enables it already exists: lexical-structure §1's validation visits
+every byte "exactly once, up front", so recording whether any byte was ≥
+`0x80` is free, and in a file where none was the rune column *is* the byte
+column. Even where non-ASCII appears, §1 confines it to string, `command`,
+`regex`, and comment content, so the counting path runs only for a
+diagnostic on a line carrying some. Swept: `lexer.md` (§2 retitled and
+rewritten, §3's `yield from` note, F2's *significant* definition, new §9
+Token positions), `lexical-structure.md` (§1 pure-ASCII record, §3's "both
+skipped"), `compiler.md` (§1.1 Lex output). **Not ruled here**: tab
+handling in a column count — one column or advance to the next tab stop —
+which is a rendering question for the diagnostics spec and reaches neither
+byte spans nor the lexer; recorded as open in §9 so it is not decided by
+whatever the first implementation happens to do.
+
+**R237 — regex literals take a sigil: `~"…"` replaces bare `/…/`, which
+deletes F2's context rule and supersedes R235's division set outright.** A
+bare `/…/` literal is the single most expensive piece of surface syntax in
+the lexer: it makes `/` three-way ambiguous — division, comment, or regex —
+resolvable only from the **previous significant token**, which RE2 cannot
+express (no lookbehind), so it becomes lexer state threaded per-frame
+through the mode stack. R235 had just specified that state precisely, as a
+closed 25-token division set. **R237 deletes the mechanism rather than the
+specification of it**: `~` is a token in no other position in the language,
+so `~"` is self-identifying, `/` is unconditionally division-or-comment
+decided by the *next* byte, and the lexer consults no context whatsoever.
+R235 is superseded on this point and kept in the log; its other half —
+naming the mode openers `DQ_OPEN`/`REGEX_OPEN`/`CMD_OPEN` — stands. **The
+decisive argument was the failure mode, not the table size.**
+Misclassifying toward division is benign: one `SLASH`, a parse error in the
+right place, §1.1's collect-don't-abort recovery unharmed. Misclassifying
+toward regex is destructive: the scanner hunts the next unescaped `/` and
+swallows arbitrary source into a single token. A design whose worst case is
+"swallow the rest of the file" sits badly beside safe-by-construction, and
+the fix costs one character. **Two rejected alternatives, both with real
+arguments, recorded so neither is re-proposed.** An **identifier-shaped
+prefix** (`r/…/`, on the `b"…"` precedent) fails outright, and the reason
+is worth stating because the precedent looks exact and is not: `b"…"` is
+safe because `"` cannot follow a value, so juxtaposition is unavailable and
+the prefix reading is the only reading — but `/` *can* follow a value, that
+being division itself. So `let a = r/2; let b = s/3;` lexes `r/2; let b =
+s/` as one regex, and worse, whether it does depends on whether a `/`
+appears later in the file. Non-local lexing is strictly worse than the
+ambiguity it was meant to cure. **Arbitrary or multiple delimiters**
+(`~#…#`, Perl-style) were considered more seriously and declined on three
+grounds: RE2 has no backreferences, so "the same byte that opened it" is
+not expressible as a pattern and the file's table idiom would break (a
+restricted set of N delimiters would mean N static rows, which does work);
+`#` specifically collides with the `x` flag's comment syntax (regex §3–4),
+so the most natural alternate delimiter is the one that cannot be used; and
+a canonical formatter (`luna -f`) would be forced either to normalize —
+rewriting the author's pattern text and re-escaping — or to preserve,
+leaving the corpus permanently heterogeneous. Reversibility settles the
+rest: `~#…#` is a lex error today, so a second delimiter can be added
+compatibly later and can never be removed once used. **The delimiter is `"`
+and the pattern is near-raw.** Luna decodes exactly one escape, `\"`, which
+is what lets a quote sit inside; every other backslash sequence — `\d`,
+`\w`, `\n`, `\\`, `\p{L}` — reaches the engine verbatim. This is not a new
+concept: R150's escape table already ruled the regex context "passed
+through undecoded", so only the delimiter escape changed, `\/` becoming
+`\"`. The trade is deliberate and favourable — `/` is common in patterns
+(paths, URLs) and now needs no escaping at all, while `"` is rare and costs
+`\"`. Consequences that fall out and were swept: an **empty pattern is
+`~""`**, retiring the `/(?:)/` workaround that existed only because `//`
+was a line comment; **`#` comments in `x`-verbose patterns can no longer
+terminate a literal**; **lexical-structure §3.1's "comments never collide
+with regex" invariant is moot**, comments and regex literals no longer
+sharing a starting character; and regex §9's **alternate-delimiter open
+question is dissolved rather than answered**, since slash-heavy patterns no
+longer pay anything. A bare `~` not followed by `"` is a lex error, as a
+bare `#` is. Swept: `regex.md` (§1–§5, §7 examples and prose throughout,
+§9's open question), `lexer.md` (§1 mode table, §4 `REGEX` row, §5 slash
+and sigil notes, §6 opener/closer, §8 ordering item 3, F2 rewritten to
+history), `lexical-structure.md` (§3.1), `string.md` (§5.1's regex row),
+`string-api.md` (§7 cross-reference), `index.md` (spec table),
+`overview/types.md` (type table). Not swept: the tooling grammars, on
+R232's precedent — their alternation is stale across many rulings and
+regenerates as a batch. **Not ruled here**: whether a second delimiter is
+ever admitted, which regex §9 now carries, reversibility note attached.
+
+**R238 — the numeric literal grammar, ruled in full: octal joins hex and
+binary, leading zeros become a lex error, and literal magnitude is
+parsing's problem, not lexing's.** G2 was the last gap lexer.md carried
+open, deferred "by choice" behind a set of working assumptions the file had
+been running on unratified. Six of them are adopted as they stood; two
+questions were genuinely open and are decided here. **Octal `0o` is
+added**, and the honest accounting is that its only modern constituency —
+Unix file modes — is a *deferred* consumer: filesystem §5 defers the
+permission model whole (chmod, chown, mode bits), with `exec` running
+`chmod` as the standing escape hatch. What earns octal a place now anyway
+is entanglement, not need: the leading-zero question had to be answered
+regardless, and its answer is only coherent once `0o` exists. **Leading
+zeros are a lex error**, and specified as an explicit **error production**
+(`0[0-9_]+`) rather than as a hole in the grammar — the distinction matters
+because §1.1 collects lexical errors rather than aborting, so a mere hole
+would silently lex `007` into three adjacent `INT` tokens and hand the
+parser garbage instead of handing the author a diagnosis. The substance:
+`0755` means octal to a C or Python-2 reader and 755 to a language that
+permits it, which is a silent wrong value of exactly the class Luna exists
+to close, and `0o755` now spells the intent unambiguously. Bare `0`, `0.5`,
+and `0x0` are untouched. **Prefixes are lowercase only** — `0X`/`0B`/`0O`
+are lex errors, since two spellings of a prefix buy nothing — while hex
+*digits* stay either case (`0xDEADBEEF` is idiomatic) and the exponent
+marker stays either case (`1E10`); where two spellings genuinely carry
+idiom, the formatter canonicalizes rather than the lexer forbidding, which
+is the general principle this file should follow whenever the question
+recurs. **`_` separates digits and nothing else**: one underscore, strictly
+between two digits, in any radix and on either side of a point. `_1` is an
+identifier, `1_` and `1__0` are typos rather than intents, and `0x_FF` is
+rejected too — Go permits that one, Luna does not, a digit must follow the
+prefix. **No leading or trailing point**: `.5` is written `0.5` and `5.` is
+written `5.0`. The trailing ban was already load-bearing and merely gets
+ratified — requiring a digit on both sides is what makes `1..5` lex as `INT
+RANGE INT` and `1.toDouble()` as `INT DOT IDENT` with no lookahead, which
+RE2 could not supply anyway — and the leading ban is symmetry plus
+legibility. **Exponents take an optional sign and plain digits**, at least
+one, with separators legal in the significand and never inside the
+exponent, and no hex-float form. **Literal magnitude is not lexical** (the
+question the working assumptions never reached): the lexer accepts any
+digit string, and a value too large for `int` is caught in **parsing**.
+That this needs no type information is a consequence of the last decision
+rather than an accident — because **no wider-type literal form exists**,
+every integer literal is an `int` and its range is always i64. Assigning an
+in-range literal to a narrower target (`let b: byte = 300;`) is a different
+check and belongs to analysis, where the target type is known. Extended by
+symmetry to doubles: a literal that **overflows to infinity** (`1e400`) is
+a compile error, because `inf` is a keyword and the explicit spelling
+exists, so a finite literal turning infinite is a wrong value rather than a
+rounding; ordinary rounding, underflow included, stays undiagnosed, `1.1`
+being inexact too. **R216's deferral is reaffirmed, not spent.** It rode
+explicitly on "the literal grammar", which has now happened — and happened
+*without* adding suffixes or context-driven forms, so the standing answer
+holds unchanged: the comptime-folded constructor is the literal story
+(`parseDecimal("19.99")`, `parseRational("1/3")`, `complex(3.0, -4.0)`), a
+suffix would buy spelling rather than capability, and it may still be
+considered later. Recording the reaffirmation matters because a deferral
+whose trigger has fired and gone unmentioned is indistinguishable from an
+oversight. Swept: `lexer.md` (§4 table gains `INT_OCT` and the error
+production, `INT_DEC` and both `DOUBLE` rows re-anchored against leading
+zeros, §4 notes gain the four-rule grammar, §8 ordering item 4, G2 marked
+resolved and the gaps preamble corrected to seven of seven), `int.md` (§7
+literals, §8's separator bullet), `double.md` (§8 literals),
+`numeric-tower.md` (§9's R216 bullet). Not swept: the tooling grammars, on
+R232's precedent. **Not ruled here**: tab handling in a column count, which
+is lexer §9's remaining open item and belongs to the diagnostics spec.
+
+**R239 — the lone `$` gets a name, `DOLLAR_TEXT`, and the mode-internal
+attempt order is written down.** Compiling §10's inventory surfaced a row
+in §6 carrying a pattern and no token name: a `$` that starts no
+interpolation form, described only as "text (fallback, all modes)". It is
+not an edge case — `$` is the regex end-of-line anchor (`~"^\d+$"m` is the
+spec's own example), `"costs $5"` is an ordinary string, and `INTERP_IDENT`
+is `DQ_STRING`-only so `` `echo $HOME` `` hits it too. And it cannot be
+absorbed silently, because §2's spans tile the source with no gaps while
+`DQ_TEXT`, `REGEX_TEXT`, and `CMD_TEXT` all **exclude** `$` from their
+classes — an exclusion that is itself load-bearing, since a text run able
+to swallow `$` would consume `${` before `INTERP_OPEN` saw it. The rejected
+alternative was to emit the byte **as the enclosing mode's own text
+token**, which adds no name and keeps the inventory at 125; it loses
+because the emitted token would not match its own documented pattern,
+forcing all three text classes to become `[^X\\$]+\x7c\$` with an
+order-dependent branch apiece. In a file whose method is one token, one
+name, one readable pattern, three smuggled alternations cost more than one
+honest row. **`ESCAPE_PAIR` settles the shape**: it is already one name
+with one pattern shared across `DQ_STRING`, `REGEX_BODY`, and `COMMAND`, so
+a single `DOLLAR_TEXT` across the same three modes follows precedent rather
+than breaking symmetry, and the three-per-mode alternative (`DQ_DOLLAR` and
+friends) is what nobody wants. Ruled out first, and recorded because it
+looks attractive: **requiring `\$` for a literal dollar**, deleting the
+case entirely. It is fatal to regex under R237's near-raw rule — Luna
+decodes only `\"`, so `~"^\d+\$"` would hand the engine `\$`, which *is* a
+literal dollar to the engine, leaving the end-of-line anchor unwritable —
+and it would break `"costs $5"` for nothing, string §5.1's `\$` already
+being available and optional. **Swept in with it**: §6 now states the
+**mode-internal attempt order** (closing delimiter, `ESCAPE_PAIR`,
+`INTERP_OPEN`, `INTERP_IDENT`, `DOLLAR_TEXT`, text run), which §8 never
+covered — §8 is explicitly the `DEFAULT`/`INTERP_EXPR` order — and which
+`DOLLAR_TEXT` makes necessary to state, its pattern `\$` being correct only
+because the two interpolation forms are attempted ahead of it. **Unaffected
+by construction**: single-quoted strings and `b"…"` bytes literals do not
+interpolate and are matched by one span regex with no mode (§1), so `$` is
+ordinary content in `[^'\\]` there, `\$` is correctly absent from their
+escape rows (string §5.1), and neither ever reaches this decision. Swept:
+`lexer.md` (§6 row and new ordering paragraph, §10 inventory —
+literal content 4 → 5, total 125 → **126**).
+
+**R240 — every diagnostic carries a code: one-letter stage prefix plus four
+digits, per-stage numbering, and a span model with one mandatory primary.**
+testing-strategy §2 pinned diagnostic tests to "the ruled error **type** +
+source location", which was unwritable for most of the compiler:
+`errors.md` §2's hierarchy names *runtime* types, and the phases that
+produce most diagnostics — lex, parse, semantic — named nothing at all.
+lexer.md had at least twelve ruled error conditions and no vocabulary for
+any of them, so the error half of the test plan could not be written
+without inventing names and freezing them, the same trap G2 posed before
+R238. **The scheme**: a one-letter prefix naming the stage that *defined*
+the check, then four digits — `L0003`, `S0143`, `M0011` — with the prefix a
+**separate numbering space**, so `L0001` and `P0001` are unrelated.
+Per-stage rather than flat is chosen for a reason particular to this
+project: `claude-agent-plan` implements slices in parallel, and independent
+number spaces remove the central registry those agents would otherwise
+contend on. MSVC's `C####`/`LNK####` split is the precedent; ten thousand
+per stage is far beyond what any compiler has spent (Rust is near six
+hundred after a decade). **Nine prefixes**, derived from §1's phases: `L`
+lexical, `P` syntax, `S` semantic, `M` modules (§1.0 discovery and §1.2
+import validation together, since a user cannot tell which noticed an
+unresolved import), `C` comptime, `B` build (assemble, toolchain
+invocation, the incremental cache), `F` format, `T` tooling (LSP, debugger,
+test runner), `I` internal — an invariant violated, "this is a compiler
+bug". **No prefix exists for lowering or emission**, and the omission is a
+theorem rather than an oversight: §1.7 guarantees the emitted Go compiles,
+so a failure there is not a user diagnostic but a compiler bug, and lands
+in `I`. No severity axis exists either, §3's "**No warnings, ever**" having
+already settled it — every code is an error. **Allocation is append-only**,
+starting at `0001`; `0000` is never allocated because too much tooling
+reads zero as "no error". A retired check's code is **retired, never
+reused** — search results outlive the check that prompted them. Numbers
+carry no meaning, with **no ranges reserved by topic**, because a range
+always overflows and then lies. And **a code never changes prefix**: when a
+check migrates to an earlier phase, as checks do, it keeps its original
+code and is reported by whichever phase now runs it. That is deliberately
+impure — the prefix records where a check was *defined*, not where it lives
+— and it is what makes per-stage numbering safe, since renumbering would
+collide with codes already allocated. **A code is not an error type, and
+both are needed.** A code identifies a *diagnostic*: a message about a
+program that will not be built, uncatchable, with no runtime existence. A
+type identifies a *value*: `useAfterConsumed` (errors §2) is catchable
+because the program ran and the check failed dynamically. The same
+condition frequently has both, the compiler proving what it can and
+deferring the rest — exactly what variables §7's "compile (runtime when
+branch-dependent)" column has been recording all along — so a static
+use-after-consume is `S0143` while its dynamic twin stays
+`useAfterConsumed`, and a code with a runtime counterpart names it so `luna
+explain` can say so. Runtime panics get no codes; their type name is
+already the stable referent. **Prose splits by lifetime**: the **title** is
+fixed per code and part of its identity ("Use-after-consume"), the
+**description** is per-instance and volatile (naming the binding, the file,
+the type). Only the title is documentable, which is what makes a page per
+code possible while instance text churns — and what makes
+`claude-agent-plan` §F's "diagnostics are volatile in alpha" safe rather
+than merely tolerated. **Spans**: exactly **one primary span**, mandatory,
+the caret site, so "the location" is never ambiguous; plus zero or more
+**labeled secondary spans** ("declared here", "consumed here") carrying the
+narrative. A span is `(file, byte offset, length)` — file identity
+required, not optional, because a secondary span routinely lives in another
+module. Byte offsets fall out of R236 at no cost: the diagnostic layer
+stores offsets only and lexer §9's lazy line index resolves line and rune
+column at render time. Notes and hints are prose and never load-bearing,
+but a hint **may carry a structured suggestion** (a span plus replacement
+text), designed in now because it is what lets `luna -l` surface code
+actions later without every hint being rewritten. **testing-strategy §2 is
+amended accordingly**: tests pin the **code** plus the **primary** span's
+file and line, with secondary spans opt-in per test — they are the half
+that churns as diagnostics improve. Runtime errors continue to be matched
+by type. **Applied immediately as lexer §11**, the worked example every
+later spec can copy: twelve `L00xx` codes for conditions already ruled,
+from `L0001` invalid UTF-8 through `L0012` unexpected character — the
+catch-all that makes the lexer **total**, since every byte now either
+begins a token or raises a code, which is what lets §2's tiling invariant
+hold on invalid input as well as valid. Writing it surfaced a hole R238
+left: R238 declared `0X`/`0B`/`0O` lex errors but added no error
+production, so `0X1F` would have split into `INT_DEC` + `IDENT` and
+diagnosed as a syntax error; §0 gains the `0[XBO]` production, and the
+inventory's row count moves 129 → 130 while the token count stays 126.
+Swept: `compiler.md` (§3's thin codes bullet replaced by new §3.1),
+`lexer.md` (§0 error production, §10 counts, new §11),
+`testing-strategy.md` (§2). **Not ruled here**: codes for the error-summary
+tables that predate the scheme (variables §7 and elsewhere), which acquire
+them as their specs are next revisited; and `luna explain <code>`, which
+the scheme makes possible but compiler §0.1's flag table does not yet carry.
+
+**R241 — the oracle is a complete implementation and the production
+compiler shares no code with it: full disjointness replaces the shared
+front-end, which closes R234's gap by construction and makes the
+never-import rule free.** testing-strategy §1 and claude-agent-plan Phase
+0.3 both recorded an "alpha choice" — Phase 1 reuses the human front-end
+(lex/parse/check/desugar → LIR) and builds only the backend, "so the
+front-end is **not** differential-tested — acceptable for alpha, closable
+later by an independent front-end." R241 makes the two implementations
+**wholly disjoint** instead: the **oracle** is a complete Go tree-walking
+interpreter, lex through eval, and the **production compiler** is written
+in Luna (R234) and shares not one line with it. **This is a strengthening,
+and it retires the concession rather than deferring it.** The gap R234
+could only promise to close "later" is closed on the first day: with two
+complete implementations and no shared code, lexing and parsing are
+differential-tested exactly like evaluation, and the divergence surface is
+the whole pipeline rather than two backends over a common front. What
+survives untouched is testing-strategy §1's *other* residual — **shared
+spec-misreading** — which no amount of implementation independence can
+remove and which stays covered the way §1 already says: the human owns the
+semantic core and adjudicates every disagreement. **The never-import rule
+becomes structural.** R234 required that the compiler never import the
+oracle, "gated mechanically on the build graph". Under disjointness the
+gate needs no build-graph test at all, because **a Luna program cannot
+import a Go package** — the language barrier enforces it, which is the
+strongest form the rule could take. One residual surface is worth naming so
+it is not wired in by accident: the emitted program's runtime must not be
+the oracle's `value`/`std`, which would be a deliberate act rather than a
+slip. **The consequence that reaches the oracle's scope.** If the
+production compiler is Luna and the oracle is the only complete
+implementation, then **the oracle is what runs the compiler's source**
+until it can self-compile — it is the bootstrap interpreter, not merely a
+test instrument. That raises its bar above §F's "standard library —
+deliberately tiny for alpha, `io`, `stringBuilder`, and perhaps 1–2
+others": an interpreter that must execute a compiler needs what a compiler
+needs — `filesystem` for module discovery, `exec` to invoke the bundled Go
+toolchain (R233), `process` for environment access, a hash for R149's
+content-addressed cache, `platform` for target facts. §F's tiny-std scope
+stands for what *alpha programs* need and no longer for what the oracle
+must implement; the two were the same claim while the front-end was shared,
+and are not any more. **Not ruled here**, and both now live: the **agent
+loop's target and gates**. claude-agent-plan's header describes Phase 1 as
+"the automated loop that builds the production Go-emitting backend", which
+no longer exists as an artifact — the loop's target is the Luna compiler —
+and §E's Tier-1 lint gate is `gofmt` + `go vet` + `golangci-lint`, every
+one of which is Go-only and therefore inapplicable to a Luna target. What
+replaces them, and whether the loop's mechanics survive the language change
+at all, is a pipeline question rather than a spec one, and is left open
+deliberately rather than assumed. Swept: `testing-strategy.md` (§1's
+independence paragraph), `claude-agent-plan.md` (header's two-phase
+summary, Phase 0.3's alpha choice, §F's IR/desugaring and std bullets).
+
+**R242 — the lexer emits a token for every byte: `INVALID` covers what no
+real token claims, which makes §2's tiling invariant unconditional and
+leaves diagnostics purely presentational.** §2 claimed token spans "tile
+the source exactly", and §11 claimed `L0012` made that total — "every byte
+either begins a token **or** raises it". Those two do not compose: a byte
+that raises a diagnostic and produces no token is a hole, so on `let x =
+0755;` four bytes are recorded only in the diagnostic channel. The
+invariant was true of valid input and quietly false of everything else,
+which is the opposite of what a fuzz property needs. **Every byte now
+begins a token.** Bytes that no real production claims are covered by
+**`INVALID`**, a token in category `error`, emitted alongside the
+diagnostic that explains them — §0's two error productions (leading zero,
+uppercase radix prefix) name it, and a new catch-all row names it for any
+byte beginning no token at all, which is `L0012`'s shape. §0 goes to 131
+rows and **127** token names; §10's arithmetic simplifies, because the
+"rows that are not tokens at all" caveat disappears with the last nameless
+row. **The decisive argument is R240's, not convenience.** A diagnostic's
+primary span is "where the caret goes", and for `L0009` the caret belongs
+on the *opening delimiter* — that is what went unclosed — while the bytes
+consumed run to end of file. Two different spans. Requiring the diagnostic
+span to double as a coverage record forces one of those two jobs to be done
+badly, and it is always the caret that loses. Keeping coverage in the token
+stream lets the caret go where it helps, which is what makes the two
+channels genuinely separate rather than merely returned separately: the
+token stream now reconstructs what the scanner saw without consulting the
+diagnostics at all. Two consequences follow that were not the motivation
+and are worth as much. **Termination becomes structural.** The scanner's
+rule is now "every step emits exactly one token covering at least one
+byte", so the plan's progress property — never loop on an unexpected
+character, the classic lexer bug that example-based tests never find —
+holds by construction rather than by discipline, and tiling and termination
+become one invariant instead of two assertions. **The lossless CST survives
+broken input.** §1.3 builds a lossless CST and §3 has the tooling drivers
+"consume [partial results] and never abort"; a stream with holes cannot
+reconstruct a file, and a half-edited file is the only kind the language
+server ever sees. **The zero value is renamed.** Go's `token.Invalid` was
+the never-emitted zero, documented so that an uninitialized token could not
+masquerade as a real one — a distinction that would not survive sitting
+beside an emitted error kind of nearly the same name. The zero is now
+**`Unset`**, which says what it is (no kind assigned), and **`Invalid`** is
+the emitted kind, `INVALID` in §0. The rejected alternative was to leave
+the invariant conditional and assert only monotonicity and non-overlap on
+erroring input. It works, and it is what the golden harness did as a
+stopgap, but it disables the strongest property precisely where fuzzing
+operates: a fuzzer's inputs are almost all erroring, so a gaplessness check
+that only runs on clean input is a check that never runs. Precedent for the
+emitted kind is uniform — Go's `token.ILLEGAL`, rustc's
+`TokenKind::Unknown`, Swift's `tok::unknown`; every production lexer
+carries one, and none of them treats it as a lexeme of the language. Swept:
+`lexer.md` (§0's two error rows and one new catch-all row, §2's invariant,
+§10's counts and the rows-versus-names note, §11 gains `INVALID`'s own
+entry and `L0012`'s wording), `lexer-testing-plan.md` (§6's tiling
+property, now total). Also swept, outside the spec: `oracle/token` (the
+`Unset`/`Invalid` split), `oracle/lexer`'s golden harness (the tiling
+check, now unconditional). **Not ruled here**: what span each unterminated
+code carries — `L0009` spanning the opener versus the opener through end of
+file is a diagnostic-quality question, and now an independent one, since
+coverage no longer rides on it.
+
+**R243 — `INVALID` covers bytes no production claims; it is not owed to
+every diagnostic.** §11 closed R242's sweep with "**Every one of these is
+accompanied by an `INVALID` token** covering the bytes it condemns", and
+then, one sentence later, "diagnostics and tokens are separate channels and
+stay separate". Both cannot hold. R242 severed one direction of that
+coupling — a diagnostic's primary span no longer has to double as a
+coverage record — and the new sentence quietly restored it in the other,
+letting the diagnostic channel dictate what the token channel emits. **The
+test is whether any other production claims the bytes.** That is what §0's
+catch-all row already says, correctly, and what §11 restated wrong:
+`INVALID` exists so that §2's tiling is total, and tiling is a property of
+the stream alone, which no diagnostic has standing to affect.
+
+The clause was **self-defeating on two of its own twelve rows**, which is
+the tell. An unknown escape (`L0005`) and a bad codepoint escape (`L0006`)
+sit *inside* a literal that is lexically well formed — `'a\qb'` is one
+`STRING_SQ`, and on the mode path the offending bytes are an `ESCAPE_PAIR`
+— so those bytes are already claimed, and an `INVALID` over them would
+overlap, breaking the very invariant the clause was written to serve. Two
+further rows falsified it outright: `L0001` and `L0002` are raised at
+ingress, where there is no token stream to tile.
+
+What survives is a shorter list and a sharper one. `L0003` and `L0004` keep
+their `INVALID`, because §0's error productions are not real productions
+and nothing else claims `0755` or `0X`. `L0007`, `L0008`, and `L0012` keep
+theirs by definition — an unclaimed byte is precisely what they report.
+`L0009` and `L0010` keep theirs on the span-regex fast path, where a
+literal or comment that never closed leaves the single-token reading unable
+to complete. `L0011` needs none: every byte of the splice was emitted as it
+was scanned, and what failed is a stack that never unwound. `L0005`,
+`L0006`, and the two ingress codes emit no token of their own.
+
+**The rejected alternative was to keep the blanket clause and carve out the
+exceptions** — four of twelve, enumerated in §11. That reads as bookkeeping
+and is worse than it reads: two of the four are *forced* by the invariant
+the clause was meant to uphold, which means the clause was stated over the
+wrong subject rather than merely stated too broadly. The argument in its
+favour, that a consumer could then locate every error region from the token
+stream without reading the diagnostics, is the same coupling under another
+name, and it does not work regardless — the two ingress codes have no
+stream to locate anything in.
+
+Nothing else moves. §0 is untouched: `INVALID` keeps all three of its rows,
+§10's **131 rows / 127 names** stands, and the token pin is unaffected,
+this being a narrowing of when the kind is *emitted* rather than of what it
+is. The oracle needed no change either, having been built to the narrow
+rule — it emits `INVALID` only where nothing else claims the bytes. Swept:
+`lexer.md` (§11's closing paragraph, rewritten around the coverage test;
+§2's invariant paragraph and §0's catch-all row already carried the narrow
+form and were left alone). **Not ruled here**: whether the fast path should
+fall back to the delimited form on an unterminated literal instead of
+emitting one `INVALID` blob. The observation that prompts the question is
+that on the mode path an unterminated `"abc` is `DQ_OPEN` + `DQ_TEXT` with
+every byte claimed and no `INVALID` anywhere, so `L0009`'s `INVALID` is an
+artifact of the fast path's commitment to a single-token reading rather
+than a necessity; the fallback would also hand the parser a partially
+intelligible prefix instead of an opaque span, which is §1.3's
+lossless-CST interest. R242's open on `L0009`'s caret span carries forward
+unchanged.
+
+*(Found by the same implementation pass and recorded so the edit is not
+silent: R237's sweep left one site behind — `string-api.md` §5's
+named-group example still spelled a regex `/(?<year>…)/`, now
+`~"(?<year>…)"`. The oracle found it by lexing all 436 corpus blocks,
+which narrows `lexer-testing-plan.md` §9: the gate stays permissive
+about retired *spellings* — `pub`, `caps.io`, and `use (&io)` all lex
+clean — but R237 is the one retirement that made its predecessor
+lexically **invalid**, so that class the gate does catch.)*
+
+**R244 — a raw newline ends a string, bytes, or command literal; only
+`~"…"` may span lines.** Every delimited form carried `(?s)` and a
+character class admitting `\n`, so an unclosed `"` consumed the rest of the
+file as one token. F2 named that failure exactly — "swallowing arbitrary
+source into one token" — and R237 removed only half of it: the
+context-sensitivity went, the unbounded consumption stayed, for every quote
+form rather than just the retired `/…/`. **A raw newline now terminates
+`'…'`, `"…"`, `b"…"`, `b'…'`, and a backtick command literal**, raising
+`L0009` with its caret on the opening delimiter. The newline itself is not
+consumed, so it lexes as ordinary `WHITESPACE` and the following line lexes
+as code.
+
+**The decisive argument is error locality, not recovery.** The scanner
+pairs quotes greedily, so an unterminated `"` on line 10 of a file with
+more strings below never reaches end of file — it closes on the *next*
+quote it finds, silently making one `STRING_DQ` out of `"oops;\nlet b = "`.
+No diagnostic is raised at line 10 at all. `L0009` surfaces only at the
+**last unpaired quote in the file**, which is the perfectly correct opening
+quote of some other literal, so the caret lands on innocent code and every
+line between is mis-tokenized in silence. Bounding at the newline is what
+makes the diagnosis land on the typo. **The rejected alternative was
+newline-bounded *recovery*** — keep multi-line literals legal, and on
+reaching end of file unterminated, back up and re-lex from the first
+newline after the opener. It falls to the same argument: it can only ever
+fire at that last unpaired quote, which is the one place the mistake almost
+certainly is not. A rule that repairs the symptom at the wrong site is
+worse than none, because it looks like it worked.
+
+**The corpus was measured, not guessed.** Lexing all 436 `luna`-labeled
+blocks finds exactly **one** literal spanning a newline: the `x`-verbose
+regex of regex §4. Zero multi-line strings, bytes, or commands. That is
+recorded with its weakness stated — spec examples are short by
+construction, so their silence about embedded SQL, JSON, and templates is
+weak evidence about real programs. The ergonomic question this does not
+answer belongs to the multi-line form, below.
+
+**Regex is exempt, and not as special pleading.** Spanning lines is the `x`
+flag's documented purpose (regex §4, "a long pattern can be spelled out
+across lines"), it is the corpus's only instance, and R237 made `~"` a
+deliberate two-byte opener rather than the single stray byte that is the
+realistic typo. `REGEX` keeps `(?s)`; the other five patterns lose it and
+gain `\n` in their negated classes. **Splices inherit their literal's
+rule**: `${…}` sits inside the literal, so a splice in a newline-bounded
+form may not span lines either — one sentence instead of two, and a local
+binding is the workaround. **A backslash-newline does not continue a
+literal**: the escape pair in a newline-bounded mode is `\\[^\n]`, so a
+trailing `\` cannot carry the literal onto the next line. That is
+conservative on purpose. Line continuation is a plausible feature and it
+belongs to the multi-line question; deciding it here would pre-empt that
+ruling by accident.
+
+Two consequences fall out. **The fast-path probe becomes line-local**:
+F1/F3's "is there a `${` before the closing delimiter" scan is now bounded
+by a line rather than by the file, so the choice between the single-token
+and delimited shapes (§6) is made from bounded lookahead. And `L0009` is
+**reworded, not reallocated** — a newline-terminated literal is the same
+error as an EOF-terminated one, and codes are append-only (R240). Swept:
+`lexer.md` (§0's five span patterns plus the `ESCAPE_PAIR`, `DQ_TEXT`,
+`CMD_TEXT`, and `REGEX_TEXT` rows; §1's mode table; §4, which gains the
+rule and its rationale; §11's `L0009` row; F1, F2, F3),
+`lexical-structure.md` (§1's "load-bearing in exactly two places", now
+three), `regex.md` §4 (the exemption recorded where the feature lives),
+`string.md` §5.1, `bytes.md` §7, `command.md` §2. Also swept, outside the
+spec: `oracle/lexer`'s literal scanner. Two pre-R150 survivors were
+rewritten in passing, both found by implementing the scanner: §0's
+`COMMAND` row and F3 still said command literals had no escapes and that
+`\` was an ordinary byte, the reading G5 recorded as **superseded** and
+that §0's own `ESCAPE_PAIR` and `CMD_TEXT` rows already contradicted.
+**Not ruled here**: a dedicated
+multi-line literal form, and whether `\<newline>` should later become a
+continuation — both belong to the multi-line question this ruling opens
+rather than closes. R243's open on the fast path's unterminated fallback
+survives but shrinks: the span at stake is now one line, not one file.
+
+**R245 — `ESCAPE_PAIR` covers `\u{…}` whole, and a malformed codepoint
+escape gets its own code, `L0013`.** §0 spelled `ESCAPE_PAIR` as `(?s)\\.`
+— exactly two bytes — so on the mode path `"\u{41}"` tokenized as
+`ESCAPE_PAIR("\u")` followed by `DQ_TEXT("{41}")`, splitting an escape at a
+boundary that is not its end. The pattern gains a first alternative,
+`\\u\{[0-9a-fA-F]{1,6}\}`, tried before the one-pair form, so the token
+covers the escape's whole extent. No new token kind and no count moves:
+`\u{…}` was always an `ESCAPE_PAIR` and still is. The alternation bar is
+written `\x7c`, as `INT_DEC`'s already is, so the cell survives markdown —
+the same constraint §4 cites for the unrolled-loop spelling.
+
+**The alternative is `DQ_STRING`-only**, which is tighter than it first
+looks and is the whole justification. `\u{…}` is a legal escape in exactly
+that context (string §5.1): commands take only `` \` `` `\\` `\$`, bytes
+literals exclude it explicitly, single-quoted strings have two escapes, and
+a regex body passes its escapes to RE2 undecoded. Everywhere else `\u` is
+an ordinary *unknown* escape, and one pair is precisely the right span to
+put a caret under. So the longer match is added where it buys a better
+diagnostic and nowhere else, rather than uniformly for symmetry.
+
+**The split token was not cosmetic.** `L0006` has to read the digits to
+decide whether a scalar is a surrogate or above `10FFFF`, so whoever raises
+it had to re-glue two tokens first — an operation that works until an
+interpolation lands between them. Worse, `"\u{41"` tokenized as a
+*perfectly well-formed* stream: `ESCAPE_PAIR`, `DQ_TEXT`, `DQ_CLOSE`,
+nothing in its shape recording that the `}` never arrived. With the
+alternation the long branch simply fails, `\\.` matches `\u` alone, and a
+bare `\u` is not a row in string §5.1's table — so the malformation becomes
+visible in the token stream instead of having to be reconstructed from it.
+
+**`L0013` is allocated because the two mistakes are different mistakes.**
+`\u{D800}` is a *well-formed* escape naming a scalar that does not exist;
+`\u`, `\u{}`, `\u{XYZ}`, and `\u{41` are not escapes at all. Different
+cause, different fix, different sentence to write. Folding both into
+`L0006` would have forced one title to cover both, and a title is fixed per
+code (R240) — so the message would have had to hedge, which is the failure
+`luna explain` exists to avoid. The rejected alternative was to let `L0005`
+absorb the malformed case: it reads badly, since "Unknown escape" is wrong
+for `\u{XYZ}` — `\u` *is* known, it is the brace group that is broken.
+
+Left standing: `L0005` for a genuinely unknown escape (`\q`), `L0013` for a
+malformed codepoint escape, `L0006` for a well-formed one naming an invalid
+scalar. §11 goes to **thirteen** codes. Swept: `lexer.md` (§0's
+`ESCAPE_PAIR` row, §11's table and its `INVALID` paragraph — `L0013` joins
+`L0005`/`L0006` in emitting no token of its own, R243, being inside a
+well-formed literal — and the "all twelve" count), `string.md` §5.1 (the
+malformed/invalid split recorded where the escape table lives). Also swept,
+outside the spec: `oracle/diagnostic`'s code constants and titles, and the
+explicit list in its test that pins them against §11 both ways. **Not ruled
+here**: which phase raises `L0005`, `L0006`, and `L0013`. R243 left the
+decode question open and this does not close it — it only makes the token
+stream carry enough shape for the answer to be cheap either way.
+
+**R246 — multi-line string literals: `"""` cooked, `'''` raw, and the
+closing delimiter is the margin.** R244 bounded every single-byte-opener
+literal at its line, which closed the swallowing failure F2 named but left
+`\n` escapes as the only way to write multi-line text — untenable for the
+embedded SQL, JSON, and templates a data-focused language exists to handle.
+Two forms land. **`"""`** is `"…"` with more lines: the same escape table
+(string §5.1), the same interpolation, plus margin stripping and trailing
+whitespace stripping. **`'''`** is raw: margin stripping and nothing else —
+no escapes, no interpolation, trailing whitespace preserved. The existing
+`"`-interpolates / `'`-is-literal split extends to the triples unchanged,
+so the pair costs no new concept.
+
+**The margin is the closing delimiter's indentation**, and every non-blank
+content line must begin with it. Lines indented *deeper* keep the excess as
+data, which is what makes nested JSON and SQL work; a line indented less is
+an error. Blank and whitespace-only lines are exempt, since requiring the
+margin on them would fight every editor that strips trailing whitespace on
+save.
+
+**The rule that matters is that the margin is set by punctuation rather
+than by content.** Java's text blocks take the *minimum* indentation over
+all lines, and the failure is spooky: given three lines at indents 2, 2, 1
+with the closer at 2, the margin becomes 1 and the first two lines each
+silently gain a leading space — adding one line changed the value of the
+others, with no diagnostic. Setting the margin from the first content line
+fails the same way from the other end, plus the first line is often the
+unrepresentative one, a blank first line yields a margin of zero, and the
+closer's own indentation becomes meaningless so nothing visibly marks the
+margin at all. The closer cannot participate in either failure, because you
+never reorder it. Perl's `<<~` and Swift both landed here, and both landed
+here *after* shipping the unstripped form; Java is the outlier.
+
+**The margin is matched as a byte prefix, never as a column.** A column
+comparison requires a tab width, and §9 (R236) refuses to pick one —
+"tabs need no decision", which is also what keeps diagnostic tests free of
+a tab-width setting. So the test is whether the line begins with the
+closer's exact indentation bytes. That is stricter than leftness: a margin
+of four spaces rejects a line beginning with a tab, whose position is
+unknowable without the width nobody has chosen. The cost is real — such a
+line may render flush in the author's editor — and it is the right cost,
+because the alternative is a literal whose value depends on a setting the
+language deliberately does not have.
+
+**An error, because §3 forbids the third option.** "No warnings, ever"
+means a condition either stops the build or is not reported, so
+under-indentation is either `L0014` or silence. Every alternative design
+chose silence: min-indent silently reinterprets, and Kotlin's
+`"""` + `trimIndent()` relocates the computation into a function, where it
+becomes undiagnosable by construction — a function cannot complain about
+its input. That library shape was the serious rival, and it loses on the
+governing idea rather than on taste: remembering to call it is discipline,
+and the default value is the one nobody wants.
+
+**Delimiter placement is asymmetric, each pinned on the side facing the
+content.** The **opener** must end its line — trailing whitespace tolerated,
+then the newline — so the first content line is unexceptional and the
+margin applies uniformly from line one; anything may precede it, so
+`const s = """` is ordinary. The **closer** must begin its line after the
+margin; anything may follow it, so `""";` and `""".trim()` and `""", x)`
+all work. One consequence is worth having: content may contain `"""`
+anywhere *except* at the start of a line at exactly the margin, which
+removes most of the case for a variable-delimiter raw form.
+
+**`'''` has no escapes at all**, which is what "raw" should mean. `'…'`
+carries `\'` and `\\` for one reason — to put a quote inside — and the
+closer's line-start rule already solves that, a mid-line `'''` being
+ordinary content. With nothing left for an escape to buy, the form is every
+byte between the delimiters minus the margin, and `\` is an ordinary byte.
+It is also what makes stripping affordable in `"""`: **trailing whitespace
+is not durable in source.** Editors, `.editorconfig`, and CI hooks delete
+it, so a value that depends on it changes when someone saves the file, with
+nothing visible in the diff — and the Markdown hard break, the canonical
+argument for preserving it, is exactly the case that would break. `"""`
+therefore strips and `\u{20}` is the durable spelling; `'''` preserves, and
+says so at the call site, which is the honest signal to a reader and to a
+formatter that the content is fragile.
+
+**The margin is a trivia token, so nothing strips anything.** This is the
+implementation consequence and it pays for itself several times: §2's
+tiling holds with no special case (R242), the decoder concatenates content
+tokens and skips trivia rather than reimplementing the margin rule a second
+time where the two copies could drift, the formatter reindents by rewriting
+a trivia run — its native operation and §2's stated reason trivia exist at
+all — and **escapes survive by construction**, since trivia is only ever
+assigned to literal whitespace bytes and an `ESCAPE_PAIR` is content. There
+is no rule protecting `\t` from the trailing strip; there is nothing that
+could reach it. The `"""`/`'''` difference reduces to one classification
+bit: in `"""` a line's trailing whitespace is trivia, in `'''` it is
+content. Triples accordingly have **no whole-literal fast path** — they
+always take §6's delimited shape, because a triple always has margins to
+tokenize, which removes a decision rather than adding one.
+
+**The newline before the closer belongs to the delimiter** (Swift, Kotlin),
+so `"""` + `\nabc\n` + `"""` is `"abc"`, and a blank line before the closer
+supplies a trailing newline when one is wanted. Structurally this is one
+byte: the closing token spans `\n<margin>"""`. Java's reading — the newline
+is content — was rejected because opting out of it requires `\<newline>` as
+a line continuation, and R244 ruled that a backslash-newline is not a
+continuation. **`\<newline>` inside `"""` is therefore an unknown escape**
+(`L0005`). Adding the continuation later is backward-compatible; removing
+it would not be, and `\n` already spells the intent.
+
+**A splice suspends margin checking.** Inside `${…}` the content is code,
+where newlines are insignificant whitespace (lexical-structure §1), so a
+splice may span lines and its lines carry no margin obligation. The
+alternative would impose an offside rule in the one place Luna has none.
+R244's "splices inherit their literal's rule" stands unchanged and is
+satisfied here: the triple may span lines, so its splices may.
+
+**On the obvious objection — no, this is not significant indentation.**
+lexical-structure §1 commits to "no offside rule and no significant
+indentation", and that commitment is about *program structure*: nothing
+here changes where a statement or block begins, statements staying
+`;`-terminated. §1 already carves out literals ("whitespace is
+insignificant except as a token separator and inside literals"), and
+whitespace inside a string has always been data. The margin is nonetheless
+a genuinely new fourth thing — whitespace as **measurement**, a ruler
+declaring where data starts, neither separator nor data nor structure — and
+it is recorded as new rather than filed under the existing carve-out. It is
+contained: it exists only between the delimiters and cannot reach the
+grammar.
+
+Inventory: six new tokens, §0 going to **133 names over 137 rows** —
+`TRIPLE_DQ_OPEN`, `TRIPLE_DQ_CLOSE`, `TRIPLE_SQ_OPEN`, `TRIPLE_SQ_CLOSE`
+(delimiter, 6 → 10), `MARGIN` (trivia, 4 → 5), and `RAW_TEXT` (content,
+5 → 6). Categories stay at ten. `DQ_TEXT` gains a `\n` alternative in the
+triple modes, a line break inside a triple being content; `ESCAPE_PAIR`,
+`DOLLAR_TEXT`, and the three `INTERP_*` are reused unchanged, and stripped
+trailing whitespace is an ordinary `WHITESPACE` trivia token. §1 gains two
+modes, `TRIPLE_DQ_STRING` and `TRIPLE_SQ_STRING`, so the mode count goes
+5 → 7. §11 gains **`L0014`** (insufficient indentation) and **`L0015`**
+(content after a multi-line opener), reaching fifteen codes; an unterminated
+triple is `L0009`, already worded to cover any literal. **Bytes literals get
+no triple form** — binary data is not line-oriented and no use case asked —
+so `b"""` is an empty `BYTES` followed by a quote, as it is today.
+
+**R244's rule reaches its final form**, which is shorter than the version
+that shipped: *a literal may span lines exactly when its opener is more
+than one byte.* `~"`, `"""`, and `'''` may; `"`, `'`, and the backtick may
+not. That is not a coincidence dressed as a principle — it is the rationale
+R244 already gave for exempting the regex: a multi-byte opener is typed
+deliberately, where a stray single quote is the ordinary typo.
+
+Swept: `lexer.md` (§0's six new rows and the `DQ_TEXT` pattern, §1's mode
+table, §2 — `MARGIN` joins the trivia and "four" becomes five, §4's literal
+rules including R244's final form, §6's mode-internal attempt order, §8
+which gains an ordering item since `"""` must be attempted before `"`,
+§10's counts, §11's two new codes, F1/F3 on the absent fast path),
+`lexical-structure.md` §1 (newlines load-bearing in a fourth place, and the
+significant-indentation caveat above), `string.md` (the two forms and their
+escape-table rows). **Not yet swept, outside the spec**: `oracle/token`'s
+inventory and `oracle/lexer`. The three-party pin fails until they follow,
+and that failure is the intended signal rather than an oversight — the
+spec moved first, by design. **Not ruled here**: which phase raises the
+decode-time escape codes (R243's open, and `L0014` joins the same
+question); whether `\<newline>` later becomes a continuation; and whether a
+variable-delimiter raw form is ever needed for content whose line begins
+`'''` at the margin.
+
+**R247 — an unterminated literal keeps its single `INVALID` on the
+span-regex fast path, and `L0009`'s caret is the opening delimiter.** Two
+open items close, both about the same construct. R243 left the first:
+whether the fast path should fall back to §6's delimited shape rather than
+emit one `INVALID` blob, the observation being that on the *mode* path an
+unterminated `"abc` is `DQ_OPEN` + `DQ_TEXT` with every byte claimed and no
+`INVALID` anywhere, so the fast path's blob looked like an artifact of
+committing to a single-token reading. R242 left the second: whether `L0009`
+spans the opener or the opener through end of file.
+
+**The first question was answered by R244 and the answer was not noticed.**
+When it was raised, an unterminated `"` consumed the rest of the file —
+thousands of bytes with no structure, no node for §1.3's lossless CST,
+nothing for a language server that only ever sees half-edited files. That
+was the whole case for the fallback. R244 then bounded every single-byte
+opener at its line, and the argument did not survive the bound; it was
+carried forward unre-weighed, which is precisely the drift this log exists
+to catch, here caught in a ruling of its own rather than in a sweep.
+
+**What the fallback would now add is nothing.** For `let s = "a formula:
+let x = 5;` the two shapes are `INVALID("a formula: let x = 5;")` against
+`DQ_OPEN` plus one `DQ_TEXT` carrying the same bytes — the same information
+in three tokens instead of one. The fast path is reached *precisely* when
+the literal holds no `${`, so there is no splice to preserve and no escape
+worth separating; `DQ_TEXT`'s own class stops at a newline, so nothing
+about the tail is re-read as code either way. **And `INVALID` is the more
+honest of the two.** `DQ_TEXT` asserts that the bytes are string content,
+where the literal never closed and what the author meant is the very thing
+in question; `INVALID` asserts only that the bytes begin no valid token,
+which is true.
+
+**R243's framing of the asymmetry as a defect is withdrawn.** The mode path
+is entered only when a `${` is present, so it has real interior structure —
+a splice that genuinely was lexed correctly and is worth keeping. The fast
+path is entered when there is none. Two paths producing different shapes
+from different inputs is not an inconsistency, and the rejected alternative
+that would have made them uniform — a distinct token kind naming an
+unterminated literal, so a parser could tell it from a stray `^` without
+reading the diagnostic — re-couples the two channels R243 separated and
+buys one line of bytes. **The cost is real and small**: from the token
+alone a consumer cannot tell which condemned those bytes, and must consult
+the diagnostic sitting at the same offset. That is what a diagnostic
+channel is for.
+
+**`L0009`'s caret is the opening delimiter**, which R242's own argument
+already required — "the caret belongs on the *opening delimiter*, that is
+what went unclosed, while the bytes consumed run to end of file. Two
+different spans" — and which the token stream now records independently, so
+the caret is free to go where it helps. Since R244 the two spans differ by
+at most a line rather than by a file, which weakens the case without
+reversing it: an author reading `L0009` wants to be shown the quote that
+opened, not the text that followed it. The mode path agrees by
+construction, each frame carrying the offset its delimiter began at.
+
+No code changes: `oracle/lexer` was built this way, so this records the
+shape rather than altering it. Swept: `lexer.md` §11, whose `INVALID`
+paragraph already noted that `L0009` and `L0010` emit one on the fast path
+and now says the choice is deliberate. **Not ruled here**: nothing further —
+both of R242's and R243's remaining opens on unterminated literals are
+closed, and what stays open about `L0009` is only its *wording*, which
+§11 has always held to be volatile (R240).
+
+**R248 — escape validity is lexical, and the lexer raises it: `L0005`,
+`L0006`, `L0013`, and a new `L0016`.** R243 left open which phase checks
+escapes, and the answer had been drifting toward "the decoder" on an
+argument that turns out to be false. **The check is three-stage, and the
+stages are ordered**, each answering a different question about the same
+backslash pair:
+
+1. **Is the escape character in this context's row of string §5.1?** If not,
+   `L0005`. This is the whole of the check for `\q`, and for a legal-looking
+   escape in the wrong literal — `'\n'`, where single quotes carry only
+   `\'` and `\\`, or `b"\u{41}"`, where the bytes row excludes `\u{…}`.
+2. **Is its shape well formed?** `\u{…}` wants `{`, one to six hex digits,
+   `}` — otherwise `L0013` (R245). `\xNN` wants exactly two hex digits —
+   otherwise **`L0016`**, allocated here.
+3. **Is its value legal?** `\u{D800}` and `\u{110000}` are well formed and
+   name no scalar: `L0006`.
+
+Reaching stage 2 requires passing stage 1, which is what keeps the codes
+disjoint: `\x` in a double-quoted string is `L0005`, not `L0016`, because
+`x` is absent from that row entirely, while `\xZZ` in a bytes literal is
+`L0016`, `x` being legal there and only the digits wrong. The regex row
+needs no work at all — RE2's escape language passes through undecoded and
+Luna decodes exactly one escape, `\"` (string §5.1) — so everything is
+legal in `REGEX_BODY` by construction.
+
+**The argument for deferring to the decoder was mistaken and is corrected
+here.** It held that the lexer would have to re-scan a fast-path literal
+byte by byte, doing the work the fast path exists to avoid. It would not:
+`spanLiteral` already walks every byte and is already sitting on the
+backslash when it steps over the pair, so validity is a table lookup per
+escape and no extra pass. `L0006` was likewise called "genuinely decoding"
+and is a range check over hex digits the lexer already recognizes for
+`INT_HEX`. With both objections gone, what remains favours the lexer: it
+knows the literal form, which is the table's *key* and the one thing a
+later phase would have to re-derive; §11 lists all four codes in the
+lexer's own error summary; and §1.1 collects lexical errors and aborts at
+the phase boundary, which is where a malformed escape ought to stop a
+build.
+
+**R247 supplies the governing principle.** It ruled that the span-regex
+fast path should be *unobservable* — taken only when it provably succeeds,
+its output indistinguishable from the mode path's. Validating in both
+paths is what keeps that true. Validating in neither would also be
+consistent; validating in only one would break a property ruled on one
+ruling ago. There is one real constraint: `spanLiteral` doubles as the
+**probe** that chooses between the two shapes, so it must collect and
+report only on commit, or an escape sitting before a `${` is diagnosed
+twice — once while looking ahead and again when the mode path walks it.
+
+**Being pinned is not being alive.** All three existing codes were defined,
+titled, and checked against §11 by a three-party test, and referenced
+nowhere in `oracle/lexer`: `"\q"`, `'\n'`, `"\u{}"`, and `"\u{D800}"` all
+lexed clean. A pin over an unraised code reports agreement about a check
+that never runs — the same shape as the `go test` cache serving a stale
+pass and as a corpus reader silently skipping files, both found earlier in
+this same session. The rejected alternative, leaving the codes for a
+decoder that does not exist, would have left that state indefinitely.
+
+**One table, two questions.** Validation and decoding read the same five
+rows, so the table lives in one place: the lexer asks "is this legal", and
+whatever later turns a `STRING_DQ` span into a string value asks "what is
+its value". R240 already permits the split — a prefix names the stage that
+*defined* a check, not the one that runs it — but no split is needed if
+neither phase owns a private copy.
+
+**`L0012` stays for a backslash at end of input.** It competes with
+`L0005`, and the wording decides it: there is no following character to
+look up, so nothing can be absent from a table row, while §11's `L0012` row
+names *"a bare `\`"* as its own example and its condition — a byte that
+begins no token in the current mode — is exactly satisfied.
+
+§11 reaches **sixteen** codes. Swept: `lexer.md` §11 (the `L0016` row, the
+count, and the `INVALID` paragraph, where `L0016` joins `L0005`/`L0006`/
+`L0013` in emitting no token of its own, being inside a well-formed
+literal), `string.md` §5.1 (the staged check recorded where the table
+lives), `bytes.md` §7 (`\xNN`'s two-digit requirement now has a code).
+**Not yet swept, outside the spec**: `oracle/diagnostic` and `oracle/lexer`
+— no code was written for this ruling, so the code pin fails until it is,
+which is the intended signal. **Not ruled here**: which package holds the
+escape table, an implementation question; and `lexer-testing-plan.md` §10's
+entry recording this gap is superseded rather than swept, the gap being
+what this closes.
+
+**R249 — a raw triple preserves `\r`, so a `'''` value depends on the file's
+line endings. Raw means raw.** `"""` and `'''` disagree about CRLF, and the
+disagreement is real rather than an oversight: in `"""` a `\r` before the
+newline is trailing whitespace, which R246 already strips, so a CRLF
+checkout and an LF checkout produce the same string; in `'''` nothing is
+stripped but the margin, so the `\r` is content and the two checkouts
+produce different values.
+
+**The hazard is stated rather than removed.** Line endings are the least
+durable bytes in a repository — `core.autocrlf`, an editor's default, and
+whoever happened to clone it — and `'''` is exactly the form reached for
+when the bytes matter, so this is where non-durability lands hardest. That
+is the same argument R246 used to justify stripping trailing whitespace in
+`"""`, and it does not carry across, because the two forms answer different
+questions. `"""` is for text that should read the same everywhere; `'''` is
+for content whose bytes are the point.
+
+**What `'''` promises is one sentence, and that is its whole value**: every
+byte between the delimiters, minus the margin. "Every byte except a `\r`
+before a newline" is not one sentence, the exception would be invisible in
+the source, and a form that quietly edits its content is not a raw form.
+Both rejected alternatives cost exactly that. Normalizing `\r\n` to `\n` in
+raw triples breaks the guarantee for one sequence and leaves no way to write
+a literal CRLF at all. Treating `\r` before a newline as trivia in *both*
+forms is tidier and uniform, but it takes a byte away from the one form
+whose purpose is keeping bytes.
+
+So the obligation moves out of the language: a project depending on a `'''`
+value pins its line endings in `.gitattributes`, exactly as it would for any
+other byte-exact fixture, and `"""` stays the right default for text that
+should not vary by checkout. Swept: `string.md`'s multi-line paragraph and
+`lexer.md` §4's rule list, both of which now say which form is
+checkout-independent and why. The golden `triple-crlf.lex` pins both
+behaviours, so a later normalization cannot land silently.
+
+**R250 — the module phases split by job: discovery finds and never judges,
+import validation moves after lex and takes the prelude rule with it, and
+an assigned import is part of the prelude.** R190 settled the finding half
+of the bootstrap and left the judging half thinner. Implementing §1.0
+against it surfaced one ambiguity that is a silent miscompilation, and
+three placements that were never load-bearing where the spec put them.
+
+**An assigned import is part of the prelude, `export` included.** §5's grid
+(R136) has four cells and two of them begin `const`; §4 states the prelude
+rule for an `import` *statement*, and §6 calls the assigned form an
+*expression* outright. Read literally, discovery stops at `const fs =
+import std.filesystem;` as a non-import declaration, drops the edge, and
+the module is never lexed — and nothing backstops it, because a
+const-import is legal, so the parser has nothing to reject. That is exactly
+the divergence R190's soundness rules exist to exclude, reached from the
+other side. Ruled: all four cells are the prelude, and `export const fs =
+import …;` with them, re-exporting a collected table being ordinary. The
+consequence falls on the implementation rather than the rule: the stopping
+condition is a parse decision and not a token test, since `const` and
+`export` need lookahead to `= import` before discovery knows whether the
+prelude has ended.
+
+**Discovery finds; it never judges.** R190 sent cycle *diagnosis* to §1.2
+but said nothing about a path resolving to no file — a condition discovery
+is the first to meet, having to open the file in order to follow it. Ruled:
+discovery raises no diagnostic at all. An unresolvable path is skipped, and
+§1.2 reports it from the retained edges. The rationale is the contract:
+discovery exists to answer *which files*, and the phase with one product
+and no diagnostic surface is the one that stays cheap and stays correct.
+Rejected: erroring in discovery, which couples the cheapest phase to the
+diagnostic surface and would make any later, more permissive reader fail
+valid programs — a commented-out `// import std.experimental` becoming a
+build failure. Outside this rule: a file that exists and cannot be read is
+an I/O failure, not an import error, and belongs to whoever meets it.
+
+**Import validation runs after lex (§1.2 after §1.1).** The §1 diagram
+ordered discover → validation → lex, and nothing required it: lexing needs
+the **file set**, validation's only consumer is §1.4's layering, and R190
+had already named those two as the separate gating artifacts. The diagram
+listed them in section order, which is not the same claim. Ruled: §1.2 runs
+after §1.1 and may proceed alongside §1.3, finishing before §1.4. This
+narrows §1.2's old "runs while lex and parse proceed": the DAG half still
+needs nothing beyond discovery's output and may be computed as early as the
+implementation likes, but the phase *reports* after lex, because the
+prelude check reads token streams. What the move buys is the next item:
+§1.2 then holds every token stream. The cost, accepted: a lexical error
+anywhere now suppresses cycle diagnosis, where the old order reported a
+cycle despite a typo elsewhere. That is a wash rather than a regression —
+under either order the failing phase aborts at its boundary, and one error
+class hides the other.
+
+**The prelude rule is enforced in §1.2, superseding R190's placement of it
+in §1.3.** The check needs no structure: any `KW_IMPORT` past the prelude
+end is invalid, because both violations §4 names — a late top-level import,
+and an import inside a function, a block, or a conditional — are errors, so
+detection never has to tell them apart. Soundness comes from the reader
+rather than from the check: the lexer's mode machine already guarantees
+that no `KW_IMPORT` arrives from `// import x` or from `"import x"`. Ruled:
+§1.2 raises it, as an `M` code. The rule is the module system's, and codes
+are owned by the package that raises them (R240), so leaving enforcement in
+the parser would file a module rule under `P`. Rejected: discovery, where
+detecting a late import means reading past the prelude — spending the
+O(file-head) property that is the prelude rule's own dividend, and spending
+it in the one phase that gates everything and parallelizes only by graph
+level. R190's licensing sentence is rewritten with the move: the early stop
+is licensed by §1.2 catching the violation, not by §1.3. The parser's
+grammar still admits an import only in the prelude, so a misplaced one
+remains a syntax error — now unreachable in practice, §1.2 having aborted
+at the phase boundary first. It stays as a structural invariant, and is not
+dead code to be tidied away later.
+
+**Discovery emits a third free byproduct: the prelude-end offset per
+file.** It stops there, so it knows it; recording the offset costs nothing,
+exactly as retaining the raw edge list cost nothing (R190). It is what
+makes §1.2's check a filter over tokens rather than a second scan of the
+source.
+
+**What R190 keeps.** Its first soundness rule is untouched and still
+load-bearing: discovery is the real lexer in an imports-only mode, never a
+second scanner. Nothing here trades that for a cheaper reader, and the
+arithmetic is the reason — a naive scan is *slower*, not faster, because it
+cannot know where the prelude ends without the same parse, and must
+therefore read every byte of every file where the lexer reads a head.
+
+Swept: `compiler.md` §1 (the diagram), §1.0 (the byproduct list, the
+no-diagnostics contract, the rewritten licensing sentence), §1.2 (position
+in the pipeline, prelude enforcement), §1.3 (the prelude paragraph, now a
+backstop); `modules.md` §4 (the prelude covers all four cells of §5's grid)
+and §6 (assigned imports are prelude members, `export` among them).
+
+**Not ruled here.** The `M` code's number: the modules error summary that
+would allocate it does not exist yet, and a code allocated before there is
+a table to pin it against is a code nothing checks — lexer §11 is the
+model, and §1.2 has no equivalent. `std.*` resolution: §10 makes `std` a
+virtual root and §11 defers the standard library's organization, so what
+discovery does with the reserved root while no stdlib tree exists is its
+own question. And whether §1.2's concurrency with §1.1 and §1.3 is
+exploited or merely permitted.
+
+**R251 — importing the root module is its own error, and three smaller
+module rules settled while §1.0 was built.**
+
+**The root module cannot be imported.** modules §3 gives the root the empty
+path, but the root's *file* sits in the tree like any other — `app.luna` —
+so `import app;` resolves to it and that file acquires a second identity.
+modules §3 forbids exactly this, in its own words: paths are root-relative
+"so a module's path is the same everywhere it is referenced (no
+relative-path ambiguity where the same module could be reached by two
+different paths)". A root reachable both as `""` and as `app` is that
+ambiguity, arriving through the one module §3 exempted from the naming
+rule.
+
+Ruled: an import resolving to the root's file is an error in its own right,
+raised by §1.2, which holds the file set and recognizes the condition
+exactly.
+
+Rejected, each worse in a different way. **Treating it as an ordinary
+import** hands one file two module paths, which modules §7 cannot carry —
+provenance is a fixed compile-time fact about where a name came from, and
+two paths make it two answers. **Reporting it as a cycle** is what falls
+out of the implementation, the edge genuinely closing a loop, but it names
+the wrong problem: a cycle report sends the reader hunting for a dependency
+to invert when the fix is to stop importing the entry. **Giving the root an
+ordinary path** would dissolve the ambiguity by removing the special case,
+but the empty path is what keeps module identity project-name-independent
+(§3), and that rename-safety is worth more than the uniformity.
+
+**A file whose bytes ingress rejects stays in the file set.** Discovery
+cannot read its prelude, so it contributes no edges — but dropping it
+altogether means §1.1 never lexes it, and §1.1 is what owns the lexical
+codes, so invalid UTF-8 or a leading BOM would be reported by no phase at
+all and would then surface at §1.2 as an unresolved import naming a file
+that plainly exists. The file set is *the files the program consists of*,
+not the files discovery could parse.
+
+**`std.*` edges are not unresolved imports.** modules §10 makes `std` a
+virtual root with no tree behind it, and R250 has discovery follow nothing
+there, so every `std.*` edge reaches no file **by construction**. §1.2
+excludes them before reporting, or importing the standard library would be
+a list of errors.
+
+**Every cycle is reported, each with its full path.** compiler §3 has a
+phase run to completion and collect, so stopping at the first cycle is the
+wrong shape; and §1.2 already owes the path, which constrains the algorithm
+to one that produces it rather than one that merely detects a cycle exists.
+
+Swept: `modules.md` §3 (the root is not importable, with the two-paths
+argument it already makes); `compiler.md` §1.0 (ingress-rejected files stay
+in the set) and §1.2 (the root-import error, the `std` exclusion, every
+cycle with its path).
+
+**Not ruled here.** Whether a *consumer* may import a library's root once
+packaging exists: modules §11 defers the mounting question entire, and this
+rule governs a single compilation. And the error's code, for the reason
+R250 gave — there is still no modules error summary to allocate it in.
+
+**R252 — a module path segment may be a keyword.** modules §5 had already
+decided this without saying so: "the path never becomes a name", so
+`import test.helpers;` binds nothing called `test` and can collide with
+nothing. §3 maps a path straight onto directories, and `test/` and `error/`
+are among the most ordinary directory names there are — forbidding them
+would be a rule nobody expects, enforced by a parse error pointing at a
+perfectly reasonable folder.
+
+Ruled: in path position, any keyword token is a segment, `_` included. The
+lexer is untouched — it still emits `KW_TEST` — and only the grammar's view
+of that one position changes. Luna already settles a token-kind-versus-role
+question positionally: R223 leaves `from` unreserved and has the parser
+match its spelling in the from-clause. This is the same move in the other
+direction.
+
+**The boundary is the braced name list**, whose entries bind, and the
+`const NAME` of an assigned import, which binds too. Both stay identifiers.
+Without that line this would not be "keywords may appear in paths" but
+"keywords are identifiers", which is a different and far larger change.
+
+Rejected: forbidding keyword segments, as Python, Java and Rust do. Their
+path segments *are* names — `import os` binds `os` — so a keyword there
+genuinely collides. R136 severed that link for Luna, and the objection went
+with it.
+
+Two consequences accepted. **Syntax highlighting is wrong**: `error` in a
+path renders keyword-coloured, and nothing available fixes it —
+`grammar.js` is deliberately lexical, and `cmd/highlight` is a stateless
+kind-to-class map by design. Cosmetic, and cheaper than the
+context-sensitivity a fix would need. **`import match!.x;` names the
+directory `match!`**, which is what a uniform rule admits; enumerating
+exceptions would cost more than the absurdity does.
+
+A fence, since §3 alone does not imply it: this rests entirely on §5's "the
+path never becomes a name". Any proposal to make a path bind — a
+Python-style `import os` — retires this with it.
+
+Swept: `modules.md` §3 (the rule) and §5 (the sentence it depends on, now
+marked as load-bearing beyond its own paragraph).
+
+**R253 — the grammar becomes a spec of its own: `specs/build/grammar.md`,
+stratified, written over token names, and validated by a spec-literal
+parser built before the oracle's.** compiler §1.3 has specified the parse
+*phase* since it was written — context-free, lossless CST, error-tolerant,
+fully parallel — and there has never been a grammar for it to implement.
+The corpus holds exactly one production, lexical-structure §2's `IDENT ::=
+…`, and nothing else: no expression grammar, no statement grammar, no
+declaration grammar. What stands in for one is associativity.md's two tier
+tables, its pointer at match §2.1 for pattern position, and a scatter of
+**grammar notes stranded in topic specs** — enum §3's rule that `{` after
+`=>` opens a block, so a variant-literal body is parenthesized (R45);
+control-flow's postfix modifiers, which never chain; associativity §4's
+prefix `&`, accepted uniformly and rejected by semantics; constraints §1's
+`where`, which can never appear in a type, that being what lets the
+braceless form parse; R252's keyword path segments. Those are decisions
+already taken and presently unfindable, and collecting them is the larger
+half of the case for the artifact — larger than writing productions nobody
+has written yet.
+
+**The file is `specs/build/grammar.md`, and `lexer.md` is its template.**
+It is the same job one level up: a spec that collects from every other one,
+is authoritative for form, and leaves meaning where it lives. The structure
+transfers whole — the productions in one place, the sections keeping their
+*notes* rather than a second copy of the rows, an inventory section whose
+counts a test asserts, an error summary, a flagged section for the corners,
+and a cross-reference-notes section recording the gaps the sweep found.
+Rejected: **extending `associativity.md`**, which is a binding table derived
+from operators §0, and precedence is one chapter of a grammar rather than
+the grammar; and **folding it into compiler §1.3**, which owns the
+pipeline, where the language's shape does not belong. The name is
+`grammar.md` and not `parser.md` because §1.3 already owns the component —
+and the asymmetry with `lexer.md`, which is named for its component and
+carries modes and positions, is deliberate: the parser's implementation
+surface (recovery points, CST node shapes, trivia attachment) stays with
+compiler §1.3, tooling §2, and `driver.md`.
+
+**Authority: `grammar.md` owns form, the topic specs own meaning.** The
+lexer's model exactly — keywords.md is the keyword authority and lexer.md
+is the authority for how those words tokenize. So match.md stays
+authoritative for what a pattern means and `grammar.md` owns the
+production; each production cites its source spec, and each topic spec
+keeps its examples and gains a `grammar §n` cross-reference. Where prose
+and grammar disagree, the grammar is the shape and the disagreement is a
+ruling and a sweep. That is where the artifact earns its cost, not a side
+effect of paying it.
+
+**Terminals are lexer §0 token names, never spellings**: `KW_MATCH LBRACE`,
+not `match {`. This is what makes the two specs compose, and it buys a
+day-one mechanical pin of the kind lexer-testing-plan §1 already runs on
+the token table — every terminal is a real constant, checked both ways.
+R252 gets one free: `PathSegment` admits every keyword token, so a
+`Keyword` nonterminal enumerates §0's keyword category and a count against
+§10's **49** catches a dropped row. The metasyntax is `::=`, following
+lexical-structure §2 rather than introducing a second notation beside the
+corpus's one existing production. And the consequence that is easiest to
+miss: **a string literal is not a terminal.** Since R236 and R239 the lexer
+emits `INTERP_OPEN`, `INTERP_IDENT`, `DOLLAR_TEXT` and content runs, so
+interpolation — and the command and regex literals with it — has
+productions over sub-tokens. That is a section of the grammar, not a row in
+it.
+
+**Precedence is stratified: thirteen tiers, thirteen nonterminals.** The
+deciding argument is not tidiness but the **non-associative tiers** — 5
+(range), 6 (comparison) and 7 (equality) are `none`, so `a..b..c`, `a < b <
+c` and `a == b == c` are errors that today are prose and under
+stratification are the production shape. That is R242's direction, a tested
+property converted into a structural one, applied to the parser. Rejected:
+a flat `Expr ::= Expr BinOp Expr` with associativity §1 carried alongside
+as a disambiguation rule, which is what most language specifications do and
+is markedly cheaper to write — but it makes *is this grammar ambiguous* an
+unanswerable question, and the validation ruled below depends on that
+question having an answer. `associativity.md` stays the reader-facing
+summary of the same facts; `grammar.md` carries the mechanical form.
+
+**Three grammars, and a fourth category that is not one.** Expression /
+statement, type, and pattern — the split the corpus already makes
+(associativity §1, §2, and its pointer at match §2.1) — each its own
+section. Set apart from all three: the forms whose interior is a **closed
+sub-grammar** rather than an expression — `apply P(...)`'s initializer list
+(R158, "never an expression"), the `use (...)` clause in both its positions
+(R112), the `name:` head of a named argument, decided at one token, and
+`fn`'s fixed header order (R45). Naming them as a category is what stops an
+expressions-everywhere grammar from swallowing them.
+
+**The grammar is permissive by rule: a restriction belongs in it only when
+it is decidable with no symbol knowledge.** associativity §4 already
+establishes the principle for one case — the parser accepts prefix `&`
+uniformly and semantic analysis rejects non-argument uses, "keeping the
+grammar regular and the diagnostic precise". Generalized, stated, and
+carrying its list: prefix `&` anywhere; an `import` outside the prelude,
+structurally admitted with §1.2 having aborted first (R250); `get` and
+`set` as ordinary identifiers recognized positionally (R232); `{Enum.variant}`
+qualification. Unstated, the rule does not survive contact with readers:
+every later hand pushes one more semantic check into the CFG.
+
+**A spec-literal parser is built, and built before the oracle's.** This
+reverses lexer-testing-plan §7 — and it reverses it for §7's own stated
+reason. There, transcription could reach only what RE2 expresses, roughly
+550 of the lexer's ~1,600 lines, and *every* bug found while building the
+lexer lived in the half it could not reach: the mode stack, the margins,
+the closer lookahead, the escapes. A parser's entire job **is** the CFG, so
+a transcription reaches all of it. Three things follow that nothing else in
+the plan provides. **Ambiguity is detected** over the corpus rather than
+asserted — associativity §4's LR(1) claim currently has nothing behind it.
+**The grammar is validated before the recursive-descent parser exists**, so
+that parser has a spec to be differential-tested against instead of being
+the definition of what it implements. And it delivers the **parse gate**,
+which lexer-testing-plan §9 already names as the strong one: a lexing gate
+is permissive by construction — `pub`, `caps.io`, `use (&io)` and `!T` all
+lex clean — where a parse gate over the 436 corpus blocks is the
+corpus-wide retired-spelling audit no gate performs today. The cost is a
+third artifact to keep in step, and the mitigation is the second difference
+from §7's case: it is generated **from** the spec's own productions rather
+than maintained beside them, so it cannot drift by construction. Order:
+sweep, then `grammar.md`, then the spec-literal parser over all 436 blocks,
+then the oracle's recursive-descent parser, differential against it.
+
+**`P` codes land with the grammar, not after it.** compiler §3.1 assigns
+`P` to §1.3 and names lexer §11 the worked example. R250 and R251 each had
+to defer their `M` code for one reason — there was no summary table to
+allocate it in — and lexer-testing-plan §0 records that the code table is
+what made the lexer's error tests writable at all. `grammar.md` carries its
+error summary from its first version rather than acquiring one later.
+
+**Not ruled here.** The **fragment convention**: lexer-testing-plan §10
+counted 31 labeled blocks using `...` as an elision, which lex cleanly
+(`...` is `SPREAD`) and will never parse, so the parse gate needs a second
+label separating complete programs from fragments. It falls due when the
+gate lands, and its shape — a second fence label, a per-block marker, a
+directory — has no evidence behind it yet. The **grammar class as a
+claim**: associativity §4 says LR(1), and this ruling neither confirms nor
+retires it, because the spec-literal parser is what will answer it. A
+general parser is chosen for that reason — so the grammar is not shaped by
+a generator's limits before anyone knows what the grammar is. And the
+**exact metasyntax and extraction mechanism** (by fence label or by
+section), which are mechanical and settle when the file is written.
+
+**Swept: nothing yet, deliberately.** The artifact this ruling governs does
+not exist, and an index row pointing at an absent file is precisely the
+drift this process exists to prevent. Three sites land *with* `grammar.md`
+and are named here so they are not missed: `specs/index.md` (a row under
+"Modules, tooling & implementation", beside `lexer.md`); `associativity.md`
+§1–§2 (a cross-reference naming `grammar.md` as the mechanical form and
+itself as the summary, and §4's LR(1) sentence marked as pending the
+check); and `compiler.md` §1.3 (a pointer to the grammar, the phase
+description otherwise unchanged).
+
+**R254 — the grammar sweep's findings: the conditional operator exists and
+was specified nowhere, and four places where the corpus contradicted
+itself.** R253's sweep read every section header of all 96 specs and all 436
+`luna` blocks end to end. Five things it found are ruled here, because a
+grammar cannot be written over a corpus that disagrees with itself about the
+function literal.
+
+**The conditional `c ? a : b` exists, tier 11, non-chainable.** It was
+specified in no table and used at four sites — `std/json.md` §2 inside a
+`luna` block, `secret.md` §5.1, `internals/…-tables.md` §2, and `type.md`
+§4, where the inference claim `var u = cond() ? 5 : 5.0` infers `int |
+double` *rests* on it. Meanwhile lexer §5 listed it among the forms Luna
+does **not** have, beside `===` and the bitwise operators. Nothing caught
+this because `QUESTION` and `COLON` are both ordinary tokens: the absent
+form lexed perfectly at every site that used it. Ruled: it exists, and the
+lexer needs nothing — like `&`, `!` and `@`, the `?` is resolved by
+position, expression position being the conditional and declaration
+position the optional marker (`let n?: T`, `name?: T = null`, a proto
+member's `name[?]:`), with `T?` belonging to the type grammar. It takes
+associativity **tier 11**, which the coalescing spec had already fixed by
+writing that the coalescers sit "just above the ternary" — a sentence that
+referred to a tier that did not exist, and is true for the first time now.
+
+**Non-chainable** is the one part of this the sweep decided rather than
+recovered, and the argument is the one that retired `===` and `|>`: match
+§6's open-ended form already **is** the multi-way conditional expression, so
+`a ? b : c ? d : e` would be a second spelling for one mechanism. Luna
+already answers `none` at tiers 5, 6 and 7 wherever a chain has another
+spelling, and this is that rule's fourth application. Rejected:
+right-associative chaining, which is what every other language with the
+operator does and what a reader coming from one will try — the cost is real
+and is a parse error rather than a silent misreading, and `match` is one
+line away. Nesting by parentheses works in either arm. The tier number is
+the slot R146 vacated retiring the pipeline `|>`; that retirement stands,
+recorded now in associativity §4 rather than as a table row, and tier-12
+citations are unaffected either way.
+
+**`??` and `???` are right-associative and mix freely.** associativity §1
+tier 10 and optional-access-and-coalescing's Rulings section contradicted
+each other on **both** counts — right versus left, and mixes-freely versus
+parentheses-required — while associativity §4 claimed nothing was open.
+Ruled: associativity §1 is authoritative, being the file whose whole job is
+the binding table; the coalescing spec's paragraph is corrected. `a ?? b ??
+c` is `a ?? (b ?? c)`, the fallback of the fallback, which is also the
+reading that makes the chain mean what it looks like.
+
+**An error declaration takes `const`, like every other declaration.** All
+**20** sites in the corpus wrote `myError = error { … };` and `export
+ioError = error { … };` with no binding keyword, across `errors.md` (3),
+`io-errors.md` (16) and `exec.md` (1) — and **zero** wrote the form with
+one. What decides it is errors §3's own two sentences: an error is bound
+"the same way a protocol is defined with `proto`", and "an error definition
+binds like any value". Both are true and neither survives the spelling the
+section then demonstrates — every one of the 13 `proto` sites writes `const
+NAME = proto {…}` (R126), and a value that binds like any value takes a
+binding keyword like any value. The `export` form settles it independently:
+`export` applies to a declaration, and `export ioError = …` is an
+assignment, which modules §1 does not admit.
+
+**Error fields are `;`-separated**, as a `proto` block's members are.
+`errors.md` used `;` and `io-errors.md` and `io.md` used `,`; the two forms
+described the same construct. `;` wins because the error body is a
+declaration list, not a literal — the same reason proto members carry it —
+and because enum variants already own the comma-separated reading.
+
+**The `fn` arrow is mandatory, and a block body is an expression that
+carries no terminator of its own.** functions §3 (R45) states the arrow is
+mandatory and rests its LL(1) claim on it: `fn` commits the production and
+each junction is decided by its next token (`use`, `:`, `=>`). **13** sites
+wrote `fn (…) [use (…)] [: T] { … }` with no arrow — including *every*
+generator example in the corpus (`fn (): stream {`, three sites) — which
+would have made `{` a fourth junction token and cost R45 the property it
+was claiming. Ruled: R45 stands and the 13 sites are corrected. Both bodies
+are **expressions**: `=> expr` and `=> { … }` alike, the block form being
+multi-statement rather than a different kind of thing. A block is
+`LBRACE Statement* RBRACE` and nothing more — the `;` in `const f = fn ()
+=> { … };` belongs to the **declaration**, which is why the same literal
+takes none in expression position (`each(xs, fn (x) => { g(x); })`) or as a
+match arm's body. Rejected: a trailing semicolon-less expression as the
+block's value, Rust-style — `return` is how a Luna block yields one, every
+corpus example writes it, and the alternative would add a production the
+language has never used.
+
+**Corpus hygiene, swept with the above.** Three `import` statements in
+modules §5's block were unterminated, two lines below that section's own
+grid showing them terminated. And five blocks fenced ` ```luna ` were not
+Luna in any form — a set-builder expression (build-cache §1), an algorithm
+sketch in paren-less pseudo-Go (`internals/…-strings.md` §6), a line of
+JSON output (json §2), an ordering diagram (double §2.2), and a list of
+bare type names (numeric-tower §1.4) — now fenced as `text` and `json`. The
+corpus is **431** `luna` blocks after the retagging.
+
+**Not ruled here.** The **fragment convention** (R253's open item), which
+the sweep resized: lexer-testing-plan §10 counted 31 elision blocks, and the
+real picture is four-valued, not two — 59 elision lines, **110 blocks whose
+content is the `fn name(params): T` signature *notation*** rather than
+Luna, the not-Luna class now retagged, and a long tail of blocks that are
+expressions rather than programs (`@5`, `x is int`, `` `grep -n foo` ``).
+The signature notation itself needs no ruling — iterable-functions §1.6
+already calls it notation and functions §1 makes every function a lambda
+bound to a variable — but it needs a *label*, and one site uses it with a
+body (`enum.md` §3.2) and one writes `export fn` (json §2), which are drift
+against a notation rather than a second declaration form. Recorded so the
+gate's first run is not a surprise.
+
+Swept: `associativity.md` §1 (tier 11, replacing R146's tombstone row) and
+§4 (the conditional, and the pipeline retirement relocated);
+`lexer.md` §5 (the no-ternary claim struck, `:`'s roles extended);
+`optional-access-and-coalescing.md` Rulings (associativity and mixing);
+`errors.md` §3 (the `const`, the `;` rule, the two claims that decide both)
+and §4/§5 (two declarations), §5.1 (a prose `fn`);
+`io-errors.md` §1–§2 (17 declarations, and the field separator);
+`io.md` §2 (a prose `ioError` shape) and §1 (a `fn` arrow);
+`exec.md` §4 (one declaration);
+`capabilities.md` §3.1, §4, §7 (five `fn` arrows, one missing `const`);
+`stream.md` §1, §1.5, §8 and `stream-api.md` §1 (six `fn` arrows);
+`modules.md` §5 (three terminators);
+`incremental-compilation-build-cache.md` §1, `internals/internal-representation-of-strings.md` §6,
+`json.md` §2, `double.md` §2.2, `numeric-tower.md` §1.4 (fence labels).
+
+**R255 — Luna has no prototypes: the corpus's two signature notations were
+mistakes, and every catalogue entry becomes a real declaration.**
+Superseding R254's "not ruled here", which expected the notations to need a
+*label*. They needed deleting.
+
+The corpus described an export's signature two ways, neither executable:
+
+```
+fn has(tab: table, key: any): bool                              // A: 174 lines
+export const exists = fn (p: path) use (filesystem): bool;      // B: 111 lines
+```
+
+**A has no production at all** — there is no named-function declaration form
+in Luna, functions being lambdas bound to variables (functions §1) — so it
+fails loudly wherever it is read. **B is the dangerous one**, and it is what
+forces this ruling rather than a label. With a `use` clause it does not
+parse, capabilities being deliberately absent from the type grammar
+(functions §3). *Without* one it parses **clean and means something else**:
+`fn (params): T` is a type expression (associativity §2 tier 5) and types
+are first-class values (`const number: type = int | double;`, type §2), so
+`export const sqrt = fn (d: double): double;` binds `sqrt` to a **type
+value** rather than declaring a function. A parse gate passes math.md's
+entire export list while every line of it means the wrong thing — the exact
+failure R253's validation argument exists to catch, and the one a labelling
+convention could never have caught, because labelling only decides whether
+the gate *looks*.
+
+Ruled: **there are no function prototypes in Luna, and no value prototypes
+either.** A catalogue entry is an ordinary declaration binding a `fn`
+literal, with an empty body:
+
+```luna
+const has = fn (tab: table, key: any): bool => {};
+export const exists = fn (p: path) use (filesystem): bool => {};
+```
+
+The `=>` is mandatory (R45, R254) — the arrow is what makes the right side a
+literal instead of a type, which is precisely the distinction B lost. The
+body is `{}` because the catalogue specifies a *signature* and the prose
+specifies the behaviour.
+
+**The cost, accepted and named.** `=> {}` returns `undefined` where the
+signature says `bool`, so 289 declarations now carry a body that contradicts
+their return type. This is invisible to a parse gate and fatal to any
+semantic gate over the corpus — recorded here so that gate's authors meet it
+as a known quantity rather than 289 surprises. Rejected: `=> die('spec')`,
+which type-checks by way of `never` (never §1) and would have been sound,
+but reads as noise repeated 289 times in a reference catalogue where the
+reader wants the signature and nothing else.
+
+**Three value prototypes are left standing, deliberately, because fixing
+them means inventing API.** `io.md` §2.1's `export const stdin: file;` and
+its two siblings, and `datetime.md` §2's `export const utc = /* the fixed
+UTC timezone value */;`. Each declares that an export exists with a type and
+supplies no value a program could write — the same defect one level over,
+and the honest fixes (`stdHandle(0)`, `offset(seconds(0))`) either invent a
+function or change what the spec claims the value *is*. They are the
+remaining unparsable declarations in the corpus and they need an owner's
+decision, not a sweep's.
+
+Also recorded, since the grammar will meet it: an entry whose result is
+itself a function type now reads `const toJson = comptime fn (ct: comptype):
+fn (any): json => {};`. The inner `fn (any): json` is a **type**, and the
+`=>` binds to the outer literal — deterministic, because a `fn` type carries
+no arrow and `=>` cannot extend a type (match §2.1's terminator rule), but
+it is the corpus's densest collision between the type grammar's tier 5 and
+the expression grammar's function literal.
+
+Swept: `iterable-functions.md` §1.6 (the notation's charter, rewritten) and
+§2 (47 entries); `string-api.md` (45), `indexable-functions.md` (17),
+`math.md` (24), `datetime.md` (19), `time.md` (15), `filesystem.md` (15),
+`io.md` (14), `introspection.md` (14), `random.md` (9), `double.md` (8),
+`command.md` (7), `binary.md` (6), `int.md` (6), `net.md` (6), `bytes.md`
+(5), `functions.md` (5, including §3.1's two entries whose *return type* was
+an elided `...`, now written without an annotation), `secret.md` (4),
+`complex.md` (4), `stream-api.md` (4), `channels.md` (3), `rational.md` (3),
+`errors.md` (2), `enum.md` (2), `exec.md` (2), `json.md` (2), `regex.md`
+(2), and one each in `csv.md`, `decimal.md`, `process.md`, `protocols.md`,
+`serialization.md`, `spread.md`, `stringBuilder.md`, `xml.md`, `yaml.md`.
+Prose mentions of notation A retired at three sites: `channels.md` §5,
+`errors.md` §2.2, `incremental-compilation-build-cache.md` §1.3.
+
+*(Sweep amendment, found while sizing R253's fragment convention: four sites
+wrote the signature with **no `fn` at all** — `awaitAny(...ps: promise):
+[int, any]!` and the three timeout builtins, `concurrency.md` §5.1 — and the
+sweep's pattern keyed on `fn NAME(`, so it passed over them. Now declarations
+like the rest. The record is corrected rather than superseded: the ruling
+stands as written and only its site list was short, which is the partial
+application this process exists to catch, caught here by a different query
+rather than by the same one run twice.)*
+
+**R256 — a type expression reaches value position only under a `: type`
+annotation, which is what makes it parse.** R255 left a question standing:
+why did `const sqrt = fn (d: double): double;` bind a *type* instead of
+failing, and what stops the next such trap. Chasing it found that `fn` was
+never the special case — it was the only type head that failed **quietly**.
+
+**No type expression has an expression production.** The expression tiers
+have no infix `|` (only `||`), no infix `&` (only prefix `&x` and `&&`), and
+no postfix `?` or `!` (associativity §1). So `int | double`, `string?` and
+`@P & @Q` are not expressions, and `const number: type = int | double;` —
+type §2's own headline form, written that way at every site in the corpus —
+had **no grammar at all**. Every type value except one fails loudly in value
+position today. `fn (params): T` is the exception, because it is the single
+type-grammar form that also begins an expression form, so it produced a
+tree: the wrong one, silently.
+
+Ruled: **value position is the expression grammar, and a type expression
+enters it only through a `: type` annotation**, which puts the right-hand
+side in type position. The parser decides at the annotation, one token, before
+it reaches the `=` — keying on the *spelling* `type` in one position, the
+move R223 already makes for `from` in a from-clause and R232 for `get` /
+`set` in proto member heads. This is not a new restriction invented to patch
+`fn`; it is the rule that was always required for any type value to parse,
+and which the corpus has silently obeyed everywhere.
+
+**What is untouched**: forms that already are expressions — a bare name,
+`@x`, `declared x`, `comptype x`. `export const file = @fileDescriptor;`
+(std.io §2) stays legal exactly as written, `@` being a prefix operator
+whose result is an ordinary value; type §5 leans on that and continues to.
+
+**What it buys beyond closing the trap.** R45's LL(1) sentence becomes true
+as written: `fn` in expression position can only begin a literal, so `fn`
+really does commit the production and each junction really is one token.
+Without the rule the literal and the type share a prefix to the `=>`, `fn`
+commits nothing, and the grammar needs left-factoring to stay LL(1) — which
+would work, and would still leave the silent tree. It also settles a second
+ambiguity before it was reached: if table-literal keys are arbitrary
+expressions, `[fn (int): string => x]` is otherwise ambiguous between a
+one-element table holding a literal and a one-entry table keyed by a `fn`
+*type*. Expression position is now always the literal.
+
+**The cost, accepted.** A type expression cannot be a bare **call
+argument**: `isSubtype(x, int | double)` has no annotation to key on, and
+inferring one from the callee's parameter type is symbol knowledge, which
+compiler §1.3 denies the parser. Name the type first. Passing an
+already-named type is unaffected, and is what the catalogue does throughout,
+so the idiom this costs is one the corpus never used. Rejected: **inferring
+type position from the annotation's resolved kind**, which is the same
+symbol knowledge one step removed; and **parenthesizing `fn` types in value
+position** (`const t = (fn (double): double);`), which was the first fix
+considered and fails on its own terms — the inside of a parenthesized
+expression is still expression position, and it does nothing for `int |
+double`, leaving the general case unparsable while patching one head.
+
+Swept: `type.md` §2 (the rule, its rationale, the `fn` case, and the
+call-argument consequence) and §1.1 (`const p = int | table` → `const p:
+type = int | table`, the corpus's one violation, in prose);
+`associativity.md` §2 (where type position is entered — the four places, and
+what that means for `fn`); `functions.md` §3 (what licenses R45's
+first commitment).
+
+**Not ruled here.** Whether a **type-quotation form** is ever wanted for the
+call-argument case. Naming the type first is the answer for now, and a
+one-idiom cost does not justify new syntax before anyone has missed it.
+
+**R257 — a module's top level holds declarations only; the grammar admits a
+statement there and semantic analysis rejects it.** The question surfaced
+from R253's fragment convention: 139 of the corpus's 431 `luna` blocks put a
+statement at column 0, and whether those are programs or fragments turned
+out to rest on something the spec had never said either way. modules §1 and
+§4 and compiler §7.4 all say "top-level **declarations**" without ever
+ruling out anything else, while the language's headline promise is that a
+file runs directly like a script.
+
+**The grammar admits it**, which is the half that matters for R253. This is
+the third instance of a split the corpus already makes twice: a misplaced
+`import` is admitted structurally and rejected by §1.2 (R250), and a
+non-argument prefix `&` is "accepted uniformly" by the parser and rejected
+by semantic analysis, "keeping the grammar regular and the diagnostic
+precise" (associativity §4). The dividend is immediate — every one of the
+431 blocks parses from one start symbol, so R253's label set collapses from
+four classes to three, and no statement-sequence start symbol is needed.
+
+**Semantic analysis rejects it**, and capabilities §7 is what forces the
+shape of the answer. `main`'s `use` clause is "a complete, machine-checked
+upper bound on the whole program's authority" — a reviewer reads the
+program's entire permission surface off one line. Top-level code runs
+outside `main` and has no `fn` header to carry a `use` clause, so either its
+grant is **∅** or §7's guarantee is false. Given ∅, a top-level statement
+can express almost nothing: no effect is reachable, so all that remains is
+mutating an already-declared top-level binding, and `_ = expr` is a
+statement too. The feature costs a rule and buys an idiom nobody has
+written — every complete program in the corpus, `index.md`'s taste and all
+four `examples/`, is imports plus `const` and nothing else.
+
+Rejected, each on its own grounds. **Admitting it under the ∅ grant** keeps
+§7 intact but delivers the paragraph above: a scripting affordance that
+cannot print. **A top-level `use` directive** would make init authority
+explicit and preserve §7's read-it-off-the-top property, but it is new
+surface for one narrow case and needs its own rule for non-root modules.
+**A script body replacing `main`** is that proposal wearing different
+clothes, and it additionally collides with root discovery — modules §3
+finds the project root *by* the `main` file, so a root with no `main` has no
+root.
+
+**Every module's top level, not only the entry's.** A file is a module (§1);
+a rule about what a module contains should not ask which one. Initialization
+is unaffected and still means what compiler §7.4 says: initializer
+expressions evaluate in dependency order, and now provably run no statements.
+
+**The code is an `S`, and its number is deferred.** This was first written
+as `M0006` and is corrected here before it could set a precedent. The
+argument for `M` was R240's "a prefix records where a check was *defined*,
+not where it lives" — but that sentence is scoped to **migration**, its own
+clause saying so: *"when a check migrates to an earlier phase, as checks do,
+it keeps its original code."* It governs a check that already has a prefix;
+it licenses nothing about allocating a new one. Initial allocation is
+compiler §3.1's table, which scopes `M` to "§1.0 discovery, §1.2 import
+validation" — both phases that hold token streams, neither able to tell a
+declaration from a statement. A check born in §1.4 is an `S`.
+
+Which *spec* owns a rule and which *stage* owns its code are separate
+questions, and conflating them is what produced the error: modules §1 states
+this rule and keeps it, exactly as keywords.md owns the keyword set while
+lexer §11 owns the `L` codes. The number waits on a semantic error summary,
+which does not exist — the same deferral R250 and R251 took for `M` before
+§12 was written, on the same reasoning: a code allocated before there is a
+table to pin it against is a code nothing checks. modules §12 gains a note
+saying where the rule's code went, so the gap is not refilled by mistake.
+
+**Corpus impact: none that is real.** No complete program in the corpus has
+a top-level statement. The 139 blocks that do are illustrative snippets —
+`myTable.name = 'Lucas';`, `['name' => n] = person;` — and most were already
+not modules, naming bindings that no surrounding code declares. Nothing
+checks them today and nothing is planned to: the gate R253 commissions is a
+**parse** gate, and all 139 parse.
+
+A fence, since the motivation will recur: if a script form is ever wanted,
+this is the ruling it retires, and it must answer capabilities §7 — not by
+weakening the upper bound, but by giving init an authority the reader can
+see as easily as `main`'s one line.
+
+Swept: `modules.md` §1 (the rule, the grammar/semantics split, and the
+deferred `S` code), §12 (a note that this rule's code is a semantic one and
+why, so the row is not added here later); `capabilities.md` §7 (why the
+upper bound is total — nothing executes outside `main` that could hold
+authority, with initializers' ∅ grant named alongside §8's comptime floor).
+
+**R258 — the fragment convention, settled by deleting it: every ` ```luna `
+block is a complete Luna file, and the label set is one label.** R253 left
+this open and expected three or four classes; R257 removed one of them by
+admitting top-level statements. This closes it by converting the rest rather
+than labelling them.
+
+**What was actually there**, once measured rather than estimated. Of 431
+blocks: **36** contained an elision hole, not the 6 a first count found —
+the first count looked for a lone `...` line and missed the far commoner
+inline `{ ... }`. And **~32** were bare expressions with no terminator
+(`x is int`, `@5`, `` `grep -n foo` ``), which parse perfectly as
+expressions and not at all as files.
+
+**Holes become the empty forms**, and no code was invented to fill them:
+`{ ... }` is `{}`, `=> ...` is `=> {}`, `fn (...)` is `fn ()`, and a lone
+`...` is deleted. This is the spelling R255 already chose for an elided body
+across 289 signatures, so the corpus gains no new convention — the same
+`{}` means the same thing in both places, *the body is not what this block
+is about*. Rejected: inventing plausible bodies (`try { risky(); } catch (e)
+{ handle(e); }`), which puts fictional names in the spec to satisfy a
+parser.
+
+**Bare expressions become discard statements**, `_ = expr;` — the form
+wildcard §2 exists for, and required here rather than optional, since an
+unused return value is a compile error and only a **void** call is exempt
+(undefined §4.1). Three sites read better as bindings and got them:
+wildcard §3's partial applications bind (`let add5 = add(5, _);`), which is
+what the surrounding prose was already describing. Module-level unused
+bindings are legal, so this is available at all — variables §4.1 scopes the
+unused-binding error to **locals**, and that exemption is what makes the
+choice free.
+
+**Two blocks needed more than a wrapper**, and both are worth recording
+because R256 caused one of them. type §3's `number == (int | double)` cannot
+be an expression at all now: a parenthesized type is still expression
+position, so the comparison is rewritten over two `: type` bindings.
+And functions §3's `fn (params) : result` is a **schematic** — `params` and
+`result` are metavariables, not code — so it is fenced `text`, joining
+R254's five. That is the whole of the residual `text` class: schematics and
+non-Luna, never merely-incomplete Luna.
+
+**The result is one rule with no exceptions**: every ` ```luna ` block is a
+complete file, ` ```text ` is for what is not Luna, and the gate needs no
+label vocabulary, no second start symbol, and no per-block skip list. The
+alternative — a third fence, ` ```lunaexpr ` — was rejected on a cost the
+tooling makes concrete: fence recognition is duplicated in
+`internal/spec/corpus.go` and `internal/highlight/markdown.go`, which
+carries the comment *"Fence recognition matches internal/spec exactly"*, so
+a second label doubles a lockstep obligation permanently for 8% of blocks.
+Conversion pays once; a label recurs at every future reader, and every
+future gate — semantic, eval — would have to be taught it again.
+
+Swept, 34 files: the hole fill in `capabilities.md`, `protocols.md`,
+`errors.md`, `stringBuilder.md`, `range.md`, `modules.md`, `match.md`,
+`conversion.md`, `attributes.md`, `functions.md`, `stream.md`,
+`stream-api.md`, `secret.md`, `bool.md`, `equality.md`, `as.md`,
+`operators.md`, `await.md`, `type.md`, `undefined.md`; the discard wrapping
+in `is.md`, `command.md`, `int.md`, `numeric-tower.md`, `double.md`,
+`tables.md`, `spread.md`, `tests.md`, `introspection.md`, `datetime.md`,
+`regex.md`, `bool.md`, `wildcard.md`, `protocols.md`, `type.md`. Comment
+columns were re-flowed per block where the wrapping pushed them out of true.
+The corpus is **430** `luna` blocks and one `text` block more than before.
+
+
+**R259 — the value prototypes: `utc` is derived, the standard handles are
+described rather than declared, and the gap between them is named.** R255
+ruled that Luna has no prototypes and left four declarations standing that
+had a type and no initializer — the last unparsable declarations in the
+corpus. They turned out to be two different things.
+
+**`utc` was never a prototype; it is a derivation nobody had written.** UTC
+*is* +00:00 — no rules, no DST, always zero — so it needs no origin of its
+own: `export const utc = offset(seconds(0));`. `offset` is pure, total and
+`use`-free, so the initializer is comptime-eligible and legal under R257's
+empty grant, which is what lets `utc` go on serving as the default argument
+it is used as throughout datetime. The one thing this decides rather than
+discovers is rendering: the zero offset's `id` is **`"UTC"`**, not
+`"+00:00"`, which is what the §2 examples already assumed. Rejected: a
+distinguished UTC zone beside the offset, which would give one value two
+origins and put a hidden special case inside a function documented as "a
+frozen number with no rules."
+
+**The three standard handles cannot be written, and the reason is worth
+recording.** `stdin`, `stdout` and `stderr` are `@fileDescriptor` values
+the runtime supplies. There is no literal for a protocol refinement, no pure
+expression yields a descriptor, and the effectful route closed with R257 —
+module initialization runs under the empty grant, so `= openFile(…)` is not
+available. They must also stay *values* rather than becoming calls, because
+`println(line, fd: file = stdout)` uses them as default arguments, and a
+`stdout()` default would demand `io` wherever the default is evaluated.
+Ruled: the block is fenced `text` and says in prose that the runtime
+supplies them.
+
+**Why that is a notation gap and not a language gap**, which is the correction
+this ruling exists to make. The *functions* beside them are equally
+runtime-supplied — FFI is deferred (capabilities §9), so no Luna source
+reaches a syscall, and every effectful `=> {}` in std is a placeholder for a
+native implementation. The asymmetry is only that Luna can **spell** the
+function placeholder with the whole contract intact — name, parameters,
+result — and cannot spell the value one, an initializer being the entire
+content of a value declaration. Nothing about the handles' semantics is in
+doubt.
+
+Rejected, and the second one is why this is written down. **A
+runtime-provided declaration form** — new syntax meaning "the runtime
+supplies this" — buys three sites and adds language surface to make a
+documentation block parse; the function next to it is equally fictional and
+already accepted. **The write-once optional** (`let stdout?: file = null;`,
+variables §1.2) parses, and fails on semantics rather than taste: it types
+the handles `file | null`, which no `fd: file` default accepts, so every use
+site narrows forever; it forces `let`, discarding the `const` that §2.1's
+own cross-task-sharing argument rests on; and it still does not express the
+runtime's write, which no Luna statement can perform under R257. A `text`
+fence is wrong about the container; that would be wrong about the language,
+and the container is the cheaper error. **Inventing a constructor**
+(`stdHandle(0)`) puts fiction in the spec to satisfy a parser, which R258
+already refused.
+
+**Not ruled here.** Whether the standard library's native boundary wants a
+notation at all. It is invisible today because `=> {}` covers the function
+case and prose covers this one, and it becomes a real question when FFI
+lands (capabilities §9, deferred) or when std is written in Luna rather than
+provided by the oracle in Go (R241). Recorded so that decision is taken on
+its own merits and not inferred from a fence label.
+
+Swept: `datetime.md` §2 (the derivation, the `"UTC"` rendering, the
+`std.time` seam that `seconds` crosses); `io.md` §2.1 (the fence and the
+runtime-supplied paragraph). The corpus is **429** `luna` blocks and two
+`text` blocks more than R258 left it, and no declaration in it now lacks an
+initializer.
+
 ---
 
 ## Still open (out of scope of these rulings)
@@ -5992,6 +8033,20 @@ One small deferral tracked here (reclassified from "open" with the spread.md val
 R168): spread of `bytes` / `string` — whether `[...someBytes]` yields `byte` elements or
 errors waits on a use case, not a decision, and `toList(b)` (R167) already spells the
 explicit form (spread §7).
+
+Two R233 deferrals sit outside the corpus and are tracked here so they are not lost, both
+pre-ship rather than pre-freeze: the **contents of the third-party notice artifact** that
+must accompany the `luna` distribution, and **trademark clearance** — the Go marks may be
+retained on a substantially *unmodified* redistribution, and R233's three exclusions make
+this bundle modified, so it is a `trademark@go` question to settle before any binary is
+published, not one the spec can answer.
+
+R234's two deferrals, likewise tracked: **when** the bootstrap happens (the ruling fixes the
+order — after the oracle, after the surface freezes, after std grows — not a date), and
+**whether Phase 1's Go-written compiler is kept alongside the interpreter** as a second
+independent reference. The second is a real choice with a real cost: it is the faster and more
+complete of the two Go artifacts and the more expensive to maintain, and R234 commits only to
+keeping the interpreter.
 
 *(The `@P` value-position contradiction R174's validation surfaced here is **ruled:
 R175** — the static-protohood steer extends to value position, `@P` on a proto yields the

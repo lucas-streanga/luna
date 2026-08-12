@@ -5,7 +5,7 @@
 faithfully, including infinities and nan, and it is deliberately **not** interchangeable with
 `int` (no implicit conversion, §7).
 
-```
+```luna
 let x: double = 3.14;
 let y = 1.0 / 3.0;         // 0.3333333333333333
 ```
@@ -46,10 +46,10 @@ because floats have defined out-of-range values and ints do not.
 Following from §1, floating-point division by zero does **not** panic (unlike int division,
 which does):
 
-```
-1.0 / 0.0        // inf
--1.0 / 0.0       // -inf
-0.0 / 0.0        // nan
+```luna
+_ = 1.0 / 0.0;  // inf
+_ = -1.0 / 0.0; // -inf
+_ = 0.0 / 0.0;  // nan
 ```
 
 To treat a non-finite result as an error, check it (§2.1) or narrow to `finiteDouble` (§5),
@@ -73,10 +73,10 @@ used carefully in `match` and sorting.
 
 ### 2.1 Checking for special values
 
-```
-fn isNan(x: double): bool         // true iff x is nan (the reliable nan test, since x == x fails for nan)
-fn isInf(x: double): bool          // true iff x is inf or -inf
-fn isFinite(x: double): bool       // true iff x is neither nan nor inf
+```luna
+const isNan = fn (x: double): bool => {};         // true iff x is nan (the reliable nan test, since x == x fails for nan)
+const isInf = fn (x: double): bool => {};          // true iff x is inf or -inf
+const isFinite = fn (x: double): bool => {};       // true iff x is neither nan nor inf
 ```
 
 `isNan` is the correct way to test for nan, because `x == nan` and even `x == x` do not work
@@ -89,7 +89,7 @@ IEEE `==` and IEEE ordering are not well-behaved (§2), so anything that needs a
 relation over doubles, **sorting** and **`match` value-patterns** (match spec), uses a **total
 order** instead, defined over every double including the infinities and nan:
 
-```
+```text
 -inf  <  negative finite  <  0.0  <  positive finite  <  inf  <  nan
 ```
 
@@ -142,7 +142,7 @@ rounding. A constraint filters which doubles are valid; it cannot reduce precisi
 
 Constraints on `double` instead restrict the **value set**, which is useful:
 
-```
+```luna
 const probability   = constraint x: double where x >= 0.0 && x <= 1.0;
 const finiteDouble   = constraint x: double where isFinite(x);       // excludes nan and inf
 ```
@@ -157,7 +157,7 @@ So constraints give ranges and finiteness, not reduced precision.
 a real, finite number. Because it is an ordinary constraint (constraints spec), narrowing to it
 runs the check and **panics** (a `typeError`) on a nan or inf:
 
-```
+```luna
 let r = someComputation();          // r : double, possibly nan or inf
 let f = r as finiteDouble;          // panics here if r is nan or inf
 // f is known finite from here
@@ -192,12 +192,12 @@ There is **no implicit conversion** between `int` and `double`, and neither `as`
 two are disjoint representations and converting **transforms** the value (`as` never transforms,
 `as` spec §3). Conversion is by function:
 
-```
-fn toDouble(n: int): double        // int to double; exact for |n| <= 2^53, lossy above (mantissa is 52 bits)
-fn trunc(d: double): int!          // toward zero          — the policy verbs, each fallible
-fn round(d: double): int!          // nearest; ties away from zero
-fn floor(d: double): int!          // toward -inf
-fn ceil(d: double): int!           // toward +inf
+```luna
+const toDouble = fn (n: int): double => {};        // int to double; exact for |n| <= 2^53, lossy above (mantissa is 52 bits)
+const trunc = fn (d: double): int! => {};          // toward zero          — the policy verbs, each fallible
+const round = fn (d: double): int! => {};          // nearest; ties away from zero
+const floor = fn (d: double): int! => {};          // toward -inf
+const ceil = fn (d: double): int! => {};           // toward +inf
 ```
 
 - **`int` to `double`** is total but **lossy for large magnitudes**: a `double`'s 52-bit
@@ -221,8 +221,19 @@ visible at every crossing, consistent with the language's conversion-is-a-functi
 
 Decimal floating-point literals are written with a point or exponent (`3.14`, `1.0`, `6.022e23`,
 `1e-9`). A literal with neither a point nor an exponent is an `int` (§7 governs crossing between
-them). The exact literal grammar (exponent form, digit separators, whether a trailing or
-leading point is allowed) is specified with the literal grammar.
+them). The exact grammar is **now ruled** in lexer §4 (R238), and three of its answers are
+double-side facts worth stating here:
+
+- **Neither a leading nor a trailing point.** `.5` is written `0.5`, `5.` is written `5.0`. The
+  trailing ban is load-bearing rather than stylistic — requiring a digit on both sides is what
+  lets `1..5` lex as `INT RANGE INT` and `1.toDouble()` as `INT DOT IDENT` with no lookahead.
+- **Exponents take an optional sign and plain digits**, at least one; `_` separators are legal
+  in the significand (`3.141_592`) but never inside an exponent, and there is no hex-float
+  form (`0x1p3` is not Luna).
+- **A literal that overflows to infinity is a compile error.** `1e400` does not silently become
+  `inf`, because `inf` is a keyword and the explicit spelling exists (§2); a finite literal
+  turning infinite is a wrong value, not a rounding. Ordinary rounding, underflow included, is
+  normal IEEE behaviour and is not diagnosed — `1.1` is inexact too.
 
 ---
 

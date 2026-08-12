@@ -1,6 +1,6 @@
 # `std.math`
 
-```
+```luna
 const math = import std.math;        // or selectively: import { sqrt, pi } from std.math
 ```
 
@@ -16,26 +16,26 @@ verbs** (`trunc`/`round`/`floor`/`ceil`, conversion §2).
 
 ## 1. Constants
 
-```
+```luna
 export const pi = 3.141592653589793;
 export const e  = 2.718281828459045;
 ```
 
 ## 2. Scalar functions
 
-```
-export const abs   = fn (x: number): number;             // kind follows the operand
-export const sign  = fn (x: number): int;                // -1, 0, 1
-export const clamp = fn (x: number, lo: number, hi: number): number;
-export const lerp  = fn (a: double, b: double, t: double): double;
+```luna
+export const abs   = fn (x: number): number => {};             // kind follows the operand
+export const sign  = fn (x: number): int => {};                // -1, 0, 1
+export const clamp = fn (x: number, lo: number, hi: number): number => {};
+export const lerp  = fn (a: double, b: double, t: double): double => {};
 
-export const sqrt  = fn (d: double): double;
-export const hypot = fn (x: double, y: double): double;
-export const pow   = fn (base: double, exp: double): double;
-export const exp   = fn (d: double): double;
-export const ln    = fn (d: double): double;
-export const log2  = fn (d: double): double;
-export const log10 = fn (d: double): double;
+export const sqrt  = fn (d: double): double => {};
+export const hypot = fn (x: double, y: double): double => {};
+export const pow   = fn (base: double, exp: double): double => {};
+export const exp   = fn (d: double): double => {};
+export const ln    = fn (d: double): double => {};
+export const log2  = fn (d: double): double => {};
+export const log10 = fn (d: double): double => {};
 ```
 
 - **`abs`, `sign`, `clamp` take `number`** (`int | double`, the predeclared union) with
@@ -56,17 +56,17 @@ export const log10 = fn (d: double): double;
 
 ## 3. Trigonometry
 
-```
-export const sin  = fn (r: double): double;      // radians, throughout
-export const cos  = fn (r: double): double;
-export const tan  = fn (r: double): double;
-export const asin = fn (d: double): double;
-export const acos = fn (d: double): double;
-export const atan = fn (d: double): double;
-export const atan2 = fn (y: double, x: double): double;
+```luna
+export const sin  = fn (r: double): double => {};      // radians, throughout
+export const cos  = fn (r: double): double => {};
+export const tan  = fn (r: double): double => {};
+export const asin = fn (d: double): double => {};
+export const acos = fn (d: double): double => {};
+export const atan = fn (d: double): double => {};
+export const atan2 = fn (y: double, x: double): double => {};
 
-export const toRadians = fn (degrees: double): double;   // the to* contract (conversion §2)
-export const toDegrees = fn (radians: double): double;
+export const toRadians = fn (degrees: double): double => {};   // the to* contract (conversion §2)
+export const toDegrees = fn (radians: double): double => {};
 ```
 
 Radians only; degrees are a display unit, converted at the boundary with the `to*`
@@ -75,11 +75,11 @@ pair (total conversions, R106's contract exactly). Out-of-domain inputs produce 
 
 ## 4. Statistics: what the catalogue lacks, split by the retention rule
 
-```
-export const variance = fn (it: iterable, sample: bool = false): double;
-export const stddev   = fn (it: iterable, sample: bool = false): double;
-export const median     = fn (xs: table): double;
-export const percentile = fn (xs: table, p: double): double;    // p in [0, 1]
+```luna
+export const variance = fn (it: iterable, sample: bool = false): double => {};
+export const stddev   = fn (it: iterable, sample: bool = false): double => {};
+export const median     = fn (xs: table): double => {};
+export const percentile = fn (xs: table, p: double): double => {};    // p in [0, 1]
 ```
 
 The R92 retention rule slots these exactly: **`variance` and `stddev` take

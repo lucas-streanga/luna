@@ -4,7 +4,7 @@
 the `lval`** like the other scalars. It is the simplest type in the language, one bit of
 information, two literals, no coercion.
 
-```
+```luna
 let ok: bool = true;
 let done = false;
 ```
@@ -24,11 +24,11 @@ Anywhere a boolean is expected, a condition in `if` / `while`, a `match` guard, 
 boolean operator, the value **must be a `bool`**. There is **no truthiness**: non-boolean values
 are not implicitly treated as true or false.
 
-```
-if (count > 0) { ... }        // ok: a bool
-if (count) { ... }             // ERROR: int is not a bool
-if (name != "") { ... }        // ok: write the comparison
-if (handle != null) { ... }    // ok: explicit null check
+```luna
+if (count > 0) {}        // ok: a bool
+if (count) {}             // ERROR: int is not a bool
+if (name != "") {}        // ok: write the comparison
+if (handle != null) {}    // ok: explicit null check
 ```
 
 This is deliberate and consistent with the language's no-magic stance: `if (count)` is ambiguous
@@ -64,10 +64,10 @@ A `bool` does **not** implicitly coerce to or from `int` or `string`, and conver
 *different value* of a different type, which is a transformation, so it is a function, exactly as
 `toString` and `parseInt` are functions rather than `as` forms.
 
-```
-b.toInt()             // true -> 1, false -> 0   (total; UFCS, same as toInt(b))
-b.toString()          // true -> "true", false -> "false"   (total; the ordinary toString)
-parseBool(s)          // "true" -> true, "false" -> false, else an error: bool!   (fallible)
+```luna
+_ = b.toInt();    // true -> 1, false -> 0   (total; UFCS, same as toInt(b))
+_ = b.toString(); // true -> "true", false -> "false"   (total; the ordinary toString)
+_ = parseBool(s); // "true" -> true, "false" -> false, else an error: bool!   (fallible)
 ```
 
 - **`toInt(b): int`** , `true` to `1`, `false` to `0`. Total (always succeeds). Reachable as

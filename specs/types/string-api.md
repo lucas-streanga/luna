@@ -85,8 +85,8 @@ retired with the whole flag model, R92/R102: producers now always return streams
 ## 4. Construction and conversion
 
 #### toString()
-```
-fn toString(value: any): string
+```luna
+const toString = fn (value: any): string => {};
 ```
 Every value's canonical string form. Defined for all types; for `table` it is the
 same rendering used by `println`. The identity function on `string`.
@@ -98,17 +98,17 @@ relationship to the string builder, are in string §5. (A positional `format` fu
 deliberately omitted for now; it is a larger design in its own right.)
 
 #### repeat()
-```
-fn repeat(str: string, times: nat): string
+```luna
+const repeat = fn (str: string, times: nat): string => {};
 ```
 `"ab".repeat(3)` is `"ababab"`; `times = 0` yields `""` (a negative count, formerly a
 silent `""`, is unrepresentable: `nat`, R228).
 
 #### chr() / parse helpers
-```
-fn chr(codepoint: nat): string             // one-codepoint string from a scalar value
-fn parseInt(str: string): int!             // parse; error if not a valid integer
-fn parseDouble(str: string): double!       // parse; error if not a valid double
+```luna
+const chr = fn (codepoint: nat): string => {};             // one-codepoint string from a scalar value
+const parseInt = fn (str: string): int! => {};             // parse; error if not a valid integer
+const parseDouble = fn (str: string): double! => {};       // parse; error if not a valid double
 ```
 `chr` is the inverse of taking a single `codepoints()` element. A `codepoint` that is
 not a Unicode scalar value (a surrogate `0xD800..0xDFFF`, or above `0x10FFFF`)
@@ -124,31 +124,31 @@ must be consumed with `try` or an errorable binding.
 ## 5. Inspection and search
 
 #### isEmpty()
-```
-fn isEmpty(str: string): bool
+```luna
+const isEmpty = fn (str: string): bool => {};
 ```
 True iff `byteLength == 0`. O(1). (`str == ""` also works and is equally O(1).)
 
 #### contains() · startsWith() · endsWith()
-```
-fn contains(str: string, needle: string, caseInsensitive: bool = false): bool
-fn startsWith(str: string, prefix: string, caseInsensitive: bool = false): bool
-fn endsWith(str: string, suffix: string, caseInsensitive: bool = false): bool
+```luna
+const contains = fn (str: string, needle: string, caseInsensitive: bool = false): bool => {};
+const startsWith = fn (str: string, prefix: string, caseInsensitive: bool = false): bool => {};
+const endsWith = fn (str: string, suffix: string, caseInsensitive: bool = false): bool => {};
 ```
 O(n).
 
 #### indexOf() · lastIndexOf()
-```
-fn indexOf(str: string, needle: string, from: nat = 0, caseInsensitive: bool = false): nat?
-fn lastIndexOf(str: string, needle: string, caseInsensitive: bool = false): nat?
+```luna
+const indexOf = fn (str: string, needle: string, from: nat = 0, caseInsensitive: bool = false): nat? => {};
+const lastIndexOf = fn (str: string, needle: string, caseInsensitive: bool = false): nat? => {};
 ```
 The **byte offset** of the first / last match, or **`null`** if absent (R228: a miss is
 an answer, not a sentinel — `nat?` structurally rules out the old `-1`, and `??` /
 `is null` are the consuming idioms). `from` is a byte offset. O(n).
 
 #### count()
-```
-fn count(str: string, needle: string, caseInsensitive: bool = false): nat
+```luna
+const count = fn (str: string, needle: string, caseInsensitive: bool = false): nat => {};
 ```
 Number of non-overlapping occurrences of `needle`. O(n). An empty `needle` panics
 (`emptyNeedle` — the rule below).
@@ -168,16 +168,16 @@ ends are boundaries), `contains` / `startsWith` / `endsWith` with `""` are `true
 zero-byte step — the same emptiness — and panics `emptyNeedle` (§8).
 
 #### matches() · find() · findAll() (regex)
-```
-fn matches(str: string, pattern: regex): bool
-fn find(str: string, pattern: regex): table?
-fn findAll(str: string, pattern: regex): stream
+```luna
+const matches = fn (str: string, pattern: regex): bool => {};
+const find = fn (str: string, pattern: regex): table? => {};
+const findAll = fn (str: string, pattern: regex): stream => {};
 ```
 `regex` is its own type (a compiled pattern, kept separate so a pattern is compiled
 once and reused, rather than recompiled from a string on every call). `matches` tests
 for any match; `find` returns the first match as a table of capture groups (or `null`
 if none); `findAll` yields one such table per match. A `replace` variant that takes a
-`regex` target rides on the union already in §7. The `regex` type, its `/.../ ` literal,
+`regex` target rides on the union already in §7. The `regex` type, its `~"…"` literal,
 flags, engine guarantees (linear-time by default, opt-in backtracking under `/b`), and
 runtime construction are specified in **regex** (its own document); this section only
 fixes how strings consume one.
@@ -188,8 +188,8 @@ from: **int keys** are the positional groups (`0` the whole match, `1..n` the gr
 order), and a **named** group (`(?<name>…)`, regex §5.4) appears under **both** its
 number and its name:
 
-```
-let m = text.find(/(?<year>\d{4})-(?<month>\d{2})/);
+```luna
+let m = text.find(~"(?<year>\d{4})-(?<month>\d{2})");
 // m: [0 => "2026-07", 1 => "2026", 2 => "07", 'year' => "2026", 'month' => "07"]
 let ['year' => y] = m;          // keyed destructuring composes for free
 ```
@@ -199,8 +199,8 @@ no accessor functions). **Positions are not in the table** — offsets are a dif
 question and a position-returning variant is deferred until need.
 
 #### regexEscape()
-```
-fn regexEscape(str: string): string
+```luna
+const regexEscape = fn (str: string): string => {};
 ```
 Escapes all regex metacharacters in a string so it can be matched as literal text.
 **This is the one function, ruled** (R217): a builtin free function, one name, one
@@ -216,8 +216,8 @@ exists, and there was never anything to delegate.)
 ## 6. Slicing and extraction
 
 #### slice()
-```
-fn slice(str: string, offset: nat, length: nat? = null): string
+```luna
+const slice = fn (str: string, offset: nat, length: nat? = null): string => {};
 ```
 A substring beginning at byte `offset` for `length` bytes; **`null` means "to the
 end"**, the default (the `finalGlue` pattern, §8 — absence spelled as absence; the
@@ -228,8 +228,8 @@ small slice pins its parent until `copy`d. Both `offset` and `offset + length` m
 land on codepoint boundaries, or it panics (`stringBoundaryError`, errors §2, R228).
 
 #### isCodepointBoundary()
-```
-fn isCodepointBoundary(str: string, offset: int): bool
+```luna
+const isCodepointBoundary = fn (str: string, offset: int): bool => {};
 ```
 The **probe form** to `slice`'s assertion — the hard/soft pairing the language uses
 everywhere (`canReveal`/`reveal`, `peek`/`foreach`; R228). True iff
@@ -239,10 +239,10 @@ everywhere (`canReveal`/`reveal`, `peek`/`foreach`; R228). True iff
 it guards, a negative one answering `false`.
 
 #### before() · after() · between()
-```
-fn before(str: string, sep: string): string     // up to the first sep, or all of str
-fn after(str: string, sep: string): string       // after the first sep, or ""
-fn between(str: string, open: string, close: string): string
+```luna
+const before = fn (str: string, sep: string): string => {};     // up to the first sep, or all of str
+const after = fn (str: string, sep: string): string => {};       // after the first sep, or ""
+const between = fn (str: string, open: string, close: string): string => {};
 ```
 Convenience extractors over `indexOf` + `slice`. All borrow. An empty `sep` follows
 `indexOf`'s rule (§5): found at offset 0, so `before(s, "")` is `""` and
@@ -250,18 +250,18 @@ Convenience extractors over `indexOf` + `slice`. All borrow. An empty `sep` foll
 refuse `""`, §5).
 
 #### trim() · trimStart() · trimEnd()
-```
-fn trim(str: string, cutset: string = whitespace): string
-fn trimStart(str: string, cutset: string = whitespace): string
-fn trimEnd(str: string, cutset: string = whitespace): string
+```luna
+const trim = fn (str: string, cutset: string = whitespace): string => {};
+const trimStart = fn (str: string, cutset: string = whitespace): string => {};
+const trimEnd = fn (str: string, cutset: string = whitespace): string => {};
 ```
 Remove leading/trailing characters in `cutset` (default: Unicode whitespace). The
 result borrows.
 
 #### padStart() · padEnd()
-```
-fn padStart(str: string, width: nat, fill: string = " "): string
-fn padEnd(str: string, width: nat, fill: string = " "): string
+```luna
+const padStart = fn (str: string, width: nat, fill: string = " "): string => {};
+const padEnd = fn (str: string, width: nat, fill: string = " "): string => {};
 ```
 Pad to `width` **grapheme** clusters (the visually meaningful unit for alignment) with
 `fill`. No-op if already at least `width` wide.
@@ -271,35 +271,35 @@ Pad to `width` **grapheme** clusters (the visually meaningful unit for alignment
 ## 7. Transformation
 
 #### toUpper() · toLower() · toTitle() · fold()
-```
-fn toUpper(str: string): string
-fn toLower(str: string): string
-fn toTitle(str: string): string
-fn fold(str: string): string        // case-folded form, for case-insensitive keys
+```luna
+const toUpper = fn (str: string): string => {};
+const toLower = fn (str: string): string => {};
+const toTitle = fn (str: string): string => {};
+const fold = fn (str: string): string => {};        // case-folded form, for case-insensitive keys
 ```
 Full Unicode case mapping, not ASCII-only. `fold` produces the canonical
 case-insensitive form (what `caseInsensitive: true` compares under), useful as a map
 key.
 
 #### replace() · replaceFirst()
-```
-fn replace(str: string, target: string, with: string, caseInsensitive: bool = false): string
-fn replaceFirst(str: string, target: string, with: string, caseInsensitive: bool = false): string
+```luna
+const replace = fn (str: string, target: string, with: string, caseInsensitive: bool = false): string => {};
+const replaceFirst = fn (str: string, target: string, with: string, caseInsensitive: bool = false): string => {};
 ```
 Replace all / the first occurrence. Returns a new string (immutability). An empty
 `target` in `replace` panics (`emptyNeedle`, §5 — every-match); `replaceFirst` is
 determinate on `""` and inserts `with` at offset 0 (§5).
 
 #### reverse()
-```
-fn reverse(str: string): string
+```luna
+const reverse = fn (str: string): string => {};
 ```
 Reverses by **grapheme cluster**, so combining marks and emoji sequences stay intact.
 O(n).
 
 #### normalize()
-```
-fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
+```luna
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
 ```
 Unicode normalization. Needed so that visually identical strings built differently
 (precomposed vs. combining) compare and hash equal after normalizing.
@@ -309,8 +309,8 @@ Unicode normalization. Needed so that visually identical strings built different
 ## 8. Splitting and joining
 
 #### split()
-```
-fn split(str: string, sep: string | int, limit: nat = 0): stream
+```luna
+const split = fn (str: string, sep: string | int, limit: nat = 0): stream => {};
 ```
 Split on a `string` separator, or into fixed-width chunks of `int` bytes (the union
 replaces an overload). `limit > 0` caps the number of pieces, the last holding the
@@ -320,15 +320,15 @@ remainder. An empty `sep`, or an `int` chunk width `<= 0` (a zero-byte step), pa
 borrow.
 
 #### lines()
-```
-fn lines(str: string): stream
+```luna
+const lines = fn (str: string): stream => {};
 ```
 Split on line boundaries (`\n`, `\r\n`, and Unicode line breaks), terminators removed.
 Pieces borrow.
 
 #### join()
-```
-fn join(it: iterable, glue: string = '', finalGlue?: string = null): string
+```luna
+const join = fn (it: iterable, glue: string = '', finalGlue?: string = null): string => {};
 ```
 `join` is the catalogue function (iterable-functions §2.10), listed here for
 discoverability: it concatenates the elements of any iterable (each coerced via
@@ -346,9 +346,9 @@ Each returns a **stream** of borrowed slices (or inline strings for ASCII), one 
 per unit — `collect()` retains a list (§1). None allocate per element for ASCII input.
 
 #### bytes() · toBytes()
-```
-fn bytes(str: string): stream              // the producer: yields each byte (int 0..255)
-fn toBytes(src: string | iterable): bytes  // the conversion: the packed bytes value
+```luna
+const bytes = fn (str: string): stream => {};              // the producer: yields each byte (int 0..255)
+const toBytes = fn (src: string | iterable): bytes => {};  // the conversion: the packed bytes value
 ```
 Two operations, split along the producer/conversion seam (R102). `bytes()` is the
 **iteration view**, a stream of `byte` (int `0..255`). `toBytes()` is the **conversion**
@@ -364,24 +364,24 @@ exactly as the `b[] = x` writes it abbreviates would, so the signature stays `!`
 string.
 
 #### codepoints()
-```
-fn codepoints(str: string): stream   // elements are string
+```luna
+const codepoints = fn (str: string): stream => {};   // elements are string
 ```
 One element per Unicode scalar value. The safe technical unit; no Unicode-version
 dependence.
 
 #### graphemes() / characters()
-```
-fn graphemes(str: string): stream    // elements are string
-fn characters(str: string): stream   // alias of graphemes
+```luna
+const graphemes = fn (str: string): stream => {};    // elements are string
+const characters = fn (str: string): stream => {};   // alias of graphemes
 ```
 One element per grapheme cluster, what a person points at as a character. This is the
 correct default for user-facing iteration; `characters` is the friendly alias and
 never means codepoints.
 
 #### isValidUtf8()
-```
-fn isValidUtf8(str: string): bool
+```luna
+const isValidUtf8 = fn (str: string): bool => {};
 ```
 Always `true` for a live `string` (validity is an invariant, string-representation §8).
 Present for the boundary case of bytes about to become a string; the validating
@@ -397,8 +397,8 @@ and is counted in `byteLength` like any other. C interop is therefore explicit, 
 the two functions below exist precisely because Luna does not do what C assumes.
 
 #### cString()
-```
-fn cString(str: string): string
+```luna
+const cString = fn (str: string): string => {};
 ```
 Returns a string with a single NUL byte appended. It is defined to be exactly
 `"$str\u{0}"` (one interpolation, string §5; the `\0` spelling this entry once used is
@@ -408,8 +408,8 @@ to hand to C. Because the terminator is a real, counted byte, the result's
 `byteLength` is `str.byteLength + 1`.
 
 #### cStringLength()
-```
-fn cStringLength(str: string): nat
+```luna
+const cStringLength = fn (str: string): nat => {};
 ```
 The number of bytes up to and including the **first** NUL, which is the length C will
 actually see. This is an O(n) scan, not a field read, because a Luna string's
@@ -417,7 +417,7 @@ actually see. This is an O(n) scan, not a field read, because a Luna string's
 whereas C stops at the first NUL. The two disagree whenever the string has an interior
 NUL:
 
-```
+```luna
 let s = "ab\u{0}cd";
 s.byteLength;              // 5, Luna counts every byte
 s.cStringLength();         // 3, C stops at the first NUL ("ab" + terminator)

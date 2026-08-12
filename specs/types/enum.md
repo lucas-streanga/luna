@@ -7,7 +7,7 @@ Enums fill the one structural gap the language otherwise has, a *tagged sum*: un
 but neither expresses "one of several named alternatives, each with its own data." That is
 exactly an enum.
 
-```
+```luna
 const shape = enum {
   circle: ['radius' => int],      // variant `circle`, carrying a table shaped ['radius' => int]
   square: ['side' => int],        // variant `square`, carrying a table
@@ -46,7 +46,7 @@ payloads.
 A named enum is declared with the `enum` form, bound to a `const`, consistent with the other
 type-declaration forms (`constraint`, `capability`, `protocol`):
 
-```
+```luna
 const shape = enum {
   circle: ['radius' => int],
   square: ['side' => int],
@@ -84,7 +84,7 @@ A payload type (and each field type within a table-payload shape) may be **any t
 primitives. Because a payload is a value of a type, the type slot accepts the whole type
 language with no enum-specific contract mechanism:
 
-```
+```luna
 const event = enum {
   logged:  ['entry' => @loggable],      // field has a protocol applied (protocols spec)
   counted: ['n' => byte],               // field is a constrained type (constraints spec)
@@ -102,7 +102,7 @@ full type language.
 A payload type **may reference the enum being declared**, which allows tree- and AST-shaped data
 where each node is one of several kinds:
 
-```
+```luna
 const expr = enum {
   literal: ['value' => int],
   add:     ['left' => expr, 'right' => expr],    // sub-expressions are exprs
@@ -153,7 +153,7 @@ A variant is constructed with **braces around the variant name** and its payload
 payload}`. The braces mark an enum-variant construction, distinguishing `{nfc}` (the variant
 `nfc`) from `nfc` (a variable named `nfc`):
 
-```
+```luna
 let a = {circle ['radius' => 5]};       // variant circle, table payload
 let b = {labeled "hello"};               // variant labeled, string payload
 let c: shape = {point};                  // variant point, no payload
@@ -184,7 +184,7 @@ borrows `match`'s per-field rules (present-required keys, type-checked values, m
 declaration is *closed*, because a declaration **defines** a complete shape while a pattern only
 **probes** one. So:
 
-```
+```luna
 {circle ['radius' => 5]}                        // ok: exactly the declared field, typed int
 {circle ['radius' => 5, 'colour' => 'red']}     // error: 'colour' is not a declared field
 {circle []}                                      // error: 'radius' is missing
@@ -210,10 +210,10 @@ declaration and construction are closed.
 `{variant ...}` is **target-typed**: the enum it belongs to is inferred from the expected type,
 the annotated binding, the parameter type, or the return type:
 
-```
+```luna
 let d: shape = {point};                  // target: shape
 someFn({circle ['radius' => 5]});        // target: someFn's parameter type
-fn f(): shape => {point};                // target: the return type
+const f = fn (): shape => {point};                // target: the return type
 ```
 
 This is how the string API writes an enum default, `= {nfc}` with the parameter typed `enum
@@ -225,7 +225,7 @@ happens at a typed site.
 When there is **no target type** and the variant name is **ambiguous across enums**, the enum
 is named **inside the braces**: `{Enum.variant}`. For example:
 
-```
+```luna
 const direction = enum { north, south, east, west };
 const hand      = enum { north, south };
 
@@ -251,7 +251,7 @@ An enum is discriminated with **`match`** (match spec), which is its natural and
 consumer. A variant pattern is `{variant payloadPattern}`, and when the payload is a table, the
 payload pattern is **exactly the match table pattern** (match §4):
 
-```
+```luna
 match (s) {
   {circle ['radius' => r]} => area(r),     // circle tag; payload table matched, r bound
   {square ['side' => n]}   => n * n,
@@ -289,8 +289,8 @@ match §9.1.)
 An **anonymous** enum is an enum type written inline, with no name, most commonly in a
 signature:
 
-```
-fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
+```luna
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
 ```
 
 Anonymous enums exist for **one-off closed sets**, where a named top-level declaration would be

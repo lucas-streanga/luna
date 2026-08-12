@@ -37,7 +37,7 @@ path, reopening the injection surface the structured design closes. So `command`
 sealed type rather than a table precisely because the safety property depends on its guts
 being controlled, not open.
 
-```
+```luna
 let listing = `ls -la`;      // a command, not run yet
 run(listing);                // run it (exec spec) ...
 run(listing);                // ... and again; it is reusable
@@ -50,8 +50,8 @@ run(listing);                // ... and again; it is reusable
 A command literal is delimited by backticks. It parses into a **program and an argument
 list**, not a shell string:
 
-```
-`grep -n foo file.txt`
+```luna
+_ = `grep -n foo file.txt`;
 // program: "grep"
 // args:    ["-n", "foo", "file.txt"]
 ```
@@ -60,6 +60,10 @@ list**, not a shell string:
   dollar) — the authoritative table is string §5.1 (R150, superseding the earlier
   no-escapes ruling, lexer G5: the `${'\u{60}'}`-style interpolation workaround for a
   literal backtick was ceremony where one escape pair suffices).
+- **A command literal may not span lines** (R244, lexer §4): a raw newline ends it and raises
+  `L0009`, and a trailing `\` does not continue it. Nothing is lost — the literal is split
+  into a program and arguments by whitespace anyway, so a line break was never more than a
+  separator.
 - The literal is tokenized into a program name and arguments by whitespace, like a shell
   argument vector, but it is **never handed to a shell**. Execution uses a direct
   program-and-arguments call (exec spec), the equivalent of `execve` / Go's `exec.Command`,
@@ -93,9 +97,9 @@ never touches a shell.
 A backtick literal may interpolate `${expr}`. Each interpolated value becomes **exactly one
 argument** in the argument list, never spliced into a parsed string:
 
-```
+```luna
 let name = "my file; rm -rf /";
-`rm ${name}`
+_ = `rm ${name}`;
 // program: "rm"
 // args:    ["my file; rm -rf /"]     <- one argument, not two commands
 ```
@@ -109,8 +113,8 @@ This is unlike regex, where interpolation into a literal is restricted to compti
 values (regex spec §7); a command literal has no such restriction, because a structured
 argument cannot inject regardless of when it is known:
 
-```
-`grep ${userInput} ${userFile}`      // safe: userInput and userFile are each one argument
+```luna
+_ = `grep ${userInput} ${userFile}`; // safe: userInput and userFile are each one argument
 ```
 
 Both **comptime and runtime** interpolation are permitted and equally safe. A command
@@ -120,9 +124,9 @@ it requires a capability (exec spec), and running is never a comptime operation.
 To interpolate **multiple** arguments from a collection (not one argument), a list-splicing
 form is used so that each element becomes its own argument:
 
-```
+```luna
 let flags = ["-l", "-a", "-h"];
-`ls ${...flags}`                     // args: ["-l", "-a", "-h"], three arguments
+_ = `ls ${...flags}`; // args: ["-l", "-a", "-h"], three arguments
 ```
 
 `${expr}` is one argument; `${...expr}` spreads a list into many arguments (spread spec §5,
@@ -147,12 +151,12 @@ Commands compose into pipelines with **`pipe`**, a built-in variadic function (R
 `|>` operator is retired — retired/pipeline.md) that connects each stage's stdout to the
 next stage's stdin and yields a **new `command` value** (a pipeline is itself a command):
 
-```
-fn pipe(first: command, second: command, ...rest: command): command
+```luna
+const pipe = fn (first: command, second: command, ...rest: command): command => {};
 ```
 
-```
-pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`)
+```luna
+_ = pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`);
 ```
 
 - **At least two stages, structurally**: the two leading required parameters make a
@@ -164,7 +168,7 @@ pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`)
   worth).
 - Because `pipe` takes command *values*, it composes literals and variables alike:
 
-```
+```luna
 let stage1 = `producer`;
 let stage2 = `consumer`;
 let pipeline = pipe(stage1, stage2);     // a new command value, still inert
@@ -198,12 +202,12 @@ Introspection is **pure**, no effect, no capability, so it lives with the comman
 
 Reading structure preserves argument boundaries, so it is always safe:
 
-```
-fn isPipeline(c: command): bool      // whether c has more than one stage
-fn stageCount(c: command): int       // number of stages (1 for a single command)
-fn stages(c: command): list          // the stages, a list of commands ([c] for a single command)
-fn program(c: command): string       // the program name of a single-stage command
-fn argsOf(c: command): list          // the argument list of a single-stage command
+```luna
+const isPipeline = fn (c: command): bool => {};      // whether c has more than one stage
+const stageCount = fn (c: command): int => {};       // number of stages (1 for a single command)
+const stages = fn (c: command): list => {};          // the stages, a list of commands ([c] for a single command)
+const program = fn (c: command): string => {};       // the program name of a single-stage command
+const argsOf = fn (c: command): list => {};          // the argument list of a single-stage command
 ```
 
 - **`argsOf`, not `args`** (R188): bare `args` is taken — std.process exports
@@ -221,8 +225,8 @@ fn argsOf(c: command): list          // the argument list of a single-stage comm
 
 For logging and debugging, a command renders to **structured JSON**, not a shell string:
 
-```
-fn debugJson(c: command): json
+```luna
+const debugJson = fn (c: command): json => {};
 ```
 
 The return is **`json`, not bare `string`** (R188): a JSON-producing function returning an
@@ -236,8 +240,8 @@ command's arm of it.)
 and a pipeline as an array of such stages, so **every argument is a distinct JSON string with
 its boundary explicit**:
 
-```
-`rm ${userFile}`.debugJson()
+```luna
+_ = `rm ${userFile}`.debugJson();
 // {"program":"rm","args":["my file; rm -rf /"]}
 ```
 

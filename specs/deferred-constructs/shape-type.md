@@ -56,7 +56,7 @@ never *when* it checks — only *what the compiler can read*.
 
 The analysis leaves exactly one corpus-shaped form:
 
-```
+```luna
 const circle = shape ['radius' => int];
 ```
 

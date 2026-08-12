@@ -3,7 +3,7 @@
 `int` is Luna's integer type: a **64-bit signed** integer, stored **inline in the `lval`**
 (value-representation), never boxed or heap-allocated. It is a primitive, foundational type.
 
-```
+```luna
 let x: int = 0;
 let big = 9223372036854775807;      // 2^63 - 1, the maximum int
 ```
@@ -22,7 +22,7 @@ let big = 9223372036854775807;      // 2^63 - 1, the maximum int
 An int can be referenced with `&`, which is genuinely useful (out-parameters, in-place update
 through a reference, swapping) and has no reason to be excluded:
 
-```
+```luna
 var n = 5;
 increment(&n);          // pass a reference; increment mutates n in place
 ```
@@ -69,7 +69,7 @@ declarable error from a callee, never the `overflowError`, and code anticipating
 is wrong. Anticipated overflow is handled where every panic is handled, at a **`try`/`catch`
 block** (errors §8.2), which catches everything:
 
-```
+```luna
 try {
   let sum = bigA + bigB;         // may panic with overflowError
   process(sum);                   // success path stays inside the block
@@ -94,13 +94,13 @@ result is *intended arithmetic*, use the explicit wrapping/saturating operations
 does not compute an alternative value. When wrapping or saturation is the *intended* arithmetic
 (not an error to detect), explicit operations produce those values:
 
-```
-fn wrappingAdd(a: int, b: int): int         // two's-complement wraparound (no panic)
-fn wrappingSub(a: int, b: int): int
-fn wrappingMul(a: int, b: int): int
-fn saturatingAdd(a: int, b: int): int       // clamp to int min/max on overflow (no panic)
-fn saturatingSub(a: int, b: int): int
-fn saturatingMul(a: int, b: int): int
+```luna
+const wrappingAdd = fn (a: int, b: int): int => {};         // two's-complement wraparound (no panic)
+const wrappingSub = fn (a: int, b: int): int => {};
+const wrappingMul = fn (a: int, b: int): int => {};
+const saturatingAdd = fn (a: int, b: int): int => {};       // clamp to int min/max on overflow (no panic)
+const saturatingSub = fn (a: int, b: int): int => {};
+const saturatingMul = fn (a: int, b: int): int => {};
 ```
 
 - **Wrapping** gives two's-complement wraparound, the intended math for hashing, checksums, and
@@ -117,11 +117,11 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
 
 ## 5. Division, remainder, and edge cases
 
-```
-7 / 2       // 3   (integer division truncates toward zero)
--7 / 2      // -3  (truncation, not floor)
-7 % 2       // 1   (remainder; sign follows the dividend)
--7 % 2      // -1
+```luna
+_ = 7 / 2;  // 3   (integer division truncates toward zero)
+_ = -7 / 2; // -3  (truncation, not floor)
+_ = 7 % 2;  // 1   (remainder; sign follows the dividend)
+_ = -7 % 2; // -1
 ```
 
 - **Division truncates toward zero.** `7 / 2` is `3`, `-7 / 2` is `-3` (not `-4`). This is the
@@ -150,7 +150,7 @@ arithmetic.
 The narrower **signed** widths fit within signed 64-bit, so they are **constraints**
 (constraints spec), shipped as stdlib declarations, not new primitives:
 
-```
+```luna
 const i8  = constraint i: int where i >= -128 && i <= 127;
 const i16 = constraint i: int where i >= -32768 && i <= 32767;
 const i32 = constraint i: int where i >= -2147483648 && i <= 2147483647;
@@ -224,10 +224,17 @@ unbounded numeric needs like currency (numeric-tower spec §1.4).
 ## 7. Literals
 
 Decimal literals are written directly (`0`, `42`, `-7`, `9223372036854775807`). Alternative
-integer notations, hexadecimal `0x...` and binary `0b...` (with digit separators like
-`0b0100_0001`), are lexer features covered when the literal grammar is specified; they are
-integer literals, not a bytes-specific or int-specific runtime feature. A single byte value is
-just an int literal used in a `byte` context (bytes spec).
+integer notations — hexadecimal `0x…`, binary `0b…`, and octal `0o…` (R238), with digit
+separators like `0b0100_0001` — are lexer features, **now fully specified in lexer §4**; they
+are integer literals, not a bytes-specific or int-specific runtime feature. A single byte value
+is just an int literal used in a `byte` context (bytes spec).
+
+The rules that bite in practice: prefixes are **lowercase only** (`0X` is a lex error), a
+**leading zero is a lex error** (`0755` is neither decimal 755 nor octal — write `0o755`), and
+`_` must sit strictly **between digits**. **Every integer literal is an `int`** — there are no
+wider-type literal forms (numeric-tower §9, R216/R238) — so a literal too large for i64 is
+diagnosed in **parsing**, needing no type information to do it. Assigning an in-range literal
+to a narrower target (`let b: byte = 300;`) is a separate check, and belongs to analysis.
 
 ---
 
@@ -245,5 +252,8 @@ just an int literal used in a `byte` context (bytes spec).
 - **Wide integers:** whether a fixed `int128` library type is provided (§6.3); there is no
   arbitrary-precision integer (`bigint`), with `decimal` covering exact unbounded needs
   (numeric-tower spec). Pending the wide-integer decision if one is ever wanted.
-- **Digit separators and literal grammar:** the exact literal syntax (`_` separators, `0x`,
-  `0b`, leading-zero rules), with the literal grammar.
+- *(**Digit separators and literal grammar: resolved by R238.** The exact literal syntax is
+  ruled in lexer §4 and summarized in §7 — `0x`/`0b`/`0o` lowercase-only, leading zeros a lex
+  error with an explicit error production, `_` strictly between digits, no leading or trailing
+  point, plain digits in exponents. Octal was **added**; the leading-zero ban is what makes
+  adding it safe, since `0755` can no longer mean two different things to two readers.)*

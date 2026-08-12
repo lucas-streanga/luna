@@ -1,6 +1,6 @@
 # `std.net`
 
-```
+```luna
 import { egress, ingress, port } from std.net;
 const net = import std.net;
 ```
@@ -21,7 +21,7 @@ alpha standard library. Two principles are the module's shape:
 
 ## 1. Two capabilities: `egress` and `ingress`
 
-```
+```luna
 export const egress  = capability;    // may originate connections and datagrams
 export const ingress = capability;    // may bind ports and accept
 ```
@@ -38,10 +38,10 @@ capabilities gate **establishment**; moving bytes on an established connection i
 
 ## 2. TCP
 
-```
-export const dial   = fn (host: string, p: port) use (egress): connection!;
-export const listen = fn (p: port) use (ingress): listener!;
-export const connections = fn (l: listener): stream!;    // the accept stream
+```luna
+export const dial   = fn (host: string, p: port) use (egress): connection! => {};
+export const listen = fn (p: port) use (ingress): listener! => {};
+export const connections = fn (l: listener): stream! => {};    // the accept stream
 ```
 
 - **`dial`** connects; `host` is a name or an IP literal, and resolution happens inside
@@ -71,10 +71,10 @@ export const connections = fn (l: listener): stream!;    // the accept stream
 
 ## 3. UDP
 
-```
-export const udpBind   = fn (p: port) use (ingress): udp!;
-export const send      = fn (sock: udp, host: string, p: port, data: bytes) use (egress): undefined!;
-export const datagrams = fn (sock: udp): stream!;
+```luna
+export const udpBind   = fn (p: port) use (ingress): udp! => {};
+export const send      = fn (sock: udp, host: string, p: port, data: bytes) use (egress): undefined! => {};
+export const datagrams = fn (sock: udp): stream! => {};
 ```
 
 Connectionless, so the datagram — not a byte stream — is the unit: `datagrams(sock)`
@@ -86,7 +86,7 @@ request/reply UDP program declares `use (ingress, egress)` and each word means i
 
 ## 4. `port`, and the error family
 
-```
+```luna
 export const port = constraint p: int where p >= 1 && p <= 65535;
 ```
 

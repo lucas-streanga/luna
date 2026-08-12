@@ -1,0 +1,12 @@
+_ _foo a_b _1 __
+---
+WILDCARD 0..1 "_"
+WHITESPACE 1..2 " "
+IDENT 2..6 "_foo"
+WHITESPACE 6..7 " "
+IDENT 7..10 "a_b"
+WHITESPACE 10..11 " "
+IDENT 11..13 "_1"
+WHITESPACE 13..14 " "
+IDENT 14..16 "__"
+WHITESPACE 16..17 "\n"

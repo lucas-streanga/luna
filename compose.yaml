@@ -42,6 +42,15 @@ services:
       # Persisted auth/config across rebuilds. Named volume: no ':z'; survives
       # `podman compose down`, cleared only by `down -v`.
       - "claude-config:/home/dev/.claude"
+      # Go GOPATH (module cache + `go install` bins) and build cache. Named volumes, no ':z'.
+      # Without these, `--rm` throws away every compiled package on exit: each session pays a
+      # cold stdlib rebuild, and installed tools vanish. Both are pure derived data — `down -v`
+      # wipes them and the only cost is refilling. The Containerfile pre-creates both dirs
+      # dev-owned so copy-up gives the volumes the right ownership under keep-id.
+      # Any service added later (builder / test-runner / lint, claude-agent-plan §A.2) wants
+      # these same two lines — that shared cache is most of what makes those gates fast.
+      - "go-path:/home/dev/go"
+      - "go-build-cache:/home/dev/.cache/go-build"
 
     environment:
       DISABLE_AUTOUPDATER: "1"
@@ -60,3 +69,5 @@ services:
 
 volumes:
   claude-config:
+  go-path:
+  go-build-cache:

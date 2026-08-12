@@ -1,0 +1,14 @@
+5. .5 1_ 1__0
+---
+INT_DEC 0..1 "5"
+DOT 1..2 "."
+WHITESPACE 2..3 " "
+DOT 3..4 "."
+INT_DEC 4..5 "5"
+WHITESPACE 5..6 " "
+INT_DEC 6..7 "1"
+WILDCARD 7..8 "_"
+WHITESPACE 8..9 " "
+INT_DEC 9..10 "1"
+IDENT 10..13 "__0"
+WHITESPACE 13..14 "\n"

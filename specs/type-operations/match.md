@@ -6,7 +6,7 @@ value, so it can be assigned, returned, and nested. It has two forms, **valued m
 scrutinee matched against patterns) and **open-ended match** (no scrutinee, a chain of boolean
 guards), under one keyword.
 
-```
+```luna
 let label = match (code) {
   10 => "ten",
   20 => "twenty",
@@ -217,8 +217,8 @@ Conditions on the bound values, value predicates, type refinements, and relation
 bindings, live in a single **`where` guard** after the pattern, not inside the positions. The
 arm matches iff the pattern matches **and** the guard holds:
 
-```
-[1, 2, _, x] where x is int && x > 10 => ...,
+```luna
+[1, 2, _, x] where x is int && x > 10 => {},
 ```
 
 Here the positions are simple (two literals, a discard, a binding `x`), and the `where` guard
@@ -228,9 +228,9 @@ narrow a binding's type (Luna does no flow-narrowing, as spec §7). To bind `x` 
 to `int`, put the type in the **position** with a typed binding (§2.2), which binds a fresh
 `x` of type `int`:
 
-```
-[1, 2, _, x: int] where x > 10 => ...,        // x: int binds x AS int; the guard is a pure value condition
-[1, 2, _, x] where x is int && x > 10 => ..., // also valid: x is the union type; `is int` is a boolean guard
+```luna
+[1, 2, _, x: int] where x > 10 => {},        // x: int binds x AS int; the guard is a pure value condition
+[1, 2, _, x] where x is int && x > 10 => {}, // also valid: x is the union type; `is int` is a boolean guard
 ```
 
 The first form is idiomatic when you want `x` typed as `int` in the body: the **typed binding**
@@ -265,7 +265,7 @@ type (Luna has no shape types, tables spec); a shape pattern is a predicate that
 value at runtime. It reuses destructuring syntax (destructuring spec), with sub-patterns where
 destructuring has bindings.
 
-```
+```luna
 match (msg) {
   ['type' => "move", 'x' => x, 'y' => y] => moveTo(x, y),   // tag matched, x and y bound
   ['type' => "stop"]                     => stop(),
@@ -320,7 +320,7 @@ Binding a sub-value **and** matching its shape in one pattern (an "as-pattern," 
 `u` to a whole user table while also matching its `name`) is **not** provided. It is uncommon,
 and the need is met with no new syntax: bind the whole value and access its parts in the body.
 
-```
+```luna
 match (msg) {
   ['user' => u] => useWhole(u, u['name']),    // bind the whole user; read parts in the body
 }
@@ -418,7 +418,7 @@ than adding a new construct:
 first true one winning. It is a `cond` expression (first-true-guard-wins), for when the arms are
 independent conditions rather than comparisons against one value:
 
-```
+```luna
 let tier = match {
   l <= 0   => 0,
   l <= 10  => 1,
@@ -465,7 +465,7 @@ is a footgun and is not present.)
 A match **without a `_` arm** (§9.1) **yields `undefined`** on fall-through, rather than
 panicking, when no arm matches:
 
-```
+```luna
 let v = match (code) {
   10 => "ten",
   20 => "twenty",
@@ -501,7 +501,7 @@ widen the scrutinee. So: **`_` present means exhaustive; `_` absent means `| und
 `match!` is the **strict** form: identical to `match` in every way except that a fall-through
 (no arm matches) **panics** (a `panic`) instead of yielding `undefined`.
 
-```
+```luna
 let v = match! (state) {       // v : the union of arm bodies, with NO | undefined
   "idle"    => 0,
   "running" => 1,
@@ -545,7 +545,7 @@ panics, loudly caught), chosen per use by whether an unhandled case is normal or
 The result type of a match is the **union of its arm-body types** (plus `undefined` if
 non-exhaustive, §9):
 
-```
+```luna
 match (x) { 1 => "a", 2 => "b", _ => "c" }     // string
 match (x) { 1 => 10, 2 => "b", _ => true }      // int | string | bool
 ```

@@ -29,12 +29,12 @@ yields — always a comparable `type` — and near-uniform in what it means: "th
 value," with one statically-steered arm for protos ("the type this proto *induces*", §1.1,
 R175).
 
-```
-@5              // int
-@5.0            // double
-@"hi"           // string
-@someShape      // shape (an enum value's type)
-@stringBuilder  // the induced refinement: stringBuilder is a proto (§1.1, R175)
+```luna
+_ = @5;             // int
+_ = @5.0;           // double
+_ = @"hi";          // string
+_ = @someShape;     // shape (an enum value's type)
+_ = @stringBuilder; // the induced refinement: stringBuilder is a proto (§1.1, R175)
 ```
 
 `@` reflects a **value** (and, on a proto binding, hands over the induced type, §1.1). It is
@@ -76,7 +76,7 @@ type position requires a protocol"). Same text, statically decided, like C's `*`
 **Within type position, `@X` is an application refinement only when `X` is a protocol.** Whether `X` is a
 protocol is a **static** fact (protocols are declared, the type universe is closed,
 value-representation §4.1, and nothing is constructed at runtime), so semantic analysis always knows
-it. If `X` in `@X` (type position) resolves to a non-protocol, for example `const p = int | table;
+it. If `X` in `@X` (type position) resolves to a non-protocol, for example `const p: type = int | table;
 var x: @p = ...`, where `p` is a *type*, not a protocol, it is a **compile error** ("`@` in type
 position requires a protocol; `p` is a type"). The **parser stays context-free**: it parses `@X`
 into one node regardless of what `X` is; **semantic analysis** then assigns the meaning (application
@@ -94,7 +94,7 @@ decidable, which it would not be if protocols or types could be constructed at r
 
 A `type` value may be bound like any other value, so a type can be given a name:
 
-```
+```luna
 const number: type = int | double;
 var  x: number = 5;          // number is usable as an annotation
 const same = @x == number;   // and as a value to compare against
@@ -105,6 +105,33 @@ type = string | int` names a type. This is the same act the declaration forms al
 `enum`, `constraint`, `protocol`, or `capability` declaration binds a type to a name (types spec);
 `const name: type = <type expression>` generalizes it to any type expression, including unions and
 the primitive types themselves.
+
+**The `: type` annotation is required, and it is what makes the right-hand side parse at all**
+(R256). Value position is the *expression* grammar, and the type grammar's own constructors have
+no expression production: there is no infix `|` (only `||`), no infix `&` (only prefix `&x` and
+`&&`), and no postfix `?` or `!` (associativity §1). So `int | double` is not an expression, and
+without the annotation the parser has nothing to build. The annotation puts the right-hand side
+in **type position**, decided at one token and before the `=` is even reached — the same
+positional trick that leaves `from` unreserved (R223) and `get` / `set` ordinary identifiers
+(R232).
+
+Forms that already **are** expressions need no annotation and are untouched: a bare name
+(`const alias = number;`), `@x`, `declared x`, `comptype x`. That is why `export const file =
+@fileDescriptor;` (std.io §2, and §5 below) is legal exactly as written — `@` is a prefix
+operator in the expression grammar, so its result is an ordinary value.
+
+`fn` is the one form where omitting the annotation produced not an error but a **different tree**,
+which is why the rule is stated here rather than left to convention. `const sqrt = fn (d: double):
+double;` has no annotation, so `fn` begins a function *literal*, and a literal's `=>` is mandatory
+(functions §3, R45): a parse error, rather than a silent binding of `sqrt` to the *type* `fn
+(double): double`. A `fn` type reaching value position is spelled `const sig: type = fn (double):
+double;`.
+
+One consequence, accepted: a type expression cannot be a bare **call argument**.
+`isSubtype(x, int | double)` has no annotation to key on, and inferring one from the callee's
+parameter type would be symbol knowledge, which parsing does not have (compiler §1.3). Name the
+type first (`const t: type = int | double; isSubtype(x, t)`); passing an already-named type is
+unaffected, and is what the catalogue does throughout.
 
 A `type` binding is `let` or `const` — **equivalent here**, as for any interior-free immutable
 (the strings ladder, string §1): an inline primitive has nothing for `const` to additionally
@@ -119,9 +146,12 @@ Type equality is **structural**, and it is decided at compile time by **canonica
 compiler reduces every type expression to a canonical form (union members sorted and de-duplicated,
 aliases expanded) and assigns each canonical form exactly **one** `typeid`. So:
 
-```
-number == (int | double)      // true: same canonical type, same typeid
-(int | double) == (double | int)   // true: unions are order-independent
+```luna
+const pair:    type = int | double;
+const flipped: type = double | int;
+
+_ = number == pair;      // true: same canonical type, same typeid
+_ = pair == flipped;     // true: unions are order-independent
 ```
 
 `number`, `int | double`, and `double | int` are the **same** type (one typeid), so `number` is a
@@ -178,7 +208,7 @@ A **value** has exactly one type (its current type, what `@` returns). What peop
 value's "supertype", the wider type it was *declared* as, is not a property of the value at all: it
 is a property of the **binding**. Consider:
 
-```
+```luna
 const number: type = int | double;
 var n: number = 5;
 ```
@@ -192,9 +222,9 @@ So the current/declared pair lives at the **binding** level, and the declared ty
 fact (the compiler knows every binding's declared type). The companion operator **`declared`**
 exposes it:
 
-```
-@n           // int          (current type, from the value)
-declared n   // int | double (declared type, from the binding, resolved at compile time)
+```luna
+_ = @n;         // int          (current type, from the value)
+_ = declared n; // int | double (declared type, from the binding, resolved at compile time)
 ```
 
 Because `declared` reads the binding's declared type, it is a **compile-time lookup**, not a
@@ -315,11 +345,11 @@ Therefore matching "a table with protocol applied `P`" is **not** a match on `@t
 the **application refinement** `@P` (§5, §1.1: in type position, "a table guaranteed to have `P` applied"), and
 matching an application-refinement pattern is defined as a **protocol-membership test** (is `P` applied, an `@@` check), not a `typeid` equality:
 
-```
+```luna
 match (x) {
   b: @stringBuilder => b->stringBuilder.append("!"),   // b is guaranteed to have stringBuilder applied
-  _: @otherProto    => ...,                            // tested, not bound: nothing to reach through
-  _                 => ...,
+  _: @otherProto    => {},                            // tested, not bound: nothing to reach through
+  _                 => {},
 }
 ```
 

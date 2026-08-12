@@ -57,11 +57,11 @@ a keyword.
 
 A `proto` block contains member declarations and nothing else. Each declaration is:
 
-```
+```luna
 <const | let | var> [get] [set] name[?]: type [= default];
 ```
 
-```
+```luna
 const person = proto {
   const get name: string;                  // required at apply; immutable after (§2.1)
   const get species: string = 'human';     // definition-fixed: a protocol constant (§2.1)
@@ -69,8 +69,8 @@ const person = proto {
   var get set visits: int = 0;             // freely readable and writable
   var lastSeen?: string = null;            // ungranted: private to person's functions
 
-  const get greet = fn (p: @person): string => { ... };   // a public protocol function
-  const normalize = fn (s: string): string => { ... };    // a private helper
+  const get greet = fn (p: @person): string => {};   // a public protocol function
+  const normalize = fn (s: string): string => {};    // a private helper
 };
 ```
 
@@ -244,10 +244,10 @@ protocol-declared key) is closed **by construction**: there is no spelling for i
 Definition-fixed `get` members are protocol facts, so they are reachable off the proto
 value itself, no table required:
 
-```
-person->species              // 'human'
-person->greet                // the fn value: fn (p: @person): string
-people.map(person->greet)    // receiver-first, so it IS a transformFn already
+```luna
+_ = person->species;           // 'human'
+_ = person->greet;             // the fn value: fn (p: @person): string
+_ = people.map(person->greet); // receiver-first, so it IS a transformFn already
 ```
 
 `P->name` is the one way to take a protocol function as a **value**. It yields the bare
@@ -261,7 +261,7 @@ incoherent under caller-side `&`-write-back (the returned table would have nowhe
 go). To bake a receiver in deliberately, write the closure explicitly and get snapshot
 semantics by the ordinary capture rule:
 
-```
+```luna
 let f = fn (): string => p->greet();     // p captured deep-const, per functions §2.1
 ```
 
@@ -336,11 +336,11 @@ appear to override their defaults; definition-fixed members may not appear (§2.
 ungranted members may not appear (they are the protocol's own business and always have
 defaults, §2.2). Each value is checked against the member's declared type and constraint.
 
-```
-[] apply person(name: "Lucas")                    // required member supplied
-[] apply person(name: "Lucas", visits: 1)         // defaulted member overridden
-[] apply person(species: 'elf')                   // compile error: definition-fixed
-[] apply person()                                 // compile error: `name` missing
+```luna
+_ = [] apply person(name: "Lucas");            // required member supplied
+_ = [] apply person(name: "Lucas", visits: 1); // defaulted member overridden
+_ = [] apply person(species: 'elf');           // compile error: definition-fixed
+_ = [] apply person();                         // compile error: `name` missing
 ```
 
 The `name: value` list is the **apply operator's own grammar** — like the proto block's
@@ -381,7 +381,7 @@ type mismatches, incompatible shapes, throwing `apply` bodies — are structural
 Validation beyond constraints, derived members, convenience shapes — anything a
 constructor would do elsewhere — is an ordinary function returning `@P`:
 
-```
+```luna
 export const newPerson = fn (fullName: string): @person! => {
   // validate, derive, then:
   return [] apply person(name: normalize(fullName));
@@ -396,8 +396,8 @@ just a function. Errorability, if any, is the function's own and is declared in 
 Removal is a built-in free function mirroring dynamic `apply` — not a keyword, not an
 operator:
 
-```
-fn unapply(tab: table, protocol: proto): table!
+```luna
+const unapply = fn (tab: table, protocol: proto): table! => {};
 ```
 
 `&tab.unapply(p)` mutates in place by ordinary write-back. There is deliberately no
@@ -528,11 +528,10 @@ never unchecked; no `@P` promise held anywhere can be broken by either.
 
 A protocol may require others, spelled with the same keyword doing the same thing:
 
-```
+```luna
 const employee = proto {
   apply person;                       // employee requires (and applies) person
   const get badge: int;
-  ...
 };
 ```
 
@@ -566,11 +565,11 @@ const employee = proto {
 yields the table's applied protocols as an application-ordered list of `proto` values.
 (Its former view-related half is retired with views.)
 
-```
-if (@@b.exists(stringBuilder)) { ... }    // membership, by value (iterable-functions §2.3)
-foreach (p in @@b) { &other.apply(p); }   // protocols are data; re-apply elsewhere
-protoName(p)                              // the name string (std.introspection §4.4, R127)
-members(p)                                // declaration rows, granted-value readers (§4.4, R129)
+```luna
+if (@@b.exists(stringBuilder)) {}       // membership, by value (iterable-functions §2.3)
+foreach (p in @@b) { &other.apply(p); } // protocols are data; re-apply elsewhere
+_ = protoName(p);                       // the name string (std.introspection §4.4, R127)
+_ = members(p);                         // declaration rows, granted-value readers (§4.4, R129)
 ```
 
 The order is application order — deterministic, cheap, and **not** semantically
@@ -592,8 +591,8 @@ inference (variables §1). The `@`-family stays coherent: `@` reflects types,
 There is no extension mechanism, because UFCS already is one (functions §3.4): a free
 function whose first parameter is `@P`-typed is an extension of `P` —
 
-```
-export const initials = fn (p: @person): string => { ... };
+```luna
+export const initials = fn (p: @person): string => {};
 p.initials();                             // UFCS; import-scoped like any function
 ```
 
@@ -606,14 +605,14 @@ the contract, `.` is an extension.
 
 ## 10. Worked example, and open questions
 
-```
+```luna
 const stringBuilder = proto {
   identityEquality;                       // builders compare by identity (§5)
   var buf: bytes = bytes();               // per-table, ungranted: private state
 
-  const get append = fn (b: @stringBuilder, value: any): self => { ... };
-  const get byteLength = fn (b: @stringBuilder): int => { ... };
-  const get build = fn (b: @stringBuilder): string => { ... };   // snapshot; b reusable
+  const get append = fn (b: @stringBuilder, value: any): self => {};
+  const get byteLength = fn (b: @stringBuilder): int => {};
+  const get build = fn (b: @stringBuilder): string => {};   // snapshot; b reusable
 };
 
 var b: @stringBuilder = [] apply stringBuilder;   // operator form: typed, non-errorable

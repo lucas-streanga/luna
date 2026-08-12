@@ -11,8 +11,8 @@ its type carries: its capture surface, its errorability, and its comptime-eligib
 
 A function is a value of `fn` type, written with `fn`, and named by binding it:
 
-```
-const substring = fn (str: string, start: int): string => { ... };
+```luna
+const substring = fn (str: string, start: int): string => {};
 ```
 
 Because a function is a value, it follows the ordinary binding and module rules: it is
@@ -66,7 +66,7 @@ from the `const` rules:
 - **Scalars are trivial.** For values with no mutable interior, `const`-capture and
   plain snapshot coincide (variables §3.1).
 
-```
+```luna
 let n = 10;
 let f = fn (): int => n * 2;    // captures n: implicit const snapshot; f() is 20
 // reassigning n afterward does not change what f captured
@@ -97,7 +97,7 @@ must retain private mutable state across calls, is a **non-goal** of the closure
 model; such state lives in a value the caller owns and passes explicitly. The
 accumulating idiom is therefore fold-shaped or reference-shaped:
 
-```
+```luna
 var sum = 0;
 each(xs, fn (x: int) => sum = sum + x);         // COMPILE ERROR: sum is a const capture
 
@@ -121,7 +121,7 @@ old "reference-capture a `var` to mutate outward", **does not exist**. To let a
 function mutate a caller's value, the caller passes `&var` at call time (variables
 §5.1); mutation is an argument, never an ambient capture.
 
-```
+```luna
 const greet = fn (name: string) use (io) => { println("hi $name"); };
 ```
 
@@ -149,7 +149,7 @@ cases, matching whether the compiler can see the stream:
   through the outer binding or any alias panics. The closure now solely owns the
   stream, exactly as a spawned task would.
 
-```
+```luna
 let s = 0..10;
 let f = fn () => s.take(3);          // COMPILE ERROR: cannot capture a stream; pass it:
 let g = fn (src: stream) => src.take(3);
@@ -169,7 +169,7 @@ and a value enters both the same way.
 A function's type records its parameters and result, and additionally two type-level
 properties that govern how it may be used:
 
-```
+```text
 fn (params) : result             // base shape
 fn (params) : result!            // errorable (§4)
 ```
@@ -181,7 +181,12 @@ that is an expression or a block. **The errorability `!` belongs to the return t
 fused `!=>` arrow exists. (An earlier drafting habit wrote `: int !=> {`, detaching the
 postfix `!` from its type; technically the same parse, stylistically wrong, and normalized
 corpus-wide.) Parsing is LL(1) by construction: `fn` commits the
-production, and each junction is decided by its next token (`use`, `:`, `=>`). One
+production, and each junction is decided by its next token (`use`, `:`, `=>`). What licenses
+that first commitment is R256: in **expression** position `fn` can only begin a literal, a `fn`
+*type* reaching value position solely under a `: type` annotation (type §2), which puts it in
+type position instead. Without that rule `fn (` would begin either form and the two would share
+a prefix all the way to the `=>`, so `fn` would commit nothing — and `const sqrt = fn (d:
+double): double;` would silently bind a type rather than fail (R255, R256). One
 disambiguation rule, pinned because the fenced variant literal also uses braces (enum
 §3.3): **after `=>`, a `{` always opens a block**; an expression body that is a variant
 literal takes parentheses, `fn (): mode => ({read})`. The same rule governs match arms
@@ -263,10 +268,10 @@ through a bare-`fn` slot, but it does **not** erase errorability: a throwing fun
 (`fn (...): R!`) does not fit a bare-`fn` slot. The errorable wildcard is **`fn!`**,
 "any function, which may error":
 
-```
-fn f(cb: fn): ...            // cb is any non-errorable callable; signature unchecked
-fn e(cb: fn!): ...           // cb is any callable, errorable or not; calls need try/handling
-fn g(cb: fn (int): string)   // cb's parameters and result ARE checked (§3, §3.2)
+```luna
+const f = fn (cb: fn) => {};                 // cb is any non-errorable callable; signature unchecked
+const e = fn (cb: fn!) => {};                // cb is any callable, errorable or not; calls need try/handling
+const g = fn (cb: fn (int): string) => {};   // cb's parameters and result ARE checked (§3, §3.2)
 ```
 
 The reasoning is the no-laundering rule (§3, §4): an error rides a return value, so a
@@ -494,9 +499,9 @@ than something that could be confused with under-calling.
 A parameter may declare a **default value**, in which case it is **not required**, and
 omitting it is not a deficit (§3.3): the default is supplied.
 
-```
-fn normalize(str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string
-normalize(s)            // form defaults to {nfc}; not a deficit
+```luna
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
+_ = normalize(s); // form defaults to {nfc}; not a deficit
 ```
 
 Defaults are the case where a function that declares *more* parameters than the caller
@@ -582,12 +587,12 @@ rest element in parameter position. The R35 unification holds (a parameter list 
 pattern): the variadic is the trailing rest of the **positional** parameter sublist, and
 what follows it sits outside positional space entirely.
 
-```
-fn merge(it: iterable, ...its: iterable,
-         recursive: bool = false, preserveKeys: bool = false): iterable
+```luna
+const merge = fn (it: iterable, ...its: iterable,
+                  recursive: bool = false, preserveKeys: bool = false): iterable => {};
 
-merge(a, b, c)                        // its = [b, c]
-merge(a, b, c, recursive: true)       // post-variadic options: named-only, necessarily
+_ = merge(a, b, c);                  // its = [b, c]
+_ = merge(a, b, c, recursive: true); // post-variadic options: named-only, necessarily
 ```
 
 - **Collected as a `list`, always.** The variadic's arguments are collected into a `list`
@@ -646,8 +651,8 @@ parameter is the receiver.
 A function that can throw a declarable error (errors §2) **declares** it with `!` on the result type
 (value-representation error model):
 
-```
-const parseInt = fn (s: string): int! => { ... };   // declared throwing
+```luna
+const parseInt = fn (s: string): int! => {};   // declared throwing
 const double   = fn (n: int): int => n * 2;          // not throwing
 ```
 
@@ -766,7 +771,7 @@ which never rebinds and coincides with `const` for functions, §8) — not a **`
 reassigned (R213; an earlier draft said "`let`," misstating the ladder — `let` is the *fixed*
 binding, variables §1):
 
-```
+```luna
 const pure = fn (n: int): int => n * 2;
 const c = comptime pure(21);        // OK: const, comptime-eligible, statically known
 
@@ -830,7 +835,7 @@ no constraint on errorability; a throwing eligible function is comptime-callable
 If a comptime call throws, the throw happens during compilation, so it becomes a
 **compile error** carrying the thrown error value:
 
-```
+```luna
 const c = comptime parseThing("bad input");   // if parseThing throws, compilation fails
 ```
 
@@ -981,7 +986,7 @@ capability model already in this section.
 Luna has no dedicated partial-application primitive, because a **lambda already is one**.
 Binding some arguments and leaving others open is written as an ordinary closure:
 
-```
+```luna
 const add5 = fn (x: int): int => add(5, x);   // "add, with the first argument fixed to 5"
 ```
 

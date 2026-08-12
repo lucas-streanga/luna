@@ -1,0 +1,21 @@
+let a = b'${x}';
+let b = b"$name";
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "a"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+BYTES 8..15 "b'${x}'"
+SEMICOLON 15..16 ";"
+WHITESPACE 16..17 "\n"
+KW_LET 17..20 "let"
+WHITESPACE 20..21 " "
+IDENT 21..22 "b"
+WHITESPACE 22..23 " "
+ASSIGN 23..24 "="
+WHITESPACE 24..25 " "
+BYTES 25..33 "b\"$name\""
+SEMICOLON 33..34 ";"
+WHITESPACE 34..35 "\n"

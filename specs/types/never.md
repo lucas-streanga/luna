@@ -40,7 +40,7 @@ value and teardown is structured — no call unwinds the process past pending `d
 from mid-frame; std.process §3, R134); an uncaught `die` *reaches* program exit by
 unwinding, which is the difference.
 
-```
+```luna
 const fatal = fn (msg: string): never => { die("fatal: $msg"); };   // an always-panicker
 const loop  = fn (): never => { while (true) { tick(); } };          // a diverger
 ```
@@ -84,7 +84,7 @@ the identity for `|`, §3). So `never!` is not a special construct: it is `never
 the ordinary `!` suffix, and its meaning ("only ever an error, never a value") is exactly what that
 composition says.
 
-```
+```luna
 const rejectAll = fn (msg: string): never! => { throw error(msg); };   // always throws, never a value
 ```
 

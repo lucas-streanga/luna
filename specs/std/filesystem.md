@@ -8,7 +8,7 @@ R134; the io boundary stands: contents are `io`'s, structure is this module's).
 **The canonical import is two lines**, one per kind of thing, each forced by an
 existing ruling:
 
-```
+```luna
 import { filesystem, path } from std.filesystem;   // capability (use clauses) + type (annotations)
 const fs = import std.filesystem;                   // the function surface, namespaced (R136)
 ```
@@ -24,7 +24,7 @@ selective import and aliasing as anywhere (modules §8: `import { join as joinPa
 
 ## 1. `path`
 
-```
+```luna
 export const path = constraint p: string where isValidPath(p);
 ```
 
@@ -39,12 +39,12 @@ always — there is no `chdir` (std.process §3, R134).
 
 ## 2. The pure half: path operations
 
-```
-export const join      = fn (base: path, ...parts: string): path;
-export const dirname   = fn (p: path): path;
-export const basename  = fn (p: path): string;
-export const extension = fn (p: path): string?;    // null when there is none
-export const normalize = fn (p: path): path;       // collapses '.', '..', '//'
+```luna
+export const join      = fn (base: path, ...parts: string): path => {};
+export const dirname   = fn (p: path): path => {};
+export const basename  = fn (p: path): string => {};
+export const extension = fn (p: path): string? => {};    // null when there is none
+export const normalize = fn (p: path): path => {};       // collapses '.', '..', '//'
 ```
 
 Path manipulation is string math: no capability, comptime-eligible (`const cfg =
@@ -61,9 +61,9 @@ suspension point (concurrency §6.1).
 
 ### 3.1 Probing
 
-```
-export const exists = fn (p: path) use (filesystem): bool;
-export const stat   = fn (p: path) use (filesystem): @fileInfo!;
+```luna
+export const exists = fn (p: path) use (filesystem): bool => {};
+export const stat   = fn (p: path) use (filesystem): @fileInfo! => {};
 
 export const fileInfo = proto {
   const get size: int;              // bytes
@@ -85,9 +85,9 @@ export const entryKind = enum { file, directory, symlink, other };
 
 ### 3.2 Enumerating
 
-```
-export const entries = fn (dir: path) use (filesystem): stream!;   // immediate children
-export const walk    = fn (dir: path) use (filesystem): stream!;   // recursive descent
+```luna
+export const entries = fn (dir: path) use (filesystem): stream! => {};   // immediate children
+export const walk    = fn (dir: path) use (filesystem): stream! => {};   // recursive descent
 ```
 
 Both are stream producers (R102; a million-entry directory costs nothing to start),
@@ -102,13 +102,13 @@ axis (§5).
 
 ### 3.3 Creating, destroying, moving
 
-```
-export const createDir = fn (p: path, recursive: bool = false) use (filesystem): undefined!;
-export const delete    = fn (p: path, recursive: bool = false) use (filesystem): undefined!;
-export const rename    = fn (from: path, to: path) use (filesystem): undefined!;
-export const copy      = fn (from: path, to: path) use (filesystem): undefined!;
-export const tempDir   = fn (prefix: string = '') use (filesystem): path!;
-export const tempFile  = fn (prefix: string = '') use (filesystem): file!;
+```luna
+export const createDir = fn (p: path, recursive: bool = false) use (filesystem): undefined! => {};
+export const delete    = fn (p: path, recursive: bool = false) use (filesystem): undefined! => {};
+export const rename    = fn (from: path, to: path) use (filesystem): undefined! => {};
+export const copy      = fn (from: path, to: path) use (filesystem): undefined! => {};
+export const tempDir   = fn (prefix: string = '') use (filesystem): path! => {};
+export const tempFile  = fn (prefix: string = '') use (filesystem): file! => {};
 ```
 
 - **`createDir(p, recursive: true)`** is `mkdir -p`; the bare form errors on a missing

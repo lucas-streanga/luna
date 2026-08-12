@@ -1,6 +1,6 @@
 # `std.xml`
 
-```
+```luna
 import std.xml;
 ```
 
@@ -10,7 +10,7 @@ they use).
 
 ## 1. The `xml` type
 
-```
+```luna
 export const xml = constraint s: string where isValidXml(s);
 ```
 
@@ -22,8 +22,8 @@ string constraint should answer (§3).
 
 ## 2. Reading
 
-```
-export const fromXml = fn (v: xml): table!;
+```luna
+export const fromXml = fn (v: xml): table! => {};
 ```
 
 Pure, comptime-eligible, source-agnostic; the entry into `xml` is the validation, and the

@@ -112,7 +112,7 @@ shape that every error inherits as its prefix (value-representation §4.2), so t
 fields are present on every error and readable on any `error`-typed value without
 narrowing:
 
-```
+```luna
 error {
   message: string;        // human-readable description; "" if none
   stacktrace: secret;     // the trace: a secret-wrapped table of frames (R111); written only by throw (§6.1)
@@ -132,7 +132,7 @@ error {
   the runtime's crash reporter holds the capability and reveals at its boundary, the
   secret §5.1 pattern. The one
   bit that is *not* secret is whether the error was thrown:
-  **`fn wasThrown(e: error): bool`** — the unforgeable test the old
+  **`const wasThrown = fn (e: error): bool`** — the unforgeable test the old
   `stacktrace.isEmpty()` idiom provided, now a dedicated predicate disclosing no
   contents and needing no capability.
 - **`cause`** links a wrapping error to the error it wraps (§6.2), `null` when there is no
@@ -158,8 +158,8 @@ deduplication need. This is the surface principle's third instance (protocols' g
 members, R96; tables' element space): **equality compares what the author declared;
 what the runtime attaches is not identity.**
 
-```
-fn toTable(e: error): table     // total: the identity surface, reified
+```luna
+const toTable = fn (e: error): table => {};     // total: the identity surface, reified
 ```
 
 **`toTable`** converts an error to a table of its identity surface — `message`, the
@@ -182,20 +182,24 @@ wrapping interlock exactly.)
 
 ## 3. Defining an error
 
-An error type is defined with the `error` block and bound to a variable, the same way a
-protocol is defined with `proto`:
+An error type is defined with the `error` block and bound to a `const`, the same way a
+protocol is defined with `proto` (R126):
 
-```
-myError = error {
+```luna
+const myError = error {
   code?: int;
   detail?: string;
 };
 ```
 
-`error` is both the definition keyword (`myError = error { ... }`) and the name of the
+`error` is both the definition keyword (`const myError = error { ... }`) and the name of the
 root type (`| error`, `catch (_: error)`), exactly as `proto` is both keyword and type. An
-error definition binds like any value; a module exports an error type by exporting its
-variable.
+error definition binds like any value, so it takes a binding keyword like any value — the
+declaration is `const`, and a module exports an error type by exporting that declaration
+(`export const myError = error { … };`). Fields are separated by `;`, as a `proto` block's
+member declarations are. (This section and the `ioError` family formerly wrote the form with
+no binding keyword at all, and io-errors.md separated its fields with `,`; both corrected by
+R254, the grammar sweep's find.)
 
 A definition with no explicit parent **implicitly extends the root `error`**, so
 `myError` above is a declarable error by construction (it is not under `panic`, §2). Its
@@ -213,8 +217,8 @@ ordinary function (reachable by UFCS, `message(err)`), not a method on the error
 
 An error extends another with `error : Parent`:
 
-```
-diskError = error : myError {
+```luna
+const diskError = error : myError {
   path?: string;
 };
 ```
@@ -239,8 +243,8 @@ The hierarchy is fixed at compile time. Throwing an error never creates a new ty
 
 An error whose fields are all optional may be constructed with no arguments:
 
-```
-myError = error : someOtherError {
+```luna
+const myError = error : someOtherError {
   newField?: string;
 };
 
@@ -257,7 +261,7 @@ A **declarable** error is constructed by naming its type and supplying its field
 source is a compile error. Construction below therefore always means a declarable
 error:
 
-```
+```luna
 let e = myError(code: 11);              // named fields
 let f = myError(11, "disk full");       // positional, in declared order
 let g = diskError(code: 5, path: "/x"); // inherited and own fields together
@@ -274,7 +278,7 @@ An error is **immutable after construction**: `e.code` reads, there is no `e.cod
 
 An error definition has no constructor method and no `this`. Setting fields *is*
 construction: `myError(code: 11)` assigns `code`, with no code to write. A hand-written
-initializer that only copies arguments into fields, such as a `fn (code) { this.code =
+initializer that only copies arguments into fields, such as a `fn (code) => { this.code =
 code }`, is exactly what field construction already does, so it is unnecessary, and
 `this` (an implicit receiver) does not exist in Luna: receivers are always explicit or
 absent (functions and protocols spec), and errors carry no methods to need one.
@@ -282,7 +286,7 @@ absent (functions and protocols spec), and errors carry no methods to need one.
 When construction needs **logic**, validation, or derived fields, that logic goes in an
 ordinary **factory function** that returns the error, not in the error type:
 
-```
+```luna
 const makeDiskError = fn (path: string): diskError => {
   return diskError(code: 5, detail: "disk full", path: path);
 };
@@ -296,7 +300,7 @@ behavior where behavior lives in Luna, in functions.
 You do not need to declare an error type to fail. The base `error` is itself the
 throwaway error, constructed directly:
 
-```
+```luna
 throw error('disk full');       // base error with a message
 throw error;                    // base error, empty message (sugar for error(''))
 ```
@@ -313,8 +317,8 @@ and is caught by a `try` expression (§8.1), exactly as a declared error type wo
 **`die` is the panic-channel one-liner, ruled** (R215, superseding R214's first answer —
 it had been the corpus's failure primitive by usage, defined nowhere):
 
-```
-fn die(msg: string): never         // raises the `died` panic carrying msg; no ! — panics are unchecked
+```luna
+const die = fn (msg: string): never => {};         // raises the `died` panic carrying msg; no ! — panics are unchecked
 ```
 
 A builtin free function that **raises a panic** — the `died` panic type, runtime-minted on
@@ -340,14 +344,14 @@ fails the *panic* way (ambient; no signature change).
 When a throwaway error wants **structured** data, that data goes in the `data` table
 (§2.1), not into a new type:
 
-```
+```luna
 throw error('bad config', [key => 'timeout', value => -1]);
 // error('msg', dataTable) sets message and data
 ```
 
 A handler reads it off the base error:
 
-```
+```luna
 } catch (e) {
   let k = e.data?.key ?? "unknown";
 }
@@ -371,7 +375,7 @@ nothing for a distinct type to do, so use base `error` with `message` and `data`
 
 `throw` raises an error value, unwinding until it is caught:
 
-```
+```luna
 throw myError(11);                      // construct, then throw
 ```
 
@@ -412,7 +416,7 @@ it (§2.1) without revealing contents.
 There is **no dedicated re-throw syntax**. Because a caught error is an ordinary value
 (via `try`, §8), propagating it conditionally is ordinary control flow:
 
-```
+```luna
 let r = try someFunc();
 throw r if (r is error);        // re-raise; appends this site to r's existing trace
 // ... otherwise use r as the success value
@@ -424,7 +428,7 @@ failure location.
 
 **Wrapping** raises a new, higher-level error that carries the original as its `cause`:
 
-```
+```luna
 let r = try lowLevel();
 throw someError(message: 'init failed', cause: r) if (r is error);
 ```
@@ -501,7 +505,7 @@ first can never silently absorb the second.
 `try expr` runs `expr` and, if it throws a **declarable error** (any error outside the `panic`
 subtree, §2), yields that error as a value instead of unwinding:
 
-```
+```luna
 let v!: string = try someFunc();          // v : string | error
 let w:  string | error = try someFunc();  // identical; ! is sugar for the error arm
 ```
@@ -555,9 +559,8 @@ another.
 
 ### 8.2 The `try` / `catch` block catches everything
 
-```
+```luna
 try {
-  ...
 } catch (e) {
   // e is the caught error, typed root `error`; may be a declarable error or a panic
 }
@@ -617,15 +620,11 @@ A `catch` clause head is a **parenthesized binder pattern** (match §2.1): `(_)`
 `(name)`, or `(name: T)`, and nothing else. Naming a type narrows the clause to that subtree,
 letting the rest propagate:
 
-```
+```luna
 try {
-  ...
 } catch (e: diskError) {    // catches diskError and its subtypes; e is a diskError
-  ...
 } catch (p: panic) {        // catches any panic (OOM, typeError, arityError, ...)
-  ...
 } catch (e) {               // everything else: the remaining declarable errors
-  ...
 }
 ```
 

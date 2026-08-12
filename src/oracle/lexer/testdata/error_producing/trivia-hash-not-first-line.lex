@@ -1,0 +1,17 @@
+let x = 1;
+#!nope
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..5 "x"
+WHITESPACE 5..6 " "
+ASSIGN 6..7 "="
+WHITESPACE 7..8 " "
+INT_DEC 8..9 "1"
+SEMICOLON 9..10 ";"
+WHITESPACE 10..11 "\n"
+INVALID 11..12 "#"
+!L0007 11..12
+BANG 12..13 "!"
+IDENT 13..17 "nope"
+WHITESPACE 17..18 "\n"

@@ -32,7 +32,7 @@ operators (`??`, `?.`, `???`) navigate absence unambiguously (coalescing spec).
 
 `undefined` can be **held by a binding**. Reading a missing key into a variable is not an error:
 
-```
+```luna
 const l = tab['missing'];      // l holds undefined; this is fine, not an error
 ```
 
@@ -54,7 +54,7 @@ a bug. The language catches this at the earliest point it can:
 This is the same static-when-possible discipline used throughout the language: prove it and reject at
 compile time, otherwise stop loudly at run time rather than proceeding with a nonsense value.
 
-```
+```luna
 const l = tab['missing'];      // l is undefined (fine, a binding, §3.3)
 const n = l + 1;               // PANIC: used a possibly-undefined value that is undefined now
 const u = voidFn();            // u : undefined (fine, inert binding)
@@ -70,10 +70,10 @@ dynamically otherwise. Holding it is safe; using it is the bug.
 Because `undefined` panics on use, the safe response is to **resolve it before use**, which the
 coalescing operators do (coalescing spec):
 
-```
+```luna
 const v = tab['missing'] ?? fallback;      // ?? catches undefined, gives fallback
 const w = obj?.field;                      // ?. short-circuits an undefined receiver to undefined
-if (tab['k'] == undefined) { ... }         // an explicit absence check (equality spec)
+if (tab['k'] == undefined) {}         // an explicit absence check (equality spec)
 ```
 
 `==` against `undefined` is well-defined: `undefined == undefined` is **true** (so absence checks
@@ -172,7 +172,7 @@ Luna has **no `void`**: every function returns something. A function that return
 value, one with no `return`, or a body that completes without producing a value, returns
 **`undefined`**, not `null`.
 
-```
+```luna
 const log = fn (msg: string) use (io) => { println(msg); };   // returns undefined
 ```
 
@@ -194,7 +194,7 @@ A return value may not be silently dropped: `someFn()` in statement position nor
 explicit no-discard form `_ = someFn()` (variables spec). But a **void** call is **exempt**, because
 there is nothing meaningful to discard:
 
-```
+```luna
 log("hi");        // fine: no _ = needed; the return is undefined (no value to drop)
 ```
 
@@ -209,7 +209,7 @@ where there is something to discard.
 
 You **cannot** write `undefined` as a literal or initializer:
 
-```
+```luna
 var x = undefined;        // COMPILE ERROR
 ```
 

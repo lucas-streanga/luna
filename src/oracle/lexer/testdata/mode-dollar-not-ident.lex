@@ -1,0 +1,25 @@
+// `$1` is not a splice: `$name` needs an identifier *start* (§0), so a digit makes the
+// `$` ordinary DOLLAR_TEXT. `$_` is a splice, `_` being identifier-shaped.
+let s = "$1 $_ ${x}";
+---
+LINE_COMMENT 0..88 "// `$1` is not a splice: `$name` needs an identifier *start* (§0), so a digit makes the"
+WHITESPACE 88..89 "\n"
+LINE_COMMENT 89..164 "// `$` ordinary DOLLAR_TEXT. `$_` is a splice, `_` being identifier-shaped."
+WHITESPACE 164..165 "\n"
+KW_LET 165..168 "let"
+WHITESPACE 168..169 " "
+IDENT 169..170 "s"
+WHITESPACE 170..171 " "
+ASSIGN 171..172 "="
+WHITESPACE 172..173 " "
+DQ_OPEN 173..174 "\""
+DOLLAR_TEXT 174..175 "$"
+DQ_TEXT 175..177 "1 "
+INTERP_IDENT 177..179 "$_"
+DQ_TEXT 179..180 " "
+INTERP_OPEN 180..182 "${"
+IDENT 182..183 "x"
+INTERP_CLOSE 183..184 "}"
+DQ_CLOSE 184..185 "\""
+SEMICOLON 185..186 ";"
+WHITESPACE 186..187 "\n"

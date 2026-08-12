@@ -62,7 +62,7 @@ is what makes a secret un-leakable: the type system refuses to treat a `secret` 
 A value is wrapped as secret with the **explicit `as secret` coercion**, so that marking a
 value sensitive is always a visible, greppable act:
 
-```
+```luna
 let token = "ghp_xxxxxxxxxxxx" as secret;    // token : secret (of a string)
 let pw     = userInput as secret;             // wrap a runtime string
 ```
@@ -97,8 +97,8 @@ precision, full uniformity, the "unions instead" doctrine.)
 
 Beyond `as secret` (the default form), the **constructor** attaches gates:
 
-```
-const secret = fn (raw: string|bytes|table, ...gates: type): secret
+```luna
+const secret = fn (raw: string|bytes|table, ...gates: type): secret => {};
 
 const a = raw as secret;                     // ≡ secret(raw): gated by the default, [@revealSecret]
 const b = secret(raw, @dbCred);              // gated by dbCred
@@ -126,13 +126,12 @@ Gates ride values (§3.2); a **signature** names them through an ordinary constr
 `json` pattern (json §1), here over the immutable base `secret`, so the predicate runs
 **once, at entry**, and never again. The blessed shape pins the gate set **exactly** (R220):
 
-```
+```luna
 export const dbCred   = capability;
 export const dbSecret = constraint s: secret where gatesOf(s) == [@dbCred];
 
 const connect = fn (cred: dbSecret) use (dbCred): conn! => {
   let raw = reveal(cred);      // pinned gates ⊆ declared use: the gate check is elided, soundly
-  ...
 };
 ```
 
@@ -192,10 +191,10 @@ value redacts itself wherever it goes, and only `reveal` (§5) exposes it.
 
 The underlying value is obtained only through `reveal`:
 
-```
-fn reveal(s: secret): string | bytes | table   // the payload; narrow with `as` or `match` (R113)
-fn canReveal(s: secret): bool                  // gate set ⊆ frame grant — the probe form (R113)
-fn gatesOf(s: secret): list                    // the gate set as typeids, in construction order (R220)
+```luna
+const reveal = fn (s: secret): string | bytes | table => {};   // the payload; narrow with `as` or `match` (R113)
+const canReveal = fn (s: secret): bool => {};                  // gate set ⊆ frame grant — the probe form (R113)
+const gatesOf = fn (s: secret): list => {};                    // the gate set as typeids, in construction order (R220)
 ```
 
 - **`reveal` checks the secret's gate set against the executing frame's grant** (R79):

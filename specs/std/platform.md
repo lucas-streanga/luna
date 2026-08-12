@@ -1,13 +1,13 @@
 # `std.platform`
 
-```
+```luna
 import std.platform;      // dumps exactly one name: the table
 ```
 
 The smallest module in the standard library, deliberately: **one export**, a `const`
 table of compile-time-known facts about the **target**.
 
-```
+```luna
 export const platform = [
   'os'            => 'linux',      // Go's GOOS vocabulary: 'linux', 'darwin', 'windows', ...
   'arch'          => 'x86-64',     // 'x86-64', 'arm64', ...

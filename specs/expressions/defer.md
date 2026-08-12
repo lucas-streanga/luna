@@ -9,7 +9,7 @@ frees memory, but it does not promise *when*, so a resource that must be release
 file descriptor, a socket, a lock) needs an explicit, deterministic release. `defer` is that
 release.
 
-```
+```luna
 let f = openFile('data.log', {read});
 defer f.close();                        // runs when this block exits, however it exits
 foreach (line in f.lines()) {
@@ -27,7 +27,7 @@ A deferred statement runs when the **nearest enclosing `{}` block** is left, not
 enclosing function returns. This is a deliberate choice over the function-scoped `defer` of some
 languages, and it matters most in loops:
 
-```
+```luna
 foreach (path in paths) {
   let h = open(path);
   defer h.close();          // runs at the end of THIS iteration's block, each time
@@ -71,7 +71,7 @@ This is the division of labor with `try` (errors spec): **`try` handles error *v
 handles *cleanup* on all paths.** They are orthogonal and compose in the common pattern of
 "acquire, defer release, then do fallible work":
 
-```
+```luna
 let conn = db.open();
 defer conn.close();               // released whether the work below succeeds, fails, or panics
 let rows = try conn.query(sql);   // handle the error value with try
@@ -87,7 +87,7 @@ deferred runs first. This is the correct order for nested resource acquisition, 
 acquired in order are released in the reverse order, so dependencies are torn down before the
 things they depend on:
 
-```
+```luna
 let outer = openOuter();
 defer outer.close();          // runs second
 let inner = outer.child();
@@ -114,7 +114,7 @@ block entry. Two consequences follow:
   when the `defer` runs, not when the block exits, so later reassignment of a binding does not
   change what was deferred:
 
-```
+```luna
 var h = openA();
 defer h.close();      // captures the handle to A (the current value of h)
 h = openB();          // reassigns h to B

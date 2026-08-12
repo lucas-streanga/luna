@@ -9,15 +9,37 @@ outputs.
 
 ## 1. The oracle (keystone)
 
-The frozen Phase-0 tree-walk interpreter, mounted `:ro`. For any program it yields the gold
+The Phase-0 tree-walk interpreter, mounted `:ro`. For any program it yields the gold
 result (stdout, or error/panic type). Slow by design — a test instrument, not the product.
+
+**"Frozen" means frozen to the agent loop, not feature-complete** (R234). The `:ro` mount is what
+stops an agent editing its way past a failing differential; it is not a claim that the oracle stops
+changing. A reference that cannot track rulings drifts from the spec on the first one after it is
+written, and then every divergence is ambiguous — compiler bug or stale oracle? So the oracle has a
+**human edit path outside the loop**, and language changes land in it like anywhere else.
+
+**It is permanent, and it ships exactly once** (R234). The oracle is *alpha v0* — the first
+shippable Luna, slow but complete — and stops shipping once a stable Luna-written implementation
+exists. It never stops being maintained: after self-hosting it is the only implementation the
+production compiler did not produce, so retiring it would end differential testing (§3). The
+production compiler **may never import it** (compiler §6.1), gated on the build graph.
 
 **Independence discipline** (what gives it power): a differential test only bites if the two
 sides fail *differently*. Tree-walk vs Go-emission is structurally different code → implementation
-bugs uncorrelated for free. Residual *shared spec-misreading* is covered by the human owning the
-semantic core (Phase 0.1) and adjudicating every oracle-vs-compiler disagreement. Alpha reuses the
-human front-end (lex/parse/check/desugar → LIR) and builds only the backend, so the front-end is
-not differential-tested — acceptable for alpha, closable later by an independent front-end.
+bugs uncorrelated for free.
+
+**The two implementations are wholly disjoint** (R241). The oracle is a complete Go interpreter,
+lex through eval; the production compiler is written in Luna (R234) and shares **no code** with
+it. So the divergence surface is the entire pipeline, not two backends over a common front, and
+lexing and parsing are differential-tested exactly like evaluation. This retires the earlier alpha
+concession — that Phase 1 would reuse the human front-end, leaving it untested and "closable later
+by an independent front-end" — by closing it on the first day instead. It also makes R234's
+never-import rule structural rather than checked: **a Luna program cannot import a Go package**.
+
+Residual *shared spec-misreading* survives, and no amount of implementation independence removes
+it: two implementations of the same misread sentence agree. That stays covered the way it always
+was — the human owns the semantic core (Phase 0.1) and adjudicates every oracle-vs-compiler
+disagreement.
 
 ## 2. e2e comparison policy
 
@@ -26,8 +48,11 @@ the oracle defines "correct." Enforced by `e2e-runner`:
 
 - *Success stdout* — **exact**. Maps and streams have ruled iteration order (no sets), so a program
   with no undeclared effects and no concurrent multi-writer output is deterministic.
-- *Diagnostics / compile errors* — **partial**: match the ruled error **type** (`typeError`,
-  `ioError`, …) + source location, never the prose.
+- *Diagnostics / compile errors* — **partial**: match the ruled **diagnostic code** (`L0003`,
+  `S0143`, …; compiler §3.1, R240) + the **primary** span's file and line, never the prose.
+  Secondary spans ("declared here") are **opt-in** per test: they are the half that churns as
+  diagnostics improve, while the primary site stays put. Runtime errors are matched by **type**
+  instead (`typeError`, `ioError`, …) — a value has a type, a diagnostic has a code.
 - *Panics* — **partial**: match the panic type, not the address/stack dump.
 
 **Alpha note:** diagnostics are highly volatile in alpha — message wording will churn constantly,
@@ -41,6 +66,11 @@ Two independent runs must agree:
 - **oracle vs compiled binary** (tree-walk vs emitted-Go semantics), and
 - **script-mode vs compiled binary** — Luna's own "same source runs or compiles, identical
   semantics" claim, a differential oracle the language hands you free.
+
+**The second pair degenerates after self-hosting** (R234), and this is why the first is
+load-bearing forever: once one Luna-written compiler drives both paths, script-vs-compiled tests
+the run/cache path rather than two readings of the semantics. Oracle-vs-compiled is then the only
+pair with two independent implementations behind it.
 
 **Failure routing** (this is effectively a fourth human touchpoint, unmetered): a divergence is
 **human-adjudicated** → *compiler bug* (loop back to `implement`, pipeline step 11) or *spec gap*

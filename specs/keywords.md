@@ -67,7 +67,7 @@ it deliberately does not, §6 is the flag list of words whose definitions need w
 | `nan` | the IEEE not-a-number double value | double §1, §2.2 |
 | `inf` | the IEEE infinity double value (`-inf` is `MINUS KW_INF`; there is no unary `+`; in pattern position the pair folds into a signed literal pattern, as any numeric literal's does — match §2.1, R183) | double §1.1 |
 | `self` | contextual, inside a `proto` block: the receiver's type `@CurrentProto` in return-type position, the receiver value in bodies | protocols §2.4 |
-| `get` / `set` | contextual, inside `proto` member declarations only: external access grants, canonical order `get set`; a grant that can never be exercised is a definition error | protocols §2.2 |
+| `get` / `set` | contextual, inside `proto` member declarations only: external access grants, canonical order `get set`; a grant that can never be exercised is a definition error. **Not reserved** (R232): like `panic` they lex as identifiers, recognized positionally by the parser in proto member heads, so `get` and `set` stay usable as ordinary names | protocols §2.2 |
 | `panic` | not a keyword: the lowercase **type** at the root of the sealed panic subtree (like `error`); `catch (p: panic)` is an ordinary typed binder | errors §9, §6 below |
 | `_` | not a keyword: the discard identifier (`_ =`, match wildcard, `_: T` type test) | errors §8.1, match, wildcard |
 

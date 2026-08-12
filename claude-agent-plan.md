@@ -1,16 +1,19 @@
 # claude-agent-plan
 
 Orchestration plan for the pipeline in `proposed-claude-pipeline.md`. Two phases: **Phase 0**
-hand-builds the oracle (a naive complete interpreter) and the human-owned semantic core; **Phase
-1** is the automated loop that builds the production Go-emitting backend and validates it against
-the oracle. This file holds the Phase-0 discipline, tooling/container changes, retry metering, the
+hand-builds the oracle (a complete Go interpreter) and the human-owned semantic core; **Phase 1**
+is the automated loop that builds the production compiler and validates it against the oracle.
+Since R241 the two share **no code**, and since R234 the production compiler is written in
+**Luna** — so Phase 1's target is not a Go backend, and §E's Go-only lint gate does not reach it.
+What replaces that gate is open (R241). This file holds the Phase-0 discipline, tooling/container changes, retry metering, the
 mount matrix, the artifact set, the quality tiers, and the alpha scope. **The correctness spine —
 oracle, differential, metamorphic, fuzz, and non-determinism detection — lives in
 `testing-strategy.md`.** Serial, no subagent parallelism.
 
-> None of the podman/agent changes below have been made yet — this is the plan of record, not a
-> description of the current tree. The current `compose.yaml` mounts the whole repo `rw` and the
-> `Containerfile` has no Go toolchain.
+> Mostly still the plan of record, not a description of the current tree. **Applied (2026-08-10):**
+> §A.1 — the `Containerfile` pins Go, installs `golangci-lint` + `libfaketime`, and `compose.yaml`
+> carries named volumes for `GOPATH`/`GOCACHE`. **Not applied:** §A.2's per-gate services and §B's
+> mount matrix — `compose.yaml` still mounts the whole repo `rw` and has only the `claude` service.
 
 ## Phase 0 — Foundations (human-owned, before the automated loop)
 
@@ -24,21 +27,40 @@ implementation. Two artifacts must exist before Phase 1 runs, and neither is bui
    a real refinement-aware structural checker, stop — nothing downstream rescues that.
 2. **Oracle / alpha interpreter — naive, slow, obvious, end-to-end.** Lex → parse → (1's checker) →
    desugar to LIR → tree-walk eval; bignum-then-bound-check for overflow; zero optimization. This is
-   **alpha v0** and the **oracle** (`testing-strategy.md` §1). Frozen, mounted `:ro`.
-3. **Independence discipline.** Detailed in `testing-strategy.md` §1. **Alpha choice:** Phase 1
-   reuses the human front-end (lex/parse/check/**desugar → LIR**) and builds only the **backend**
-   (Go emission from LIR + runtime + incremental cache); the shared front-end is not
-   differential-tested — acceptable for alpha, closable later by an independent front-end.
+   **alpha v0** and the **oracle** (`testing-strategy.md` §1). Frozen, mounted `:ro` — where frozen
+   means *the agent loop may not edit it*, not feature-complete; it tracks rulings by human edit
+   (R234). It ships as alpha v0 and **stops shipping** once a stable Luna-written compiler exists,
+   but is maintained for the life of the language: post-self-hosting it is the only implementation
+   the production compiler did not produce. The compiler may never import it (compiler §6.1).
+3. **Independence discipline — full disjointness (R241).** Detailed in `testing-strategy.md` §1.
+   The oracle is a **complete** Go implementation (lex → eval); the production compiler is written
+   in Luna (R234) and shares **no code** with it. The earlier alpha choice — reuse the human
+   front-end, build only the backend, leave the front-end untested — is retired: the whole
+   pipeline is differential-tested, and R234's never-import rule is enforced by the language
+   barrier rather than by a build-graph check.
 
 ## A. Tooling / container changes (prerequisite)
 
 Nothing runs until the sandbox can build and test Go.
 
-1. **Image (`Containerfile`):** add Go, pinned to **1.26.4** (current stable). Prefer Fedora's
-   `golang`; if `dnf` lags, fall back to the official arm64 tarball — but heed the existing caution
-   about non-dnf aarch64 binaries under Asahi's 16K pages (a 4K-aligned binary aborts at startup).
-   Also set `go 1.26` in `go.mod`: the Containerfile pin is the **toolchain**, `go.mod` the
-   **language floor**. Add `libfaketime` for the `testing-strategy.md` §6-L4 clock perturbation.
+1. **Image (`Containerfile`) — applied.** Go pinned to **1.26.5** (current stable). Fedora 42 lags
+   at 1.25.10, so this is the official tarball, checksum-verified and arch-switched
+   (`amd64`/`arm64`) — the one deliberate exception to the image's dnf-only rule. The Asahi caution
+   is about third-party binaries that hardcode a 4K page size, which upstream Go is not; a `-race`
+   build at image-build time proves the mapping (and that the race detector links) instead of
+   assuming it. **The pin is dual-purpose, which is what makes it a design decision rather than a
+   packaging one: it is both the toolchain that builds the compiler and the language floor of the
+   Go the compiler *emits*** — the emitted program is one Go module with a single static `go.mod`
+   (compiler §1.8), and that `go.mod` carries the same floor. Bump deliberately, never by drift.
+   **R233** rules the rest: this same toolchain ships *inside* the `luna` binary (minus `pprof`,
+   `crypto/internal/boring`, and the race `.syso` blobs, excluded on licensing grounds), so no
+   user installs Go — but the sandbox keeps all three, which is why the `-race` gate still works.
+   This repo's own `go.mod` gets `go 1.26` too: the Containerfile pin is the **toolchain**, `go.mod`
+   the **language floor**. `GOTOOLCHAIN=local` is set so a floor/toolchain mismatch breaks the build
+   loudly rather than silently fetching a toolchain from `proxy.golang.org` on every fresh
+   container. Also installed: `libfaketime` for the `testing-strategy.md` §6-L4 clock perturbation,
+   and `golangci-lint` for the §E Tier-1 gate (Fedora ships **v2** — `.golangci.yml` needs
+   `version: "2"` and a `formatters:` block separate from `linters:`).
 2. **Services (`compose.yaml`):** reuse the image, override command + mounts.
    - `builder` — `go vet ./... && go build ./...`. Compile gate.
    - `test-runner` — `go test -json -race -shuffle=on -count=1 -timeout=<T> ./...` with
@@ -68,10 +90,15 @@ last-match-wins volume line after the repo mount), not agent goodwill.
 | `e2e/`           | **ro**    | ro                  | ro         | ro      |
 | `oracle/` (Ph 0) | **ro**    | —                   | ro         | ro      |
 | `fuzz/` corpus   | ro        | —                   | rw         | ro      |
-| `docs/` (spec)   | ro        | —                   | —          | ro      |
+| `specs/` (spec)  | ro        | —                   | —          | ro      |
 | `pipeline/` state| rw        | rw                  | rw         | rw      |
 
-`spec-reconcile` is the one step that mounts `docs/` + `CHANGES.md` `rw`.
+`spec-reconcile` is the one step that mounts `specs/` + `CHANGES.md` `rw`.
+
+The Go caches (`GOPATH`, `GOCACHE`; named volumes, §A.1) are deliberately outside this matrix and
+`rw` everywhere. They are derived data, not inputs — nothing's correctness keys off them, and a
+`:ro` cache would simply turn every gate into a cold rebuild. Immutability discipline is about the
+`tests/`/`e2e/`/`oracle/` **inputs** an agent must not edit its way past; it is not about caches.
 
 ## C. Retry metering + gate ordering
 
@@ -143,7 +170,7 @@ versions); the counters, not the tree, record that we've looped.
 
 ### Spec-governance artifacts (real repo files)
 
-- `CHANGES.md` ruling append + swept `docs/` files — written by `spec-reconcile`.
+- `CHANGES.md` ruling append + swept `specs/` files — written by `spec-reconcile`.
 
 ### Human markers
 
@@ -184,12 +211,17 @@ spend attention only on judgment.
 ## F. Alpha scope & architecture
 
 - **IR / desugaring — already in the spec, purposely underspecified.** The spec has both an LIR and
-  desugaring for exactly this reason. Phase 1's backend consumes the **desugared LIR** from the
-  human front-end (not the surface AST), so the emitter targets a small core — matching Luna's
-  small-surface ethos and giving the differential oracle a clean checkpoint.
-- **Standard library — deliberately tiny for alpha.** `io`, `stringBuilder`, and perhaps 1–2 others.
-  Library design is a separate problem; with the language tools in hand an arbitrary std can be
-  designed later. Alpha ships the minimum the e2e programs need.
+  desugaring for exactly this reason, and each implementation lowers to its own: under R241 the
+  compiler shares no front-end with the oracle, so both emit from a **desugared LIR** rather than a
+  surface AST, targeting a small core independently. That is what gives the differential a clean
+  checkpoint — the same core reached twice, not once and reused.
+- **Standard library — two scopes since R241, previously one.** For *alpha programs*, deliberately
+  tiny: `io`, `stringBuilder`, and perhaps 1–2 others; library design is a separate problem and
+  alpha ships the minimum the e2e programs need. For the **oracle**, larger and non-negotiable —
+  because the oracle is the bootstrap interpreter that runs the Luna compiler's source until it
+  self-compiles, it needs what a compiler needs: `filesystem` (module discovery), `exec` (invoking
+  the bundled Go toolchain, R233), `process` (environment), a hash (R149's cache key), `platform`
+  (target facts). These were the same claim while the front-end was shared; they are not now.
 - **Incremental cache — file/module-granular for alpha (decided).** Content-hash per module, layered
   on Go's own build cache. Query-based/demand-driven (Salsa/rustc-style) is the post-alpha path;
   retrofitting incrementality is expensive, so the granularity is fixed now.

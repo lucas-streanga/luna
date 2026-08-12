@@ -1,0 +1,19 @@
+a ^ b \ c $ d
+---
+IDENT 0..1 "a"
+WHITESPACE 1..2 " "
+INVALID 2..3 "^"
+!L0012 2..3
+WHITESPACE 3..4 " "
+IDENT 4..5 "b"
+WHITESPACE 5..6 " "
+INVALID 6..7 "\\"
+!L0012 6..7
+WHITESPACE 7..8 " "
+IDENT 8..9 "c"
+WHITESPACE 9..10 " "
+INVALID 10..11 "$"
+!L0012 10..11
+WHITESPACE 11..12 " "
+IDENT 12..13 "d"
+WHITESPACE 13..14 "\n"

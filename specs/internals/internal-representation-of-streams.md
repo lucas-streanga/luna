@@ -112,12 +112,13 @@ Two interactions with existing rulings, both discovered by this analysis:
   pc-shaped); try-expressions are structurally immune; defer bodies were already banned
   (R207).
 
-And the parity note that closes the loop with R192: **the evaluator needs none of this** —
-the oracle interprets IR with an explicit stack, so a suspended generator is a saved
-interpreter frame. The state-machine transform is *emitter-only*, sitting exactly on the
-divergence surface the oracle patrols: generator semantics are differentially testable by
-construction, and comptime generator folding (`const xs = collect(naturals())`, legal at
-requirement-mask zero) runs in the evaluator with zero transform machinery.
+And the parity note that closes the loop with R192: **the evaluator needs none of this** — both
+tree-walkers, evaluator and oracle alike (compiler §6.1, two artifacts since R234), interpret IR
+with an explicit stack, so a suspended generator is a saved interpreter frame. The state-machine
+transform is *emitter-only*, sitting exactly on the divergence surface the oracle patrols:
+generator semantics are differentially testable by construction, and comptime generator folding
+(`const xs = collect(naturals())`, legal at requirement-mask zero) runs in the evaluator with zero
+transform machinery.
 
 ### 2.2 The fused lowering (R225)
 
@@ -155,8 +156,9 @@ inlined.
   fusion. Effect stages fuse unchanged: creation-site authorization (R121, capabilities
   §5.1) ran where the chain was written, and fusion moves no code across that boundary.
 - Distinct from **comptime generator folding** (the parity note above): folding
-  *evaluates* a capability-free chain at compile time in the oracle; fusion *emits
-  better code* for a runtime chain. Different tiers, both meaning-preserving.
+  *evaluates* a capability-free chain at compile time in the evaluator (the compiler's own,
+  not the test oracle — compiler §6.1, R234); fusion *emits better code* for a runtime chain.
+  Different tiers, both meaning-preserving.
 
 ## 3. The rejected implementations, with full grounds
 

@@ -3,7 +3,7 @@
 `await` completes the `spawn` story: `spawn` starts a task and hands back its `promise`;
 `await` collects it.
 
-```
+```luna
 let p = spawn compute(data);     // data deep-copied in (isolation, concurrency §2)
 let result = await p;            // park until done; result MOVED out
 ```
@@ -40,9 +40,9 @@ let result = await p;            // park until done; result MOVED out
 The result-collecting surface is not a combinator zoo; it is **`await` applied to a
 stream of promises**, yielding a **lazy stream of results**:
 
-```
+```luna
 let results = await promises;        // promises: a stream of promise values
-foreach (r in results) { ... }       // each pull awaits the next task
+foreach (r in results) {}            // each pull awaits the next task
 let all = [...await promises];       // force everything: spread materializes (spread §2)
 ```
 

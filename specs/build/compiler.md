@@ -45,6 +45,24 @@ One binary, the complete suite. Known flags:
 | `-l` | `--lsp` | run the language server on stdio |
 | `-d` | `--debugger` | run the program under the debugger |
 
+**The bundled Go toolchain (R233).** The `luna` binary ships the pinned Go toolchain *inside* it,
+so a user compiling a Luna program **never installs Go**. This is what completes the one-binary
+claim: the backend emits Go source (§1.7) and the toolchain that consumes it is Luna's own, not a
+prerequisite discovered on the host — and Go's BSD-3-Clause license permits the redistribution,
+the attribution notice it requires shipping alongside. Two consequences are load-bearing. The pin
+is **dual-purpose** — both the toolchain that builds a program and the language floor of the
+`go.mod` the compiler emits (§1.8) — and because it ships with `luna`, that floor is an internal
+detail with no user-facing version to negotiate. And current Go distributions carry **no
+precompiled standard library**, so the bundle carries Go's `src/` (which cross-compilation needs
+anyway, §1.8) and the first build on a machine compiles the standard-library packages it touches
+before the cache is warm; that cache is **Luna's**, under `$HOME/.lunalang/`
+(incremental-compilation spec), never the user's default `GOCACHE`. Three parts of a stock Go
+distribution are **excluded** from the bundle — `cmd/vendor/.../pprof` (Apache-2.0),
+`crypto/internal/boring` (an OpenSSL/SSLeay/ISC composite, inert without
+`GOEXPERIMENT=boringcrypto`), and the race detector's `.syso` blobs (LLVM compiler-rt) — none
+reachable when emitting machine code, each carrying an attribution obligation that would otherwise
+attach to the `luna` distribution for code that never runs.
+
 **Run mode and the binary cache.** `luna someProgram` compiles (if needed) and runs. Builds
 are **content-addressed**: the cache key is a hash over the resolved module set's sources
 plus the compiler version **and the compile target** (R149 — platform facts are target
@@ -84,9 +102,9 @@ the stable surface they will slot into.
 
 ```
 source roots
-  -> discover            (imports-only lexing: the file set + raw edge list)  [BFS, §1.0]
-  -> import validation   (DAG + topological order; cycles diagnosed)          (§1.2)
+  -> discover            (imports-only lexing: file set, edges, prelude ends) [BFS, §1.0]
   -> lex                 (tokens)                   [parallel per file]
+  -> import validation   (DAG + topological order; cycles, the prelude rule)  (§1.2)
   -> parse               (lossless CST -> AST)     [parallel per file]
   -> semantic analysis   (typed AST)               [parallel by DAG layer]
   -> lower to Luna IR    (typed IR)
@@ -109,11 +127,13 @@ choices made from the start because they shape the whole frontend and cannot be 
 The pipeline's bootstrap problem, resolved: full lexing cannot start without knowing *which
 files* to lex, and the file set is written in imports — which only lexing can read. The answer
 is a **stage 0**: from the source roots, an **imports-only** pass reads each file's imports,
-follows them breadth-first with a visited set, and yields the **file set** plus, as a free
-byproduct, the **raw edge list** (each `from → to` pair it followed). Rejected alternatives,
-recorded: building the full DAG "before lexing" is this stage under another name (reading an
-import path *is* lexing); and lex-and-follow interleaving serializes on graph depth, entangles
-the R149 per-file cache with traversal order, and smears two phases together.
+follows them breadth-first with a visited set, and yields the **file set** plus two free
+byproducts: the **raw edge list** (each `from → to` pair it followed) and each file's **prelude
+end**, the offset it stopped at. Both cost nothing — the walk already knows them — and §1.2
+consumes both (R250). Rejected alternatives, recorded: building the full DAG "before lexing" is
+this stage under another name (reading an import path *is* lexing); and lex-and-follow
+interleaving serializes on graph depth, entangles the R149 per-file cache with traversal order,
+and smears two phases together.
 
 Three rules make the stage sound:
 
@@ -131,21 +151,41 @@ Three rules make the stage sound:
 - **Imports precede all other top-level declarations** (the prelude rule, R190; modules §4).
   Motivation: discovery then stops at each file's first non-import declaration — O(file head),
   not O(file) — and there is no use for a late import besides hurting readability. A violating
-  late import is a **parse error** (§1.3), which is what licenses discovery's early stop: a
-  file discovery under-scanned cannot survive to analysis, because the parser independently
-  rejects it first.
+  late import is an **import-validation error** (§1.2, R250), which is what licenses
+  discovery's early stop: a file discovery under-scanned cannot survive to analysis, because
+  §1.2 rejects it from the token stream first. The prelude is **all four cells** of modules
+  §5's grid, assignment forms included (R250), so the stopping condition is a parse decision
+  rather than a token test: `const` and `export` need lookahead to `= import` before discovery
+  knows whether the prelude has ended.
 
-Cycles do not trouble discovery (the visited set terminates them); their *diagnosis*, with the
-cycle path in the error, belongs to §1.2, which holds the retained edges. Per-file discovery
-results (a file's import list) cache on the file's content hash (build-cache §1), so the stage
-is incremental for free: the graph recomputes from cached lists.
+A file whose bytes **ingress rejects** — invalid UTF-8, a leading BOM (lexical-structure §1) —
+stays in the file set (R251). Its prelude cannot be read, so it contributes no edges; but
+dropping it would mean §1.1 never lexes it, and §1.1 owns the lexical codes, so the bad byte
+would be reported by no phase at all and would then surface at §1.2 as an unresolved import
+naming a file that plainly exists. The file set is *the files the program consists of*, not the
+files discovery could parse.
+
+**Discovery raises no diagnostic** (R250). It answers *which files* and nothing else: a path
+resolving to no file is skipped, not reported, and §1.2 reports it from the retained edges.
+Cycles likewise do not trouble it (the visited set terminates them); their *diagnosis*, with
+the cycle path in the error, belongs to §1.2. Keeping the cheapest phase free of a diagnostic
+surface is what lets it stay cheap — and it is what keeps a commented-out `// import
+std.experimental` from failing a valid build. An I/O failure on a file that exists is not an
+import error and is not covered by this rule.
+
+Per-file discovery results (a file's import list) cache on the file's content hash
+(build-cache §1), so the stage is incremental for free: the graph recomputes from cached
+lists.
 
 ### 1.1 Lex
 
 Tokenizes each file in the discovered set, **all files in parallel** — no symbol knowledge
 exists at this phase, so nothing orders it (§2). Invalid tokens are **collected**, not aborted
 on individually (§3): the lexer scans the whole file, accumulates every lexical error, and the
-compile aborts at the phase boundary if any occurred. Output is a token stream per file.
+compile aborts at the phase boundary if any occurred. Output is a token stream per file —
+including the **trivia** tokens (whitespace, comments, shebang; lexer §2, R236), which §1.3's
+parser filters out and only the formatter reads. Tokens carry **byte spans**; line and rune
+column are computed on demand at the diagnostic boundary, never stored (lexer §9).
 
 ### 1.2 Import validation
 
@@ -153,18 +193,43 @@ Validates discovery's retained edge list into the **module dependency DAG** (mod
 resolves each path to a module identity (relative to the root, empty path for the root, modules
 spec §3), diagnoses **cycles** — with the full cycle path in the error, from the edges §1.0
 kept — and unresolved imports, either aborting the compile (modules spec §2), and produces the
-**topological order**. It needs nothing beyond discovery's output, so it runs while lex and
-parse proceed. The distinction from the old "module resolution" phase is deliberate: discovery
-*finds*, this phase *judges*. The DAG gates only **semantic layering** (§1.4, §2); the file
-*set* — discovery's half — is what gates lex/parse parallelism.
+**topological order**.
+
+Three rules on what it reports (R251). **Every** cycle is reported, not the first: §3 has a
+phase run to completion and collect, and the required cycle path constrains the algorithm to
+one that produces a path rather than one that merely detects that a cycle exists. An edge
+resolving to the **root's file** is its own error rather than a cycle (modules spec §3). And a
+**`std.*` edge is never an unresolved import**: modules spec §10 makes `std` a virtual root
+with no tree behind it and discovery follows nothing there (R250), so those edges reach no file
+by construction and are excluded before reporting.
+
+It is also where the **prelude rule** is enforced (R250, superseding R190's placement of it in
+§1.3): any `KW_IMPORT` past a file's prelude end (§1.0) is invalid. The check needs no
+structure, because both violations modules §4 names — a late top-level import, and an import
+inside a function, a block, or a conditional — are errors, so detection never has to tell them
+apart; soundness comes from the reader, the lexer's mode machine already guaranteeing that no
+`KW_IMPORT` arrives from `// import x` or from `"import x"`. It lives here rather than in the
+parser because the rule is the module system's and codes are owned by the package that raises
+them (R240), and rather than in discovery because detecting a late import means reading past
+the prelude — spending the O(file-head) property that is the prelude rule's own dividend, in
+the one phase that gates everything.
+
+This phase runs **after §1.1** and may proceed alongside §1.3 (R250). The DAG half needs
+nothing beyond discovery's output and may be computed as early as an implementation likes, but
+the phase *reports* after lex, because the prelude check reads token streams. The distinction
+from the old "module resolution" phase is deliberate: discovery *finds*, this phase *judges* —
+and every import diagnostic is this phase's, discovery having none (§1.0). The DAG gates only
+**semantic layering** (§1.4, §2); the file *set* — discovery's half — is what gates lex/parse
+parallelism.
 
 ### 1.3 Parse
 
 A pure **context-free** pass: tokens to a syntax tree, per module, with no type knowledge and no
 name resolution. Parsing is **fully parallel** across modules (§2): each module's tokens are
-independent given only the discovered file set (§1.0) — the DAG is not needed here. The parser
-is also where the **prelude rule** is enforced (R190): an `import` after any non-import
-top-level declaration is a parse error, which is what licenses discovery's early stop (§1.0).
+independent given only the discovered file set (§1.0) — the DAG is not needed here. The
+grammar admits an `import` only in the prelude, so a misplaced one is a syntax error — but
+§1.2 enforces the prelude rule first and aborts at its boundary (R250), so that rejection is a
+structural invariant rather than a path taken, and is not dead code to be tidied away.
 Parse errors are accumulated per module; the batch driver
 aborts at the phase boundary (§3), but the parser itself is **error-tolerant** and produces a
 best-effort partial tree, which the tooling drivers consume (tooling spec §3).
@@ -324,8 +389,10 @@ so stack traces report Luna file and line.
 The emitted Go modules are assembled into a Go program: the **deterministic module-init order**
 (modules spec §2) is emitted as an explicit ordered init sequence (not left to Go's package-init
 order, §7.4), the **builtin runtime** is included, and **only the opted-in `std` modules** that
-the program actually references are linked (tree-shaken, modules spec §10). The Go toolchain then
-compiles and links the program to a binary. Linking of the native code is the Go toolchain's job;
+the program actually references are linked (tree-shaken, modules spec §10). The **bundled** Go
+toolchain (§0.1, R233) — pinned and shipped inside `luna`, never the host's — then compiles and
+links the program to a binary, and the emitted program's single static `go.mod` carries that same
+pinned version as its language floor. Linking of the native code is the Go toolchain's job;
 the compiler's job is to emit a correct, self-contained Go program with the right init order and
 the right std subset.
 
@@ -410,8 +477,65 @@ it safely can.
   produced any, the compile stops before the next phase (a phase cannot meaningfully consume the
   broken output of the previous one). Within a phase, error recovery is best-effort to find more
   independent errors (e.g. resynchronizing the parser at statement boundaries).
-- **Compile errors carry codes** (variables spec §7 and elsewhere), so diagnostics are stable and
-  referenceable.
+### 3.1 Diagnostic codes and spans (R240)
+
+**Every diagnostic carries a code**: a one-letter prefix naming the stage that defined the check,
+then four digits. `L0003`, `S0143`, `M0011`. The prefix is a **separate numbering space** — `L0001`
+and `P0001` are unrelated — which is what lets each stage allocate without a central registry, the
+property that matters most when slices are implemented in parallel (claude-agent-plan §C).
+
+| Prefix | Owns | Where |
+|-|-|-|
+| `L` | Lexical | §1.1 |
+| `P` | Syntax | §1.3 |
+| `S` | Semantic | §1.4 |
+| `M` | Modules | §1.0 discovery, §1.2 import validation |
+| `C` | Comptime | §6 |
+| `B` | Build | §1.8 assemble, toolchain invocation, the incremental cache |
+| `F` | Format | `luna -f` |
+| `T` | Tooling | LSP, debugger, test runner |
+| `I` | Internal | an invariant violated — "this is a compiler bug" |
+
+Discovery and import validation share `M` because a user cannot tell which of them noticed that an
+import does not resolve. There is deliberately **no prefix for lowering or emission**: §1.7
+guarantees the emitted Go compiles, so a failure there is not a user diagnostic but a compiler bug,
+and belongs to `I`. No severity axis exists either, because of the rule above — every code is an
+error.
+
+**Allocation is append-only.** Numbers start at `0001` (`0000` is never allocated; too much tooling
+reads zero as "no error"). A retired check's code is **retired, never reused** — search results and
+answers outlive the check that prompted them. Numbers carry no meaning: no reserved ranges by
+topic, because a range always overflows and then lies. And **a code never changes prefix**: when a
+check migrates to an earlier phase, as checks do, it keeps its original code and is simply reported
+by the phase that now runs it. The prefix records where a check was *defined*, not where it lives —
+stability beats taxonomy, and renumbering would collide with codes already allocated.
+
+**A code is not an error type.** They are different axes and both are needed. A **code** identifies
+a *diagnostic*: a message about a program that will not be built, uncatchable, with no runtime
+existence. A **type** identifies a *value*: `useAfterConsumed` (errors §2) is catchable because the
+program ran and the check failed dynamically. The same condition often has both — the compiler
+proves what it can and defers the rest (variables §7's "compile (runtime when branch-dependent)"),
+so a static use-after-consume is `S0143` and its dynamic twin is `useAfterConsumed`. Where a code
+has a runtime counterpart, its entry names it, so `luna explain` can say so. Runtime panics need no
+codes; their type name is already the stable referent.
+
+**A diagnostic's prose has two halves with different lifetimes.** The **title** is fixed per code
+and is part of its identity ("Use-after-consume"); the **description** is per-instance and volatile
+(naming the binding, the type, the file). Only the title is documentable, which is what makes a
+page per code possible while instance text churns.
+
+**Spans.** A diagnostic carries **exactly one primary span** — the caret site, mandatory, so "the
+location" is never ambiguous — and **zero or more labeled secondary spans** ("declared here",
+"consumed here") that carry the narrative. A span is `(file, byte offset, length)`: the file
+identity is required, not optional, because a secondary span routinely lives in another module.
+Byte offsets fall out of R236 — the diagnostic layer stores offsets only, and lexer §9's lazy line
+index resolves line and rune column at render time, so this model needs no machinery of its own.
+**Notes and hints are prose and never load-bearing**; a hint may optionally carry a *structured
+suggestion* (a span plus replacement text), which is what lets `luna -l` surface code actions
+without every hint being rewritten later.
+
+Existing error-summary tables predate this scheme (variables §7 names its errors without codes);
+they acquire codes as their specs are next revisited. lexer §11 is the worked example.
 - **Tolerance is a pass property; aborting is a driver policy.** The passes recover from errors and
   produce a best-effort partial result (a partial CST, a partial typed AST); the **batch driver**
   chooses to discard that partial result and abort at the boundary, but the **tooling drivers** (the
@@ -530,19 +654,42 @@ constants.
   comptime and const-table specialization compose: comptime builds the table, specialization lays
   it out.
 
-### 6.1 The evaluator is also the oracle; generate-and-run is rejected in full (R192)
+### 6.1 Evaluator and oracle: two duties, two artifacts (R192, split by R234)
 
-The IR evaluator has **two duties, one artifact**. Beside comptime evaluation, it is the
-**conformance oracle**: the reference implementation of Luna semantics, used for
-**differential testing** of the compiled path — any capability-free, deterministic program can
-be run through the evaluator and through its emitted Go, and the results diffed. This turns
-§6's phase-invariance requirement from a hoped-for property into a **test harness by
-construction**: the oracle duty patrols exactly the surface where the two executions could
-drift. It is **unoptimized on purpose**, and that is a feature twice over: simple evaluation
-gives comptime errors rich, unreordered positions, and an oracle you optimize is an oracle you
-doubt. The two-implementations cost is bounded by structure: evaluator and emitter consume the
-**same lowered IR** (§1.5) — every semantics-bearing desugaring happens once, upstream — so
-the divergence surface is two backends' data operations, never two readings of Luna.
+The IR evaluator has **one duty**: comptime evaluation (§6). It is a **component of the
+compiler** — in-process, consuming and producing the compiler's own IR and typetable — and when
+the compiler is written in Luna (R234) the evaluator is written in Luna with it. It is
+**unoptimized on purpose**: simple evaluation gives comptime errors rich, unreordered positions.
+
+The **conformance oracle** is a *separate artifact*: a Go tree-walk interpreter over the same
+lowered IR, the reference implementation of Luna semantics, used for **differential testing** of
+the compiled path (testing-strategy §3) — any capability-free, deterministic program runs through
+the oracle and through its emitted Go, and the results are diffed. It too is unoptimized on
+purpose, for a different reason: an oracle you optimize is an oracle you doubt.
+
+R192 made these **one artifact with two duties**, and bounded the two-implementations cost by
+structure: evaluator and emitter consume the **same lowered IR** (§1.5), so the divergence surface
+was two backends' data operations, never two readings of Luna. **R234 splits the artifact**,
+because a self-hosted compiler cannot hold both — the evaluator follows the compiler into Luna,
+while the oracle's entire value is being an implementation the compiler under test did not
+produce. What survives unchanged is §6's phase-invariance requirement as a **test harness by
+construction**: evaluator and emitter must still agree, and that agreement is still patrolled by
+running the same program both ways. What does not survive is the cost bound — the duplication is
+now deliberate, purchased for **independence**, and it carries a permanent obligation. Once the
+compiler is self-hosted the oracle is the *only* surviving independent implementation
+(testing-strategy §3's script-vs-compiled pair degenerates when both paths run one compiler), so
+the oracle is maintained for the life of the language, never retired.
+
+**The compiler may never import the oracle** — gated mechanically on the build graph, not left to
+intention. An oracle the compiler depends on is not a check on the compiler: a bug in it would
+become a *production miscompilation* instead of a failed test, and the project would pay for two
+implementations while getting one implementation's worth of testing. The **Go-FFI route** — a
+Luna-written compiler calling the Go oracle for comptime — is rejected on that ground first, and
+on three mechanical ones: `unsafeFfi` is a **C** FFI riding cgo, so it would forfeit §1.8's
+two-environment-variable cross-compilation (R193) for the one program that most needs both
+targets; it is not even a foreign boundary, since Luna compiles *to* Go and both sides would share
+one runtime and one GC; and `unsafeFfi`'s design is deferred to its own spec (functions spec),
+which would put an unwritten spec on the critical path of self-hosting.
 
 The alternative — generate Go for comptime subtrees and run it mid-compile — is rejected on
 four grounds, recorded so it is never half-reopened:
@@ -574,9 +721,15 @@ host machines* — silently poisoning §8's determinism and the R149 cache keyin
 reproducible-across-machines bullet). The Go spec's escape is exact: rounding is **guaranteed
 at explicit assignments and conversions**. So:
 
-- **The evaluator's float arithmetic is written fusion-proof** — an explicit intermediate
-  assignment between every multiply and add — so every comptime float fold is bit-identical
-  on every host.
+- **The evaluator's float arithmetic is fusion-proof, by discipline in Go and by construction in
+  Luna (R234).** While the evaluator is Go, this is a hand-discipline: an explicit intermediate
+  assignment between every multiply and add. A Luna-written evaluator inherits it *structurally*
+  from the bullet below — per-node emission never places two float operations in one Go
+  expression — so the rule stops being something to remember and becomes something the emitter
+  guarantees. The **oracle**, permanently Go (§6.1), keeps the hand-discipline permanently.
+  Either way every comptime float fold is bit-identical on every host, and evaluator and oracle
+  must fold **to the same bits**: a float disagreement between them is indistinguishable from a
+  real differential failure, so it is a defect in the harness, not a finding.
 - **The emitter is fusion-proof by shape, and the shape is now load-bearing.** Per-node
   emission (one IR operation, one Go operation, explicit intermediates) already prevents
   contraction, since Go fuses only within one expression — but that is now a *recorded
@@ -600,7 +753,9 @@ it — and the striking fact is that most were closed by rulings made for other 
 
 **The one genuinely remaining channel: non-correctly-rounded math functions.**
 Transcendentals (`sin`, `exp`, `ln`, `pow`) are implementation-defined in the last bit. Both
-the evaluator and emitted programs call Go's `math` package, and *pure-Go* math produces
+the evaluator and emitted programs call Go's `math` package — a Luna-written evaluator (R234)
+reaches it through `std.math`, which lowers to the same calls, so the chain is longer but the
+callee identical — and *pure-Go* math produces
 identical float64 results on any architecture (same algorithm, same IEEE ops, §6.2) — but Go
 carries **per-architecture assembly overrides on some exotic ports** (s390x notably), which
 could split a comptime fold from the same call at runtime there. The determinism contract is
@@ -613,7 +768,10 @@ Two fences, permanent:
 - **No endian-implicit byte function may ever be added** (an "int to native-order bytes"
   would reopen the endianness channel; std.binary §3 records the same fence from its side).
 - **The evaluator's own data structures may not leak order**: no bare Go-map iteration where
-  a comptime result could observe it.
+  a comptime result could observe it. R234 splits this fence by artifact: it binds the **oracle**
+  (permanently Go) as a standing discipline, and becomes *unviolatable* for a Luna-written
+  evaluator, which has no bare Go map to reach for — Luna tables are insertion-ordered by spec
+  (tables §2.2). The safe-by-construction stance applied to the compiler's own internals.
 
 Emission maps the optimized IR onto Go source. The mapping is direct because the language was
 designed against a Go runtime.

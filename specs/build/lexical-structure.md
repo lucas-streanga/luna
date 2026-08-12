@@ -15,6 +15,9 @@ A Luna source file is a sequence of bytes that **must be valid UTF-8**. Invalid 
 rejected **before** tokenizing — a compile error at ingress, not a runtime surprise and not
 a silent substitution. Validity is established exactly once, up front, so every downstream
 pass operates on known-good text (the same discipline strings use, string-representation §8).
+That pass visits every byte, so it also records whether the file is **pure ASCII** — free here,
+and what lets rune columns be computed from byte offsets by subtraction in the common case
+(lexer §9, R236).
 
 All of Luna's lexical **syntax** is ASCII: keywords, operators, punctuation, identifiers,
 and every literal delimiter are ASCII bytes, so after the UTF-8 check the lexer matches on
@@ -27,10 +30,19 @@ pass through as UTF-8 and are never interpreted as syntax.
   0** meaningful, which the shebang rule (§3) depends on.
 - **Whitespace is insignificant** except as a token separator and inside literals. Spaces,
   tabs, carriage returns, and newlines (`[ \t\r\n]+`, lexer §2) carry no meaning of their
-  own; there is no offside rule and no significant indentation.
+  own; there is no offside rule and no significant indentation. The multi-line literals
+  (`"""`, `'''`, R246) are worth naming as the apparent exception they are not: their
+  **margin** is whitespace used as *measurement* — a ruler declaring where a line's data
+  begins — which is a fourth role beyond separator, data, and structure, and it is confined
+  entirely between the delimiters. Nothing about it decides where a statement or a block
+  begins, and it cannot reach the grammar.
 - **Newlines are not significant.** Statements are `;`-terminated (every spec example), so a
-  line break is just whitespace. A newline is load-bearing in exactly two places: it ends a
-  line comment and it ends a shebang line (§3).
+  line break is just whitespace. A newline is load-bearing in exactly four places: it ends a
+  line comment, it ends a shebang line (§3), it ends a string, bytes, or command literal
+  (R244, lexer §4), and it separates the content lines of a multi-line literal (R246). The
+  third is why an unclosed quote costs one diagnostic on the line it was opened on rather
+  than the remainder of the file; the fourth is available only to the literals whose opener
+  is more than one byte — `~"`, `"""`, `'''` — which is the same fact stated forwards.
 - The grammar imposes **no** line-length, identifier-length, or file-size limit.
 
 Identifiers are **case-sensitive** (§2); nothing else in the source text is.
@@ -73,7 +85,9 @@ ruled R122, keywords §6) are style, not grammar.
 
 ## 3. Comments and shebang
 
-Two comment forms, both skipped by the lexer (lexer §2):
+Two comment forms. Both are **emitted as trivia tokens** and dropped by every consumer except
+the formatter (R236, lexer §2) — the lexer no longer discards them, because a formatter cannot
+reproduce text it never received:
 
 | Form | Syntax | Ends at |
 |-|-|-|
@@ -93,27 +107,25 @@ Two comment forms, both skipped by the lexer (lexer §2):
 - **No doc-comment syntax.** Documentation is carried by **attributes** (attributes spec),
   deliberately — one declaration-metadata mechanism, not a second parallel one.
 
-**Shebang.** A `#!` beginning the **first line** of a file (byte offset 0) is skipped through
-the next newline, so a `.luna` file can be marked executable and run directly, matching
-Luna's run-a-file-like-a-script model. It is recognized **only** at offset 0 and **only** as
+**Shebang.** A `#!` beginning the **first line** of a file (byte offset 0) runs through
+the next newline as one trivia token (R236, lexer §2) and carries no meaning, so a `.luna`
+file can be marked executable and run directly, matching Luna's run-a-file-like-a-script model. It is recognized **only** at offset 0 and **only** as
 `#!`; a bare `#` is otherwise a lex error, and `#` appears elsewhere solely in `#[` attribute
 application (R85, lexer §2/§5).
 
-### 3.1 Comments never collide with `regex`
+### 3.1 Comments cannot collide with `regex` (R237)
 
-The comment forms and the `regex` literal all start with `/`, but they do not conflict in a
-well-formed program. The lexer decides on the two-character prefix — `//` and `/*` are
-comments **before** the regex-vs-division context rule (lexer F2, §8) is consulted — from
-which one invariant follows:
+They no longer share a starting character. A regex literal is `~"…"` (regex §2), so a leading
+`/` is only ever a comment (`//`, `/*`) or division — decided by the **next** byte, with no
+context consulted — and a regex pattern may begin with any character at all, `/` and `*`
+included.
 
-> A `regex` literal can never **begin** with `/` or `*`.
-
-A leading `/` is a line comment (so the empty pattern is written `/(?:)/`, or `regex("")`,
-regex §2); a leading `*` is a block comment (and a leading `*` is an invalid quantifier
-target in RE2 regardless). Every well-formed regex opens with some other character, so the
-comment reading and the regex reading never contend over the same source. `/**/` in
-particular is an empty block comment, not a regex — its would-be pattern `**` does not
-compile.
+This subsection previously carried an invariant and a workaround, both now retired with the
+delimiter that forced them: a regex literal "can never begin with `/` or `*`", and the empty
+pattern spelled `/(?:)/` because a bare `//` was a line comment. Under `~"…"` the empty
+pattern is `~""`, and `~"/usr/local"` needs no escaping. The history is kept because the
+collision is the standard argument for moving comments to `#` — an exchange R85 already
+declined, and one this ruling makes moot from the other side.
 
 ---
 

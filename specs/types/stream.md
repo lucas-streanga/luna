@@ -7,7 +7,7 @@ produced until a consumer asks) and **single-pass** (each element is seen once, 
 by, and is not kept). Together these are what make a stream memory-efficient: you never hold
 the whole sequence at once.
 
-```
+```luna
 let f = openFile('data.log', {read});
 foreach (lineNumber => line in f.lines()) {
   // `lines()` is a stream: one line in memory at a time, not the whole file
@@ -27,8 +27,8 @@ A stream is produced by a **generator function**, a function whose body uses `yi
 inline, by a `gen` block (§1.4). Calling a generator returns a stream; the return type is
 `stream`:
 
-```
-const naturals = fn (): stream {
+```luna
+const naturals = fn (): stream => {
   var n = 0;
   while (true) {
     yield n;              // bare yield: implicit keys 0, 1, 2, ... (§1.1)
@@ -36,7 +36,7 @@ const naturals = fn (): stream {
   }
 };
 
-const entries = fn (t: table): stream {
+const entries = fn (t: table): stream => {
   foreach (k => v in t) {
     yield k => v;          // explicit keys: yields a key and a value
   }
@@ -174,7 +174,7 @@ block's exit during ordinary body execution between yields, per defer §1.
 An inline stream is spelled with a **`gen` block** — a keyword-introduced literal whose
 value is the unstarted stream:
 
-```
+```luna
 let countdown = gen {
   var n = 3;
   while (n > 0) { yield n; n = n - 1; }
@@ -202,7 +202,7 @@ let errLines = gen use (io) {
   `use (` after a `gen` head is the declaration clause, joining `fn` and `test` in R112's
   decided-at-one-token list. The former deliberately does **not** reuse the type's name:
   `stream {}` collides in return-annotation position with the generator's own canonical
-  spelling (`fn (): stream { ... }`), and the house already separates literal former from
+  spelling (`fn (): stream => { ... }`), and the house already separates literal former from
   type name — backticks construct a `command`, slashes a `regex`, `gen` a `stream` (R221;
   promoted-`stream` is the recorded road not taken).
 - **No parameters.** A `gen` block is invoked at construction; a parameterized producer is
@@ -214,8 +214,8 @@ let errLines = gen use (io) {
 `yield from src;` delegates to any iterable — the whole of it, lazily, one element per
 pull:
 
-```
-const walk = fn (node: table): stream {
+```luna
+const walk = fn (node: table): stream => {
   yield node['value'];
   foreach (c in node['children']) { yield from walk(c); }
 };
@@ -241,9 +241,9 @@ const walk = fn (node: table): stream {
 
 A stream is consumed by iterating it, normally with `foreach`:
 
-```
-foreach (v in s) { ... }         // values; keys ignored
-foreach (k => v in s) { ... }    // key => value (implicit or explicit keys, §1.1)
+```luna
+foreach (v in s) {}         // values; keys ignored
+foreach (k => v in s) {}    // key => value (implicit or explicit keys, §1.1)
 ```
 
 Streams are **consumable**: consumption is **single-pass**, each element is produced once, seen once, and not retained.
@@ -270,7 +270,7 @@ deliberately.
 A positional pattern may take its source from a stream (destructuring §1.4, R103): it
 **pulls exactly as many elements as it binds**, and no more.
 
-```
+```luna
 let [a, b] = s.split(' ');       // consumes two pieces; later pieces stay in the stream
 let [head, ...rest] = s;         // consumes one; rest IS the stream, advanced
 ```
@@ -451,8 +451,8 @@ spec), never an implicit coercion.
 A stream chain is a **processing** pipeline: the source, then transformers
 (stream-to-stream operations like `map`, `filter`, `take`):
 
-```
-f.lines().filter(isError).map(parse).take(10)
+```luna
+_ = f.lines().filter(isError).map(parse).take(10);
 ```
 
 Consumption is **pull-driven** (demand-based), which is what laziness requires: the consumer at
@@ -494,7 +494,7 @@ sources as it is itself consumed.
 - **Inline streams: ruled, the `gen` block** (R221, §1.4) — a keyword-introduced literal,
   pure sugar over the immediately-invoked anonymous generator, with `use` composing on
   the head. The former is deliberately not the type's name (`stream {}` collides with
-  `fn (): stream { ... }` in annotation position; the command/regex precedent separates
+  `fn (): stream => { ... }` in annotation position; the command/regex precedent separates
   former from type).
 - **Bidirectional generators: axed** (R224). `yield` is one-way; two-way communication is
   a channel pair (`channel()`, channels §1), and a value-returning yield would be a

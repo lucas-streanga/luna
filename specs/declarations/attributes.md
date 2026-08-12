@@ -8,7 +8,7 @@ drive **comptime code generation**, most centrally serialization: a comptime gen
 type's field attributes and emits a specialized serializer, so the tags are compiled in and
 nothing is reflected at runtime.
 
-```
+```luna
 const jsonTag = attribute ['tag' => string = ''];   // an attribute declaration (a `const`)
 
 const User = [
@@ -69,7 +69,7 @@ generation (§4) serves the actual need (attribute-driven serialization) without
 An attribute is declared with the `attribute` form, bound to a `const`, consistent with the other
 declaration forms (`enum`, `constraint`, `capability`, `proto`, all `const X = <form>`):
 
-```
+```luna
 const jsonTag = attribute ['tag' => string = ''];
 const route   = attribute ['path' => string, 'method' => string = 'GET'];
 const column  = attribute ['name' => string];
@@ -93,13 +93,12 @@ const column  = attribute ['name' => string];
 An attribute is applied at a **declaration site** with the `#[ ... ]` prefix, immediately before
 the declaration it annotates:
 
-```
+```luna
 #[jsonTag('user_name')]
 const name: string = '';
 
 #[route('/users', 'POST')]
-const createUser = fn (body: table): table => ...;    // functions are data, so a function
-                                                       // binding is attributed like any binding
+const createUser = fn (body: table): table => {};    // functions are data, so a function. Binding is attributed like any binding
 ```
 
 The payload is constructed positionally or by key:
@@ -140,7 +139,7 @@ Attributes attach to **declaration sites**, and there are two:
 
 **Multiple attributes** on one declaration stack, each in its own `#[ ... ]`:
 
-```
+```luna
 #[jsonTag('created_at')]
 #[column('created_at')]
 const createdAt: int = 0;
@@ -171,7 +170,7 @@ walks its `fields` and their `attributes`, and returns a **plain runtime functio
 canonical example is JSON serialization, and its shape is fully expressible with no dependent
 types:
 
-```
+```luna
 // The generator: comptime in, plain runtime function out.
 const toJson = comptime fn (ct: comptype): fn (any): json => {   // json: a string constraint, json spec §1
   // Extract what generation needs into PLAIN data: names and tags are strings.
@@ -183,7 +182,6 @@ const toJson = comptime fn (ct: comptype): fn (any): json => {   // json: a stri
   // Return the specialized serializer. It const-captures `cols` (functions §2.1),
   // ordinary strings in an ordinary table, and walks the value at runtime.
   return fn (v: any): json => {
-    ...   // for each col: emit "\"${col.out}\":${serialize(v[col.key])}"
   };
 };
 

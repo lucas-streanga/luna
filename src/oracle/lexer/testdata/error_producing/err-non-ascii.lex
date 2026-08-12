@@ -1,0 +1,15 @@
+let café = 1;
+---
+KW_LET 0..3 "let"
+WHITESPACE 3..4 " "
+IDENT 4..7 "caf"
+INVALID 7..8 "\xc3"
+!L0012 7..8
+INVALID 8..9 "\xa9"
+!L0012 8..9
+WHITESPACE 9..10 " "
+ASSIGN 10..11 "="
+WHITESPACE 11..12 " "
+INT_DEC 12..13 "1"
+SEMICOLON 13..14 ";"
+WHITESPACE 14..15 "\n"
