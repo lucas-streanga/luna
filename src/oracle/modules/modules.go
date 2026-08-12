@@ -15,6 +15,30 @@
 //	validate.go  §1.2 — Validate, the DAG, and every import diagnostic
 package modules
 
+import (
+	"fmt"
+
+	"luna/oracle/diagnostic"
+)
+
+// Error is a reason discovery could not proceed, carrying the code that names it.
+//
+// It is not a diagnostic.Diagnostic, for the reason source.Error is not: there is no file to
+// point a span at — the entry named one that does not exist — so the caller converts, adding
+// what it knows. The dependency runs one way, modules to diagnostic, which keeps diagnostic a
+// leaf and lets a renderer sit above both.
+//
+// Only M0005 travels this way. Every other module error is raised by §1.2 as a proper
+// diagnostic, discovery itself raising none (R250).
+type Error struct {
+	Code diagnostic.Code
+	Path string
+}
+
+func (e *Error) Error() string {
+	return fmt.Sprintf("%s: %s", e.Code, e.Path)
+}
+
 // File is one module discovered on disk.
 type File struct {
 	Path string // slash-separated, relative to the root: `utils/parse.luna`

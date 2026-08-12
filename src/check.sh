@@ -11,7 +11,11 @@
 # invocation reports everything wrong rather than the first thing wrong; the
 # summary at the end is the verdict and the exit status follows it.
 #
-# Two deliberate choices, both about checks that pass by not running:
+# Three deliberate choices, all about checks that pass by not running:
+#
+#   -race and -shuffle=on, per lexer-testing-plan §7. The driver is the first
+#   concurrent code here, and a suite that cannot see a data race is worse than no
+#   suite once goroutines exist. Shuffling catches tests that depend on each other.
 #
 #   -count=1 always. Go caches test results, and a cached pass over a spec file
 #   the test never opened is a green suite that checked nothing. This repo has
@@ -90,7 +94,7 @@ run_fuzz() {
 
 step "gofmt"  check_fmt
 step "go vet" go vet ./...
-step "go test" go test -count=1 ./...
+step "go test" go test -race -shuffle=on -count=1 ./...
 step "golangci-lint" run_lint
 
 [ "$fuzz_seconds" -gt 0 ] && step "fuzz (${fuzz_seconds}s per target)" run_fuzz

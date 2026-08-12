@@ -1,4 +1,4 @@
-// Command mutate is a small mutation-testing harness for the lexer.
+// Command mutate is a small mutation-testing harness for the oracle.
 //
 //	go run ./cmd/mutate            # run every mutant
 //	go run ./cmd/mutate -list      # print them without running
@@ -6,8 +6,12 @@
 //
 // It tests the *tests*. Each mutant is a deliberate small defect; the suite is run against
 // it; and a mutant the suite still passes is a **survivor** — which is a hole in the suite,
-// because a broken lexer just went unnoticed. Survivors are the output that matters, and
-// the tool exits non-zero when there are any.
+// because something broke and nothing noticed.
+//
+// Coverage spans every package with behaviour worth breaking: the lexer, the escape table,
+// source, token, diagnostic, and the two module phases with the driver that wires them.
+//
+// Survivors are the output that matters, and the tool exits non-zero when there are any.
 //
 // Mutants are written by hand rather than generated. Two reasons, both learned the hard
 // way in this package. A generated mutant is often *equivalent* — semantically identical
@@ -434,6 +438,265 @@ var mutants = []mutant{
 		old:    `func (s *Scanner) Errors() diagnostic.List { return slices.Clone(s.errors) }`,
 		new:    "func (s *Scanner) Errors() diagnostic.List { _ = slices.Clone(s.errors); return s.errors }",
 		expect: "TestScannerErrorsIsACopy",
+	},
+
+	// --- discovery: path resolution (modules §3) ---
+	{
+		name:   "std is not reserved",
+		file:   "oracle/modules/discover.go",
+		old:    `return module == std || strings.HasPrefix(module, std+".")`,
+		new:    `return false`,
+		expect: "TestReservedRoot",
+	},
+	{
+		name:   "std matches by prefix, so `standard` is reserved too",
+		file:   "oracle/modules/discover.go",
+		old:    `return module == std || strings.HasPrefix(module, std+".")`,
+		new:    `return strings.HasPrefix(module, std)`,
+		expect: "TestReservedRoot",
+	},
+	{
+		name:   "a module path's dots do not become directories",
+		file:   "oracle/modules/discover.go",
+		old:    `return strings.ReplaceAll(module, ".", "/") + ext`,
+		new:    `return module + ext`,
+		expect: "TestModulePaths",
+	},
+	{
+		name: "the entry is not the root module",
+		file: "oracle/modules/discover.go",
+		old: `	if file == entry {
+		return ""
+	}`,
+		new: `	if false {
+		return ""
+	}`,
+		expect: "TestModulePaths",
+	},
+
+	// --- discovery: the walk (§1.0) ---
+	{
+		// Bounded on purpose. Dropping the !seen check outright loops forever, which the
+		// harness can only report as a timeout — no named test fires, so it says nothing
+		// about which check was watching. Un-seeding the entry instead lets it be reached
+		// exactly twice, which a file-set assertion catches precisely.
+		name:   "the visited set does not start with the entry",
+		file:   "oracle/modules/discover.go",
+		old:    `seen := map[string]bool{entry: true}`,
+		new:    `seen := map[string]bool{}`,
+		expect: "TestGraphShape",
+	},
+	{
+		name:   "a missing entry is not an error",
+		file:   "oracle/modules/discover.go",
+		old:    "return Result{}, &Error{Code: diagnostic.MissingEntry, Path: entry}",
+		new:    "_ = &Error{Code: diagnostic.MissingEntry, Path: entry}\n\t\t\t\t\tcontinue",
+		expect: "TestErrors",
+	},
+	{
+		name: "an ingress-rejected file is dropped from the file set (R251)",
+		file: "oracle/modules/discover.go",
+		old: `			res.Files = append(res.Files, File{Path: file, Module: module})
+			continue`,
+		new:    `			continue`,
+		expect: "TestIngressRejectedFileIsListed",
+	},
+	{
+		name:   "an import's recorded span loses its length",
+		file:   "oracle/modules/discover.go",
+		old:    `Offset: imported.offset, Len: imported.len,`,
+		new:    `Offset: imported.offset,`,
+		expect: "TestEdgeSpansThePath",
+	},
+
+	// --- discovery: the prelude reader (§5's grid, R136/R250/R252) ---
+	{
+		name:   "trivia is not skipped, so a comment ends the prelude",
+		file:   "oracle/modules/discover.go",
+		old:    `if !p.ok || !p.tok.IsTrivia() {`,
+		new:    `if true {`,
+		expect: "TestPreludeEnd",
+	},
+	{
+		name:   "keywords are not path segments (R252)",
+		file:   "oracle/modules/discover.go",
+		old:    `	case token.Identifier, token.Keyword:`,
+		new:    `	case token.Identifier:`,
+		expect: "TestEveryKeywordIsAPathSegment",
+	},
+	{
+		name: "the wildcard is not a path segment",
+		file: "oracle/modules/discover.go",
+		old: `	case token.Identifier, token.Keyword:
+		return true
+	}`,
+		new: `	case token.Keyword:
+		return true
+	case token.Identifier:
+		return p.tok.Kind != token.Wildcard
+	}`,
+		expect: "TestKeywordSegmentPositions",
+	},
+	{
+		name: "an assigned import may not be annotated (modules §6)",
+		file: "oracle/modules/discover.go",
+		old: `		if p.at(token.Colon) && !p.skipAnnotation() {
+			return importRef{}, false
+		}`,
+		new: `		if false {
+			return importRef{}, false
+		}`,
+		expect: "TestFormSpace",
+	},
+	{
+		name:   "export may not precede an assigned import",
+		file:   "oracle/modules/discover.go",
+		old:    `	p.accept(token.KwExport)`,
+		new:    `	_ = token.KwExport`,
+		expect: "TestFormSpace",
+	},
+	{
+		name:   "a braced name list is not scanned past",
+		file:   "oracle/modules/discover.go",
+		old:    `		for !p.at(token.RBrace) {`,
+		new:    `		for false {`,
+		expect: "TestImportForms",
+	},
+	// An `if false` on the from-clause check is *equivalent*, not a gap: the p.advance()
+	// after it still consumes whatever followed the brace list, so `import { a } dep;`
+	// leaves the reader on `;`, path() fails, and the item is rejected either way.
+	{
+		name:   "an import needs no terminating semicolon",
+		file:   "oracle/modules/discover.go",
+		old:    `	if !ok || !p.accept(token.Semicolon) {`,
+		new:    `	if !ok {`,
+		expect: "TestPreludeEnd",
+	},
+	{
+		name:   "a dotted path stops after its first segment",
+		file:   "oracle/modules/discover.go",
+		old:    `	for p.accept(token.Dot) {`,
+		new:    `	for false {`,
+		expect: "TestModulePaths",
+	},
+	{
+		name:   "a file of pure imports reports its prelude ending at zero",
+		file:   "oracle/modules/discover.go",
+		old:    `			return len(f.Text()), imports`,
+		new:    `			return 0, imports`,
+		expect: "TestPreludeEnd",
+	},
+
+	// --- validation: resolution (§1.2, R251) ---
+	{
+		name:   "the root is found by list position rather than its empty path",
+		file:   "oracle/modules/validate.go",
+		old:    `		if f.Module == "" {`,
+		new:    `		if false {`,
+		expect: "TestRootImport",
+	},
+	{
+		name:   "std edges are reported as unresolved imports",
+		file:   "oracle/modules/validate.go",
+		old:    `		if reserved(e.To) {`,
+		new:    `		if false {`,
+		expect: "TestStdIsNeverUnresolved",
+	},
+	{
+		name: "importing the root is not its own error (R251)",
+		file: "oracle/modules/validate.go",
+		old:  `		case target == entry:`,
+		// `&& false` rather than replacing the comparison: `entry` is used nowhere else, so
+		// dropping it produces an unused variable and a mutant that only tests the compiler.
+		new:    `		case target == entry && false:`,
+		expect: "TestRootImport",
+	},
+	{
+		name:   "an unresolved import goes unreported",
+		file:   "oracle/modules/validate.go",
+		old:    `		case !v.known(e.To):`,
+		new:    `		case false:`,
+		expect: "TestUnresolvedImport",
+	},
+	{
+		name:   "duplicate imports are not deduped, so one cycle reports twice",
+		file:   "oracle/modules/validate.go",
+		old:    `			if !slices.Contains(v.imports[e.From], e.To) {`,
+		new:    `			if true || slices.Contains(v.imports[e.From], e.To) {`,
+		expect: "TestCycles",
+	},
+
+	// --- validation: cycles and layers ---
+	{
+		name:   "a back edge does not report a cycle",
+		file:   "oracle/modules/validate.go",
+		old:    `				v.reportCycle(stack, next)`,
+		new:    `				_ = next`,
+		expect: "TestCycles",
+	},
+	{
+		name:   "a cycle's path is truncated to the module it closed on",
+		file:   "oracle/modules/validate.go",
+		old:    `	loop := append(append([]string{}, stack[start:]...), back)`,
+		new:    `	loop := append(append([]string{}, stack[start:start]...), back)`,
+		expect: "TestCycles",
+	},
+	{
+		name:   "a layer is emitted before its dependencies are placed",
+		file:   "oracle/modules/validate.go",
+		old:    `		if !placed[imp] {`,
+		new:    `		if placed[imp] && false {`,
+		expect: "TestLayers",
+	},
+	// Changing PreludeEnd`s `>=` to `>` also survives, and is a question rather than a gap:
+	// see the note in validate.go. A mutant that is arguably a fix does not belong here.
+	{
+		name:   "a missing token stream is tolerated rather than a driver bug",
+		file:   "oracle/modules/validate.go",
+		old:    `			panic("modules: no token stream for " + f.Path)`,
+		new:    `			continue`,
+		expect: "TestMissingTokenStreamPanics",
+	},
+
+	// --- the driver (driver.md §3, §4) ---
+	{
+		name:   "lexed files are merged in completion order",
+		file:   "oracle/driver/driver.go",
+		old:    `			units[i] = lexOne(fsys, f)`,
+		new:    `			units[len(files)-1-i] = lexOne(fsys, f)`,
+		expect: "TestOrderFollowsTheFileSet",
+	},
+	{
+		name:   "a lexical error does not stop the compile at §1.1's boundary",
+		file:   "oracle/driver/driver.go",
+		old:    `	if !res.Diagnostics.Empty() {`,
+		new:    `	if false {`,
+		expect: "TestErrorsAcrossPhasesDoNotMix",
+	},
+	{
+		name:   "an ingress failure is swallowed instead of reported",
+		file:   "oracle/driver/driver.go",
+		old:    `		u.diags.Add(fromSourceError(err, f.Path))`,
+		new:    `		_ = fromSourceError(err, f.Path)`,
+		expect: "TestIngressIsReported",
+	},
+	{
+		name: "a file vanishing mid-build is not an error",
+		file: "oracle/driver/driver.go",
+		old: `		if u.err != nil {
+			return Result{}, u.err
+		}`,
+		new: `		if false {
+			return Result{}, u.err
+		}`,
+		expect: "TestFileVanishingMidBuildIsAnError",
+	},
+	{
+		name:   "a completed build does not report reaching validation",
+		file:   "oracle/driver/driver.go",
+		old:    `	res.Graph, res.Diagnostics, res.Reached = graph, vdiags, PhaseValidate`,
+		new:    `	res.Graph, res.Diagnostics, res.Reached = graph, vdiags, PhaseLex`,
+		expect: "TestReachedNamesThePhase",
 	},
 }
 

@@ -1,12 +1,14 @@
 package modules_test
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"luna/internal/spec"
+	"luna/oracle/diagnostic"
 
 	"luna/oracle/modules"
 )
@@ -233,14 +235,20 @@ func TestModulePaths(t *testing.T) {
 // edge is unfollowed by rule rather than merely unresolved.
 func TestReservedRoot(t *testing.T) {
 	res := run(t, "app.luna", map[string]string{
-		"app.luna":      "import std.io;\nimport std;\nimport standard;\n",
+		"app.luna":      "import std.io;\nimport std;\nimport stdlib;\nimport standard;\n",
 		"std/io.luna":   "import should.not.be.read;\n",
+		"stdlib.luna":   "",
 		"standard.luna": "",
 	})
-	equal(t, "edges", edges(res), []string{"(root)->std.io", "(root)->std", "(root)->standard"})
-	// `standard` is followed: the reservation is `std` and paths beneath it, not a prefix match
-	// on the spelling.
-	equal(t, "files", paths(res), []string{"app.luna", "standard.luna"})
+	equal(t, "edges", edges(res),
+		[]string{"(root)->std.io", "(root)->std", "(root)->stdlib", "(root)->standard"})
+
+	// `stdlib` is the case that matters: it *does* begin with the reserved name, so it is what
+	// separates "reserved is `std` exactly, or a path beneath it" from "reserved is anything
+	// starting with std". `standard` cannot make that distinction — it begins `sta` — and is
+	// kept only as an ordinary neighbour. Mutation testing found the original test asserting
+	// the distinction with `standard` alone, which tested nothing.
+	equal(t, "files", paths(res), []string{"app.luna", "stdlib.luna", "standard.luna"})
 }
 
 // TestMissingImportIsSkipped is the no-diagnostics contract (R250): discovery loses the file
@@ -296,12 +304,32 @@ func TestIngressRejectedEntryIsListed(t *testing.T) {
 }
 
 // TestErrors covers the one channel that is not a diagnostic: discovery could not start.
+// TestErrors covers the one channel that is not a diagnostic: discovery could not start.
+//
+// A malformed path carries no code — it is a caller bug, belonging to the `I` stage per
+// modules §12's uncoded list — so those cases pin the prose, having nothing better. The
+// missing entry does carry one, and pins that instead (testing-strategy §2).
 func TestErrors(t *testing.T) {
-	for _, tc := range []struct{ name, entry, want string }{
-		{"missing entry", "nope.luna", "does not exist"},
-		{"absolute path", "/app.luna", "not a valid path"},
-		{"parent traversal", "../app.luna", "not a valid path"},
-		{"empty path", "", "not a valid path"},
+	t.Run("missing entry carries M0005", func(t *testing.T) {
+		fsys := fstest.MapFS{"app.luna": &fstest.MapFile{Data: []byte("")}}
+		_, err := modules.Discover(fsys, "nope.luna")
+
+		var me *modules.Error
+		if !errors.As(err, &me) {
+			t.Fatalf("error is %T (%v), want *modules.Error", err, err)
+		}
+		if me.Code != diagnostic.MissingEntry {
+			t.Errorf("code = %s, want %s", me.Code, diagnostic.MissingEntry)
+		}
+		if me.Path != "nope.luna" {
+			t.Errorf("path = %q, want nope.luna", me.Path)
+		}
+	})
+
+	for _, tc := range []struct{ name, entry string }{
+		{"absolute path", "/app.luna"},
+		{"parent traversal", "../app.luna"},
+		{"empty path", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fsys := fstest.MapFS{"app.luna": &fstest.MapFile{Data: []byte("")}}
@@ -309,8 +337,13 @@ func TestErrors(t *testing.T) {
 			if err == nil {
 				t.Fatalf("Discover(%q) succeeded, want an error", tc.entry)
 			}
-			if !strings.Contains(err.Error(), tc.want) {
-				t.Errorf("error = %q, want it to mention %q", err, tc.want)
+			if !strings.Contains(err.Error(), "not a valid path") {
+				t.Errorf("error = %q, want it to mention an invalid path", err)
+			}
+			// A caller bug, so it must not masquerade as a module diagnostic.
+			var me *modules.Error
+			if errors.As(err, &me) {
+				t.Errorf("carries code %s; a malformed path has none", me.Code)
 			}
 		})
 	}
@@ -538,5 +571,35 @@ func TestKeywordPathsReachTheRightFile(t *testing.T) {
 	})
 	if got := res.Files[1].Module; got != "test.helpers" {
 		t.Errorf("module = %q, want test.helpers", got)
+	}
+}
+
+// TestEdgeSpansThePath pins the span discovery records for each import, which §1.2 turns
+// into a caret. Len is measured from the tokens rather than derived from the module path,
+// because the two disagree wherever trivia sits inside the path.
+func TestEdgeSpansThePath(t *testing.T) {
+	for _, tc := range []struct {
+		name, src        string
+		wantOff, wantLen int
+	}{
+		{"plain", "import a.b;\n", 7, 3},
+		{"spaced", "import a . b;\n", 7, 5},
+		{"comment inside", "import a./*c*/b;\n", 7, 8},
+		{"after a from-clause", "import { x } from a.b;\n", 18, 3},
+		{"assigned", "const d = import a.b;\n", 17, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := run(t, "app.luna", map[string]string{
+				"app.luna": tc.src, "a/b.luna": "",
+			})
+			if len(res.Edges) != 1 {
+				t.Fatalf("got %d edges, want 1", len(res.Edges))
+			}
+			e := res.Edges[0]
+			if e.Offset != tc.wantOff || e.Len != tc.wantLen {
+				t.Errorf("span = %d..%d, want %d..%d (source %q)",
+					e.Offset, e.Offset+e.Len, tc.wantOff, tc.wantOff+tc.wantLen, tc.src)
+			}
+		})
 	}
 }

@@ -201,6 +201,15 @@ func TestCycles(t *testing.T) {
 			"app.luna": "import b;\n", "b.luna": "import c;\n",
 			"c.luna": "import d;\n", "d.luna": "import b;\n",
 		}, []string{"import cycle: b -> c -> d -> b"}},
+		// A duplicated import is two edges to one module, and the adjacency must dedupe them
+		// or the same cycle reports once per duplicate. Mutation testing found this untested.
+		{"a duplicated import reports one cycle", map[string]string{
+			"app.luna": "import b;\n", "b.luna": "import b;\nimport b;\n",
+		}, []string{"import cycle: b -> b"}},
+		{"a duplicated import in a longer loop", map[string]string{
+			"app.luna": "import b;\n",
+			"b.luna":   "import c;\nimport c;\n", "c.luna": "import b;\n",
+		}, []string{"import cycle: b -> c -> b"}},
 		// Every cycle, not the first (R251): two disjoint loops both get reported.
 		{"two disjoint cycles", map[string]string{
 			"app.luna": "import b;\nimport d;\n",

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"strings"
 
+	"luna/oracle/diagnostic"
 	"luna/oracle/lexer"
 	"luna/oracle/source"
 	"luna/oracle/token"
@@ -59,7 +60,7 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 			// missing entry is a reason discovery cannot start rather than a claim about the
 			// program.
 			if file == entry {
-				return Result{}, fmt.Errorf("modules: entry %q does not exist", entry)
+				return Result{}, &Error{Code: diagnostic.MissingEntry, Path: entry}
 			}
 			continue
 		case err != nil:
