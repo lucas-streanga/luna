@@ -196,7 +196,7 @@ export const lunaGrammar: LunaGrammar = {
         },
         {
           "name": "keyword.control.luna",
-          "match": "\\bif\\b|\\belse\\b|\\bforeach\\b|\\bin\\b|\\bwhile\\b|\\bbreak\\b|\\bcontinue\\b|\\breturn\\b|\\byield[ \\t\\r\\n]+from\\b|\\byield\\b|\\bmatch!|\\bmatch\\b|\\bwhere\\b|\\bdefer\\b|\\bby\\b|\\btry\\b|\\bcatch\\b|\\bthrow\\b|\\bcopy\\b|\\bspawn\\b|\\bawait\\b|\\bcomptime\\b|\\bcomptype\\b|\\bis\\b|\\bas\\b|\\bapply\\b|\\bdeclared\\b|\\buse\\b"
+          "match": "\\bif\\b|\\belse\\b|\\bforeach\\b|\\bin\\b|\\bwhile\\b|\\bbreak\\b|\\bcontinue\\b|\\breturn\\b|\\byield[ \\t\\r\\n]+from\\b|\\byield\\b|\\bmatch!|\\bmatch\\b|\\bwhere\\b|\\bdefer\\b|\\bby\\b|\\btry\\b|\\bcatch\\b|\\bthrow\\b|\\bcopy\\b|\\bspawn\\b|\\bawait\\b|\\bcomptime\\b|\\bcomptype\\b|\\bis\\b|\\bas\\b|\\bapply\\b|\\bdeclared\\b|\\bmoduleof\\b|\\buse\\b"
         },
         {
           "name": "storage.type.luna",

@@ -21,7 +21,7 @@
  (#match? @keyword "^(var|let|const|fn|gen|constraint|proto|enum|error|capability|attribute|test|export|import)$"))
 
 ((identifier) @keyword.control
- (#match? @keyword.control "^(if|else|foreach|in|while|break|continue|return|yield|match!|match|where|defer|by|try|catch|throw|copy|spawn|await|comptime|comptype|is|as|apply|declared|use)$"))
+ (#match? @keyword.control "^(if|else|foreach|in|while|break|continue|return|yield|match!|match|where|defer|by|try|catch|throw|copy|spawn|await|comptime|comptype|is|as|apply|declared|moduleof|use)$"))
 
 ((identifier) @variable.builtin
  (#match? @variable.builtin "^(self)$"))
