@@ -42,11 +42,11 @@ passed at call time (variables §5.1). Capture itself carries neither.
 
 ### 2.1 Capture is an implicit deep-`const` binding
 
-A function captures every copyable binding it references as an implicit **deep-`const`
-bind of the current value** (variables §3). This is not an analogy but the same
-operation: at closure-creation time the closure takes an independent snapshot, exactly
-as `const snapshot = original` does, and holds it deeply immutable. Everything follows
-from the `const` rules:
+A function captures every copyable binding it references **from an enclosing function or
+block scope** as an implicit **deep-`const` bind of the current value** (variables §3). This
+is not an analogy but the same operation: at closure-creation time the closure takes an
+independent snapshot, exactly as `const snapshot = original` does, and holds it deeply
+immutable. Everything follows from the `const` rules:
 
 - **Snapshot at creation.** The closure binds the value as it is when the closure is
   created; later rebinding or mutation of the outer binding is invisible inside, and
@@ -77,6 +77,16 @@ t.count = 1;                     // detaches the original; g still sees 0
 let h = fn () => t.count = 5;   // COMPILE ERROR: cannot mutate through a capture
                                  // (a capture is a const binding, variables §3)
 ```
+
+**Module-level bindings are referenced, not captured** (R262), and that scope qualifier is
+load-bearing rather than pedantic: capture snapshots at closure-creation time, so a function
+that captured its own module's bindings could not refer to **itself**. `const walk = fn (node:
+table): stream => { … yield from walk(c); … }` (stream §1.5) would snapshot a `walk` that does
+not exist yet, and enum §2.2 leans on the same property in as many words — "a recursive
+function's name is in its body". Recursion, mutual recursion, and forward reference to a
+later declaration all require ordinary reference, so module scope is resolved and not copied.
+Nothing is lost by it: module level admits only `const` (variables §4), so a referenced
+module binding is deep-frozen anyway and there is no mutable state for a snapshot to protect.
 
 Because capture is a `const` bind, one law now covers every boundary a value crosses,
 a call, a closure, a spawn: **crossing is by value (copy-on-write) or by declared

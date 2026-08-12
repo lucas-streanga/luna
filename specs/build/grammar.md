@@ -351,14 +351,15 @@ no `Attribute*`. Both sites that do carry it take `Attribute*`, so stacking fall
 
 ## 3. Statements
 
-The statement grammar's shape is set by the **postfix modifier**, control-flow §4:
+The statement grammar's shape is set by the **postfix modifier**, control-flow §5:
 
 - **A modifier takes one `SimpleStmt`**, never a block — the block form is the block form, and
   postfix exists for the one-statement case.
 - **Modifiers never chain.** `Modifier?` is one optional slot, so `expr if (c) foreach (h)` does
-  not derive (control-flow §0).
+  not derive (control-flow, the postfix desugar).
 - **There is no postfix `else`**, which falls out of `Modifier` naming no `KW_ELSE`: a
-  conditional *value* is `match` or `??`, and an else-bearing conditional is the block form.
+  conditional *value* is `match`, `??` or the tier-11 conditional, and an else-bearing
+  conditional is the block form (control-flow §4, §5.1).
 - **Declarations take no modifier** (R159). `Declaration` and `Statement` are separate
   alternatives of `BlockItem`, and only `Statement` has the slot, so `let x = 5 if (c);` does not
   derive — a conditional declaration is unrepresentable rather than diagnosed.

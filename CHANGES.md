@@ -8100,6 +8100,85 @@ operator form, the discard form modules §7.1 writes, the word boundary
 (`moduleofx`, `moduleo`, `premoduleof` are all `IDENT`), and `moduleof` as a
 path segment, which R252 admits now that it is a keyword at all.
 
+**R262 — four corrections the grammar audit turned up, each in the spec that
+owns it.** R260 landed `grammar.md`; auditing every production against its
+source (rather than against the corpus that suggested it) found twenty-one
+places where the file had assumed rather than derived. Seventeen were fixed
+in the grammar itself. These four were not grammar bugs at all — they were
+gaps and contradictions in the specs the grammar was reading, and they are
+ruled here.
+
+**`$name` interpolates inside `"""`.** lexer §1 says `TRIPLE_DQ_STRING`
+"interpolates and escapes exactly as `DQ_STRING` does", while §0's row and
+§6's attempt order both restricted `INTERP_IDENT` to "`DQ_STRING` only".
+That is not a framing difference between lexer and grammar — it decides
+whether `"""Hello $name"""` splices or prints four literal characters.
+Ruled: it splices, and §1 was right. string §5 makes `$name` a
+double-quoted form and R246 makes `"""` the multi-line double-quoted
+literal, so the restriction had no source. The implementation already agreed
+(`formTripleDq` carries `splicesIdent`), which is the tell: §0 and §6 had
+drifted from both §1 and the code, and nothing caught it because **no golden
+put a `$name` inside a triple**. One does now.
+
+**Capture does not reach module scope, and saying "every binding" broke
+recursion.** functions §2.1 defined capture over "every copyable binding it
+references", with no scope qualifier, as a deep-`const` snapshot taken at
+closure-creation time. Applied to module level that is not a restriction but
+an impossibility: `const walk = fn (node: table): stream => { … yield from
+walk(c); … }` (stream §1.5) would snapshot a `walk` that does not yet exist,
+and enum §2.2 relies on the same property in as many words — "a recursive
+function's name is in its body". Ruled: capture is over **enclosing function
+and block scopes**; module-level bindings are ordinary references. Recursion,
+mutual recursion and forward reference all need that, and nothing is lost,
+because of the next item.
+
+**Module level admits `const` only.** The two rules above compose into a
+problem: if module bindings are referenced rather than snapshotted, a
+module-level `let` or `var` is writable from any function in the module, and
+therefore from any **task** that calls one — shared mutable state across
+tasks, which concurrency §2 closes by construction. `let` is no safer than
+`var` here, forbidding rebinding but not interior mutation, so `let cache =
+[]; … cache[k] = v` is the same state by another spelling. Ruled: a top-level
+`let` or `var` is a compile error; the §1 ladder exists inside functions and
+blocks and collapses at module scope to its top rung.
+
+Rejected: **allowing them as dormant**, on modules §1.1's precedent for an
+inert `export` — the argument fails here because the form does not merely do
+nothing, it *reads as* shared mutable state, which is the one thing the
+concurrency model promises does not exist. And the refactoring-wall
+objection does not apply either: moving a binding into a function is the fix,
+not a cost. What the rule does not remove is the capability, only the
+spelling — state that changes lives in a frame or under an owning task
+(channels §5), and configuration-at-startup was never available regardless,
+module initialization running under R257's empty grant. The rule is
+**semantic**, not grammatical: grammar §9 admits all three keywords so the
+diagnostic can name the rung.
+
+**`if` had no section.** control-flow.md specified `foreach`, `while`,
+`break`/`continue` and the postfix form, and never the conditional it names
+in its own first sentence — the block form appeared once in an unlabelled
+example and `else` only in never.md's prose, while `else if` appeared nowhere
+in the corpus. Written as §4, and three things are pinned with it: the
+condition is a `bool` and nothing else (bool §1, no truthiness); `else` takes
+a block or another `if`, so **`else if` is an ordinary chain of two tokens**
+and not a compound — a compound would buy no reservation, `if` already being
+a keyword, and would inherit `yield from`'s hazard where a comment between
+the words defeats the fold; and **`if` is a statement, never an expression**,
+as the loops are, so a conditional *value* is `match`, `??`, or the tier-11
+conditional. Sections renumbered: postfix §4→§5 (and §4.1→§5.1), resolved
+§5→§6. The only citation outside the file was grammar.md's, which moved with
+it.
+
+Swept: `lexer.md` §0's `INTERP_IDENT` row, §1 (the "exactly" made explicit
+and the correction noted) and §6's attempt order; `functions.md` §2.1 (the
+scope qualifier, and a paragraph on why recursion forces it);
+`variables.md` §4 (the module-level rule, its grounds, and where state goes
+instead); `control-flow.md` (the new §4 and the renumbering);
+`grammar.md` §3's citation. Golden added:
+`triple-dq-dollar-forms.lex`, which covers `$name`, `${expr}`, an escaped
+`\$` and the margin interaction in one triple — the case the specs
+disagreed about and no test had reached.
+
 ---
 
 ## Still open (out of scope of these rulings)

@@ -129,7 +129,37 @@ intervening loop is added; a label (when introduced) says what it means and surv
 
 ---
 
-## 4. Postfix form
+## 4. `if`: the conditional
+
+```luna
+if (ready) { go(); }
+if (n > 0) { positive(); } else { nonPositive(); }
+if (n > 0) { positive(); } else if (n < 0) { negative(); } else { zero(); }
+```
+
+- **The condition is a `bool`, and only a `bool`.** There is no truthiness (bool §1): `if
+  (count)` is an error where `if (count > 0)` is not, and the same holds for `while`. This is
+  the language's no-magic stance applied at the one place every other language bends it.
+- **The parenthesized condition and the braced body are both required.** No brace-less
+  single-statement body exists, because the **postfix form** (§5) already serves that case and
+  serves it without the dangling-else class of bug: `go() if (ready);` is the one-liner.
+- **`else` takes a block or another `if`**, which is what makes `else if` an ordinary chain
+  rather than a construct. It is two tokens, not one: a compound `else if` token would buy no
+  reservation (`if` is already a keyword) and would inherit `yield from`'s hazard, where a
+  comment between the words defeats the fold (lexer §3).
+- **There is no `else` on the postfix form** (§5.1), so a conditional carrying an `else` is
+  always the block form.
+
+**`if` is a statement, not an expression** — as the loops are (§1), and for the same reason:
+it produces no value. The expression that selects a value by case is `match` (match spec), and
+the one that selects on absence is `??` (coalescing spec). So `let x = if (c) { 5 } else { 6 };`
+does not exist; it is `let x = match { c => 5, _ => 6 };` or `let x = c ? 5 : 6;`
+(associativity §1 tier 11). Keeping `if` statement-only is what leaves exactly one
+value-selecting form per question rather than two spellings of each.
+
+---
+
+## 5. Postfix form
 
 Every control-flow construct has a **postfix** form: a single statement followed by a trailing
 control clause, which desugars to the block form wrapping that one statement.
@@ -152,7 +182,7 @@ warn()   if (bad);                // desugars to: if (bad) { warn(); }
 Postfix is sugar, not a distinct construct: anything a postfix form does, its block form does
 identically. It exists for readability of the common single-statement case.
 
-### 4.1 What the postfix body may not be (R159)
+### 5.1 What the postfix body may not be (R159)
 
 The desugar *is* the semantics, and two statement kinds are nonsense or worse under it —
 so they are excluded at the grammar, not caught downstream:
@@ -181,7 +211,7 @@ Everything else statement-shaped composes fine: expression statements, assignmen
 
 ---
 
-## 5. Resolved and deferred
+## 6. Resolved and deferred
 
 - **No `do`/`while`.** A test-at-bottom loop is not provided; a run-once-then-test loop is the
   rare case, written as `while (true) { body; if (done) { break; } }`. It does not warrant a

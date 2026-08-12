@@ -156,7 +156,7 @@ table's row order; §8 gives it for `DEFAULT`/`INTERP_EXPR` and §6 for the lite
 | `"im` | `REGEX_CLOSE` | delimiter §6 | `"[imsxb]*` — pops `REGEX_BODY`, flags included |
 | `` ` `` | `CMD_CLOSE` | delimiter §6 | ``` ` ``` — pops `COMMAND` |
 | `${` | `INTERP_OPEN` | interp §6 | `\$\{` — pushes `INTERP_EXPR` |
-| `$name` | `INTERP_IDENT` | interp §6 | `\$[A-Za-z_][A-Za-z0-9_]*` — `DQ_STRING` only; longest identifier wins (string §5) |
+| `$name` | `INTERP_IDENT` | interp §6 | `\$[A-Za-z_][A-Za-z0-9_]*` — the two double-quoted modes, `DQ_STRING` and `TRIPLE_DQ_STRING` (§1); longest identifier wins (string §5) |
 | `}` | `INTERP_CLOSE` | interp §6 | the `}` returning brace depth to zero; pops to the enclosing literal mode |
 | `\n`, `\$`, `\u{1F600}`, … | `ESCAPE_PAIR` | content §6 | `\\u\{[0-9a-fA-F]{1,6}\}\x7c\\[^\n]` in `DQ_STRING`, `\\[^\n]` in `COMMAND`, `(?s)\\.` in `REGEX_BODY` — one backslash-pair, except that `DQ_STRING` matches the **whole** `\u{…}` (R245), that being the one context where the codepoint escape is legal (string §5.1); elsewhere a bare `\u` is an ordinary unknown escape and one pair is the right span for it. A backslash-newline is not a pair in a newline-bounded form (R244), so a trailing `\` cannot continue the literal. R150 gives commands `` \` `` `\\` `\$` (command §2); decoding per the authoritative table, string §5.1 |
 | text run (dq) | `DQ_TEXT` | content §6 | `[^"\\$\n]+` in `DQ_STRING`, newline-bounded (R244); `[^\\$\n]+\x7c\n` in `TRIPLE_DQ_STRING`, where a line break is content and **a `"` is too** — the closer is recognized only at a line start after the margin, so the run never competes with it (R246) |
@@ -192,8 +192,9 @@ and its lines carry no margin obligation — the alternative would impose an off
 the one place Luna has none.
 
 The two triple modes are the multi-line literals (R246). `TRIPLE_DQ_STRING` interpolates and
-escapes exactly as `DQ_STRING` does; `TRIPLE_SQ_STRING` does neither, and holds a single
-`RAW_TEXT` run per line. Neither has a whole-literal fast path: a triple always has margins
+escapes exactly as `DQ_STRING` does — **exactly**, including the bare `$name` form, which §0
+and §6 formerly restricted to `DQ_STRING` and which is corrected with R262; `TRIPLE_SQ_STRING`
+does neither, and holds a single `RAW_TEXT` run per line. Neither has a whole-literal fast path: a triple always has margins
 to tokenize, so it always takes the delimited shape (§6).
 
 ## 2. Whitespace and comments — the trivia tokens
@@ -424,7 +425,7 @@ being an ordinary operator once the splice has pushed the expression mode.
 
 **Attempt order inside a literal mode** (§8 covers `DEFAULT` / `INTERP_EXPR`; this is the
 mode-internal half, and `DOLLAR_TEXT` is why it must be stated): the mode's closing delimiter,
-then `ESCAPE_PAIR`, then `INTERP_OPEN`, then `INTERP_IDENT` (`DQ_STRING` only), then
+then `ESCAPE_PAIR`, then `INTERP_OPEN`, then `INTERP_IDENT` (the two double-quoted modes, §1), then
 `DOLLAR_TEXT`, then the mode's text run. The `$` chain is the load-bearing part —
 `DOLLAR_TEXT`'s pattern `\$` would match at *every* `$` if tried first, and is correct only
 because the two interpolation forms are attempted before it. This is also why the text runs

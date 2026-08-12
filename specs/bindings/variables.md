@@ -246,6 +246,31 @@ foreach (num in 0..10) {
 println(i);                        // compile error: i is undefined in this scope
 ```
 
+**Module level admits `const` and nothing else** (R262). A top-level `let` or `var` is a
+compile error; the ladder of §1 exists inside functions and blocks, and collapses at module
+scope to its top rung.
+
+The reason is the language's first commitment. Module-level bindings are **referenced** by the
+functions that use them, not captured (functions §2.1 — capture would break recursion), so a
+mutable one is reachable for writing from any function in the module, and therefore from any
+**task** that calls one. That is shared mutable state across tasks, which concurrency §2 closes
+by construction and which the closure model already refuses one level down: functions §2.1
+names a counter, `once` and `memoize` **non-goals**, and a module-level `var` is that counter
+with a wider scope. `let` is no safer than `var` here — it forbids rebinding, not interior
+mutation, so `let cache = []; … cache[k] = v` is the same shared state by another spelling.
+
+Both are therefore excluded rather than merely discouraged. The alternative is not absent, it
+is elsewhere: state that must change lives in a **frame** (a local, passed explicitly) or under
+an **owning task** (the owner-task pattern, channels §5, whose worked example is exactly a
+`var count = 0;` reached by message). And the one thing a module-level `var` could otherwise
+have been used for — configuration read at startup — is unavailable regardless, since module
+initialization runs under the empty capability grant (R257) and cannot reach a file; such
+values arrive through `main`.
+
+The rule is enforced by semantic analysis, not by the grammar, which admits all three keywords
+uniformly (grammar §9) so that the diagnostic can say which rung was used and why the top one
+is the only one available.
+
 ### 4.1 An unused local binding is a compile error (R159)
 
 A local `let`, `var`, or `const` that is **never read** after its declaration is a
