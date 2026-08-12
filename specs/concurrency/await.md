@@ -42,7 +42,7 @@ stream of promises**, yielding a **lazy stream of results**:
 
 ```luna
 let results = await promises;        // promises: a stream of promise values
-foreach (r in results) { ... }       // each pull awaits the next task
+foreach (r in results) {}            // each pull awaits the next task
 let all = [...await promises];       // force everything: spread materializes (spread §2)
 ```
 

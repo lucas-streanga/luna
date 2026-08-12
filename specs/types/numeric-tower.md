@@ -138,9 +138,9 @@ In an expression combining two values of the **same family** but different width
 the **widest** operand's type, and the narrower operand widens implicitly (losslessly):
 
 ```luna
-someI8 + someI32       // i32   (the i8 widens to i32)
-someU16 + someUint     // uint  (the u16 widens to uint)
-someFloat + someDouble // double (the float widens to double, losslessly)
+_ = someI8 + someI32;       // i32   (the i8 widens to i32)
+_ = someU16 + someUint;     // uint  (the u16 widens to uint)
+_ = someFloat + someDouble; // double (the float widens to double, losslessly)
 ```
 
 This is safe because within-family widening loses no information (a subset relation for integers, a
@@ -158,11 +158,11 @@ Between families, there is **no implicit conversion**; you convert with an expli
 (conversion spec):
 
 ```luna
-someInt + someDouble          // ERROR: different families, no implicit crossing
-someInt.toDouble() + someDouble   // OK: explicit widening to double, then double arithmetic
+_ = someInt + someDouble;            // ERROR: different families, no implicit crossing
+_ = someInt.toDouble() + someDouble; // OK: explicit widening to double, then double arithmetic
 
-someInt + someUint            // ERROR: signed and unsigned are different families
-someInt.toUint() + someUint   // OK: explicit (and checked: a negative int cannot become uint)
+_ = someInt + someUint;              // ERROR: signed and unsigned are different families
+_ = someInt.toUint() + someUint;     // OK: explicit (and checked: a negative int cannot become uint)
 ```
 
 The families that require explicit crossing are: **signed integers, unsigned integers, floats, and

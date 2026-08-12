@@ -561,7 +561,6 @@ another.
 
 ```luna
 try {
-  ...
 } catch (e) {
   // e is the caught error, typed root `error`; may be a declarable error or a panic
 }
@@ -623,13 +622,9 @@ letting the rest propagate:
 
 ```luna
 try {
-  ...
 } catch (e: diskError) {    // catches diskError and its subtypes; e is a diskError
-  ...
 } catch (p: panic) {        // catches any panic (OOM, typeError, arityError, ...)
-  ...
 } catch (e) {               // everything else: the remaining declarable errors
-  ...
 }
 ```
 

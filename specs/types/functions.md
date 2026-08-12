@@ -12,7 +12,7 @@ its type carries: its capture surface, its errorability, and its comptime-eligib
 A function is a value of `fn` type, written with `fn`, and named by binding it:
 
 ```luna
-const substring = fn (str: string, start: int): string => { ... };
+const substring = fn (str: string, start: int): string => {};
 ```
 
 Because a function is a value, it follows the ordinary binding and module rules: it is
@@ -169,7 +169,7 @@ and a value enters both the same way.
 A function's type records its parameters and result, and additionally two type-level
 properties that govern how it may be used:
 
-```luna
+```text
 fn (params) : result             // base shape
 fn (params) : result!            // errorable (§4)
 ```
@@ -501,7 +501,7 @@ omitting it is not a deficit (§3.3): the default is supplied.
 
 ```luna
 const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
-normalize(s)            // form defaults to {nfc}; not a deficit
+_ = normalize(s); // form defaults to {nfc}; not a deficit
 ```
 
 Defaults are the case where a function that declares *more* parameters than the caller
@@ -591,8 +591,8 @@ what follows it sits outside positional space entirely.
 const merge = fn (it: iterable, ...its: iterable,
                   recursive: bool = false, preserveKeys: bool = false): iterable => {};
 
-merge(a, b, c)                        // its = [b, c]
-merge(a, b, c, recursive: true)       // post-variadic options: named-only, necessarily
+_ = merge(a, b, c);                  // its = [b, c]
+_ = merge(a, b, c, recursive: true); // post-variadic options: named-only, necessarily
 ```
 
 - **Collected as a `list`, always.** The variadic's arguments are collected into a `list`
@@ -652,7 +652,7 @@ A function that can throw a declarable error (errors §2) **declares** it with `
 (value-representation error model):
 
 ```luna
-const parseInt = fn (s: string): int! => { ... };   // declared throwing
+const parseInt = fn (s: string): int! => {};   // declared throwing
 const double   = fn (n: int): int => n * 2;          // not throwing
 ```
 

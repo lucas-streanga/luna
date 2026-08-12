@@ -207,7 +207,7 @@ has applied. A protocol declares this with **`identityEquality`** inside its `pr
 const stringBuilder = proto {
   identityEquality;              // tables with this applied protocol compare by identity, not structure
   var buf: bytes = bytes();      // ungranted: private, per-table (protocols §2.2)
-  const get append = fn (b: @stringBuilder, s: string): self => { ... };
+  const get append = fn (b: @stringBuilder, s: string): self => {};
 };
 ```
 

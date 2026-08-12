@@ -65,8 +65,8 @@ const isConsumed = fn (s: stream): bool => {};     // whether the stream can sti
 Consumption is single-pass and exhausts the stream (stream spec §2).
 
 ```luna
-foreach (v in s)      { ... }     // values
-foreach (k => v in s) { ... }     // key => value (implicit or explicit keys)
+foreach (v in s)      {}     // values
+foreach (k => v in s) {}     // key => value (implicit or explicit keys)
 ```
 
 `foreach` is the primary consumer. Every other consumer is a catalogue function marked

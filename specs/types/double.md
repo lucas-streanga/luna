@@ -47,9 +47,9 @@ Following from §1, floating-point division by zero does **not** panic (unlike i
 which does):
 
 ```luna
-1.0 / 0.0        // inf
--1.0 / 0.0       // -inf
-0.0 / 0.0        // nan
+_ = 1.0 / 0.0;  // inf
+_ = -1.0 / 0.0; // -inf
+_ = 0.0 / 0.0;  // nan
 ```
 
 To treat a non-finite result as an error, check it (§2.1) or narrow to `finiteDouble` (§5),

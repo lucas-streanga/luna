@@ -7684,6 +7684,15 @@ an elided `...`, now written without an annotation), `secret.md` (4),
 Prose mentions of notation A retired at three sites: `channels.md` §5,
 `errors.md` §2.2, `incremental-compilation-build-cache.md` §1.3.
 
+*(Sweep amendment, found while sizing R253's fragment convention: four sites
+wrote the signature with **no `fn` at all** — `awaitAny(...ps: promise):
+[int, any]!` and the three timeout builtins, `concurrency.md` §5.1 — and the
+sweep's pattern keyed on `fn NAME(`, so it passed over them. Now declarations
+like the rest. The record is corrected rather than superseded: the ruling
+stands as written and only its site list was short, which is the partial
+application this process exists to catch, caught here by a different query
+rather than by the same one run twice.)*
+
 **R256 — a type expression reaches value position only under a `: type`
 annotation, which is what makes it parse.** R255 left a question standing:
 why did `const sqrt = fn (d: double): double;` bind a *type* instead of
@@ -7831,6 +7840,69 @@ deferred `S` code), §12 (a note that this rule's code is a semantic one and
 why, so the row is not added here later); `capabilities.md` §7 (why the
 upper bound is total — nothing executes outside `main` that could hold
 authority, with initializers' ∅ grant named alongside §8's comptime floor).
+
+**R258 — the fragment convention, settled by deleting it: every ` ```luna `
+block is a complete Luna file, and the label set is one label.** R253 left
+this open and expected three or four classes; R257 removed one of them by
+admitting top-level statements. This closes it by converting the rest rather
+than labelling them.
+
+**What was actually there**, once measured rather than estimated. Of 431
+blocks: **36** contained an elision hole, not the 6 a first count found —
+the first count looked for a lone `...` line and missed the far commoner
+inline `{ ... }`. And **~32** were bare expressions with no terminator
+(`x is int`, `@5`, `` `grep -n foo` ``), which parse perfectly as
+expressions and not at all as files.
+
+**Holes become the empty forms**, and no code was invented to fill them:
+`{ ... }` is `{}`, `=> ...` is `=> {}`, `fn (...)` is `fn ()`, and a lone
+`...` is deleted. This is the spelling R255 already chose for an elided body
+across 289 signatures, so the corpus gains no new convention — the same
+`{}` means the same thing in both places, *the body is not what this block
+is about*. Rejected: inventing plausible bodies (`try { risky(); } catch (e)
+{ handle(e); }`), which puts fictional names in the spec to satisfy a
+parser.
+
+**Bare expressions become discard statements**, `_ = expr;` — the form
+wildcard §2 exists for, and required here rather than optional, since an
+unused return value is a compile error and only a **void** call is exempt
+(undefined §4.1). Three sites read better as bindings and got them:
+wildcard §3's partial applications bind (`let add5 = add(5, _);`), which is
+what the surrounding prose was already describing. Module-level unused
+bindings are legal, so this is available at all — variables §4.1 scopes the
+unused-binding error to **locals**, and that exemption is what makes the
+choice free.
+
+**Two blocks needed more than a wrapper**, and both are worth recording
+because R256 caused one of them. type §3's `number == (int | double)` cannot
+be an expression at all now: a parenthesized type is still expression
+position, so the comparison is rewritten over two `: type` bindings.
+And functions §3's `fn (params) : result` is a **schematic** — `params` and
+`result` are metavariables, not code — so it is fenced `text`, joining
+R254's five. That is the whole of the residual `text` class: schematics and
+non-Luna, never merely-incomplete Luna.
+
+**The result is one rule with no exceptions**: every ` ```luna ` block is a
+complete file, ` ```text ` is for what is not Luna, and the gate needs no
+label vocabulary, no second start symbol, and no per-block skip list. The
+alternative — a third fence, ` ```lunaexpr ` — was rejected on a cost the
+tooling makes concrete: fence recognition is duplicated in
+`internal/spec/corpus.go` and `internal/highlight/markdown.go`, which
+carries the comment *"Fence recognition matches internal/spec exactly"*, so
+a second label doubles a lockstep obligation permanently for 8% of blocks.
+Conversion pays once; a label recurs at every future reader, and every
+future gate — semantic, eval — would have to be taught it again.
+
+Swept, 34 files: the hole fill in `capabilities.md`, `protocols.md`,
+`errors.md`, `stringBuilder.md`, `range.md`, `modules.md`, `match.md`,
+`conversion.md`, `attributes.md`, `functions.md`, `stream.md`,
+`stream-api.md`, `secret.md`, `bool.md`, `equality.md`, `as.md`,
+`operators.md`, `await.md`, `type.md`, `undefined.md`; the discard wrapping
+in `is.md`, `command.md`, `int.md`, `numeric-tower.md`, `double.md`,
+`tables.md`, `spread.md`, `tests.md`, `introspection.md`, `datetime.md`,
+`regex.md`, `bool.md`, `wildcard.md`, `protocols.md`, `type.md`. Comment
+columns were re-flowed per block where the wrapping pushed them out of true.
+The corpus is **430** `luna` blocks and one `text` block more than before.
 
 ---
 

@@ -98,8 +98,7 @@ the declaration it annotates:
 const name: string = '';
 
 #[route('/users', 'POST')]
-const createUser = fn (body: table): table => ...;    // functions are data, so a function
-                                                       // binding is attributed like any binding
+const createUser = fn (body: table): table => {};    // functions are data, so a function. Binding is attributed like any binding
 ```
 
 The payload is constructed positionally or by key:
@@ -183,7 +182,6 @@ const toJson = comptime fn (ct: comptype): fn (any): json => {   // json: a stri
   // Return the specialized serializer. It const-captures `cols` (functions §2.1),
   // ordinary strings in an ordinary table, and walks the value at runtime.
   return fn (v: any): json => {
-    ...   // for each col: emit "\"${col.out}\":${serialize(v[col.key])}"
   };
 };
 

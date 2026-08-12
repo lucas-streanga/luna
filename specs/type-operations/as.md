@@ -152,7 +152,7 @@ When two types can **never** be the same value, no `as` applies, the mismatch is
 compile time:
 
 ```luna
-const someFn = fn (): int => ...;
+const someFn = fn (): int => {};
 let s: string = someFn();        // COMPILE ERROR: int is not string, and cannot be
 let s = someFn() as string;      // COMPILE ERROR: int and string are disjoint; `as` cannot narrow
 ```

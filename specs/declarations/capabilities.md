@@ -211,7 +211,6 @@ X" is a search for `use (X)` against the one canonical declaration the import re
 ```luna
 const authenticate = fn (s: secret) use (revealSecret): response! => {
   let raw = reveal(s);          // permitted: this function holds the revealSecret capability
-  ...
 };
 ```
 
@@ -226,7 +225,7 @@ Capability requirements **propagate transitively up the call graph**: calling a 
 requires a capability requires the caller to hold it too.
 
 ```luna
-const println = fn (s: string) use (io) => { ... };        // holds io
+const println = fn (s: string) use (io) => {};        // holds io
 
 const greet = fn () use (io) => { println("hi"); };        // must hold io: it calls println
 
@@ -376,7 +375,7 @@ every other function obtains a capability only by receiving it transitively from
 downward.
 
 ```luna
-const main = fn () use (io, argv) => { ... };
+const main = fn () use (io, argv) => {};
 ```
 
 Here `io` is a capability the runtime grants; `argv` is nocopy immutable data (the program's
@@ -405,7 +404,7 @@ is an ergonomic grouping of exported capabilities; it changes nothing about the 
 
 ```luna
 const webApp = capability { io, net, fs };   // grants io, net, and fs together
-const query  = fn (sql: string) use (webApp): rows! => { ... };
+const query  = fn (sql: string) use (webApp): rows! => {};
 // use (webApp) requires and propagates io, net, and fs, exactly as if all three were listed
 ```
 
@@ -429,7 +428,7 @@ guarantees:
 ```luna
 const dbAccess = capability;
 
-const query = fn (sql: string) use (dbAccess): rows! => { ... };   // only holders may query
+const query = fn (sql: string) use (dbAccess): rows! => {};   // only holders may query
 ```
 
 Now "which parts of the app can touch the database" is a checkable property: a function

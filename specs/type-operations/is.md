@@ -7,8 +7,8 @@ narrows the tested binding. It is the non-asserting counterpart to `as` (as spec
 
 ```luna
 const x: int | string = getIt();
-x is int        // true or false, a bool
-x is string     // the complement (for a two-member union)
+_ = x is int;    // true or false, a bool
+_ = x is string; // the complement (for a two-member union)
 ```
 
 ---
@@ -52,10 +52,10 @@ test, a value property never encoded in the typeid (type §5). One question — 
 answered by whichever mechanism the type's shape requires.
 
 ```luna
-v is int              // primitive
-v is int | string     // union: true if v is either
-v is byte             // constraint: true if v is an int in 0..255
-v is @drawable        // protocol: true if v is a table with the applied drawable protocol
+_ = v is int;          // primitive
+_ = v is int | string; // union: true if v is either
+_ = v is byte;         // constraint: true if v is an int in 0..255
+_ = v is @drawable;    // protocol: true if v is a table with the applied drawable protocol
 ```
 
 Because Luna's type universe is statically closed and each value carries its type

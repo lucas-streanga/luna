@@ -84,9 +84,9 @@ which engine runs it. They compose (`~"…"im`).
 | `b` | Backtracking engine: enables backreferences and lookbehind, at the cost of the linear-time guarantee (§5.2). |
 
 ```luna
-~"hello"i            // case-insensitive
-~"^\d+$"m            // multiline anchors
-~"(\w+)\s+\1"b       // backreference: requires b (§5.2)
+_ = ~"hello"i;      // case-insensitive
+_ = ~"^\d+$"m;      // multiline anchors
+_ = ~"(\w+)\s+\1"b; // backreference: requires b (§5.2)
 ```
 
 Global-versus-single matching is **not** a flag: it is a call choice in the string API

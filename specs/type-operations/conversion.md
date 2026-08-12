@@ -79,7 +79,7 @@ Luna has **no function overloading** (language overview), so there is a **single
 not one per type:
 
 ```luna
-const toString = fn (value: any): string => { ... };     // total; one function for all types
+const toString = fn (value: any): string => {};     // total; one function for all types
 ```
 
 A single function still renders every type appropriately, and stays **open** to user types,
@@ -93,7 +93,7 @@ const stringify = proto {
   const get toString: fn (any): string;   // required: bound per application, at apply
 };
 
-var user = ['name' => n] apply stringify(toString: fn (u: any): string => { ... });
+var user = ['name' => n] apply stringify(toString: fn (u: any): string => {});
 ```
 
 — and `toString` (the free function) dispatches through that member when the protocol is

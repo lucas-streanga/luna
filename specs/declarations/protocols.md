@@ -69,8 +69,8 @@ const person = proto {
   var get set visits: int = 0;             // freely readable and writable
   var lastSeen?: string = null;            // ungranted: private to person's functions
 
-  const get greet = fn (p: @person): string => { ... };   // a public protocol function
-  const normalize = fn (s: string): string => { ... };    // a private helper
+  const get greet = fn (p: @person): string => {};   // a public protocol function
+  const normalize = fn (s: string): string => {};    // a private helper
 };
 ```
 
@@ -245,9 +245,9 @@ Definition-fixed `get` members are protocol facts, so they are reachable off the
 value itself, no table required:
 
 ```luna
-person->species              // 'human'
-person->greet                // the fn value: fn (p: @person): string
-people.map(person->greet)    // receiver-first, so it IS a transformFn already
+_ = person->species;           // 'human'
+_ = person->greet;             // the fn value: fn (p: @person): string
+_ = people.map(person->greet); // receiver-first, so it IS a transformFn already
 ```
 
 `P->name` is the one way to take a protocol function as a **value**. It yields the bare
@@ -337,10 +337,10 @@ ungranted members may not appear (they are the protocol's own business and alway
 defaults, §2.2). Each value is checked against the member's declared type and constraint.
 
 ```luna
-[] apply person(name: "Lucas")                    // required member supplied
-[] apply person(name: "Lucas", visits: 1)         // defaulted member overridden
-[] apply person(species: 'elf')                   // compile error: definition-fixed
-[] apply person()                                 // compile error: `name` missing
+_ = [] apply person(name: "Lucas");            // required member supplied
+_ = [] apply person(name: "Lucas", visits: 1); // defaulted member overridden
+_ = [] apply person(species: 'elf');           // compile error: definition-fixed
+_ = [] apply person();                         // compile error: `name` missing
 ```
 
 The `name: value` list is the **apply operator's own grammar** — like the proto block's
@@ -532,7 +532,6 @@ A protocol may require others, spelled with the same keyword doing the same thin
 const employee = proto {
   apply person;                       // employee requires (and applies) person
   const get badge: int;
-  ...
 };
 ```
 
@@ -567,10 +566,10 @@ yields the table's applied protocols as an application-ordered list of `proto` v
 (Its former view-related half is retired with views.)
 
 ```luna
-if (@@b.exists(stringBuilder)) { ... }    // membership, by value (iterable-functions §2.3)
-foreach (p in @@b) { &other.apply(p); }   // protocols are data; re-apply elsewhere
-protoName(p)                              // the name string (std.introspection §4.4, R127)
-members(p)                                // declaration rows, granted-value readers (§4.4, R129)
+if (@@b.exists(stringBuilder)) {}       // membership, by value (iterable-functions §2.3)
+foreach (p in @@b) { &other.apply(p); } // protocols are data; re-apply elsewhere
+_ = protoName(p);                       // the name string (std.introspection §4.4, R127)
+_ = members(p);                         // declaration rows, granted-value readers (§4.4, R129)
 ```
 
 The order is application order — deterministic, cheap, and **not** semantically
@@ -593,7 +592,7 @@ There is no extension mechanism, because UFCS already is one (functions §3.4): 
 function whose first parameter is `@P`-typed is an extension of `P` —
 
 ```luna
-export const initials = fn (p: @person): string => { ... };
+export const initials = fn (p: @person): string => {};
 p.initials();                             // UFCS; import-scoped like any function
 ```
 
@@ -611,9 +610,9 @@ const stringBuilder = proto {
   identityEquality;                       // builders compare by identity (§5)
   var buf: bytes = bytes();               // per-table, ungranted: private state
 
-  const get append = fn (b: @stringBuilder, value: any): self => { ... };
-  const get byteLength = fn (b: @stringBuilder): int => { ... };
-  const get build = fn (b: @stringBuilder): string => { ... };   // snapshot; b reusable
+  const get append = fn (b: @stringBuilder, value: any): self => {};
+  const get byteLength = fn (b: @stringBuilder): int => {};
+  const get build = fn (b: @stringBuilder): string => {};   // snapshot; b reusable
 };
 
 var b: @stringBuilder = [] apply stringBuilder;   // operator form: typed, non-errorable

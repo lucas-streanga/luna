@@ -359,7 +359,7 @@ cancellation machinery** — R115's scope-exit rule was the missing cancel primi
 along.
 
 ```luna
-awaitAny(...ps: promise): [int, any]!     // builtin: first completion wins
+const awaitAny = fn (...ps: promise): [int, any]! => {};     // builtin: first completion wins
 ```
 
 - **First completion wins**; an already-completed entrant wins immediately; ties break
@@ -372,9 +372,9 @@ awaitAny(...ps: promise): [int, any]!     // builtin: first completion wins
   (§6). Zero arguments is a compile error.
 
 ```luna
-timeout(f: fn, d: duration): any!               // spawns f itself: scope-owning
-awaitTimeout(p: promise, d: duration): any!     // for work the caller already spawned
-receiveTimeout(rx: stream, d: duration): any!   // next element, or timeoutError
+const timeout = fn (f: fn, d: duration): any! => {};               // spawns f itself: scope-owning
+const awaitTimeout = fn (p: promise, d: duration): any! => {};     // for work the caller already spawned
+const receiveTimeout = fn (rx: stream, d: duration): any! => {};   // next element, or timeoutError
 ```
 
 - **`timeout(f, d)`** spawns `f` and a `sleep(d)` timer *in its own frame*, races them

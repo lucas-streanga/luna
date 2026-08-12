@@ -30,9 +30,9 @@ declaration:
 
 ```luna
 // file: text/strings.luna   , this file is the module `text.strings`
-export const parse = fn (...) => ...;      // exported
-export const split = fn (...) => ...;      // exported
-const helper = fn (...) => ...;         // private
+export const parse = fn () => {};      // exported
+export const split = fn () => {};      // exported
+const helper = fn () => {};         // private
 ```
 
 The file with the `main` function is the **main module**, implicitly; it needs no declaration
@@ -289,9 +289,9 @@ tools but invisible to the type system, so modules never become types through th
 describing the module a binding is defined in:
 
 ```luna
-moduleof parse           // the module `parse` is defined in: e.g. { path: "strings" }
-moduleof someLocal       // a local's defining module is the current module
-moduleof mainFn          // a root-module binding: { path: "" } (empty path == the root)
+_ = moduleof parse;     // the module `parse` is defined in: e.g. { path: "strings" }
+_ = moduleof someLocal; // a local's defining module is the current module
+_ = moduleof mainFn;    // a root-module binding: { path: "" } (empty path == the root)
 ```
 
 - **It is an operator, not a function.** Its operand is a **single identifier** that resolves

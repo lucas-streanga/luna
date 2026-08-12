@@ -61,8 +61,8 @@ In a call, `_` marks an **open argument**, producing a function of the remaining
 parameters. It is **sugar for a lambda** (functions spec §6), never new functionality:
 
 ```luna
-add(5, _)                 // sugar for: fn (x) => add(5, x)
-f(_, 5, _)                // sugar for: fn (a, c) => f(a, 5, c)
+let add5 = add(5, _);     // sugar for: fn (x) => add(5, x)
+let g    = f(_, 5, _);    // sugar for: fn (a, c) => f(a, 5, c)
 ```
 
 The non-blank arguments are fixed (captured by value, per the function capture rules); each

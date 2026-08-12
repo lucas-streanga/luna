@@ -218,7 +218,7 @@ bindings, live in a single **`where` guard** after the pattern, not inside the p
 arm matches iff the pattern matches **and** the guard holds:
 
 ```luna
-[1, 2, _, x] where x is int && x > 10 => ...,
+[1, 2, _, x] where x is int && x > 10 => {},
 ```
 
 Here the positions are simple (two literals, a discard, a binding `x`), and the `where` guard
@@ -229,8 +229,8 @@ to `int`, put the type in the **position** with a typed binding (§2.2), which b
 `x` of type `int`:
 
 ```luna
-[1, 2, _, x: int] where x > 10 => ...,        // x: int binds x AS int; the guard is a pure value condition
-[1, 2, _, x] where x is int && x > 10 => ..., // also valid: x is the union type; `is int` is a boolean guard
+[1, 2, _, x: int] where x > 10 => {},        // x: int binds x AS int; the guard is a pure value condition
+[1, 2, _, x] where x is int && x > 10 => {}, // also valid: x is the union type; `is int` is a boolean guard
 ```
 
 The first form is idiomatic when you want `x` typed as `int` in the body: the **typed binding**

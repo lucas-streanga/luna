@@ -159,9 +159,9 @@ because narrowing is never implicit, passing a bare `table` where a `list` is re
 compile error; you choose `as list` (assert) or `values()` (produce) explicitly:
 
 ```luna
-someFn(tab)             // COMPILE ERROR: table is not implicitly a list
-someFn(tab as list)     // asserts tab is currently a list; typeError panic if not
-someFn(tab.values())    // always legal; builds a fresh list from tab's values
+_ = someFn(tab);          // COMPILE ERROR: table is not implicitly a list
+_ = someFn(tab as list);  // asserts tab is currently a list; typeError panic if not
+_ = someFn(tab.values()); // always legal; builds a fresh list from tab's values
 ```
 
 ### 2.4 `list` in signatures

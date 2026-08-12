@@ -73,7 +73,7 @@ coalescing operators do (coalescing spec):
 ```luna
 const v = tab['missing'] ?? fallback;      // ?? catches undefined, gives fallback
 const w = obj?.field;                      // ?. short-circuits an undefined receiver to undefined
-if (tab['k'] == undefined) { ... }         // an explicit absence check (equality spec)
+if (tab['k'] == undefined) {}         // an explicit absence check (equality spec)
 ```
 
 `==` against `undefined` is well-defined: `undefined == undefined` is **true** (so absence checks

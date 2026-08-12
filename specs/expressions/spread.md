@@ -54,7 +54,7 @@ let second = [30];                // entries 0=>30
 let mixed  = ['x'=>99, 5=>50];    // a string key and a non-contiguous integer key
 let third  = [40, 50];
 
-[...first, ...second, ...mixed, ...third]
+_ = [...first, ...second, ...mixed, ...third];
 ```
 
 Folding left to right (running next index in brackets):
@@ -97,8 +97,8 @@ because `merge` folds the same way: integer keys append, string keys overwrite
 `flatten`).
 
 ```luna
-[...a, ...b]        // the same fold as a.merge(b)
-[...list1, ...list2]   // for list operands: concatenation, of their combined length
+_ = [...a, ...b];         // the same fold as a.merge(b)
+_ = [...list1, ...list2]; // for list operands: concatenation, of their combined length
 ```
 
 *(`merge(preserveKeys: true)` is the other operation, layering `b`'s entries onto `a`'s at

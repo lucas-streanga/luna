@@ -30,11 +30,11 @@ value," with one statically-steered arm for protos ("the type this proto *induce
 R175).
 
 ```luna
-@5              // int
-@5.0            // double
-@"hi"           // string
-@someShape      // shape (an enum value's type)
-@stringBuilder  // the induced refinement: stringBuilder is a proto (§1.1, R175)
+_ = @5;             // int
+_ = @5.0;           // double
+_ = @"hi";          // string
+_ = @someShape;     // shape (an enum value's type)
+_ = @stringBuilder; // the induced refinement: stringBuilder is a proto (§1.1, R175)
 ```
 
 `@` reflects a **value** (and, on a proto binding, hands over the induced type, §1.1). It is
@@ -147,8 +147,11 @@ compiler reduces every type expression to a canonical form (union members sorted
 aliases expanded) and assigns each canonical form exactly **one** `typeid`. So:
 
 ```luna
-number == (int | double)      // true: same canonical type, same typeid
-(int | double) == (double | int)   // true: unions are order-independent
+const pair:    type = int | double;
+const flipped: type = double | int;
+
+_ = number == pair;      // true: same canonical type, same typeid
+_ = pair == flipped;     // true: unions are order-independent
 ```
 
 `number`, `int | double`, and `double | int` are the **same** type (one typeid), so `number` is a
@@ -220,8 +223,8 @@ fact (the compiler knows every binding's declared type). The companion operator 
 exposes it:
 
 ```luna
-@n           // int          (current type, from the value)
-declared n   // int | double (declared type, from the binding, resolved at compile time)
+_ = @n;         // int          (current type, from the value)
+_ = declared n; // int | double (declared type, from the binding, resolved at compile time)
 ```
 
 Because `declared` reads the binding's declared type, it is a **compile-time lookup**, not a
@@ -345,8 +348,8 @@ matching an application-refinement pattern is defined as a **protocol-membership
 ```luna
 match (x) {
   b: @stringBuilder => b->stringBuilder.append("!"),   // b is guaranteed to have stringBuilder applied
-  _: @otherProto    => ...,                            // tested, not bound: nothing to reach through
-  _                 => ...,
+  _: @otherProto    => {},                            // tested, not bound: nothing to reach through
+  _                 => {},
 }
 ```
 

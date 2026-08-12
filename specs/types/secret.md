@@ -132,7 +132,6 @@ export const dbSecret = constraint s: secret where gatesOf(s) == [@dbCred];
 
 const connect = fn (cred: dbSecret) use (dbCred): conn! => {
   let raw = reveal(cred);      // pinned gates ⊆ declared use: the gate check is elided, soundly
-  ...
 };
 ```
 

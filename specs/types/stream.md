@@ -242,8 +242,8 @@ const walk = fn (node: table): stream => {
 A stream is consumed by iterating it, normally with `foreach`:
 
 ```luna
-foreach (v in s) { ... }         // values; keys ignored
-foreach (k => v in s) { ... }    // key => value (implicit or explicit keys, §1.1)
+foreach (v in s) {}         // values; keys ignored
+foreach (k => v in s) {}    // key => value (implicit or explicit keys, §1.1)
 ```
 
 Streams are **consumable**: consumption is **single-pass**, each element is produced once, seen once, and not retained.
@@ -452,7 +452,7 @@ A stream chain is a **processing** pipeline: the source, then transformers
 (stream-to-stream operations like `map`, `filter`, `take`):
 
 ```luna
-f.lines().filter(isError).map(parse).take(10)
+_ = f.lines().filter(isError).map(parse).take(10);
 ```
 
 Consumption is **pull-driven** (demand-based), which is what laziness requires: the consumer at

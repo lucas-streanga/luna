@@ -117,10 +117,10 @@ Component access is the protocol's function surface, zone-resolved from the stor
 timestamp (the state is two integer members; components are derived, not stored):
 
 ```luna
-dt->year()      dt->month()      dt->day()        // month is int 1..12
-dt->hour()      dt->minute()     dt->second()     dt->nanoOfSecond()
-dt->weekday()                                     // the weekday enum value
-dt->dayOfYear()
+_ = dt->year();    _ = dt->month();   _ = dt->day();             // month is int 1..12
+_ = dt->hour();    _ = dt->minute();  _ = dt->second();  _ = dt->nanoOfSecond();
+_ = dt->weekday();                                               // the weekday enum value
+_ = dt->dayOfYear();
 ```
 
 ```luna

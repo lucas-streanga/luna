@@ -51,7 +51,7 @@ A command literal is delimited by backticks. It parses into a **program and an a
 list**, not a shell string:
 
 ```luna
-`grep -n foo file.txt`
+_ = `grep -n foo file.txt`;
 // program: "grep"
 // args:    ["-n", "foo", "file.txt"]
 ```
@@ -99,7 +99,7 @@ argument** in the argument list, never spliced into a parsed string:
 
 ```luna
 let name = "my file; rm -rf /";
-`rm ${name}`
+_ = `rm ${name}`;
 // program: "rm"
 // args:    ["my file; rm -rf /"]     <- one argument, not two commands
 ```
@@ -114,7 +114,7 @@ values (regex spec §7); a command literal has no such restriction, because a st
 argument cannot inject regardless of when it is known:
 
 ```luna
-`grep ${userInput} ${userFile}`      // safe: userInput and userFile are each one argument
+_ = `grep ${userInput} ${userFile}`; // safe: userInput and userFile are each one argument
 ```
 
 Both **comptime and runtime** interpolation are permitted and equally safe. A command
@@ -126,7 +126,7 @@ form is used so that each element becomes its own argument:
 
 ```luna
 let flags = ["-l", "-a", "-h"];
-`ls ${...flags}`                     // args: ["-l", "-a", "-h"], three arguments
+_ = `ls ${...flags}`; // args: ["-l", "-a", "-h"], three arguments
 ```
 
 `${expr}` is one argument; `${...expr}` spreads a list into many arguments (spread spec §5,
@@ -156,7 +156,7 @@ const pipe = fn (first: command, second: command, ...rest: command): command => 
 ```
 
 ```luna
-pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`)
+_ = pipe(`cat access.log`, `grep 404`, `sort`, `uniq -c`);
 ```
 
 - **At least two stages, structurally**: the two leading required parameters make a
@@ -241,7 +241,7 @@ and a pipeline as an array of such stages, so **every argument is a distinct JSO
 its boundary explicit**:
 
 ```luna
-`rm ${userFile}`.debugJson()
+_ = `rm ${userFile}`.debugJson();
 // {"program":"rm","args":["my file; rm -rf /"]}
 ```
 

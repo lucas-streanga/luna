@@ -76,15 +76,15 @@ const stringBuilder = proto {
 
   var buf: bytes = bytes();            // ungranted: private, per-table (Go-backed)
 
-  const get append          = fn (b: @stringBuilder, value: any): self => { ... };
-  const get appendAll       = fn (b: @stringBuilder, items: iterable): self => { ... };
-  const get appendCodepoint = fn (b: @stringBuilder, cp: int): self => { ... };
-  const get appendUtf8Bytes = fn (b: @stringBuilder, raw: bytes): self! => { ... };
-  const get reserve         = fn (b: @stringBuilder, numBytes: nat): self => { ... };
-  const get byteLength      = fn (b: @stringBuilder): int => { ... };
-  const get isEmpty         = fn (b: @stringBuilder): bool => { ... };
-  const get clear           = fn (b: @stringBuilder): self => { ... };
-  const get build           = fn (b: @stringBuilder): string => { ... };
+  const get append          = fn (b: @stringBuilder, value: any): self => {};
+  const get appendAll       = fn (b: @stringBuilder, items: iterable): self => {};
+  const get appendCodepoint = fn (b: @stringBuilder, cp: int): self => {};
+  const get appendUtf8Bytes = fn (b: @stringBuilder, raw: bytes): self! => {};
+  const get reserve         = fn (b: @stringBuilder, numBytes: nat): self => {};
+  const get byteLength      = fn (b: @stringBuilder): int => {};
+  const get isEmpty         = fn (b: @stringBuilder): bool => {};
+  const get clear           = fn (b: @stringBuilder): self => {};
+  const get build           = fn (b: @stringBuilder): string => {};
 };
 ```
 
@@ -248,7 +248,7 @@ appends the literal runs and the `toString` of each interpolated expression in o
 materializes once:
 
 ```luna
-"$greeting, $name!"
+_ = "$greeting, $name!";
 // lowers to roughly:
 //   var _b = builder();
 //   &_b->append(greeting)->append(", ")->append(name)->append("!");

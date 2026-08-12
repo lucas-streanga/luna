@@ -118,10 +118,10 @@ semantics are always opt-in and named, so wrapping and saturation are never sile
 ## 5. Division, remainder, and edge cases
 
 ```luna
-7 / 2       // 3   (integer division truncates toward zero)
--7 / 2      // -3  (truncation, not floor)
-7 % 2       // 1   (remainder; sign follows the dividend)
--7 % 2      // -1
+_ = 7 / 2;  // 3   (integer division truncates toward zero)
+_ = -7 / 2; // -3  (truncation, not floor)
+_ = 7 % 2;  // 1   (remainder; sign follows the dividend)
+_ = -7 % 2; // -1
 ```
 
 - **Division truncates toward zero.** `7 / 2` is `3`, `-7 / 2` is `-3` (not `-4`). This is the

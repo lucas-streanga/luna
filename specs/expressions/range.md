@@ -24,7 +24,7 @@ This is the human-intuitive reading ("1 to 10" includes 10) and is what iteratio
 membership want:
 
 ```luna
-foreach (v in 1..10) { ... }        // v takes 1 through 10 inclusive
+foreach (v in 1..10) {}        // v takes 1 through 10 inclusive
 match (code) { 200..299 => "ok" }   // matches 200 through 299 inclusive
 ```
 
@@ -39,7 +39,7 @@ marks the excluded top ("up to less than `hi`"). This is the natural form for th
 **index-iteration** idiom, where the valid indices of an `n`-element collection are `0..<n`:
 
 ```luna
-foreach (i in 0..<len) { ... }      // i takes 0 through len-1: each valid index
+foreach (i in 0..<len) {}      // i takes 0 through len-1: each valid index
 ```
 
 Only the top-exclusive form exists. A bottom-exclusive form (`<..`) is not provided: for
@@ -55,7 +55,7 @@ the entire stream toolkit (stream spec) with no range-specific machinery:
 
 ```luna
 let r = 1..1000000;                 // a stream: no million-int allocation, just a lazy sequence
-foreach (v in r) { ... }            // consume it
+foreach (v in r) {}            // consume it
 let evens = (1..100).filter(isEven).take(5);       // chain and transform like any stream
 ```
 
@@ -90,10 +90,10 @@ them different syntax lets each have its natural convention without one forcing 
 (`0..n by stride * 2` is fine), and the **step's sign selects the direction**:
 
 ```luna
-foreach (v in 0..100 by 10) { ... }     // 0, 10, 20, ..., 100
-1..<10 by 2                              // 1, 3, 5, 7, 9 (composes with ..<)
-10..0 by -2                              // 10, 8, 6, 4, 2, 0: EXPLICIT descending
-0..10 by -1                              // empty (0 >= 10 is false at the first check)
+foreach (v in 0..100 by 10) {} // 0, 10, 20, ..., 100
+_ = 1..<10 by 2;               // 1, 3, 5, 7, 9 (composes with ..<)
+_ = 10..0 by -2;               // 10, 8, 6, 4, 2, 0: EXPLICIT descending
+_ = 0..10 by -1;               // empty (0 >= 10 is false at the first check)
 ```
 
 A step of **`0` panics** (a misuse, the infinite-loop guard; checked once, at creation).

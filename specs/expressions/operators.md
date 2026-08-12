@@ -121,7 +121,7 @@ pairing with `|` (union), which is the conventional and expected notation.
 This enables capture-and-use in one step and assignment chaining:
 
 ```luna
-foreach (line in (buffer = file.lines())) { ... }   // capture the stream, then iterate it
+foreach (line in (buffer = file.lines())) {}   // capture the stream, then iterate it
 a = b = c;                                            // chains: c assigned to b, then to a
 ```
 

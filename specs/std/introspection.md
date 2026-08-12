@@ -190,7 +190,7 @@ export const baseOf = fn (t: type): type? => {};
 ### 4.2 Comptime tier, and the `comptype` bridge
 
 ```luna
-comptype v                                   // OPERATOR, not an export: the declaration descriptor
+_ = comptype v; // OPERATOR, not an export: the declaration descriptor
 export const fields = comptime fn (t: type): list => {};
 export const variants = comptime fn (t: type): list => {};
 export const attributes = comptime fn (t: type): table => {};

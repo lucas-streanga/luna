@@ -71,7 +71,7 @@ and **every test gets a callable `run`** (function values are first-class, carry
 requirement set on the value, capabilities §3.1, R39):
 
 ```luna
-tests['reads the fixture file']
+_ = tests['reads the fixture file'];
 // ['name' => 'reads the fixture file', 'requirements' => [io], 'run' => fn (): undefined!]
 
 _ = try tests['reads the fixture file'].run();   // legal anywhere; the call checks the
