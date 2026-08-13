@@ -1,0 +1,55 @@
+const t: type = int | string;
+const u: type = fn (int): bool;
+const v: type = @proto1 & @proto2;
+---
+File 0..96
+  Declaration 0..29
+    BindingDecl 0..29
+      KW_CONST 0..5 "const"
+      Binder 6..7
+        IDENT 6..7 "t"
+      COLON 7..8 ":"
+      IDENT 9..13 "type"
+      ASSIGN 14..15 "="
+      TypeOnly 16..28
+        IDENT 16..19 "int"
+        BAR 20..21 "|"
+        IDENT 22..28 "string"
+      SEMICOLON 28..29 ";"
+  Declaration 30..61
+    BindingDecl 30..61
+      KW_CONST 30..35 "const"
+      Binder 36..37
+        IDENT 36..37 "u"
+      COLON 37..38 ":"
+      IDENT 39..43 "type"
+      ASSIGN 44..45 "="
+      TypeOnly 46..60
+        FnType 46..60
+          KW_FN 46..48 "fn"
+          LPAREN 49..50 "("
+          TypeList 50..53
+            Type 50..53
+              IDENT 50..53 "int"
+          RPAREN 53..54 ")"
+          COLON 54..55 ":"
+          Type 56..60
+            IDENT 56..60 "bool"
+      SEMICOLON 60..61 ";"
+  Declaration 62..96
+    BindingDecl 62..96
+      KW_CONST 62..67 "const"
+      Binder 68..69
+        IDENT 68..69 "v"
+      COLON 69..70 ":"
+      IDENT 71..75 "type"
+      ASSIGN 76..77 "="
+      TypeOnly 78..95
+        PrimaryType 78..85
+          AT 78..79 "@"
+          IDENT 79..85 "proto1"
+        AMP 86..87 "&"
+        PrimaryType 88..95
+          AT 88..89 "@"
+          IDENT 89..95 "proto2"
+      SEMICOLON 95..96 ";"

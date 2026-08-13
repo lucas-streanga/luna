@@ -1,0 +1,54 @@
+foreach (i in 0..<n by 2) { f(i); }
+_ = 1..10;
+_ = a..;
+---
+File 0..55
+  Statement 0..35
+    ForeachStmt 0..35
+      KW_FOREACH 0..7 "foreach"
+      LPAREN 8..9 "("
+      ForeachBinder 9..10
+        IDENT 9..10 "i"
+      KW_IN 11..13 "in"
+      RangeExpr 14..24
+        INT_DEC 14..15 "0"
+        RANGE_EXCL 15..18 "..<"
+        IDENT 18..19 "n"
+        KW_BY 20..22 "by"
+        INT_DEC 23..24 "2"
+      RPAREN 24..25 ")"
+      Block 26..35
+        LBRACE 26..27 "{"
+        Statement 28..33
+          SimpleStmt 28..32
+            PostfixExpr 28..32
+              IDENT 28..29 "f"
+              Postfix 29..32
+                LPAREN 29..30 "("
+                ArgList 30..31
+                  Arg 30..31
+                    IDENT 30..31 "i"
+                RPAREN 31..32 ")"
+          SEMICOLON 32..33 ";"
+        RBRACE 34..35 "}"
+  Statement 36..46
+    SimpleStmt 36..45
+      Assignment 36..45
+        AssignTarget 36..37
+          WILDCARD 36..37 "_"
+        ASSIGN 38..39 "="
+        RangeExpr 40..45
+          INT_DEC 40..41 "1"
+          RANGE 41..43 ".."
+          INT_DEC 43..45 "10"
+    SEMICOLON 45..46 ";"
+  Statement 47..55
+    SimpleStmt 47..54
+      Assignment 47..54
+        AssignTarget 47..48
+          WILDCARD 47..48 "_"
+        ASSIGN 49..50 "="
+        RangeExpr 51..54
+          IDENT 51..52 "a"
+          RANGE 52..54 ".."
+    SEMICOLON 54..55 ";"

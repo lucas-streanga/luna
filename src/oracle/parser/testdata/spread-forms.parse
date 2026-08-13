@@ -1,0 +1,56 @@
+_ = [...xs];
+_ = f(...xs);
+const v = fn (...xs: int) => 1;
+---
+File 0..58
+  Statement 0..12
+    SimpleStmt 0..11
+      Assignment 0..11
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        TableLit 4..11
+          LBRACKET 4..5 "["
+          TableEntries 5..10
+            TableEntry 5..10
+              SPREAD 5..8 "..."
+              IDENT 8..10 "xs"
+          RBRACKET 10..11 "]"
+    SEMICOLON 11..12 ";"
+  Statement 13..26
+    SimpleStmt 13..25
+      Assignment 13..25
+        AssignTarget 13..14
+          WILDCARD 13..14 "_"
+        ASSIGN 15..16 "="
+        PostfixExpr 17..25
+          IDENT 17..18 "f"
+          Postfix 18..25
+            LPAREN 18..19 "("
+            ArgList 19..24
+              Arg 19..24
+                SPREAD 19..22 "..."
+                IDENT 22..24 "xs"
+            RPAREN 24..25 ")"
+    SEMICOLON 25..26 ";"
+  Declaration 27..58
+    BindingDecl 27..58
+      KW_CONST 27..32 "const"
+      Binder 33..34
+        IDENT 33..34 "v"
+      ASSIGN 35..36 "="
+      Initializer 37..57
+        FnLit 37..57
+          KW_FN 37..39 "fn"
+          LPAREN 40..41 "("
+          ParamList 41..51
+            Param 41..51
+              SPREAD 41..44 "..."
+              IDENT 44..46 "xs"
+              COLON 46..47 ":"
+              Type 48..51
+                IDENT 48..51 "int"
+          RPAREN 51..52 ")"
+          FAT_ARROW 53..55 "=>"
+          INT_DEC 56..57 "1"
+      SEMICOLON 57..58 ";"

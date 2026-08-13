@@ -1,0 +1,24 @@
+_ = declared x;
+_ = moduleof x;
+---
+File 0..31
+  Statement 0..15
+    SimpleStmt 0..14
+      Assignment 0..14
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        WordPrefix 4..14
+          KW_DECLARED 4..12 "declared"
+          IDENT 13..14 "x"
+    SEMICOLON 14..15 ";"
+  Statement 16..31
+    SimpleStmt 16..30
+      Assignment 16..30
+        AssignTarget 16..17
+          WILDCARD 16..17 "_"
+        ASSIGN 18..19 "="
+        WordPrefix 20..30
+          KW_MODULEOF 20..28 "moduleof"
+          IDENT 29..30 "x"
+    SEMICOLON 30..31 ";"

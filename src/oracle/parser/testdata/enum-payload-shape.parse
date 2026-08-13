@@ -1,0 +1,52 @@
+const shape = enum { point, circle: ['radius' => int] };
+const level = enum { debug, info, };
+---
+File 0..93
+  Declaration 0..56
+    BindingDecl 0..56
+      KW_CONST 0..5 "const"
+      Binder 6..11
+        IDENT 6..11 "shape"
+      ASSIGN 12..13 "="
+      Initializer 14..55
+        EnumLit 14..55
+          KW_ENUM 14..18 "enum"
+          LBRACE 19..20 "{"
+          VariantDecls 21..53
+            VariantDecl 21..26
+              IDENT 21..26 "point"
+            COMMA 26..27 ","
+            VariantDecl 28..53
+              IDENT 28..34 "circle"
+              COLON 34..35 ":"
+              PayloadShape 36..53
+                LBRACKET 36..37 "["
+                PayloadFields 37..52
+                  PayloadField 37..52
+                    StringLit 37..45
+                      STRING_SQ 37..45 "'radius'"
+                    FAT_ARROW 46..48 "=>"
+                    Type 49..52
+                      IDENT 49..52 "int"
+                RBRACKET 52..53 "]"
+          RBRACE 54..55 "}"
+      SEMICOLON 55..56 ";"
+  Declaration 57..93
+    BindingDecl 57..93
+      KW_CONST 57..62 "const"
+      Binder 63..68
+        IDENT 63..68 "level"
+      ASSIGN 69..70 "="
+      Initializer 71..92
+        EnumLit 71..92
+          KW_ENUM 71..75 "enum"
+          LBRACE 76..77 "{"
+          VariantDecls 78..90
+            VariantDecl 78..83
+              IDENT 78..83 "debug"
+            COMMA 83..84 ","
+            VariantDecl 85..89
+              IDENT 85..89 "info"
+            COMMA 89..90 ","
+          RBRACE 91..92 "}"
+      SEMICOLON 92..93 ";"

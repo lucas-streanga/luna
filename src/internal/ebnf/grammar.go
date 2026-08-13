@@ -137,6 +137,30 @@ func (g *Grammar) Terminals() []string {
 // class is pinned against lexer §10's fifty.
 func (g *Grammar) Alternatives(name string) int { return len(g.byLHS[name]) }
 
+// PureAlternations returns every nonterminal whose productions are each a single symbol —
+// `AssignOp`, `Keyword`, `TopLevelItem`, `Literal` and their kin.
+//
+// Such a name is pure dispatch: it says which of several shapes follows, and the child it
+// yields already says the same thing. Nothing else about the grammar distinguishes them, which
+// is what makes this computable rather than a list somebody maintains — a new operator class
+// added to grammar.md joins the set by being written, not by being remembered.
+func (g *Grammar) PureAlternations() map[string]bool {
+	out := map[string]bool{}
+	for name, idxs := range g.byLHS {
+		pure := true
+		for _, i := range idxs {
+			if len(g.Prods[i].RHS) != 1 {
+				pure = false
+				break
+			}
+		}
+		if pure {
+			out[name] = true
+		}
+	}
+	return out
+}
+
 func (g *Grammar) String() string {
 	var b strings.Builder
 	for _, p := range g.Prods {

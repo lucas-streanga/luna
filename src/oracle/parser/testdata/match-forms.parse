@@ -1,0 +1,106 @@
+_ = match (x) { 1 => 2, };
+_ = match { c => 1, _ => 2, };
+_ = match! (x) { 1 => 2, _ => 3, };
+_ = match (x) { 1 => { f(); }, };
+---
+File 0..127
+  Statement 0..26
+    SimpleStmt 0..25
+      Assignment 0..25
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        MatchExpr 4..25
+          KW_MATCH 4..9 "match"
+          LPAREN 10..11 "("
+          IDENT 11..12 "x"
+          RPAREN 12..13 ")"
+          LBRACE 14..15 "{"
+          MatchArms 16..23
+            MatchArm 16..22
+              LiteralPattern 16..17
+                INT_DEC 16..17 "1"
+              FAT_ARROW 18..20 "=>"
+              INT_DEC 21..22 "2"
+            COMMA 22..23 ","
+          RBRACE 24..25 "}"
+    SEMICOLON 25..26 ";"
+  Statement 27..57
+    SimpleStmt 27..56
+      Assignment 27..56
+        AssignTarget 27..28
+          WILDCARD 27..28 "_"
+        ASSIGN 29..30 "="
+        MatchExpr 31..56
+          KW_MATCH 31..36 "match"
+          LBRACE 37..38 "{"
+          GuardArms 39..54
+            GuardArm 39..45
+              IDENT 39..40 "c"
+              FAT_ARROW 41..43 "=>"
+              INT_DEC 44..45 "1"
+            COMMA 45..46 ","
+            GuardArm 47..53
+              WILDCARD 47..48 "_"
+              FAT_ARROW 49..51 "=>"
+              INT_DEC 52..53 "2"
+            COMMA 53..54 ","
+          RBRACE 55..56 "}"
+    SEMICOLON 56..57 ";"
+  Statement 58..93
+    SimpleStmt 58..92
+      Assignment 58..92
+        AssignTarget 58..59
+          WILDCARD 58..59 "_"
+        ASSIGN 60..61 "="
+        MatchExpr 62..92
+          KW_MATCH_BANG 62..68 "match!"
+          LPAREN 69..70 "("
+          IDENT 70..71 "x"
+          RPAREN 71..72 ")"
+          LBRACE 73..74 "{"
+          MatchArms 75..90
+            MatchArm 75..81
+              LiteralPattern 75..76
+                INT_DEC 75..76 "1"
+              FAT_ARROW 77..79 "=>"
+              INT_DEC 80..81 "2"
+            COMMA 81..82 ","
+            MatchArm 83..89
+              WILDCARD 83..84 "_"
+              FAT_ARROW 85..87 "=>"
+              INT_DEC 88..89 "3"
+            COMMA 89..90 ","
+          RBRACE 91..92 "}"
+    SEMICOLON 92..93 ";"
+  Statement 94..127
+    SimpleStmt 94..126
+      Assignment 94..126
+        AssignTarget 94..95
+          WILDCARD 94..95 "_"
+        ASSIGN 96..97 "="
+        MatchExpr 98..126
+          KW_MATCH 98..103 "match"
+          LPAREN 104..105 "("
+          IDENT 105..106 "x"
+          RPAREN 106..107 ")"
+          LBRACE 108..109 "{"
+          MatchArms 110..124
+            MatchArm 110..123
+              LiteralPattern 110..111
+                INT_DEC 110..111 "1"
+              FAT_ARROW 112..114 "=>"
+              Block 115..123
+                LBRACE 115..116 "{"
+                Statement 117..121
+                  SimpleStmt 117..120
+                    PostfixExpr 117..120
+                      IDENT 117..118 "f"
+                      Postfix 118..120
+                        LPAREN 118..119 "("
+                        RPAREN 119..120 ")"
+                  SEMICOLON 120..121 ";"
+                RBRACE 122..123 "}"
+            COMMA 123..124 ","
+          RBRACE 125..126 "}"
+    SEMICOLON 126..127 ";"

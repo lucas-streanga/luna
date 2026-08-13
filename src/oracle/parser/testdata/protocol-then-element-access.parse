@@ -1,0 +1,57 @@
+_ = x->P.m;
+_ = x?->P;
+_ = x?.m;
+_ = x->P;
+---
+File 0..42
+  Statement 0..11
+    SimpleStmt 0..10
+      Assignment 0..10
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        PostfixExpr 4..10
+          IDENT 4..5 "x"
+          Postfix 5..8
+            ARROW 5..7 "->"
+            IDENT 7..8 "P"
+          Postfix 8..10
+            DOT 8..9 "."
+            IDENT 9..10 "m"
+    SEMICOLON 10..11 ";"
+  Statement 12..22
+    SimpleStmt 12..21
+      Assignment 12..21
+        AssignTarget 12..13
+          WILDCARD 12..13 "_"
+        ASSIGN 14..15 "="
+        PostfixExpr 16..21
+          IDENT 16..17 "x"
+          Postfix 17..21
+            OPT_PROTO_ACCESS 17..20 "?->"
+            IDENT 20..21 "P"
+    SEMICOLON 21..22 ";"
+  Statement 23..32
+    SimpleStmt 23..31
+      Assignment 23..31
+        AssignTarget 23..24
+          WILDCARD 23..24 "_"
+        ASSIGN 25..26 "="
+        PostfixExpr 27..31
+          IDENT 27..28 "x"
+          Postfix 28..31
+            OPT_ACCESS 28..30 "?."
+            IDENT 30..31 "m"
+    SEMICOLON 31..32 ";"
+  Statement 33..42
+    SimpleStmt 33..41
+      Assignment 33..41
+        AssignTarget 33..34
+          WILDCARD 33..34 "_"
+        ASSIGN 35..36 "="
+        PostfixExpr 37..41
+          IDENT 37..38 "x"
+          Postfix 38..41
+            ARROW 38..40 "->"
+            IDENT 40..41 "P"
+    SEMICOLON 41..42 ";"

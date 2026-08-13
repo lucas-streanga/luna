@@ -1,0 +1,59 @@
+const a = fn () => {};
+const b = fn () => x;
+const c = fn (): int => { return 1; };
+---
+File 0..83
+  Declaration 0..22
+    BindingDecl 0..22
+      KW_CONST 0..5 "const"
+      Binder 6..7
+        IDENT 6..7 "a"
+      ASSIGN 8..9 "="
+      Initializer 10..21
+        FnLit 10..21
+          KW_FN 10..12 "fn"
+          LPAREN 13..14 "("
+          RPAREN 14..15 ")"
+          FAT_ARROW 16..18 "=>"
+          Block 19..21
+            LBRACE 19..20 "{"
+            RBRACE 20..21 "}"
+      SEMICOLON 21..22 ";"
+  Declaration 23..44
+    BindingDecl 23..44
+      KW_CONST 23..28 "const"
+      Binder 29..30
+        IDENT 29..30 "b"
+      ASSIGN 31..32 "="
+      Initializer 33..43
+        FnLit 33..43
+          KW_FN 33..35 "fn"
+          LPAREN 36..37 "("
+          RPAREN 37..38 ")"
+          FAT_ARROW 39..41 "=>"
+          IDENT 42..43 "x"
+      SEMICOLON 43..44 ";"
+  Declaration 45..83
+    BindingDecl 45..83
+      KW_CONST 45..50 "const"
+      Binder 51..52
+        IDENT 51..52 "c"
+      ASSIGN 53..54 "="
+      Initializer 55..82
+        FnLit 55..82
+          KW_FN 55..57 "fn"
+          LPAREN 58..59 "("
+          RPAREN 59..60 ")"
+          COLON 60..61 ":"
+          Type 62..65
+            IDENT 62..65 "int"
+          FAT_ARROW 66..68 "=>"
+          Block 69..82
+            LBRACE 69..70 "{"
+            Statement 71..80
+              SimpleStmt 71..79
+                KW_RETURN 71..77 "return"
+                INT_DEC 78..79 "1"
+              SEMICOLON 79..80 ";"
+            RBRACE 81..82 "}"
+      SEMICOLON 82..83 ";"

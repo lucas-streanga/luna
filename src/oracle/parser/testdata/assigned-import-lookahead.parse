@@ -1,0 +1,38 @@
+const fs = import std.filesystem;
+export const pub = import std.io;
+const n = 1;
+---
+File 0..80
+  Prelude 0..67
+    PreludeItem 0..33
+      KW_CONST 0..5 "const"
+      IDENT 6..8 "fs"
+      ASSIGN 9..10 "="
+      KW_IMPORT 11..17 "import"
+      ImportSpec 18..32
+        ModulePath 18..32
+          IDENT 18..21 "std"
+          DOT 21..22 "."
+          IDENT 22..32 "filesystem"
+      SEMICOLON 32..33 ";"
+    PreludeItem 34..67
+      KW_EXPORT 34..40 "export"
+      KW_CONST 41..46 "const"
+      IDENT 47..50 "pub"
+      ASSIGN 51..52 "="
+      KW_IMPORT 53..59 "import"
+      ImportSpec 60..66
+        ModulePath 60..66
+          IDENT 60..63 "std"
+          DOT 63..64 "."
+          IDENT 64..66 "io"
+      SEMICOLON 66..67 ";"
+  Declaration 68..80
+    BindingDecl 68..80
+      KW_CONST 68..73 "const"
+      Binder 74..75
+        IDENT 74..75 "n"
+      ASSIGN 76..77 "="
+      Initializer 78..79
+        INT_DEC 78..79 "1"
+      SEMICOLON 79..80 ";"

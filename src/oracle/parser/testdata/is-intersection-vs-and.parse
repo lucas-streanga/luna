@@ -1,0 +1,50 @@
+_ = x is int & y;
+_ = x is int && y;
+_ = x as int | string;
+---
+File 0..59
+  Statement 0..17
+    SimpleStmt 0..16
+      Assignment 0..16
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        Comparison 4..16
+          IDENT 4..5 "x"
+          KW_IS 6..8 "is"
+          Type 9..16
+            IntersectType 9..16
+              IDENT 9..12 "int"
+              AMP 13..14 "&"
+              IDENT 15..16 "y"
+    SEMICOLON 16..17 ";"
+  Statement 18..36
+    SimpleStmt 18..35
+      Assignment 18..35
+        AssignTarget 18..19
+          WILDCARD 18..19 "_"
+        ASSIGN 20..21 "="
+        Conjunction 22..35
+          Comparison 22..30
+            IDENT 22..23 "x"
+            KW_IS 24..26 "is"
+            Type 27..30
+              IDENT 27..30 "int"
+          AND 31..33 "&&"
+          IDENT 34..35 "y"
+    SEMICOLON 35..36 ";"
+  Statement 37..59
+    SimpleStmt 37..58
+      Assignment 37..58
+        AssignTarget 37..38
+          WILDCARD 37..38 "_"
+        ASSIGN 39..40 "="
+        Comparison 41..58
+          IDENT 41..42 "x"
+          KW_AS 43..45 "as"
+          Type 46..58
+            UnionType 46..58
+              IDENT 46..49 "int"
+              BAR 50..51 "|"
+              IDENT 52..58 "string"
+    SEMICOLON 58..59 ";"

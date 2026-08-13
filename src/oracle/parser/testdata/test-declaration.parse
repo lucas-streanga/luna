@@ -1,0 +1,40 @@
+test 'a name' { f(); }
+test 'with caps' use (io) { g(); }
+---
+File 0..57
+  Declaration 0..22
+    TestDecl 0..22
+      KW_TEST 0..4 "test"
+      STRING_SQ 5..13 "'a name'"
+      Block 14..22
+        LBRACE 14..15 "{"
+        Statement 16..20
+          SimpleStmt 16..19
+            PostfixExpr 16..19
+              IDENT 16..17 "f"
+              Postfix 17..19
+                LPAREN 17..18 "("
+                RPAREN 18..19 ")"
+          SEMICOLON 19..20 ";"
+        RBRACE 21..22 "}"
+  Declaration 23..57
+    TestDecl 23..57
+      KW_TEST 23..27 "test"
+      STRING_SQ 28..39 "'with caps'"
+      UseClause 40..48
+        KW_USE 40..43 "use"
+        LPAREN 44..45 "("
+        CapList 45..47
+          IDENT 45..47 "io"
+        RPAREN 47..48 ")"
+      Block 49..57
+        LBRACE 49..50 "{"
+        Statement 51..55
+          SimpleStmt 51..54
+            PostfixExpr 51..54
+              IDENT 51..52 "g"
+              Postfix 52..54
+                LPAREN 52..53 "("
+                RPAREN 53..54 ")"
+          SEMICOLON 54..55 ";"
+        RBRACE 56..57 "}"

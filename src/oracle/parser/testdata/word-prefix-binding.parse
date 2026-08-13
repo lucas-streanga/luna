@@ -1,0 +1,67 @@
+_ = await p ?? q;
+_ = try f() ?? g();
+_ = spawn f(1);
+_ = copy t;
+---
+File 0..65
+  Statement 0..17
+    SimpleStmt 0..16
+      Assignment 0..16
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        WordPrefix 4..16
+          KW_AWAIT 4..9 "await"
+          Coalesce 10..16
+            IDENT 10..11 "p"
+            COALESCE 12..14 "??"
+            IDENT 15..16 "q"
+    SEMICOLON 16..17 ";"
+  Statement 18..37
+    SimpleStmt 18..36
+      Assignment 18..36
+        AssignTarget 18..19
+          WILDCARD 18..19 "_"
+        ASSIGN 20..21 "="
+        WordPrefix 22..36
+          KW_TRY 22..25 "try"
+          Coalesce 26..36
+            PostfixExpr 26..29
+              IDENT 26..27 "f"
+              Postfix 27..29
+                LPAREN 27..28 "("
+                RPAREN 28..29 ")"
+            COALESCE 30..32 "??"
+            PostfixExpr 33..36
+              IDENT 33..34 "g"
+              Postfix 34..36
+                LPAREN 34..35 "("
+                RPAREN 35..36 ")"
+    SEMICOLON 36..37 ";"
+  Statement 38..53
+    SimpleStmt 38..52
+      Assignment 38..52
+        AssignTarget 38..39
+          WILDCARD 38..39 "_"
+        ASSIGN 40..41 "="
+        WordPrefix 42..52
+          KW_SPAWN 42..47 "spawn"
+          PostfixExpr 48..52
+            IDENT 48..49 "f"
+            Postfix 49..52
+              LPAREN 49..50 "("
+              ArgList 50..51
+                Arg 50..51
+                  INT_DEC 50..51 "1"
+              RPAREN 51..52 ")"
+    SEMICOLON 52..53 ";"
+  Statement 54..65
+    SimpleStmt 54..64
+      Assignment 54..64
+        AssignTarget 54..55
+          WILDCARD 54..55 "_"
+        ASSIGN 56..57 "="
+        WordPrefix 58..64
+          KW_COPY 58..62 "copy"
+          IDENT 63..64 "t"
+    SEMICOLON 64..65 ";"

@@ -1,0 +1,49 @@
+if (a) { f(); } else if (b) { g(); } else { h(); }
+---
+File 0..50
+  Statement 0..50
+    IfStmt 0..50
+      KW_IF 0..2 "if"
+      LPAREN 3..4 "("
+      IDENT 4..5 "a"
+      RPAREN 5..6 ")"
+      Block 7..15
+        LBRACE 7..8 "{"
+        Statement 9..13
+          SimpleStmt 9..12
+            PostfixExpr 9..12
+              IDENT 9..10 "f"
+              Postfix 10..12
+                LPAREN 10..11 "("
+                RPAREN 11..12 ")"
+          SEMICOLON 12..13 ";"
+        RBRACE 14..15 "}"
+      KW_ELSE 16..20 "else"
+      IfStmt 21..50
+        KW_IF 21..23 "if"
+        LPAREN 24..25 "("
+        IDENT 25..26 "b"
+        RPAREN 26..27 ")"
+        Block 28..36
+          LBRACE 28..29 "{"
+          Statement 30..34
+            SimpleStmt 30..33
+              PostfixExpr 30..33
+                IDENT 30..31 "g"
+                Postfix 31..33
+                  LPAREN 31..32 "("
+                  RPAREN 32..33 ")"
+            SEMICOLON 33..34 ";"
+          RBRACE 35..36 "}"
+        KW_ELSE 37..41 "else"
+        Block 42..50
+          LBRACE 42..43 "{"
+          Statement 44..48
+            SimpleStmt 44..47
+              PostfixExpr 44..47
+                IDENT 44..45 "h"
+                Postfix 45..47
+                  LPAREN 45..46 "("
+                  RPAREN 46..47 ")"
+            SEMICOLON 47..48 ";"
+          RBRACE 49..50 "}"

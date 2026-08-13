@@ -57,8 +57,28 @@ type Result struct {
 	Furthest  int // the highest token index any item advanced to
 }
 
+// chart is one run's completed Earley state: the item sets in insertion order, the causes that
+// put each item there, and the accepting items. Recognize reduces it to three booleans; Derive
+// walks it back into a tree. Both come from one run so that neither can disagree with the other
+// about what the grammar did.
+type chart struct {
+	order    [][]item
+	causes   map[key][]cause
+	roots    []key
+	furthest int
+}
+
 // Recognize runs the grammar over toks from the start symbol.
 func (g *Grammar) Recognize(toks []Token) Result {
+	c := g.chart(toks)
+	return Result{
+		Accepted:  len(c.roots) > 0,
+		Ambiguous: len(c.roots) > 1 || anyAmbiguous(c.roots, c.causes),
+		Furthest:  c.furthest,
+	}
+}
+
+func (g *Grammar) chart(toks []Token) *chart {
 	n := len(toks)
 	sets := make([]map[item]bool, n+1)
 	order := make([][]item, n+1)
@@ -146,11 +166,7 @@ func (g *Grammar) Recognize(toks []Token) Result {
 		}
 	}
 
-	return Result{
-		Accepted:  len(roots) > 0,
-		Ambiguous: len(roots) > 1 || anyAmbiguous(roots, causes),
-		Furthest:  furthest,
-	}
+	return &chart{order: order, causes: causes, roots: roots, furthest: furthest}
 }
 
 // anyAmbiguous walks back from the accepting items over the causes that actually contributed

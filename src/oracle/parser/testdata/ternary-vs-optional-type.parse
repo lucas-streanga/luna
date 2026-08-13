@@ -1,0 +1,51 @@
+_ = a ? b : c;
+let x: int? = null;
+let y: int? = a ? b : c;
+---
+File 0..59
+  Statement 0..14
+    SimpleStmt 0..13
+      Assignment 0..13
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        Conditional 4..13
+          IDENT 4..5 "a"
+          QUESTION 6..7 "?"
+          IDENT 8..9 "b"
+          COLON 10..11 ":"
+          IDENT 12..13 "c"
+    SEMICOLON 13..14 ";"
+  Declaration 15..34
+    BindingDecl 15..34
+      KW_LET 15..18 "let"
+      Binder 19..20
+        IDENT 19..20 "x"
+      COLON 20..21 ":"
+      Type 22..26
+        PostfixType 22..26
+          IDENT 22..25 "int"
+          QUESTION 25..26 "?"
+      ASSIGN 27..28 "="
+      Initializer 29..33
+        KW_NULL 29..33 "null"
+      SEMICOLON 33..34 ";"
+  Declaration 35..59
+    BindingDecl 35..59
+      KW_LET 35..38 "let"
+      Binder 39..40
+        IDENT 39..40 "y"
+      COLON 40..41 ":"
+      Type 42..46
+        PostfixType 42..46
+          IDENT 42..45 "int"
+          QUESTION 45..46 "?"
+      ASSIGN 47..48 "="
+      Initializer 49..58
+        Conditional 49..58
+          IDENT 49..50 "a"
+          QUESTION 51..52 "?"
+          IDENT 53..54 "b"
+          COLON 55..56 ":"
+          IDENT 57..58 "c"
+      SEMICOLON 58..59 ";"

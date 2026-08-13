@@ -9,6 +9,12 @@ decisions rather than mechanics.
 Nothing here is a language decision, so nothing here is a `CHANGES.md` ruling; it sits beside its
 data exactly as `oracle/lexer/testdata/FORMAT.md` does.
 
+The format's reader and writer are `../golden.go` and `../golden_render.go` — in this package
+rather than under `internal/`, because the goldens are the **parser's** expectations and only
+incidentally something `internal/ebnf` also reads. Exported names there are `Golden`-scoped
+(`ReadGolden`, `LexGolden`, `RenderGolden`) so that a bare `Parse` and `Node` can arrive beside
+them without collision.
+
 ---
 
 ## 0. Why one corpus and two tools
@@ -87,10 +93,18 @@ Indentation is two spaces per level.
 
 ## 2. Elision, and the hazard that shapes it
 
-A dump that prints every nonterminal is unreadable: `1` is thirteen nested tiers. So unit
-productions collapse — but the collapse rule is an **explicit, closed set**, not a shape test.
+A dump that prints every nonterminal is unreadable: `1` is thirteen nested tiers. So a
+nonterminal that passes through with a single child collapses, for one of two reasons.
 
-**Elide these, and only these, when they pass through with a single child:**
+**Pure alternations**, *computed from the grammar rather than listed*. A nonterminal whose every
+production is one symbol — `AssignOp`, `CompOp`, `WordOp`, `BindingKw`, `MatchKw`, `Keyword`,
+`TopLevelItem`, `BlockItem`, `PathSegment`, `Literal`, `IntLit`, `StringLit` and their kin — is
+pure **dispatch**: its name says which of several shapes follows, and the child it yields already
+says the same thing. Nothing else about the grammar distinguishes them, which is what makes the
+set computable (`ebnf.PureAlternations`) instead of a list somebody maintains — a new operator
+class added to grammar.md joins by being written, not by being remembered.
+
+**The precedence tiers**, which are listed, because no shape distinguishes them:
 
 - the expression tiers — `Expr`, `Assignment`, `WordPrefix`, `Conditional`, `Coalesce`,
   `Disjunction`, `Conjunction`, `Equality`, `Comparison`, `RangeExpr`, `Additive`,
@@ -98,17 +112,21 @@ productions collapse — but the collapse rule is an **explicit, closed set**, n
 - the type tiers — `UnionType`, `IntersectType`, `PostfixType`, `PrimaryType`
 - the pattern tiers — `Pattern`, `AltPattern`, `PrimaryPattern`
 
-Everything else always prints.
+Everything else always prints — and **`Type` prints despite being a pure alternation**, the one
+override, for the reason below.
 
-**The hazard, which is why the set is explicit.** The obvious rule — *elide any node with one
-child and no token of its own* — is right for the expression tiers, where the surviving name is
-the tier that fired (`Additive`) and the collapsed ones said nothing. Applied uniformly it also
-deletes five type nonterminals in a row (`Type → UnionType → IntersectType → PostfixType →
-PrimaryType → IDENT`), and then `let x: int = y;` prints two bare `IDENT` lines with **nothing
-recording that one of them is in type position**. That is the one distinction R256 exists to
-make, erased at exactly the leaves. `fn (x) => x` has the same collision between a `Param` and a
-body. Keeping `Type`, `Binder`, `Param`, `ArmBody`, `FnBody`, `Initializer` — every wrapper whose
-*name is the information* — off the elide list fixes both, and costs one line per occurrence.
+**The hazard, which is why `Type` is an override and why the tiers are a list.** The obvious
+blanket rule — *elide any node with one child and no token of its own* — is right for the
+expression tiers, where the surviving name is the tier that fired (`Additive`) and the collapsed
+ones said nothing. Applied uniformly it also deletes five type nonterminals in a row (`Type →
+UnionType → IntersectType → PostfixType → PrimaryType → IDENT`), and then `let x: int = y;`
+prints two bare `IDENT` lines with **nothing recording that one of them is in type position**.
+That is the one distinction R256 exists to make, erased at exactly the leaves. `fn (x) => x` has
+the same collision between a `Param` and a body. Keeping `Type`, `Binder`, `Param`, `ArmBody`,
+`FnBody`, `Initializer` — every wrapper whose *name is the information* — costs one line per
+occurrence and is what the `is-intersection-vs-and` case turns on: `x is int & y` puts `int & y`
+inside one `Type`, while `x is int && y` ends the `Type` at `int` and splits at `Conjunction`.
+The two trees differ where the claim in grammar.md §11 says they do.
 
 Most delimited forms need no exception: `Block`, `TableLit`, `DestructurePattern`, `FnLit` and
 their kin carry their own tokens, so they survive any rule. That is why the exception list is
@@ -161,8 +179,29 @@ the parenthesized IIFE, `x->P.m`, `fn () => {}` against a variant literal — so
 ceiling and are exactly what the goldens below are for. Neither instrument reaches where the
 other does.
 
-**Seed the hazard corpus from grammar.md's own flagged list**, §9 and §11 — these are the corners
-the file already knows about, so they are the ones a golden should hold still:
+## 5. The hazard corpus, and how its trees were written
+
+Thirty cases, seeded from grammar.md's own flagged list (§9 and §11) — the corners the file
+already knows about, which are therefore the ones worth holding still. **Every one derives, and
+derives exactly once**, which is the ambiguity result for the six-to-eight-token range that
+generation cannot reach.
+
+**Their trees were written by the grammar, before any parser existed.** `ebnf.Derive`
+reconstructs the single derivation from the Earley chart and refuses an ambiguous input rather
+than picking one of its trees — so the expectation in each file came out of §0's productions
+rather than out of an implementation of them. That is the provenance §3's rule asks for, in its
+strongest available form: the diff *is* read against grammar.md, because grammar.md wrote it.
+Regenerate with `go test ./oracle/parser -update`, and read the diff before committing it.
+
+The consequence to be clear about: when the recursive-descent parser lands, these trees are its
+**target**, not a transcript of it. A disagreement is the parser failing to implement §0, or §0
+failing to say what was meant — never the golden needing a refresh to match new behaviour.
+
+`error_producing/` is empty and stays that way until the parser exists: a rejected input has no
+derivation to render, and its partial tree and `P` codes are the parser's to produce (§0's table).
+The grammar half of those cases — that they are rejected — is checked the moment they are written.
+
+The seeded corners:
 
 - `FnBody ::= Block | Expr` and its twin `ArmBody` — the file's only ordered choice
 - `{` after `FAT_ARROW` opens a block, so a variant literal is parenthesized (`=> ({read})`)

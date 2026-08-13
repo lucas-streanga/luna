@@ -1,0 +1,38 @@
+_ = &t.sort();
+const f = fn (&t) => t;
+---
+File 0..38
+  Statement 0..14
+    SimpleStmt 0..13
+      Assignment 0..13
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        PostfixExpr 4..13
+          AMP 4..5 "&"
+          IDENT 5..6 "t"
+          Postfix 6..11
+            DOT 6..7 "."
+            IDENT 7..11 "sort"
+          Postfix 11..13
+            LPAREN 11..12 "("
+            RPAREN 12..13 ")"
+    SEMICOLON 13..14 ";"
+  Declaration 15..38
+    BindingDecl 15..38
+      KW_CONST 15..20 "const"
+      Binder 21..22
+        IDENT 21..22 "f"
+      ASSIGN 23..24 "="
+      Initializer 25..37
+        FnLit 25..37
+          KW_FN 25..27 "fn"
+          LPAREN 28..29 "("
+          ParamList 29..31
+            Param 29..31
+              AMP 29..30 "&"
+              IDENT 30..31 "t"
+          RPAREN 31..32 ")"
+          FAT_ARROW 33..35 "=>"
+          IDENT 36..37 "t"
+      SEMICOLON 37..38 ";"

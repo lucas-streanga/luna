@@ -1,0 +1,47 @@
+const p = proto {
+  const get set x: int;
+  const get greet = fn (): string => 'hi';
+};
+---
+File 0..87
+  Declaration 0..87
+    BindingDecl 0..87
+      KW_CONST 0..5 "const"
+      Binder 6..7
+        IDENT 6..7 "p"
+      ASSIGN 8..9 "="
+      Initializer 10..86
+        ProtoLit 10..86
+          KW_PROTO 10..15 "proto"
+          LBRACE 16..17 "{"
+          ProtoItem 20..41
+            MemberDecl 20..41
+              KW_CONST 20..25 "const"
+              Grants 26..33
+                IDENT 26..29 "get"
+                IDENT 30..33 "set"
+              IDENT 34..35 "x"
+              COLON 35..36 ":"
+              Type 37..40
+                IDENT 37..40 "int"
+              SEMICOLON 40..41 ";"
+          ProtoItem 44..84
+            MemberDecl 44..84
+              KW_CONST 44..49 "const"
+              Grants 50..53
+                IDENT 50..53 "get"
+              IDENT 54..59 "greet"
+              ASSIGN 60..61 "="
+              FnLit 62..83
+                KW_FN 62..64 "fn"
+                LPAREN 65..66 "("
+                RPAREN 66..67 ")"
+                COLON 67..68 ":"
+                Type 69..75
+                  IDENT 69..75 "string"
+                FAT_ARROW 76..78 "=>"
+                StringLit 79..83
+                  STRING_SQ 79..83 "'hi'"
+              SEMICOLON 83..84 ";"
+          RBRACE 85..86 "}"
+      SEMICOLON 86..87 ";"

@@ -1,0 +1,41 @@
+import std.io;
+import { a as b, c } from std.json;
+import moduleof.x;
+---
+File 0..69
+  Prelude 0..69
+    PreludeItem 0..14
+      KW_IMPORT 0..6 "import"
+      ImportSpec 7..13
+        ModulePath 7..13
+          IDENT 7..10 "std"
+          DOT 10..11 "."
+          IDENT 11..13 "io"
+      SEMICOLON 13..14 ";"
+    PreludeItem 15..50
+      KW_IMPORT 15..21 "import"
+      ImportSpec 22..49
+        LBRACE 22..23 "{"
+        ImportNames 24..33
+          ImportName 24..30
+            IDENT 24..25 "a"
+            KW_AS 26..28 "as"
+            IDENT 29..30 "b"
+          COMMA 30..31 ","
+          ImportName 32..33
+            IDENT 32..33 "c"
+        RBRACE 34..35 "}"
+        IDENT 36..40 "from"
+        ModulePath 41..49
+          IDENT 41..44 "std"
+          DOT 44..45 "."
+          IDENT 45..49 "json"
+      SEMICOLON 49..50 ";"
+    PreludeItem 51..69
+      KW_IMPORT 51..57 "import"
+      ImportSpec 58..68
+        ModulePath 58..68
+          KW_MODULEOF 58..66 "moduleof"
+          DOT 66..67 "."
+          IDENT 67..68 "x"
+      SEMICOLON 68..69 ";"

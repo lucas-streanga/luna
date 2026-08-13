@@ -1,0 +1,50 @@
+_ = (fn () => 1)();
+_ = (fn (a) => a)(2);
+---
+File 0..41
+  Statement 0..19
+    SimpleStmt 0..18
+      Assignment 0..18
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        PostfixExpr 4..18
+          Primary 4..16
+            LPAREN 4..5 "("
+            FnLit 5..15
+              KW_FN 5..7 "fn"
+              LPAREN 8..9 "("
+              RPAREN 9..10 ")"
+              FAT_ARROW 11..13 "=>"
+              INT_DEC 14..15 "1"
+            RPAREN 15..16 ")"
+          Postfix 16..18
+            LPAREN 16..17 "("
+            RPAREN 17..18 ")"
+    SEMICOLON 18..19 ";"
+  Statement 20..41
+    SimpleStmt 20..40
+      Assignment 20..40
+        AssignTarget 20..21
+          WILDCARD 20..21 "_"
+        ASSIGN 22..23 "="
+        PostfixExpr 24..40
+          Primary 24..37
+            LPAREN 24..25 "("
+            FnLit 25..36
+              KW_FN 25..27 "fn"
+              LPAREN 28..29 "("
+              ParamList 29..30
+                Param 29..30
+                  IDENT 29..30 "a"
+              RPAREN 30..31 ")"
+              FAT_ARROW 32..34 "=>"
+              IDENT 35..36 "a"
+            RPAREN 36..37 ")"
+          Postfix 37..40
+            LPAREN 37..38 "("
+            ArgList 38..39
+              Arg 38..39
+                INT_DEC 38..39 "2"
+            RPAREN 39..40 ")"
+    SEMICOLON 40..41 ";"

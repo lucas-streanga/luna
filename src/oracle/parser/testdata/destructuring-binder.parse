@@ -1,0 +1,74 @@
+let [a, b] = t;
+let ['k' => v] = t;
+foreach ([x, y] in points) { plot(x, y); }
+---
+File 0..78
+  Declaration 0..15
+    BindingDecl 0..15
+      KW_LET 0..3 "let"
+      Binder 4..10
+        DestructurePattern 4..10
+          LBRACKET 4..5 "["
+          DestrEntries 5..9
+            DestrEntry 5..6
+              IDENT 5..6 "a"
+            COMMA 6..7 ","
+            DestrEntry 8..9
+              IDENT 8..9 "b"
+          RBRACKET 9..10 "]"
+      ASSIGN 11..12 "="
+      Initializer 13..14
+        IDENT 13..14 "t"
+      SEMICOLON 14..15 ";"
+  Declaration 16..35
+    BindingDecl 16..35
+      KW_LET 16..19 "let"
+      Binder 20..30
+        DestructurePattern 20..30
+          LBRACKET 20..21 "["
+          DestrEntries 21..29
+            DestrEntry 21..29
+              KeyLit 21..24
+                StringLit 21..24
+                  STRING_SQ 21..24 "'k'"
+              FAT_ARROW 25..27 "=>"
+              IDENT 28..29 "v"
+          RBRACKET 29..30 "]"
+      ASSIGN 31..32 "="
+      Initializer 33..34
+        IDENT 33..34 "t"
+      SEMICOLON 34..35 ";"
+  Statement 36..78
+    ForeachStmt 36..78
+      KW_FOREACH 36..43 "foreach"
+      LPAREN 44..45 "("
+      ForeachBinder 45..51
+        DestructurePattern 45..51
+          LBRACKET 45..46 "["
+          DestrEntries 46..50
+            DestrEntry 46..47
+              IDENT 46..47 "x"
+            COMMA 47..48 ","
+            DestrEntry 49..50
+              IDENT 49..50 "y"
+          RBRACKET 50..51 "]"
+      KW_IN 52..54 "in"
+      IDENT 55..61 "points"
+      RPAREN 61..62 ")"
+      Block 63..78
+        LBRACE 63..64 "{"
+        Statement 65..76
+          SimpleStmt 65..75
+            PostfixExpr 65..75
+              IDENT 65..69 "plot"
+              Postfix 69..75
+                LPAREN 69..70 "("
+                ArgList 70..74
+                  Arg 70..71
+                    IDENT 70..71 "x"
+                  COMMA 71..72 ","
+                  Arg 73..74
+                    IDENT 73..74 "y"
+                RPAREN 74..75 ")"
+          SEMICOLON 75..76 ";"
+        RBRACE 77..78 "}"

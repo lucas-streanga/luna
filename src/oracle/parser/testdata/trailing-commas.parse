@@ -1,0 +1,62 @@
+_ = [1, 2,];
+const f = fn (a, b,) => a;
+_ = g(1, 2,);
+---
+File 0..53
+  Statement 0..12
+    SimpleStmt 0..11
+      Assignment 0..11
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        TableLit 4..11
+          LBRACKET 4..5 "["
+          TableEntries 5..10
+            TableEntry 5..6
+              INT_DEC 5..6 "1"
+            COMMA 6..7 ","
+            TableEntry 8..9
+              INT_DEC 8..9 "2"
+            COMMA 9..10 ","
+          RBRACKET 10..11 "]"
+    SEMICOLON 11..12 ";"
+  Declaration 13..39
+    BindingDecl 13..39
+      KW_CONST 13..18 "const"
+      Binder 19..20
+        IDENT 19..20 "f"
+      ASSIGN 21..22 "="
+      Initializer 23..38
+        FnLit 23..38
+          KW_FN 23..25 "fn"
+          LPAREN 26..27 "("
+          ParamList 27..32
+            Param 27..28
+              IDENT 27..28 "a"
+            COMMA 28..29 ","
+            Param 30..31
+              IDENT 30..31 "b"
+            COMMA 31..32 ","
+          RPAREN 32..33 ")"
+          FAT_ARROW 34..36 "=>"
+          IDENT 37..38 "a"
+      SEMICOLON 38..39 ";"
+  Statement 40..53
+    SimpleStmt 40..52
+      Assignment 40..52
+        AssignTarget 40..41
+          WILDCARD 40..41 "_"
+        ASSIGN 42..43 "="
+        PostfixExpr 44..52
+          IDENT 44..45 "g"
+          Postfix 45..52
+            LPAREN 45..46 "("
+            ArgList 46..51
+              Arg 46..47
+                INT_DEC 46..47 "1"
+              COMMA 47..48 ","
+              Arg 49..50
+                INT_DEC 49..50 "2"
+              COMMA 50..51 ","
+            RPAREN 51..52 ")"
+    SEMICOLON 52..53 ";"

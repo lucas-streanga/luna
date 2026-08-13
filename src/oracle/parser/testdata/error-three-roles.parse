@@ -1,0 +1,139 @@
+const failing = fn (): int! => { throw error; };
+const raising = fn (): int! => { throw error('disk full'); };
+const ioFailure = error { path: string; };
+_ = r is error;
+_ = try { f(); } catch (e: error) { g(); };
+---
+File 0..213
+  Declaration 0..48
+    BindingDecl 0..48
+      KW_CONST 0..5 "const"
+      Binder 6..13
+        IDENT 6..13 "failing"
+      ASSIGN 14..15 "="
+      Initializer 16..47
+        FnLit 16..47
+          KW_FN 16..18 "fn"
+          LPAREN 19..20 "("
+          RPAREN 20..21 ")"
+          COLON 21..22 ":"
+          Type 23..27
+            PostfixType 23..27
+              IDENT 23..26 "int"
+              BANG 26..27 "!"
+          FAT_ARROW 28..30 "=>"
+          Block 31..47
+            LBRACE 31..32 "{"
+            Statement 33..45
+              SimpleStmt 33..44
+                WordPrefix 33..44
+                  KW_THROW 33..38 "throw"
+                  KW_ERROR 39..44 "error"
+              SEMICOLON 44..45 ";"
+            RBRACE 46..47 "}"
+      SEMICOLON 47..48 ";"
+  Declaration 49..110
+    BindingDecl 49..110
+      KW_CONST 49..54 "const"
+      Binder 55..62
+        IDENT 55..62 "raising"
+      ASSIGN 63..64 "="
+      Initializer 65..109
+        FnLit 65..109
+          KW_FN 65..67 "fn"
+          LPAREN 68..69 "("
+          RPAREN 69..70 ")"
+          COLON 70..71 ":"
+          Type 72..76
+            PostfixType 72..76
+              IDENT 72..75 "int"
+              BANG 75..76 "!"
+          FAT_ARROW 77..79 "=>"
+          Block 80..109
+            LBRACE 80..81 "{"
+            Statement 82..107
+              SimpleStmt 82..106
+                WordPrefix 82..106
+                  KW_THROW 82..87 "throw"
+                  PostfixExpr 88..106
+                    KW_ERROR 88..93 "error"
+                    Postfix 93..106
+                      LPAREN 93..94 "("
+                      ArgList 94..105
+                        Arg 94..105
+                          StringLit 94..105
+                            STRING_SQ 94..105 "'disk full'"
+                      RPAREN 105..106 ")"
+              SEMICOLON 106..107 ";"
+            RBRACE 108..109 "}"
+      SEMICOLON 109..110 ";"
+  Declaration 111..153
+    BindingDecl 111..153
+      KW_CONST 111..116 "const"
+      Binder 117..126
+        IDENT 117..126 "ioFailure"
+      ASSIGN 127..128 "="
+      Initializer 129..152
+        ErrorLit 129..152
+          KW_ERROR 129..134 "error"
+          LBRACE 135..136 "{"
+          ErrorField 137..150
+            IDENT 137..141 "path"
+            COLON 141..142 ":"
+            Type 143..149
+              IDENT 143..149 "string"
+            SEMICOLON 149..150 ";"
+          RBRACE 151..152 "}"
+      SEMICOLON 152..153 ";"
+  Statement 154..169
+    SimpleStmt 154..168
+      Assignment 154..168
+        AssignTarget 154..155
+          WILDCARD 154..155 "_"
+        ASSIGN 156..157 "="
+        Comparison 158..168
+          IDENT 158..159 "r"
+          KW_IS 160..162 "is"
+          Type 163..168
+            KW_ERROR 163..168 "error"
+    SEMICOLON 168..169 ";"
+  Statement 170..213
+    SimpleStmt 170..212
+      Assignment 170..212
+        AssignTarget 170..171
+          WILDCARD 170..171 "_"
+        ASSIGN 172..173 "="
+        TryCatchExpr 174..212
+          KW_TRY 174..177 "try"
+          Block 178..186
+            LBRACE 178..179 "{"
+            Statement 180..184
+              SimpleStmt 180..183
+                PostfixExpr 180..183
+                  IDENT 180..181 "f"
+                  Postfix 181..183
+                    LPAREN 181..182 "("
+                    RPAREN 182..183 ")"
+              SEMICOLON 183..184 ";"
+            RBRACE 185..186 "}"
+          CatchClause 187..212
+            KW_CATCH 187..192 "catch"
+            LPAREN 193..194 "("
+            CatchBinder 194..202
+              IDENT 194..195 "e"
+              COLON 195..196 ":"
+              Type 197..202
+                KW_ERROR 197..202 "error"
+            RPAREN 202..203 ")"
+            Block 204..212
+              LBRACE 204..205 "{"
+              Statement 206..210
+                SimpleStmt 206..209
+                  PostfixExpr 206..209
+                    IDENT 206..207 "g"
+                    Postfix 207..209
+                      LPAREN 207..208 "("
+                      RPAREN 208..209 ")"
+                SEMICOLON 209..210 ";"
+              RBRACE 211..212 "}"
+    SEMICOLON 212..213 ";"

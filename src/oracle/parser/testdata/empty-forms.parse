@@ -1,0 +1,51 @@
+_ = [];
+{}
+const f = fn () => 1;
+const g = fn (a) => a;
+---
+File 0..55
+  Statement 0..7
+    SimpleStmt 0..6
+      Assignment 0..6
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        TableLit 4..6
+          LBRACKET 4..5 "["
+          RBRACKET 5..6 "]"
+    SEMICOLON 6..7 ";"
+  Statement 8..10
+    Block 8..10
+      LBRACE 8..9 "{"
+      RBRACE 9..10 "}"
+  Declaration 11..32
+    BindingDecl 11..32
+      KW_CONST 11..16 "const"
+      Binder 17..18
+        IDENT 17..18 "f"
+      ASSIGN 19..20 "="
+      Initializer 21..31
+        FnLit 21..31
+          KW_FN 21..23 "fn"
+          LPAREN 24..25 "("
+          RPAREN 25..26 ")"
+          FAT_ARROW 27..29 "=>"
+          INT_DEC 30..31 "1"
+      SEMICOLON 31..32 ";"
+  Declaration 33..55
+    BindingDecl 33..55
+      KW_CONST 33..38 "const"
+      Binder 39..40
+        IDENT 39..40 "g"
+      ASSIGN 41..42 "="
+      Initializer 43..54
+        FnLit 43..54
+          KW_FN 43..45 "fn"
+          LPAREN 46..47 "("
+          ParamList 47..48
+            Param 47..48
+              IDENT 47..48 "a"
+          RPAREN 48..49 ")"
+          FAT_ARROW 50..52 "=>"
+          IDENT 53..54 "a"
+      SEMICOLON 54..55 ";"

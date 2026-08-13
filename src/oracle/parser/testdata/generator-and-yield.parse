@@ -1,0 +1,62 @@
+const g = gen { yield 1; };
+const h = gen { yield from xs; };
+const k = gen { yield 'a' => 1; };
+---
+File 0..96
+  Declaration 0..27
+    BindingDecl 0..27
+      KW_CONST 0..5 "const"
+      Binder 6..7
+        IDENT 6..7 "g"
+      ASSIGN 8..9 "="
+      Initializer 10..26
+        GenLit 10..26
+          KW_GEN 10..13 "gen"
+          Block 14..26
+            LBRACE 14..15 "{"
+            Statement 16..24
+              SimpleStmt 16..23
+                KW_YIELD 16..21 "yield"
+                INT_DEC 22..23 "1"
+              SEMICOLON 23..24 ";"
+            RBRACE 25..26 "}"
+      SEMICOLON 26..27 ";"
+  Declaration 28..61
+    BindingDecl 28..61
+      KW_CONST 28..33 "const"
+      Binder 34..35
+        IDENT 34..35 "h"
+      ASSIGN 36..37 "="
+      Initializer 38..60
+        GenLit 38..60
+          KW_GEN 38..41 "gen"
+          Block 42..60
+            LBRACE 42..43 "{"
+            Statement 44..58
+              SimpleStmt 44..57
+                KW_YIELD_FROM 44..54 "yield from"
+                IDENT 55..57 "xs"
+              SEMICOLON 57..58 ";"
+            RBRACE 59..60 "}"
+      SEMICOLON 60..61 ";"
+  Declaration 62..96
+    BindingDecl 62..96
+      KW_CONST 62..67 "const"
+      Binder 68..69
+        IDENT 68..69 "k"
+      ASSIGN 70..71 "="
+      Initializer 72..95
+        GenLit 72..95
+          KW_GEN 72..75 "gen"
+          Block 76..95
+            LBRACE 76..77 "{"
+            Statement 78..93
+              SimpleStmt 78..92
+                KW_YIELD 78..83 "yield"
+                StringLit 84..87
+                  STRING_SQ 84..87 "'a'"
+                FAT_ARROW 88..90 "=>"
+                INT_DEC 91..92 "1"
+              SEMICOLON 92..93 ";"
+            RBRACE 94..95 "}"
+      SEMICOLON 95..96 ";"
