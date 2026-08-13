@@ -1,3 +1,7 @@
 a.out
 *.o
-mutate
+
+# Built binaries, anchored: a bare `mutate` would also match cmd/mutate/, and quietly
+# hide a package directory from git rather than the binary beside this file.
+/mutate
+/ambiguity

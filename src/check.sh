@@ -5,7 +5,8 @@
 #   ./check.sh              format, vet, tests, lint  (the gate; seconds)
 #   ./check.sh --fuzz 30    ... plus 30s on each fuzz target
 #   ./check.sh --mutate     ... plus the mutation harness (minutes)
-#   ./check.sh --all        the gate, 30s of fuzzing, and mutation
+#   ./check.sh --ambiguity  ... plus the exhaustive grammar search (a minute)
+#   ./check.sh --all        the gate, fuzzing, mutation, and the grammar search
 #
 # Runs from anywhere. Every step runs even after an earlier one fails, so one
 # invocation reports everything wrong rather than the first thing wrong; the
@@ -31,13 +32,15 @@ cd "$(dirname "$0")"
 
 fuzz_seconds=0
 mutate=0
+ambiguity=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --fuzz)   fuzz_seconds="${2:-30}"; shift 2 ;;
-    --mutate) mutate=1; shift ;;
-    --all)    fuzz_seconds=30; mutate=1; shift ;;
-    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --fuzz)      fuzz_seconds="${2:-30}"; shift 2 ;;
+    --mutate)    mutate=1; shift ;;
+    --ambiguity) ambiguity=1; shift ;;
+    --all)       fuzz_seconds=30; mutate=1; ambiguity=1; shift ;;
+    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "check.sh: unknown argument '$1'" >&2; exit 2 ;;
   esac
 done
@@ -99,6 +102,12 @@ step "golangci-lint" run_lint
 
 [ "$fuzz_seconds" -gt 0 ] && step "fuzz (${fuzz_seconds}s per target)" run_fuzz
 [ "$mutate" -eq 1 ] && step "mutation" go run ./cmd/mutate
+
+# Opt-in for a reason the other two do not share: this one is a proof over a fixed
+# grammar, so its answer moves only when specs/build/grammar.md does. Re-running it
+# every commit re-establishes what the last run established. The gate keeps the
+# three-token sweep (internal/ebnf), which is the part that can regress.
+[ "$ambiguity" -eq 1 ] && step "ambiguity" go run ./cmd/ambiguity -sweep
 
 printf '\n'
 if [ ${#failed[@]} -eq 0 ]; then
