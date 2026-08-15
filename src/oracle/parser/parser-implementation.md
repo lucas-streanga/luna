@@ -106,10 +106,19 @@ The splice pass keeps `next`, the first unemitted full index:
 | `token(i)` | emit `token` for every index in `next..i-1` — all trivia by construction — then `token(i)`; set `next = i+1` |
 | `open(k)` | **if the stack is non-empty**, emit trivia from `next` while it stays trivia; then `open(k)` |
 | `close` | emit `close`. **No flush** — this is the half of §2.1 that pushes trivia outward |
+| `missing(k)` | emit it. **No flush**, for the same reason and one of its own: it covers no bytes, so it belongs before the trivia it precedes rather than after |
 | end | emit the remaining trivia, then close the root |
 
+The last row is the root's `close`, which is where a file ends in a balanced stream: the parser
+opens and closes `File` itself, §6.1 turning on its doing so.
+
 Trivia needs **no new event kind**: the pass emits ordinary `token` events for trivia indices, and
-the builder makes them leaves like anything else.
+the builder makes them leaves like anything else. **A synthesised leaf does need one**, and it is
+the only other member: §7.2's layer 1 emits a zero-width leaf of the kind it expected (§6.1), and
+that cannot be a `token` event because there is no entry in the lexer's stream for it to index. It
+carries the kind alone — its position is the builder's cursor, the end of the last leaf emitted,
+which is the one offset that cannot break the tiling. Trivia pending at that moment has not been
+flushed, so the zero-width leaf lands before those bytes rather than after them.
 
 The stack-non-empty guard is what keeps leading file trivia inside `File`. It is not flushed
 before `File` opens, because nothing is open yet; it flushes before the first top-level item's
@@ -296,19 +305,30 @@ splice pass needs the rest.
 ## 5. The `Kind` enum: what never survives into a tree is not a kind
 
 **What never survives is exactly the pure alternations** — a nonterminal whose every production is
-a single symbol, so it always passes through with one child and always collapses
-(`testdata/golden.md` §2; the set is computed by `ebnf.PureAlternations`, not listed, so a new
-operator class joins by being written into §0). There are **26** of §0's 130:
+a single symbol the desugar did not mint, so it always passes through with one child and always
+collapses (`testdata/golden.md` §2; the set is computed by `ebnf.PureAlternations`, not listed, so
+a new operator class joins by being written into §0). There are **25** of §0's 130:
 
 ```
 ArmBody AssignOp BindTarget BindingKw BlockItem BytesLit CmdPiece CoalesceOp
 CompOp CompoundStmt DeclLit DqPiece Expr FnBody IntLit Keyword Literal MatchKw
-PathSegment Pattern Prelude RegexPiece TopLevelItem Type VariantPayload WordOp
+PathSegment Pattern RegexPiece TopLevelItem Type VariantPayload WordOp
 ```
+
+**`Prelude` was the twenty-sixth until a tree was built from the goldens.** `Prelude ::=
+PreludeItem*` has one symbol on its right, but the *desugar* put it there: `*` becomes an `LHS·n`
+helper, so that one symbol stands for any number of children and a three-import file yields three
+of them. The corpus had shown it all along — `import-forms.parse` prints a `Prelude` line over
+three `PreludeItem`s — while this section said the name never reaches a tree, and nothing caught
+the disagreement because the golden renderer printed derivation names and needed no `Kind` behind
+them. Building the tree needed one and the pin refused to supply it, which is Phase 1's version
+of the R253 pattern: the reading was wrong and only the writing could say so.
+`ebnf.PureAlternations` now excludes a production whose single symbol is synthetic, which is the
+property its callers actually read the set for — not "one symbol" but "one child".
 
 **`Type` is the one that stays anyway.** It is a pure alternation by shape (`FnType | UnionType`)
 and the one place that is wrong: eliding it leaves a bare `IDENT` indistinguishable from an
-expression's, which is the distinction R256 exists to make. So **25 drop, and 105 node kinds come
+expression's, which is the distinction R256 exists to make. So **24 drop, and 106 node kinds come
 from §0**.
 
 **The precedence tiers stay, and this corrects the ruling as it was put.** They collapse only when
@@ -319,8 +339,8 @@ one rule already catches them. A tree that could not name `Additive` could not r
 
 **One kind space, not two.** Leaves carry token kinds and interior nodes carry node kinds, and a
 homogeneous tree wants one tag: `Kind`'s low range mirrors `token.Kind`'s 134 values so that
-converting a token's kind is a no-op, and its high range holds the 105. It should be `uint16`
-rather than `uint8` — 239 allocated leaves 16 spare, which is not room to work in.
+converting a token's kind is a no-op, and its high range holds the 106. It should be `uint16`
+rather than `uint8` — 240 allocated leaves 15 spare, which is not room to work in.
 
 **There is exactly one parser-only kind, `Error`** — §6 has the reasoning, and the short version
 is that a missing token reuses the kind it was missing.

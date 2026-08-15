@@ -138,17 +138,22 @@ func ReadGoldenDir(dir string) ([]*Golden, error) {
 
 // --- lexing ----------------------------------------------------------------------------
 
-// LexedGolden is one source's tokens in both shapes the tools need: the grammar's view (kind
-// plus lexeme) and the lexer's own (kind plus offsets). They are index-parallel, which is what
-// lets a derivation's token spans become the golden's byte spans.
+// LexedGolden is one source lexed into the two shapes the tools need: the **full** stream Parse
+// takes, trivia included (§4.4), and the trivia-filtered view grammar §0 is defined over. Both
+// are kept because the two halves of a case run over different streams — the recognizer over the
+// filtered one, the builder over all of it — and only the full one tiles the file.
 type LexedGolden struct {
-	Source string
-	Toks   []token.Token
-	Input  []ebnf.Token
+	File  *source.File  // the retained source: every span indexes into it
+	Toks  []token.Token // every token, trivia and all
+	Input []ebnf.Token  // the filtered view, kind plus lexeme, which is what a terminal matches
+
+	// filtered position → index into Toks. A derivation numbers tokens in the filtered stream
+	// and an event carries the real index, so the bridge converts; it is unexported and dies
+	// with the bridge, since the parser needs no such table (§2.2).
+	index []int
 }
 
-// LexGolden runs the real lexer and drops trivia, which is the stream grammar §0 is defined
-// over.
+// LexGolden runs the real lexer and builds both views.
 func LexGolden(name, src string) (*LexedGolden, error) {
 	f, err := source.New(name, src)
 	if err != nil {
@@ -159,13 +164,13 @@ func LexGolden(name, src string) (*LexedGolden, error) {
 		return nil, fmt.Errorf("%d lexical diagnostics, the first at offset %d",
 			len(diags), diags[0].Primary.Offset)
 	}
-	out := &LexedGolden{Source: src}
-	for _, tk := range toks {
+	out := &LexedGolden{File: f, Toks: toks}
+	for i, tk := range toks {
 		if tk.Kind.IsTrivia() {
 			continue
 		}
-		out.Toks = append(out.Toks, tk)
 		out.Input = append(out.Input, ebnf.Token{Kind: tk.Kind, Text: f.Slice(tk.Offset, tk.Len)})
+		out.index = append(out.index, i)
 	}
 	return out, nil
 }

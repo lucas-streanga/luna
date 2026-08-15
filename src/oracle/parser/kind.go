@@ -31,9 +31,15 @@ const firstNode Kind = tokenValues
 // always collapses, so it never reaches a tree (§5). `Type` is the one kept anyway: eliding it
 // leaves a bare IDENT in type position indistinguishable from an expression's, which is the
 // distinction R256 exists to make.
+//
+// `Prelude` is here because it is **not** a pure alternation, though it was counted as one until
+// building a tree from the goldens said otherwise: `Prelude ::= PreludeItem*` is one symbol on
+// the right only because the desugar made the repetition a helper, and a three-import file
+// yields three children under it. §5 has the correction.
 const (
 	// §0.1 file and declarations
 	File Kind = firstNode + iota
+	Prelude
 	PreludeItem
 	ImportSpec
 	ImportNames
@@ -165,6 +171,7 @@ const (
 // §0's, and kind_test.go checks them against §0 itself.
 var nodeNames = [...]string{
 	File:               "File",
+	Prelude:            "Prelude",
 	PreludeItem:        "PreludeItem",
 	ImportSpec:         "ImportSpec",
 	ImportNames:        "ImportNames",

@@ -21,6 +21,47 @@ import "luna/oracle/token"
 //
 // Neither golden format can see the rule, so §2.3 asserts it directly — after splicing the
 // token indices are exactly {0..n-1}, each once and in order.
+//
+// The table's last row — "at the end, emit the remaining trivia, then close the root" — is
+// implemented as the close that returns the depth to zero, because that is where the end of the
+// file is in a balanced stream. The parser opens and closes File itself: §6.1 turns on its doing
+// so, an empty file being File opened and closed with nothing between.
 func splice(toks []token.Token, evs eventStream) eventStream {
-	panic("parser: splice is unimplemented")
+	out := make(eventStream, 0, len(evs)+len(toks))
+	next, depth := 0, 0
+
+	// flush emits the run of trivia at next, which is what an open defers to and a close does
+	// not do at all. Both halves push trivia outward, into the innermost node already open.
+	flush := func() {
+		for next < len(toks) && toks[next].IsTrivia() {
+			out = append(out, event{kind: evToken, tok: next})
+			next++
+		}
+	}
+
+	for _, e := range evs {
+		switch e.kind {
+		case evToken:
+			for ; next < e.tok; next++ { // trivia by construction: the parser skipped nothing else
+				out = append(out, event{kind: evToken, tok: next})
+			}
+			out = append(out, e)
+			next = e.tok + 1
+		case evOpen:
+			if depth > 0 { // nothing is open before File, so the file's leading trivia is its
+				flush()
+			}
+			out = append(out, e)
+			depth++
+		case evClose:
+			depth--
+			if depth == 0 {
+				flush()
+			}
+			out = append(out, e)
+		default: // evMissing consumes no index and no bytes, so there is nothing to flush before it
+			out = append(out, e)
+		}
+	}
+	return out
 }

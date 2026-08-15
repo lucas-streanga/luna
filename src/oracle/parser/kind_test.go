@@ -19,7 +19,7 @@ import (
 // §0's arithmetic, which the tests below enforce rather than assume.
 const (
 	specNonterminals = 130                                     // grammar.md §10's total
-	pureAlternations = 26                                      // never survive into a tree (§5)
+	pureAlternations = 25                                      // never survive into a tree (§5)
 	nodeKindCount    = specNonterminals - pureAlternations + 1 // + Type, kept back
 )
 

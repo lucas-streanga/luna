@@ -137,19 +137,28 @@ func (g *Grammar) Terminals() []string {
 // class is pinned against lexer §10's fifty.
 func (g *Grammar) Alternatives(name string) int { return len(g.byLHS[name]) }
 
-// PureAlternations returns every nonterminal whose productions are each a single symbol —
-// `AssignOp`, `Keyword`, `TopLevelItem`, `Literal` and their kin.
+// PureAlternations returns every nonterminal whose productions are each a single symbol that is
+// not synthetic — `AssignOp`, `Keyword`, `TopLevelItem`, `Literal` and their kin.
 //
 // Such a name is pure dispatch: it says which of several shapes follows, and the child it
 // yields already says the same thing. Nothing else about the grammar distinguishes them, which
 // is what makes this computable rather than a list somebody maintains — a new operator class
 // added to grammar.md joins the set by being written, not by being remembered.
+//
+// **A synthetic symbol is excluded, and `Prelude ::= PreludeItem*` is why.** The desugar turns
+// `*`, `?` and groups into `LHS·n` helpers, so a repetition is *one* symbol on the right and
+// stands for any number of children. Counting it as dispatch made this set claim a name that
+// yields three `PreludeItem`s for a three-import file — which the parse goldens have always
+// shown, and which the consumer of this set reads as "never survives into a tree". What the
+// caller wants is the property the doc comment states, "always passes through with one child",
+// and a single synthetic is exactly the case where that does not follow from the arity.
 func (g *Grammar) PureAlternations() map[string]bool {
 	out := map[string]bool{}
 	for name, idxs := range g.byLHS {
 		pure := true
 		for _, i := range idxs {
-			if len(g.Prods[i].RHS) != 1 {
+			rhs := g.Prods[i].RHS
+			if len(rhs) != 1 || strings.ContainsRune(rhs[0].Name, '·') {
 				pure = false
 				break
 			}

@@ -127,6 +127,12 @@ says the same thing. Nothing else about the grammar distinguishes them, which is
 set computable (`ebnf.PureAlternations`) instead of a list somebody maintains — a new operator
 class added to grammar.md joins by being written, not by being remembered.
 
+One symbol means one the grammar wrote. `Prelude ::= PreludeItem*` reads as a single symbol only
+because the desugar made the repetition an `LHS·n` helper, and that helper stands for any number
+of children — so `Prelude` is **not** in the set, and it prints whenever the file has imports.
+The set is read for "always exactly one child", which is a property of the arity and not of the
+production's length (`../parser-implementation.md` §5).
+
 **The precedence tiers**, which are listed, because no shape distinguishes them:
 
 - the expression tiers — `Expr`, `Assignment`, `WordPrefix`, `Conditional`, `Coalesce`,
