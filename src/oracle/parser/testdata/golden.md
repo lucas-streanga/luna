@@ -77,11 +77,14 @@ Indentation is two spaces per level.
   against the spec, which is the same principle `FORMAT.md` states for token names. No separate
   AST vocabulary is invented; if one is ever specified for §1.4's benefit, it is a second view,
   not a replacement for this one.
-- **Trivia is dropped.** grammar.md is defined over the trivia-filtered stream, and the 85 `.lex`
-  goldens already pin every trivia token. What they do not pin is *attachment* — which node owns
-  a comment — and that is tooling §2's question, deserving its own small set when the formatter
-  exists. Meanwhile every case asserts `reconstruct(cst) == source`, so losslessness is checked
-  without being dumped.
+- **Trivia is dropped**, and stays dropped: an indented tree is readable against §0 and a tree
+  interleaved with whitespace nodes is not. grammar.md is defined over the trivia-filtered
+  stream, and the 85 `.lex` goldens already pin every trivia token.
+  What no golden here can see is *placement* — which node a comment lands in — so that is
+  asserted directly rather than displayed: **index coverage** over the spliced event stream and
+  the **never-first-or-last-child** invariant over the tree, both run on every case and the whole
+  corpus (`../parser-implementation.md` §2.3). Losslessness is therefore checked without being
+  dumped.
 - **Diagnostics are a third section**, one per line, `!P0001 12..13` — the code and the primary
   span, never the prose (grammar.md §11). The leading `!` is redundant here (unlike in `.lex`,
   where diagnostics interleave with tokens) and is kept anyway so that `grep -rn '!P0' testdata/`
@@ -121,12 +124,17 @@ expression tiers, where the surviving name is the tier that fired (`Additive`) a
 ones said nothing. Applied uniformly it also deletes five type nonterminals in a row (`Type →
 UnionType → IntersectType → PostfixType → PrimaryType → IDENT`), and then `let x: int = y;`
 prints two bare `IDENT` lines with **nothing recording that one of them is in type position**.
-That is the one distinction R256 exists to make, erased at exactly the leaves. `fn (x) => x` has
-the same collision between a `Param` and a body. Keeping `Type`, `Binder`, `Param`, `ArmBody`,
-`FnBody`, `Initializer` — every wrapper whose *name is the information* — costs one line per
-occurrence and is what the `is-intersection-vs-and` case turns on: `x is int & y` puts `int & y`
-inside one `Type`, while `x is int && y` ends the `Type` at `int` and splits at `Conjunction`.
-The two trees differ where the claim in grammar.md §11 says they do.
+That is the one distinction R256 exists to make, erased at exactly the leaves. So `Type` is
+overridden back, and the wrappers that are not pure alternations — `Binder`, `Param`,
+`Initializer`, `MemberDecl` — keep themselves, at one line per occurrence. It is what the
+`is-intersection-vs-and` case turns on: `x is int & y` puts `int & y` inside one `Type`, while
+`x is int && y` ends the `Type` at `int` and splits at `Conjunction`. The two trees differ where
+the claim in grammar.md §11 says they do.
+
+`ArmBody` and `FnBody` are **not** in that group, though they read as though they should be: both
+are `Block | Expr`, so both are pure alternations and both collapse. Nothing is lost, because what
+they wrapped says it instead — a block body shows a `Block`, an expression body shows the
+expression — and the ordered choice §11 flags stays legible in the tree either way.
 
 Most delimited forms need no exception: `Block`, `TableLit`, `DestructurePattern`, `FnLit` and
 their kin carry their own tokens, so they survive any rule. That is why the exception list is
