@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-This is the **specification** of the Luna programming language, not an implementation. No compiler
-exists yet; the deliverable is the design itself. In practice that means the work here is almost
-always **prose editing under a consistency discipline**, not coding. The three artifacts:
+This repository is primarily the **specification** of the Luna programming language: the deliverable
+is the design, and most work here is **prose editing under a consistency discipline** rather than
+coding. A reference frontend has since begun under `src/` — the lexer is complete, the parser is
+next — but it implements the spec and never leads it. The artifacts:
 
 - `specs/` — the spec, one Markdown file per topic, grouped into subdirectories (`types/`,
   `expressions/`, `declarations/`, `concurrency/`, `build/`, `std/`, `internals/`, `type-operations/`,
@@ -16,6 +17,8 @@ always **prose editing under a consistency discipline**, not coding. The three a
 - `CHANGES.md` — the design-decision log: a numbered sequence of rulings (`R1`, `R2`, … currently past
   `R83`) that each resolve a contradiction or open question and record every file swept to apply it.
   This is the most important file to understand before changing any spec.
+- `src/` — the **oracle**: a Go reference implementation of the frontend, plus the tools that check
+  the spec against itself. One module, `luna`. See "Working in `src/`" below.
 - `tooling/` — syntax highlighting only (tree-sitter grammar, VSCode extension, Zed extension, a Shiki
   grammar). Independent of the spec's correctness.
 
@@ -52,6 +55,43 @@ Key conventions that recur and must stay consistent:
 - **Match the house prose style**: terse, decision-dense, rationale-forward, first-matching-arm
   precision. The overview and index are the models for tone.
 
+## Working in `src/` (the oracle)
+
+The oracle is written **to** the spec and used to check it. When code and spec disagree the code is
+wrong — unless the disagreement is a spec defect, in which case it is a ruling and goes through the
+process above. Several rulings (R253 onward) exist because writing the oracle surfaced a
+contradiction reading could not.
+
+The gate, from `src/`:
+
+```bash
+./check.sh              # gofmt, vet, test (-race -shuffle=on -count=1), golangci-lint; seconds
+./check.sh --fuzz 30    # ... plus 30s on each fuzz target
+./check.sh --mutate     # ... plus the mutation harness (minutes)
+./check.sh --ambiguity  # ... plus the exhaustive grammar search (a minute)
+./check.sh --all
+```
+
+What exists: `oracle/{token,source,escape,diagnostic,lexer,modules,driver}` — Phase 0, complete and
+mutation-tested; `oracle/parser` — the golden format and the design notes, the parser itself next;
+`internal/ebnf` — the **spec-literal parser**, which reads `specs/build/grammar.md` at run time and
+runs it with Earley, so the grammar has an executable reading with no second copy to drift;
+`internal/{spec,highlight,grammar}` and `cmd/{lexdump,highlight,mutate,ambiguity,gengrammar,luna}`.
+The empty directories under `oracle/` and `harness/` are placeholders for later phases.
+
+Two conventions that are easy to trip over:
+
+- **`src/specs` and `src/tooling` are symlinks, and they are load-bearing.** Go's test cache only
+  tracks files inside the module, so a test reading the spec by its real path would cache a pass
+  over a file it never opened. `make-archive.sh` passes `zip -y` so they archive as links.
+- **`check.sh` treats a missing tool as a failure, not a skip**, and always passes `-count=1`. Both
+  are the same rule: a check that passes by not running is worse than no check.
+
+**Implementation design notes live beside their code, not in `specs/`** —
+`oracle/parser/parser-implementation.md`, `oracle/parser/testdata/golden.md`,
+`oracle/lexer/testdata/FORMAT.md`, and the root-level `driver.md`, `lexer-testing-plan.md`,
+`testing-strategy.md`. None of them are `CHANGES.md` rulings: only *language* decisions get rulings.
+
 ## Tooling commands
 
 Grammar generation runs in a pinned one-shot container (no local node/npm needed); the two halves are
@@ -64,8 +104,8 @@ tooling/publish-grammar.sh     # commit + push the grammar, then repoint zed-lun
 
 `tooling/generate-grammar.sh` deletes and regenerates `tooling/tree-sitter-luna/src/` (the checked-in
 `parser.c` etc. are generated artifacts). `tooling/publish-grammar.sh` is the only thing that writes
-`tooling/zed-luna/extension.toml` — do not hand-edit that file. There is no build/test/lint step for
-the language itself, because there is no implementation.
+`tooling/zed-luna/extension.toml` — do not hand-edit that file. This tooling is independent of the
+oracle: the gate for Go code is `src/check.sh` above, and nothing here runs it.
 
 Package the spec for distribution (respects every nested `.gitignore`):
 

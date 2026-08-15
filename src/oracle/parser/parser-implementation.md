@@ -691,7 +691,29 @@ with it.
 
 ---
 
-## 10. Still open
+## 10. Implementation order
+
+Not a design decision — a sequence chosen so that **each step has a test before the next one
+starts**, and so that the API is judged by a real caller before the parser exists.
+
+1. **`Kind`, and its two pins.** Hand-written constants (§5), then the assertions: every surviving
+   §0 nonterminal has a kind and the reverse, and `Kind(k)` matches numerically for every
+   `token.All()`. Both are real tests that pass before any tree exists — lexer-testing-plan §1's
+   "inventory pin, build first", and the cheapest first signal available here.
+2. **The arena and the navigation API** (§3.1): `Tree`, `NodeID`, children, spans, kind, immutable
+   once built (§4.3).
+3. **Events, splice and builder** (§4, §2.2), events unexported. Unit-tested against hand-written
+   sequences (§4.2), and §2.3's index-coverage assertion lands here.
+4. **Port `golden_render.go` onto the new tree.** The first real caller, and the step that makes
+   this a plan rather than a hope: it exercises kinds, traversal, spans and leaf text against
+   **thirty goldens that already exist**, so the API is tried by use rather than by inspection.
+   `internal/ebnf` then drops out of this package exactly as `golden_render.go`'s own header note
+   predicts, and the goldens stop testing only the grammar and start testing the tree too.
+5. **The parser proper**, a production group at a time, goldens going green as they go.
+6. **Recovery** (§7), and with it `error_producing/` and the perturbation harness (§7.7) — the
+   thing that turns recovery quality from a judgement into a number.
+
+## 11. Still open
 
 - **The quiet period's *N*** (§7.6), and whether the other two cascade suppressors are wanted at
   all. Tuned against the `error_producing/` goldens once they exist, not chosen now.
