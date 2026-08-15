@@ -2,6 +2,7 @@ package ebnf
 
 import (
 	"fmt"
+	"strings"
 
 	"luna/oracle/token"
 )
@@ -55,6 +56,12 @@ type Result struct {
 	Accepted  bool
 	Ambiguous bool
 	Furthest  int // the highest token index any item advanced to
+
+	// Expected is the terminals that would have let the parse continue at Furthest, sorted.
+	// It is the grammar's own answer to "what belongs here", and it is filled in only on a
+	// rejection — computing it for every accepted input would cost the generator dearly and
+	// tell it nothing.
+	Expected []string
 }
 
 // chart is one run's completed Earley state: the item sets in insertion order, the causes that
@@ -71,11 +78,33 @@ type chart struct {
 // Recognize runs the grammar over toks from the start symbol.
 func (g *Grammar) Recognize(toks []Token) Result {
 	c := g.chart(toks)
-	return Result{
+	r := Result{
 		Accepted:  len(c.roots) > 0,
 		Ambiguous: len(c.roots) > 1 || anyAmbiguous(c.roots, c.causes),
 		Furthest:  c.furthest,
 	}
+	if !r.Accepted {
+		r.Expected = g.expectedAt(c, c.furthest)
+	}
+	return r
+}
+
+// expectedAt reads the frontier: every terminal sitting immediately after a dot in the item set
+// the parse reached. That set *is* the grammar's answer to "what could come next here", and it
+// is the raw material of a syntax diagnostic — though not the diagnostic itself, since a list of
+// forty admissible tokens is a fact, not a sentence anyone wants to read.
+func (g *Grammar) expectedAt(c *chart, at int) []string {
+	if at < 0 || at >= len(c.order) {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, it := range c.order[at] {
+		p := g.Prods[it.prod]
+		if it.pos < len(p.RHS) && p.RHS[it.pos].IsTerminal {
+			seen[p.RHS[it.pos].String()] = true
+		}
+	}
+	return sortedKeys(seen)
 }
 
 func (g *Grammar) chart(toks []Token) *chart {
@@ -215,9 +244,17 @@ func (r Result) Explain(toks []Token) string {
 	if r.Accepted {
 		return "accepted"
 	}
-	if r.Furthest >= len(toks) {
-		return "input ended early"
+	where := "input ended early"
+	if r.Furthest < len(toks) {
+		where = fmt.Sprintf("no parse at token %d (%s %q)",
+			r.Furthest, toks[r.Furthest].Kind, toks[r.Furthest].Text)
 	}
-	return fmt.Sprintf("no parse at token %d (%s %q)",
-		r.Furthest, toks[r.Furthest].Kind, toks[r.Furthest].Text)
+	// Frontiers are bimodal over this grammar: the small ones run 1, 2, 4, 5, 6 and the next
+	// size is 11. Below the gap the list *is* the message; above it, it is forty ways to start
+	// an expression and says nothing. So the cut is where the data puts it, not at a round
+	// number picked for tidiness.
+	if len(r.Expected) > 0 && len(r.Expected) <= 6 {
+		where += ", expected " + strings.Join(r.Expected, " or ")
+	}
+	return where
 }

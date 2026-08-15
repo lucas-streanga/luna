@@ -630,6 +630,84 @@ What is already fixed, ahead of the numbers:
 - **Recovery points are an implementation concern**, not a grammar one, and belong with the
   parser rather than here.
 
+### 11.1 How large the space is, measured (R267)
+
+The question "what must the parser diagnose" has a mechanical answer, and it has three of them,
+because it is three questions. Each number below is derived from §0 by `internal/ebnf`, not
+estimated.
+
+| Enumeration | Count | What it answers |
+|-|-|-|
+| **Dot positions** | 1,140 over 561 desugared productions | where a parser can *be* when it fails. A true bound and a useless one: most dots share a message. |
+| **Committed expect-sites** | 274, over **33 distinct terminals** | where the parser writes `expect(X)` — a dot past position 0 with a terminal next. This is the inventory of required tokens. |
+| **Recursion sites** | 429, over 175 nonterminals | where a nonterminal is predicted, so failure is reported one level down as "expected a *thing*". |
+| **Frontier classes** | **50** | the distinct answers to "what may come next", over every prefix of every four-token program (12,559 of them). |
+
+Ten terminals carry 233 of the 274 expect-sites — `COLON` 39, `RPAREN` 27, `IDENT` 24,
+`SEMICOLON` 22, `ASSIGN` 21, `LPAREN` 21, `FAT_ARROW` 20, `RBRACKET` 18, `RBRACE` 16,
+`COMMA` 15 — and fourteen terminals are wanted at exactly one site, where a message can name its
+construct with no ambiguity.
+
+**The frontier is bimodal, and that is what shapes the diagnostics.** Its sizes run 1, 2, 4, 5,
+6 — then a gap — then 11, 14, 15, 26 … 84, with the mass at 26–62. Only three frontiers are
+singletons (`IDENT`, `SEMICOLON`, `STRING_SQ`). Below the gap the expected set **is** the
+message ("expected `;`"); above it the set is sixty-two ways to begin an expression, and
+printing it is noise where naming the *nonterminal* is not. The two halves of §11.2's engine
+table are those two modes.
+
+**What the grammar cannot supply, and the parser must.** A frontier is the union over every live
+item; a recursive-descent parser has a **stack**, and the stack is where the good message lives.
+The grammar knows `RPAREN` is expected — only the parser knows *which* `(` is unclosed, which is
+the secondary span that makes the diagnostic worth reading. Nor can the grammar choose whom to
+blame: at the end of `let x = 1` the frontier holds `SEMICOLON` and every operator, and "missing
+`;`" is the parser preferring the innermost incomplete production. So this section sizes and
+bounds the space; it does not write the messages.
+
+What it *does* buy is a completeness check, and one worth building: for every valid prefix, the
+token a parser's diagnostic names must appear in the grammar's frontier there. A parser that
+invents an expectation §0 does not have is caught by construction — the same shape as the
+reject-set invariant the parse goldens carry (`oracle/parser/testdata/golden.md`).
+
+### 11.2 The diagnostics, by title
+
+Titles are fixed and are part of a code's identity (compiler §3.1); descriptions are
+per-instance. **Numbers are allocated when the parser raises the check and a test pins it**, in
+the order that happens, so this table is deliberately unnumbered and deliberately not in
+allocation order.
+
+The split is between an **engine** — five diagnostics that cover every one of the 1,140 sites —
+and the **named rules**, each of which is a place the language deliberately excludes something
+and a spec sentence says why. A rule with a reason earns a page; the engine's five do the rest.
+
+**The engine.**
+
+| Title | Raised when | Frontier |
+|-|-|-|
+| Unexpected token | a token appears where §0 admits none, and no single construct was under way | large |
+| Unexpected end of input | input ended with a production incomplete | any |
+| Unclosed delimiter | a committed `(`, `[` or `{` never met its closer; the opener is a **secondary span** | small |
+| Missing token | a required terminal is absent; the description names it (the 274 expect-sites) | small |
+| Expected a construct | a nonterminal was predicted and nothing could begin it; the description names which — expression, type, pattern, statement, declaration (the 429 recursion sites) | large |
+
+**The named rules.** Each is unrepresentable in §0 on purpose, so the generic message would be
+technically right and useless — `set get` reports "expected `:`" and `fn () => {read}` reports a
+missing `}`, neither of which names the actual mistake.
+
+| Title | The rule | Owner |
+|-|-|-|
+| Declaration with a postfix modifier | `let x = 5 if (c);` would scope the binding inside the sugar block, where it is provably unusable | control-flow §5.1 |
+| `defer` with a postfix modifier | `defer close(fd) if (c);` would run the cleanup **immediately**, at the sugar block's exit | control-flow §5.1 |
+| `else` on a postfix form | an else-bearing conditional is the block form | control-flow §5.1 |
+| Chained postfix modifiers | `expr if (c) foreach (h)` poses the which-nests-which trap | control-flow §5 |
+| Grant order must be `get set` | one spelling, so `set get` does not derive | protocols §2.2 |
+| Variant literal after `=>` needs parentheses | `{` there always opens a block, so the literal is `({read})` | this file, Flagged |
+
+Two boundaries the count depends on, both already ruled elsewhere. **Import-after-the-prelude is
+an `M`, not a `P`**: §1.2 rejects it before parsing (R250), so the structural invariant §1 records
+never raises a code here. And the corpus's 204 "compile error" sites are overwhelmingly `S` — §9's
+table is the explicit list of what the grammar admits and semantics rejects, which is to say the
+list of things that are *not* on this page.
+
 ---
 
 ## Flagged: hazards and the corners

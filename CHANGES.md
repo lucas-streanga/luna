@@ -8405,6 +8405,65 @@ Swept: `examples/disk-report.md`, `examples/tree-grep.md`,
 `examples/one-billion-rows.md` and `examples/log-scan.md` (the `args()` index);
 `index.md`'s examples row. The corpus is **431** parsing blocks.
 
+**R267 — the syntax-diagnostic space, measured before the parser rather than
+guessed after it.** grammar.md §11 held the table `P` codes would land in and
+nothing about how many there would be. The question turned out to have a
+mechanical answer — three, in fact, because it is three questions — and the
+numbers are now §11.1: **1,140 dot positions** over 561 desugared productions
+(where a parser can be), **274 committed expect-sites over just 33 distinct
+terminals** (where it writes `expect(X)`), **429 recursion sites** over 175
+nonterminals (where it says "expected a *thing*"), and **50 distinct frontier
+classes** over every prefix of every four-token program. All four are derived
+from §0 by `internal/ebnf`, whose recognizer now reports the frontier at a
+failure (`Result.Expected`).
+
+**The finding that shaped the answer is that the frontier is bimodal.** Its
+sizes run 1, 2, 4, 5, 6 — then a gap — then 11, 14, 15, 26 … 84, with the mass
+at 26–62, and only three frontiers are singletons. Below the gap the expected
+set *is* the message; above it, it is sixty-two ways to begin an expression and
+the message has to name the nonterminal instead. Those are two different
+diagnostics, and nothing but running the grammar would have said so — the
+threshold in `Explain` is set at the gap the data shows rather than at a round
+number.
+
+Ruled: **an engine of five, plus a named rule wherever the language deliberately
+excludes something and a spec sentence says why.** The alternatives were one
+code per expected terminal (TypeScript's model — complete, mechanical, and the
+code then says nothing the span does not) and a bare structural core (which
+leaves `set get` reporting "expected `:`", technically right and useless). The
+split earns its keep at exactly the six sites where the generic message would
+misname the mistake: the three postfix-modifier exclusions and the chaining ban
+(control-flow §5, §5.1), grant order (protocols §2.2), and the parenthesized
+variant literal after `=>` (this file's Flagged section).
+
+**No numbers are allocated, and that is the same rule R250 and R251 established**
+— a code allocated before there is an implementation to raise it and a test to
+pin it is a code nothing checks. §11.2 is therefore titles only, and explicitly
+not in allocation order.
+
+Two boundaries the count depends on are recorded with it: **import-after-the-
+prelude is an `M`, not a `P`** (§1.2 rejects it before parsing, R250), and the
+corpus's 204 "compile error" sites are overwhelmingly `S`, §9's table being the
+explicit list of what the grammar admits and semantics rejects.
+
+Also recorded: **what the grammar cannot supply.** A frontier is the union over
+every live item, while a recursive-descent parser has a *stack* — the grammar
+knows `RPAREN` is expected, only the parser knows which `(` is unclosed, and
+"missing `;`" at the end of `let x = 1` is the parser preferring the innermost
+incomplete production out of a frontier that also holds every operator. So §11
+sizes and bounds the space and does not write the messages. What it does buy is
+a completeness check worth building: the token a parser's diagnostic names must
+appear in the grammar's frontier at that point, so a parser that invents an
+expectation §0 does not have is caught by construction — the same shape as the
+reject-set invariant the parse goldens carry.
+
+Swept: `grammar.md` §11 (the new §11.1 and §11.2). Implementation side, no
+ruling needed but recorded here for the trail: `Result.Expected` and its tests
+in `internal/ebnf`, and the parse-golden corpus at
+`oracle/parser/testdata/` — thirty cases seeded from §9 and §11, every one of
+which derives exactly once, with trees written by `ebnf.Derive` from §0 itself
+because the parser that will be held to them does not exist yet.
+
 ---
 
 ## Still open (out of scope of these rulings)
