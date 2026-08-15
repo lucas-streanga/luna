@@ -1,7 +1,7 @@
 _ = [] apply person(name: 'x');
 _ = t apply tagged;
 ---
-File 0..51
+File 0..52
   Statement 0..31
     SimpleStmt 0..30
       Assignment 0..30

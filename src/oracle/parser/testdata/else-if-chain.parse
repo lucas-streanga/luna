@@ -1,6 +1,6 @@
 if (a) { f(); } else if (b) { g(); } else { h(); }
 ---
-File 0..50
+File 0..51
   Statement 0..50
     IfStmt 0..50
       KW_IF 0..2 "if"

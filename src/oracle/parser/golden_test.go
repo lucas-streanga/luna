@@ -9,8 +9,10 @@ package parser_test
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"luna/internal/ebnf"
@@ -82,6 +84,32 @@ func TestGoldens(t *testing.T) {
 					c.Tree, tree)
 			}
 		})
+	}
+}
+
+// TestGoldenRootSpansTheFile pins the one span a derivation cannot supply: File owns the file's
+// leading and trailing trivia, so its span is the file (golden.md §1).
+//
+// It reads the committed tree section rather than the renderer's output, or it would be a check
+// the renderer passes by construction. Once Parse produces these trees it catches a builder
+// that gets the root's extent wrong, which no other line in a golden can see.
+func TestGoldenRootSpansTheFile(t *testing.T) {
+	cases, err := parser.ReadGoldenDir(testdataDir)
+	if err != nil {
+		t.Fatalf("reading %s: %v", testdataDir, err)
+	}
+	if len(cases) < caseFloor {
+		t.Fatalf("found %d goldens, expected at least %d; the reader is not reaching them",
+			len(cases), caseFloor)
+	}
+	for _, c := range cases {
+		if !c.HasTree {
+			continue
+		}
+		first, _, _ := strings.Cut(c.Tree, "\n")
+		if want := fmt.Sprintf("File 0..%d", len(c.Source)); first != want {
+			t.Errorf("%s: the tree starts %q, want %q", c.Name(), first, want)
+		}
 	}
 }
 

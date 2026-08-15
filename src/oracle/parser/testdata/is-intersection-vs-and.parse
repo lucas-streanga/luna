@@ -2,7 +2,7 @@ _ = x is int & y;
 _ = x is int && y;
 _ = x as int | string;
 ---
-File 0..59
+File 0..60
   Statement 0..17
     SimpleStmt 0..16
       Assignment 0..16

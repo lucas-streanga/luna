@@ -1,7 +1,7 @@
 _ = declared x;
 _ = moduleof x;
 ---
-File 0..31
+File 0..32
   Statement 0..15
     SimpleStmt 0..14
       Assignment 0..14

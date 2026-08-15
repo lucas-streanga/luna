@@ -3,7 +3,7 @@ _ = try f() ?? g();
 _ = spawn f(1);
 _ = copy t;
 ---
-File 0..65
+File 0..66
   Statement 0..17
     SimpleStmt 0..16
       Assignment 0..16

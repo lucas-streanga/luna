@@ -3,7 +3,7 @@ const p = proto {
   const get greet = fn (): string => 'hi';
 };
 ---
-File 0..87
+File 0..88
   Declaration 0..87
     BindingDecl 0..87
       KW_CONST 0..5 "const"

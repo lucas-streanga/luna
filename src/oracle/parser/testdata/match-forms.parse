@@ -3,7 +3,7 @@ _ = match { c => 1, _ => 2, };
 _ = match! (x) { 1 => 2, _ => 3, };
 _ = match (x) { 1 => { f(); }, };
 ---
-File 0..127
+File 0..128
   Statement 0..26
     SimpleStmt 0..25
       Assignment 0..25

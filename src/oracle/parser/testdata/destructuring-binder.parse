@@ -2,7 +2,7 @@ let [a, b] = t;
 let ['k' => v] = t;
 foreach ([x, y] in points) { plot(x, y); }
 ---
-File 0..78
+File 0..79
   Declaration 0..15
     BindingDecl 0..15
       KW_LET 0..3 "let"

@@ -2,7 +2,7 @@ _ = "${x}";
 _ = "a${x}b";
 _ = "${...xs}";
 ---
-File 0..41
+File 0..42
   Statement 0..11
     SimpleStmt 0..10
       Assignment 0..10

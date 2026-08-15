@@ -2,7 +2,7 @@ const a = fn () => {};
 const b = fn () => x;
 const c = fn (): int => { return 1; };
 ---
-File 0..83
+File 0..84
   Declaration 0..22
     BindingDecl 0..22
       KW_CONST 0..5 "const"

@@ -1,7 +1,7 @@
 _ = (fn () => 1)();
 _ = (fn (a) => a)(2);
 ---
-File 0..41
+File 0..42
   Statement 0..19
     SimpleStmt 0..18
       Assignment 0..18

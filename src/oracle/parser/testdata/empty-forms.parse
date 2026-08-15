@@ -3,7 +3,7 @@ _ = [];
 const f = fn () => 1;
 const g = fn (a) => a;
 ---
-File 0..55
+File 0..56
   Statement 0..7
     SimpleStmt 0..6
       Assignment 0..6

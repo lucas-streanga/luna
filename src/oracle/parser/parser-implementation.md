@@ -372,6 +372,20 @@ Where the absence is a *construct* rather than a token — `let x = ;`, where §
 construct" fires and no single terminal was wanted — the marker is a zero-width `Error` at the
 insertion point.
 
+**The rule has no exception, and the root is where that shows.** A file of zero bytes lexes to
+no tokens, so `File` opens and closes with nothing between it; the rule deletes it and `Parse`
+returns **no tree**. That is the honest answer rather than a corner to be carved out: a tree
+exists so the source can be reconstructed from it, and no tree reconstructs the empty string
+exactly. Nothing goes with it — the file name belongs to the `*source.File` the caller is
+already holding.
+
+The condition is an *iff*, which is what makes it safe to rely on. Tokens tile the source (R236,
+R242), so a file with any bytes in it has at least one token, and §2.3's index coverage puts
+every token in the tree as a leaf: **`File` is empty exactly when the file is.** A file of only
+whitespace or comments still parses — its trivia are `File`'s children, by the end row of
+§2.2's table — so the case this deletes is precisely the empty one, and `nil` from `Parse` has
+one meaning rather than two.
+
 ### 6.2 `Error`'s width is the classification
 
 One kind, two shapes, and the shape is the distinction anything downstream acts on:

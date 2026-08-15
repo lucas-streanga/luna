@@ -4,7 +4,7 @@ const ioFailure = error { path: string; };
 _ = r is error;
 _ = try { f(); } catch (e: error) { g(); };
 ---
-File 0..213
+File 0..214
   Declaration 0..48
     BindingDecl 0..48
       KW_CONST 0..5 "const"

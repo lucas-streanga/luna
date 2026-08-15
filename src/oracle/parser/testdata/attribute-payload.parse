@@ -1,7 +1,7 @@
 #[route('path' => '/u')] const h = fn () => 1;
 #[deprecated] const i = 2;
 ---
-File 0..73
+File 0..74
   Declaration 0..46
     Attribute 0..24
       ATTR_OPEN 0..2 "#["

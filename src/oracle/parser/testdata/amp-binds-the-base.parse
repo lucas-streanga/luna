@@ -1,7 +1,7 @@
 _ = &t.sort();
 const f = fn (&t) => t;
 ---
-File 0..38
+File 0..39
   Statement 0..14
     SimpleStmt 0..13
       Assignment 0..13

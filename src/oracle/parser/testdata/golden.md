@@ -52,7 +52,7 @@ sections and no trailing separator.
 ```
 let x: int = 1 + 2;
 ---
-File 0..19
+File 0..20
   BindingDecl 0..19
     KW_LET 0..3 "let"
     Binder 4..5
@@ -85,6 +85,26 @@ Indentation is two spaces per level.
   the **never-first-or-last-child** invariant over the tree, both run on every case and the whole
   corpus (`../parser-implementation.md` §2.3). Losslessness is therefore checked without being
   dumped.
+- **`File`'s span is the whole file**, and it is the one line here that dropping trivia would
+  otherwise turn into a lie. Trivia are nodes in the CST, and §2.1 pushes them outward into the
+  innermost node already open — so a file's leading and trailing trivia land in `File`, and a
+  node's span is the extent of its children with that trivia counted. The confinement is exact:
+  trivia is never the first or last child of anything but `File`, so `File` is the **only** node
+  whose span differs from the extent of its non-trivia tokens, and every other line here is the
+  same number under either reading. It is therefore always `0..len(source)`, which the harness
+  asserts rather than leaving to the eye. The example above ends in a newline, which is why its
+  `File` runs one byte past its `BindingDecl`; `comment-only-file` is the extreme, 64 bytes of
+  comment under a tree section of one line.
+
+  The alternative was to keep printing the extent of the non-trivia tokens, which is what a
+  derivation yields and what these files held until the parser needed an answer. It loses on the
+  point of the section: the tree section is a **transcript of the tree**, and a span no node has
+  cannot catch the off-by-one it exists to catch. What it costs is that the `File` line now pins
+  nothing but the file's length — deliberately, since the root's real span is checked by
+  reconstruction, which is stronger than any line in a golden.
+
+  `0..0` can no longer appear: a zero-byte file has no tree at all (`../parser-implementation.md`
+  §6.1), and no golden could express one anyway, since a case's source section is never empty.
 - **Diagnostics are a third section**, one per line, `!P0001 12..13` — the code and the primary
   span, never the prose (grammar.md §11). The leading `!` is redundant here (unlike in `.lex`,
   where diagnostics interleave with tokens) and is kept anyway so that `grep -rn '!P0' testdata/`

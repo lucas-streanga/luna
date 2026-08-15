@@ -2,7 +2,7 @@ _ = [1, 2,];
 const f = fn (a, b,) => a;
 _ = g(1, 2,);
 ---
-File 0..53
+File 0..54
   Statement 0..12
     SimpleStmt 0..11
       Assignment 0..11

@@ -2,7 +2,7 @@ const t: type = int | string;
 const u: type = fn (int): bool;
 const v: type = @proto1 & @proto2;
 ---
-File 0..96
+File 0..97
   Declaration 0..29
     BindingDecl 0..29
       KW_CONST 0..5 "const"

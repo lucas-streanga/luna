@@ -1,7 +1,7 @@
 const shape = enum { point, circle: ['radius' => int] };
 const level = enum { debug, info, };
 ---
-File 0..93
+File 0..94
   Declaration 0..56
     BindingDecl 0..56
       KW_CONST 0..5 "const"

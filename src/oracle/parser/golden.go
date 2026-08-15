@@ -1,15 +1,3 @@
-// Package parser is the oracle's recursive-descent parser (compiler §1.3).
-//
-// What exists today is the **golden format** its tests are written in — `testdata/golden.md`
-// describes it, this file reads and writes it. The format landed before the parser because one
-// corpus feeds two tools: `internal/ebnf` consumes the source section now and answers whether
-// grammar.md derives it, exactly once; the parser will consume the same files and be held to
-// the tree and the diagnostics. Fixing the shape first is what lets the second consumer join
-// without a migration.
-//
-// Names here are `Golden`-scoped rather than bare — `ReadGolden`, not `Read` — because this
-// package will grow a `Parse` and a `Node`, and a bare `Lex` beside them would read as the
-// parser's own.
 package parser
 
 import (
@@ -24,6 +12,11 @@ import (
 	"luna/oracle/source"
 	"luna/oracle/token"
 )
+
+// The `.parse` golden format, described by `testdata/golden.md`. It was fixed before the parser
+// existed because one corpus feeds two tools — `internal/ebnf` answers whether grammar.md
+// derives the source section, exactly once, and the parser is held to the tree and the
+// diagnostics — and fixing the shape first is what let the second join without a migration.
 
 // GoldenSeparator is the line that divides a case's sections.
 const GoldenSeparator = "---"

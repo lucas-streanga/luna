@@ -2,7 +2,7 @@ _ = [...xs];
 _ = f(...xs);
 const v = fn (...xs: int) => 1;
 ---
-File 0..58
+File 0..59
   Statement 0..12
     SimpleStmt 0..11
       Assignment 0..11

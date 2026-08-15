@@ -2,7 +2,7 @@ foreach (i in 0..<n by 2) { f(i); }
 _ = 1..10;
 _ = a..;
 ---
-File 0..55
+File 0..56
   Statement 0..35
     ForeachStmt 0..35
       KW_FOREACH 0..7 "foreach"

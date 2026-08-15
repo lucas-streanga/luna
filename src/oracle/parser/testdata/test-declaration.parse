@@ -1,7 +1,7 @@
 test 'a name' { f(); }
 test 'with caps' use (io) { g(); }
 ---
-File 0..57
+File 0..58
   Declaration 0..22
     TestDecl 0..22
       KW_TEST 0..4 "test"

@@ -2,7 +2,7 @@ const g = gen { yield 1; };
 const h = gen { yield from xs; };
 const k = gen { yield 'a' => 1; };
 ---
-File 0..96
+File 0..97
   Declaration 0..27
     BindingDecl 0..27
       KW_CONST 0..5 "const"

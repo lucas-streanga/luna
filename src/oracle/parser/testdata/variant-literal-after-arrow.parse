@@ -1,7 +1,7 @@
 const m = fn () => ({read});
 _ = match (x) { 1 => ({read}), };
 ---
-File 0..62
+File 0..63
   Declaration 0..28
     BindingDecl 0..28
       KW_CONST 0..5 "const"

@@ -17,6 +17,12 @@ import (
 //
 // When Parse lands and has its own node type, RenderGolden takes that instead and this import
 // goes. The transforms below do not change: they are the format's, not the chart's.
+//
+// One span cannot come from the chart. A derivation runs over the trivia-filtered stream, so
+// every span it offers is the extent of a node's non-trivia tokens, where a parsed node's is
+// the extent of its children. §2.1 confines the difference to exactly one node — trivia is
+// never the first or last child of anything but File — so File takes the whole file here, and
+// everything beneath it keeps the chart's arithmetic, which the tree will agree with.
 
 // A nonterminal collapses when a production passes through it with one child, and it does so
 // for one of two reasons — golden.md §2, where the reasoning lives.
@@ -84,17 +90,17 @@ func normalizeGolden(n *ebnf.Node, pure map[string]bool) []*goldenView {
 	return []*goldenView{{name: n.Name, from: n.From, to: n.To, kids: kids}}
 }
 
-// RenderGolden turns a derivation into a golden's tree section, byte spans and all.
+// RenderGolden turns a derivation into a golden's tree section, byte spans and all. The root is
+// printed rather than walked to because its span is the file's, not the chart's (see above);
+// normalizeGolden yields one view for File, which never collapses, or none when every token in
+// the file is trivia.
 func RenderGolden(g *ebnf.Grammar, root *ebnf.Node, lx *LexedGolden) string {
 	var b strings.Builder
-	vs := normalizeGolden(root, g.PureAlternations())
-	if len(vs) == 0 {
-		// An empty file derives, and its tree is the start symbol over nothing.
-		fmt.Fprintf(&b, "%s 0..0\n", root.Name)
-		return b.String()
-	}
-	for _, v := range vs {
-		writeGolden(&b, v, 0, lx)
+	fmt.Fprintf(&b, "%s 0..%d\n", root.Name, len(lx.Source))
+	for _, v := range normalizeGolden(root, g.PureAlternations()) {
+		for _, kid := range v.kids {
+			writeGolden(&b, kid, 1, lx)
+		}
 	}
 	return b.String()
 }

@@ -4,7 +4,7 @@ _ = t[1:2];
 _ = t[:2];
 _ = t[1:];
 ---
-File 0..53
+File 0..54
   Statement 0..9
     SimpleStmt 0..8
       Assignment 0..8

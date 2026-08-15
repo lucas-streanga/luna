@@ -2,7 +2,7 @@ _ = a ? b : c;
 let x: int? = null;
 let y: int? = a ? b : c;
 ---
-File 0..59
+File 0..60
   Statement 0..14
     SimpleStmt 0..13
       Assignment 0..13
