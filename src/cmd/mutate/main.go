@@ -756,12 +756,14 @@ var mutants = []mutant{
 		expect: "TestRandomShapes",
 	},
 	{
-		// Panics: the index is emitted twice, which the builder meets as a token out of order.
+		// Panics: the index is emitted twice, which the builder meets as a token out of order. Which
+		// test reports it therefore moves whenever an earlier-sorting file gains one — it was
+		// TestRandomShapes until builder_test.go grew a case that reaches this first.
 		name:   "a consumed token is left unconsumed",
 		file:   "oracle/parser/splice.go",
 		old:    "\t\t\tout = append(out, e)\n\t\t\tnext = e.tok + 1",
 		new:    "\t\t\tout = append(out, e)\n\t\t\tnext = e.tok",
-		expect: "TestRandomShapes",
+		expect: "TestBuildErrorWrapsSkippedTokens",
 	},
 	{
 		name:   "splice accepts a token event naming trivia",
@@ -850,6 +852,16 @@ var mutants = []mutant{
 		old:    `func isNode(k Kind) bool { return !k.IsToken() && k <= Error }`,
 		new:    `func isNode(k Kind) bool { return k <= Error }`,
 		expect: "TestBuildRejects",
+	},
+	{
+		// §6.2's excess: an Error is *opened* over tokens nobody could place, where §6.1's
+		// absence synthesises one as a leaf. Nothing built the first until the test named below,
+		// so this mutant was unkillable when these entries were first written.
+		name:   "Error may not be opened over skipped tokens",
+		file:   "oracle/parser/kind.go",
+		old:    `func isNode(k Kind) bool { return !k.IsToken() && k <= Error }`,
+		new:    `func isNode(k Kind) bool { return !k.IsToken() && k < Error }`,
+		expect: "TestBuildErrorWrapsSkippedTokens",
 	},
 	{
 		name:   "nothing is trivia",

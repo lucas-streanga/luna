@@ -207,6 +207,55 @@ func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 	}
 }
 
+// TestBuildErrorWrapsSkippedTokens is §6's other failure, and the half nothing had ever built:
+// **excess**, where the input carries tokens the grammar cannot place. Those bytes exist, so the
+// node has positive width and wraps them — width being the whole classification (§6.2), and this
+// shape being what §6.6 promises the golden format already carries.
+func TestBuildErrorWrapsSkippedTokens(t *testing.T) {
+	const src = "x @ y;"
+	f, tokens := lexFixture(t, "excess.luna", src)
+
+	tree := build(f, tokens, splice(tokens, eventStream{
+		openEv(File),
+		openEv(Statement),
+		tokEv(0),                                   // IDENT
+		openEv(Error), tokEv(2), tokEv(4), closeEv, // AT and IDENT, which nothing could place
+		tokEv(5), // SEMICOLON
+		closeEv,
+		closeEv,
+	}))
+
+	var bad Node
+	for _, kid := range tree.Root().Children()[0].Children() {
+		if kid.Kind() == Error {
+			bad = kid
+		}
+	}
+	if bad.Kind() != Error {
+		t.Fatalf("no Error node under the Statement")
+	}
+	if offset, end := bad.Span(); offset != 2 || end != 5 {
+		t.Errorf("the Error spans %d..%d, want 2..5 over the bytes nobody could place", offset, end)
+	}
+	if got := bad.Text(); got != "@ y" {
+		t.Errorf("the Error covers %q, want %q", got, "@ y")
+	}
+	// The trivia between the two skipped tokens is inside the Error with them: it is in the gap
+	// they cover, and §2.1 puts it in the innermost node that was already open.
+	if kids := bad.Children(); len(kids) != 3 {
+		t.Errorf("the Error has %d children, want the two tokens and the space between", len(kids))
+	}
+	if got := leafText(tree); got != src {
+		t.Errorf("the leaves reconstruct %q, want %q", got, src)
+	}
+
+	// §6.6: no change was needed to the golden format for either half of §6, and this is the line
+	// it promised.
+	if want := "    Error 2..5\n"; !strings.Contains(RenderGolden(tree), want) {
+		t.Errorf("the tree renders as\n%s\nwithout %q", RenderGolden(tree), want)
+	}
+}
+
 // TestBuildRejects is the panic contract, one case per precondition. A Go runtime error here
 // would be a precondition nobody checked, which is the failure the fuzz targets will hunt.
 func TestBuildRejects(t *testing.T) {

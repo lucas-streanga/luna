@@ -78,6 +78,37 @@ func TestTreeNavigation(t *testing.T) {
 	}
 }
 
+// TestTreeAtRejectsAnUnknownID pins the documented panic: a NodeID means nothing without its
+// tree, so one from another tree — or from a previous parse, IDs being stable within one only —
+// is a caller error rather than something to return zero for.
+func TestTreeAtRejectsAnUnknownID(t *testing.T) {
+	tree := handTree(t)
+	assertPanics(t, "no node 5 in a tree of 5", func() { tree.At(NodeID(tree.Len())) })
+}
+
+// TestTreeParentClimbsToTheRoot walks the direction §8's view will: Parent is stored rather than
+// derived, so nothing else in the package would notice it going wrong more than one hop up.
+func TestTreeParentClimbsToTheRoot(t *testing.T) {
+	tree := handTree(t)
+	n, hops := tree.At(3), 0 // the SEMICOLON, two levels down
+	for {
+		parent, ok := n.Parent()
+		if !ok {
+			break
+		}
+		n, hops = parent, hops+1
+		if hops > tree.Len() {
+			t.Fatalf("the parent chain from node 3 does not reach the root")
+		}
+	}
+	if hops != 2 {
+		t.Errorf("the SEMICOLON is %d hops from the root, want 2", hops)
+	}
+	if n.ID() != 0 || n.Kind() != File {
+		t.Errorf("the chain ends at node %d (%s), want the File at 0", n.ID(), n.Kind())
+	}
+}
+
 // TestTreeLeavesTileTheSource is the reconstruction invariant, in the form it will run over
 // every golden. It holds only because trivia are nodes rather than attachments on tokens (§2),
 // which is what makes losslessness structural instead of a rule every node type must remember.

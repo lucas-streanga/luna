@@ -231,6 +231,37 @@ close
 		src:    "",
 		events: func([]int) eventStream { return eventStream{openEv(File), closeEv} },
 		want:   "",
+	}, {
+		// The same answer by a different path through the held stack: an empty node is not
+		// content, so it cannot release the root any more than it releases itself.
+		name: "a root holding nothing but an empty node",
+		src:  "",
+		events: func([]int) eventStream {
+			return eventStream{openEv(File), openEv(Block), closeEv, closeEv}
+		},
+		want: "",
+	}, {
+		// The shebang is the trivia kind that can only ever be a file's first bytes, and the only
+		// one no golden contains.
+		name: "a file led by a shebang",
+		src:  "#!/usr/bin/env luna\nx;\n",
+		events: func(indices []int) eventStream {
+			return eventStream{
+				openEv(File),
+				openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv,
+				closeEv,
+			}
+		},
+		want: `open(File)
+token "#!/usr/bin/env luna"
+token "\n"
+open(Statement)
+token "x"
+token ";"
+close
+token "\n"
+close
+`,
 	}}
 
 	for _, tc := range tests {
