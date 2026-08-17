@@ -233,6 +233,21 @@ func TestChildrenTileInvariant(t *testing.T) {
 	})
 }
 
+// TestReadingsAgreeInvariant is golden.md §1's claim. Its violating fixture is the shape the
+// parse fuzzer found in splice: a Statement whose span was widened over the newline after it,
+// which is exactly a node reading differently with trivia counted and without.
+func TestReadingsAgreeInvariant(t *testing.T) {
+	t.Run("one number under either reading", func(t *testing.T) {
+		tree, _, _ := probeTree(t)
+		assertReported(t, probe(func(r reporter) { assertReadingsAgree(r, tree) }), "")
+	})
+	t.Run("a node widened over trivia", func(t *testing.T) {
+		tree := triviaInsideStatement(t)
+		assertReported(t, probe(func(r reporter) { assertReadingsAgree(r, tree) }),
+			"node 1 (Statement) spans 0..3 counting trivia and 0..2 without it")
+	})
+}
+
 // --- group 3: the leaves are the file --------------------------------------------------------
 
 func TestLeafInvariants(t *testing.T) {

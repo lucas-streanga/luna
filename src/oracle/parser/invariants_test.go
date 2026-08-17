@@ -82,6 +82,47 @@ func assertTreeIsTheFile(t reporter, tree *Tree, tokens []token.Token, src strin
 	assertChildrenTile(t, tree)
 	assertLeavesAreTheFile(t, tree, tokens, src)
 	assertTriviaIsNeverAtAnEdge(t, tree)
+	assertReadingsAgree(t, tree)
+}
+
+// assertReadingsAgree is golden.md §1's claim, in the words the format makes it: every node but
+// the root spans the same bytes whether trivia is counted or not.
+//
+// It *follows* from trivia never sitting at an edge — the first and last leaf under any other
+// node are then real tokens — so this catches nothing the check above does not. It is written out
+// because the golden format's decision rests on it: a tree section prints one number per node
+// without saying which reading it is, and that is only safe while there is one number.
+func assertReadingsAgree(t reporter, tree *Tree) {
+	t.Helper()
+	for id := 1; id < tree.Len(); id++ { // the root is the exception, and the only one
+		n := tree.At(NodeID(id))
+		offset, end := n.Span()
+		first, last, ok := nonTriviaExtent(tree, NodeID(id))
+		if !ok {
+			continue // nothing but trivia beneath it, which the edge check has already reported
+		}
+		if first != offset || last != end {
+			t.Errorf("node %d (%s) spans %d..%d counting trivia and %d..%d without it: only File "+
+				"may differ between the two readings", id, n.Kind(), offset, end, first, last)
+		}
+	}
+}
+
+// nonTriviaExtent is the span a derivation yields: the extent of the real tokens under a node,
+// with trivia and the zero-width leaves that stand for absent ones contributing nothing.
+func nonTriviaExtent(tree *Tree, id NodeID) (offset, end int, ok bool) {
+	subtree := tree.nodes[id]
+	for i := id; i < id+NodeID(subtree.size); i++ {
+		leaf := tree.nodes[i]
+		if leaf.size != 1 || isTrivia(leaf.kind) {
+			continue
+		}
+		if !ok {
+			offset, ok = int(leaf.offset), true
+		}
+		end = int(leaf.end)
+	}
+	return offset, end, ok
 }
 
 // assertArenaIsATree is group 1, and it reads the arena directly because every other assertion
