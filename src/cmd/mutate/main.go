@@ -701,6 +701,184 @@ var mutants = []mutant{
 		new:    `	res.Graph, res.Diagnostics, res.Reached = graph, vdiags, PhaseLex`,
 		expect: "TestReachedNamesThePhase",
 	},
+
+	// --- splice: §2.1's placement and §2.2's deferral ---
+	//
+	// The parser is not written yet, so these reach the machinery under it. `golden_bridge.go` is
+	// deliberately not mutated: it is scaffolding, deleted when Parse lands.
+	//
+	// **Several of these panic rather than fail**, because the package checks its preconditions
+	// always and on purpose — and a panic ends the test binary, so only the first test to reach it
+	// gets to report. Where that happens `expect` names *that* test rather than the one which owns
+	// the rule, and the narrow test never runs at all. It is worth knowing which mutants are in
+	// that class, so each says so.
+	{
+		name:   "a close flushes pending trivia",
+		file:   "oracle/parser/splice.go",
+		old:    "\t\t\tif depth == 0 {\n\t\t\t\tflush()\n\t\t\t}\n\t\t\tout = append(out, e)",
+		new:    "\t\t\tflush()\n\t\t\tout = append(out, e)",
+		expect: "TestSplicePlacesTrivia",
+	},
+	{
+		// Panics: reverting deferral sends empty nodes to the builder, which rejects them.
+		name:   "an open is emitted rather than held",
+		file:   "oracle/parser/splice.go",
+		old:    "\t\tcase evOpen:\n\t\t\theld = append(held, e.node)",
+		new:    "\t\tcase evOpen:\n\t\t\tif depth > 0 {\n\t\t\t\tflush()\n\t\t\t}\n\t\t\tout = append(out, e)\n\t\t\tdepth++",
+		expect: "TestRandomShapes",
+	},
+	{
+		name:   "a release emits its opens before the trivia",
+		file:   "oracle/parser/splice.go",
+		old:    "\t\tflush()\n\t\tfor _, k := range held[start:] {",
+		new:    "\t\tdefer flush()\n\t\tfor _, k := range held[start:] {",
+		expect: "TestSplicePlacesTrivia",
+	},
+	{
+		// Both of these make a *precondition* fire, and a panic ends the test binary — so the
+		// only test that gets to report is whichever runs first, by file name. The narrow tests
+		// that own these rules (TestSpliceHoldsOpensUntilContent, TestSplicePlacesTrivia) never
+		// run at all. `expect` therefore names the first test to reach it rather than the one
+		// that means the most, and that is a property of the harness rather than a hole: `failures`
+		// collects every FAIL precisely because a *failing* mutant reports several, and a
+		// panicking one cannot.
+		name:   "the root is not released by trailing trivia",
+		file:   "oracle/parser/splice.go",
+		old:    `		if len(held) == 1 && depth == 0 && next < len(tokens) {`,
+		new:    `		if false {`,
+		expect: "TestGoldenCorpusInvariants",
+	},
+	{
+		name:   "the file's leading trivia is flushed outside File",
+		file:   "oracle/parser/splice.go",
+		old:    "\t\tstart := 0\n\t\tif depth == 0 {",
+		new:    "\t\tstart := 0\n\t\tif false {",
+		expect: "TestRandomShapes",
+	},
+	{
+		// Panics: the index is emitted twice, which the builder meets as a token out of order.
+		name:   "a consumed token is left unconsumed",
+		file:   "oracle/parser/splice.go",
+		old:    "\t\t\tout = append(out, e)\n\t\t\tnext = e.tok + 1",
+		new:    "\t\t\tout = append(out, e)\n\t\t\tnext = e.tok",
+		expect: "TestRandomShapes",
+	},
+	{
+		name:   "splice accepts a token event naming trivia",
+		file:   "oracle/parser/splice.go",
+		old:    `			if tokens[e.tok].IsTrivia() {`,
+		new:    `			if false {`,
+		expect: "TestSpliceRejects",
+	},
+	{
+		name:   "splice accepts a token the parser never reached",
+		file:   "oracle/parser/splice.go",
+		old:    "\tif next != len(tokens) {",
+		new:    "\tif false {",
+		expect: "TestSpliceRejects",
+	},
+
+	// --- the builder: spans (§4.2) and the arena (§3.1) ---
+	{
+		name:   "a node starts at its last child rather than its first",
+		file:   "oracle/parser/builder.go",
+		old:    "\tif !f.filled {\n\t\tf.offset, f.filled = offset, true\n\t}",
+		new:    "\tf.offset, f.filled = offset, true",
+		expect: "TestGoldens",
+	},
+	{
+		// Panics, and unavoidably: `filled` doubles as "this frame has a child", so *any* mutant
+		// that misroutes cover leaves some node empty and trips §6.1 before the run ends. Clamping
+		// to the root is still worth it over a bare `n-3` — it keeps File covered long enough for
+		// the span assertions to report, which is what this mutant is for.
+		name:   "a closed node widens its grandparent",
+		file:   "oracle/parser/builder.go",
+		old:    "\tif n > 1 {\n\t\tb.stack[n-2].cover(fr.offset, fr.end)\n\t}",
+		new:    "\tif n > 1 {\n\t\tb.stack[max(n-3, 0)].cover(fr.offset, fr.end)\n\t}",
+		expect: "TestRandomShapes",
+	},
+	{
+		// Undersized rather than oversized, for the same reason: too *large* a size walks Children
+		// off the end of the arena, and the index-out-of-range ends the binary before the arena
+		// invariant can report anything.
+		name:   "a subtree claims one node too few",
+		file:   "oracle/parser/builder.go",
+		old:    `	d.size = uint32(len(b.tree.nodes)) - uint32(fr.id)`,
+		new:    `	d.size = uint32(len(b.tree.nodes)) - uint32(fr.id) - 1`,
+		expect: "TestGoldenCorpusInvariants",
+	},
+	{
+		name:   "the cursor does not follow the last leaf",
+		file:   "oracle/parser/builder.go",
+		old:    "\tb.stack[n-1].cover(offset, end)\n\tb.pos = end",
+		new:    "\tb.stack[n-1].cover(offset, end)",
+		expect: "TestBuildZeroWidthLeaf",
+	},
+	{
+		name:   "the builder accepts an empty node",
+		file:   "oracle/parser/builder.go",
+		old:    "\tif !fr.filled {\n\t\tpanic(fmt.Sprintf(\"parser: event %d closes %s with no children",
+		new:    "\tif false {\n\t\tpanic(fmt.Sprintf(\"parser: event %d closes %s with no children",
+		expect: "TestBuildRejects",
+	},
+	{
+		name:   "the root's close is not noticed",
+		file:   "oracle/parser/builder.go",
+		old:    "\tif n == 1 {\n\t\tb.done = true\n\t}",
+		new:    "\tif false {\n\t\tb.done = true\n\t}",
+		expect: "TestBuildRejects",
+	},
+	{
+		name:   "a leaf is parented to the root rather than to its node",
+		file:   "oracle/parser/builder.go",
+		old:    "\t\tparent: b.stack[n-1].id,\n\t\tsize:   1,",
+		new:    "\t\tparent: 0,\n\t\tsize:   1,",
+		expect: "TestGoldenCorpusInvariants",
+	},
+
+	// --- the kind predicates and the tree API ---
+	{
+		name:   "trivia may be synthesised",
+		file:   "oracle/parser/kind.go",
+		old:    `	return k == Error || (k.IsToken() && k != Unset && !isTrivia(k))`,
+		new:    `	return k == Error || (k.IsToken() && k != Unset)`,
+		expect: "TestBuildRejects",
+	},
+	{
+		name:   "a token kind may be opened",
+		file:   "oracle/parser/kind.go",
+		old:    `func isNode(k Kind) bool { return !k.IsToken() && k <= Error }`,
+		new:    `func isNode(k Kind) bool { return k <= Error }`,
+		expect: "TestBuildRejects",
+	},
+	{
+		name:   "nothing is trivia",
+		file:   "oracle/parser/kind.go",
+		old:    `func isTrivia(k Kind) bool { return k.IsToken() && token.Kind(k).IsTrivia() }`,
+		new:    `func isTrivia(k Kind) bool { return false }`,
+		expect: "TestGoldens",
+	},
+	{
+		name:   "children are walked one node at a time",
+		file:   "oracle/parser/tree.go",
+		old:    `	for i := n.id + 1; i < n.id+NodeID(d.size); i += NodeID(n.t.nodes[i].size) {`,
+		new:    `	for i := n.id + 1; i < n.id+NodeID(d.size); i++ {`,
+		expect: "TestTreeNavigation",
+	},
+	{
+		name:   "a node's text stops one byte short",
+		file:   "oracle/parser/tree.go",
+		old:    `	return n.t.src.Slice(offset, end-offset)`,
+		new:    `	return n.t.src.Slice(offset, max(end-offset-1, 0))`,
+		expect: "TestTreeLeavesTileTheSource",
+	},
+	{
+		name:   "the golden renderer keeps trivia",
+		file:   "oracle/parser/golden_render.go",
+		old:    "\t\tif isTrivia(kid.Kind()) {\n\t\t\tcontinue\n\t\t}",
+		new:    "\t\tif false {\n\t\t\tcontinue\n\t\t}",
+		expect: "TestGoldens",
+	},
 }
 
 func main() {
