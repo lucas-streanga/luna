@@ -31,12 +31,21 @@ import (
 // file is in a balanced stream. The parser opens and closes File itself: §6.1 turns on its doing
 // so, an empty file being File opened and closed with nothing between.
 //
-// It checks the two things it depends on and panics on either, for the reason build does: the
-// stream is our own parser's, so a violation is a programmer error. **Token indices must be in
-// range and strictly ascending**, or the flush emits the wrong run and coverage breaks silently;
-// **the stream must be balanced**, or the depth never returns to zero and the file's trailing
-// trivia is dropped without trace. Kinds it never inspects, so it never checks them — build does,
-// and one violation caught once by the pass that depends on it is the whole rule.
+// It checks three things and panics on any of them, for the reason build does: the stream is our
+// own parser's, so a violation is a programmer error. **Token indices must be in range and
+// strictly ascending**, or the flush emits the wrong run; **the stream must be balanced**, or the
+// depth never returns to zero and the file's trailing trivia is dropped without trace; and **the
+// parser must account for every token**, since an index reaching no event reaches no leaf.
+//
+// The third is the one splice needs in order to deliver its own postcondition rather than one it
+// merely reads, and it is checked in the two places it can be broken: a non-trivia token inside a
+// run between two events, and a non-trivia token left at the end. It holds by design — §7.2 skips
+// a token it cannot place *into* an `Error` node (§6.2), never past one — and it fails silently
+// without a check, because a token nobody consumed is still emitted, still tiles the file, and
+// still reconstructs. It is simply in the wrong node, which only a golden would ever show.
+//
+// Kinds it never inspects, so it never checks them — build does, and one violation caught once by
+// the pass that depends on it is the whole rule.
 func splice(tokens []token.Token, events eventStream) eventStream {
 	out := make(eventStream, 0, len(events)+len(tokens))
 	next, depth, last := 0, 0, -1
@@ -62,7 +71,12 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 					"consumes the file in order, each token once", i, e.tok, last))
 			}
 			last = e.tok
-			for ; next < e.tok; next++ { // trivia by construction: the parser skipped nothing else
+			for ; next < e.tok; next++ {
+				if !tokens[next].IsTrivia() {
+					panic(fmt.Sprintf("parser: event %d skips token %d (%s): the parser consumes "+
+						"every token, one it cannot place into an Error node rather than past it",
+						i, next, tokens[next].Kind))
+				}
 				out = append(out, event{kind: evToken, tok: next})
 			}
 			out = append(out, e)
@@ -89,6 +103,13 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 	if depth != 0 {
 		panic(fmt.Sprintf("parser: the stream ends at depth %d: every node the parser opened "+
 			"must be closed, or the file's trailing trivia has nowhere to go", depth))
+	}
+	// The final flush stops at the first token that is not trivia, so anything left here is a
+	// token the parser never reached — the tail form of the rule above.
+	if next != len(tokens) {
+		panic(fmt.Sprintf("parser: the stream ends with token %d (%s) in no event: every token "+
+			"reaches a leaf, or the tree cannot reconstruct the file",
+			next, tokens[next].Kind))
 	}
 	return out
 }

@@ -174,10 +174,23 @@ func TestSpliceRejects(t *testing.T) {
 		{"a token index past the stream", eventStream{openEv(File), tokEv(3), closeEv},
 			"token(3) of a stream of 3"},
 		{"a negative token index", eventStream{openEv(File), tokEv(-1), closeEv}, "token(-1)"},
-		{"tokens out of order", eventStream{openEv(File), tokEv(1), tokEv(0), closeEv},
+		// Consuming 0 and 1 first is what isolates the violation: a stream that jumps straight to
+		// token 1 is met by the skip check below, one event earlier.
+		{"tokens out of order",
+			eventStream{openEv(File), tokEv(0), tokEv(1), tokEv(0), closeEv},
 			"after token(1)"},
 		{"a close with nothing open", eventStream{closeEv}, "never opened"},
 		{"a node left open", eventStream{openEv(File), tokEv(0)}, "ends at depth 1"},
+
+		// The two halves of "the parser accounts for every token". Both would otherwise pass
+		// silently: the skipped token is still emitted, still tiles the file and still
+		// reconstructs — it is simply in a node nobody put it in.
+		{"a token the parser stepped over",
+			eventStream{openEv(File), tokEv(1), closeEv},
+			"event 1 skips token 0 (IDENT)"},
+		{"a token the parser never reached",
+			eventStream{openEv(File), tokEv(0), closeEv},
+			"ends with token 1 (SEMICOLON) in no event"},
 	}
 
 	for _, tc := range tests {
