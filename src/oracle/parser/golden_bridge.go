@@ -99,10 +99,17 @@ type goldenRun struct {
 	tree      *Tree
 }
 
-// runGolden derives a case and runs it through the parser's own stages. The error is the
-// interesting half: a case that does not derive, or derives twice, has no tree to build.
 func runGolden(g *ebnf.Grammar, c *Golden) (*goldenRun, error) {
-	lexed, err := LexGolden(c.Name()+".luna", c.Source)
+	return runSource(g, c.Name()+".luna", c.Source)
+}
+
+// runSource derives one source and runs it through the parser's own stages. The error is the
+// interesting half: a source that does not derive, or derives twice, has no tree to build.
+//
+// It takes bare source because the spec corpus is not a golden — 431 blocks the parser must
+// handle and nobody wrote expectations for.
+func runSource(g *ebnf.Grammar, name, src string) (*goldenRun, error) {
+	lexed, err := LexGolden(name, src)
 	if err != nil {
 		return nil, fmt.Errorf("lexing: %w", err)
 	}
