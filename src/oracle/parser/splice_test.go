@@ -274,6 +274,13 @@ func TestSpliceRejects(t *testing.T) {
 		{"a token the parser never reached",
 			eventStream{openEv(File), tokEv(0), closeEv},
 			"ends with token 1 (SEMICOLON) in no event"},
+
+		// Found by FuzzSpliceContract. A flush is bounded only by the run of trivia ending, so a
+		// token event naming trivia consumes past itself and emits the index twice — coverage
+		// broken with nothing raised.
+		{"the parser consuming trivia",
+			eventStream{openEv(File), tokEv(2), closeEv},
+			"is token(2), which is WHITESPACE"},
 	}
 
 	for _, tc := range tests {

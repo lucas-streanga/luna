@@ -71,6 +71,14 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 				panic(fmt.Sprintf("parser: event %d is token(%d) after token(%d): the parser "+
 					"consumes the file in order, each token once", i, e.tok, last))
 			}
+			// The parser walks the filtered stream, so it never consumes trivia — and a flush is
+			// bounded only by that: it runs while the tokens stay trivia, so one aimed at a trivia
+			// token would consume past it and emit the index twice.
+			if tokens[e.tok].IsTrivia() {
+				panic(fmt.Sprintf("parser: event %d is token(%d), which is %s: the parser walks "+
+					"the filtered stream, and splice is what puts trivia back",
+					i, e.tok, tokens[e.tok].Kind))
+			}
 			last = e.tok
 			release()
 			for ; next < e.tok; next++ {

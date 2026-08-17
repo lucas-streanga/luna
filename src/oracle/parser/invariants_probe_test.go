@@ -203,12 +203,9 @@ func TestSpanInvariants(t *testing.T) {
 		corrupt: func(tree *Tree) { tree.nodes[1].end = 1 },
 		want:    "node 1 (Statement) ends at 1, its last child at 2",
 	}, {
-		// A token in the file and in no leaf, caught locally where reconstruction reports file-wide.
-		name: "a gap between two children",
-		corrupt: func(tree *Tree) {
-			tree.nodes[2].end = 0 // IDENT shrinks; SEMICOLON no longer abuts it
-		},
-		want: "SEMICOLON starts at 1 where the previous child ended at 0",
+		name:    "a child that overlaps its sibling",
+		corrupt: func(tree *Tree) { tree.nodes[3].offset = 0 },
+		want:    "SEMICOLON starts at 0, back inside the child that ended at 1",
 	}}
 
 	for _, tc := range tests {
@@ -218,6 +215,22 @@ func TestSpanInvariants(t *testing.T) {
 			assertReported(t, probe(func(r reporter) { assertSpansNest(r, tree, src) }), tc.want)
 		})
 	}
+}
+
+// TestChildrenTileInvariant is the completeness half of the spans, one tier up: a gap between two
+// children is a token in the file and in no leaf, caught locally where reconstruction reports it
+// file-wide.
+func TestChildrenTileInvariant(t *testing.T) {
+	t.Run("children that abut", func(t *testing.T) {
+		tree, _, _ := probeTree(t)
+		assertReported(t, probe(func(r reporter) { assertChildrenTile(r, tree) }), "")
+	})
+	t.Run("a gap between two children", func(t *testing.T) {
+		tree, _, _ := probeTree(t)
+		tree.nodes[2].end = 0 // IDENT shrinks; SEMICOLON no longer abuts it
+		assertReported(t, probe(func(r reporter) { assertChildrenTile(r, tree) }),
+			"SEMICOLON starts at 1 where the previous child ended at 0")
+	})
 }
 
 // --- group 3: the leaves are the file --------------------------------------------------------

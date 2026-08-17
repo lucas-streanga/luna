@@ -79,6 +79,7 @@ func assertTreeIsTheFile(t reporter, tree *Tree, tokens []token.Token, src strin
 			offset, end, len(src))
 	}
 
+	assertChildrenTile(t, tree)
 	assertLeavesAreTheFile(t, tree, tokens, src)
 	assertTriviaIsNeverAtAnEdge(t, tree)
 }
@@ -148,13 +149,12 @@ func assertArenaIsATree(t reporter, tree *Tree) {
 	}
 }
 
-// assertSpansNest is group 2. Three checks rather than one because they fail differently: a
-// parent narrower than its children is a cover that did not widen, a gap between siblings is a
-// leaf gone missing locally, and an extent right at the edges but wrong between them is a cover
-// that widened over something it should not have. Containment and ordering follow from them.
+// assertSpansNest is group 2: a node starts where its first child does, ends where its last one
+// does, and its children run in order without overlapping. Containment follows from those.
 //
 // Every check is **relative**, a node against its own children, which is why the group needs no
-// spliced stream; src is only the bound no span may cross.
+// spliced stream; src is only the bound no span may cross. That a node's children leave no *gap*
+// is a completeness claim rather than a relative one — assertChildrenTile, one tier up.
 func assertSpansNest(t reporter, tree *Tree, src string) {
 	t.Helper()
 
@@ -180,11 +180,30 @@ func assertSpansNest(t reporter, tree *Tree, src string) {
 		at := offset
 		for _, child := range children {
 			childOffset, childEnd := child.Span()
-			if childOffset != at {
-				t.Errorf("node %d (%s): %s starts at %d where the previous child ended at %d",
+			if childOffset < at {
+				t.Errorf("node %d (%s): %s starts at %d, back inside the child that ended at %d",
 					id, n.Kind(), child.Kind(), childOffset, at)
 			}
 			at = childEnd
+		}
+	}
+}
+
+// assertChildrenTile is the completeness half of the spans: consecutive children abut, so a token
+// in the file is in some leaf. It needs the spliced stream that group 3 needs, for the same
+// reason — a gap is only a defect once every token is supposed to be there.
+func assertChildrenTile(t reporter, tree *Tree) {
+	t.Helper()
+	for id := range tree.Len() {
+		n := tree.At(NodeID(id))
+		children := n.Children()
+		for i := 1; i < len(children); i++ {
+			_, prev := children[i-1].Span()
+			at, _ := children[i].Span()
+			if at != prev {
+				t.Errorf("node %d (%s): %s starts at %d where the previous child ended at %d",
+					id, n.Kind(), children[i].Kind(), at, prev)
+			}
 		}
 	}
 }
