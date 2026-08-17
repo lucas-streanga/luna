@@ -165,12 +165,11 @@ func FuzzSpliceBuild(f *testing.F) {
 // corpus and nothing else unless -fuzz is passed. Sharing checkShape is what keeps them together.
 func TestRandomShapes(t *testing.T) {
 	r := rng(0x5eed) // fixed, so a reported failure reproduces by rerunning
-	shape := make([]byte, 24)
 
 	sources := shapeSources(t)
 	for _, src := range sources {
 		for range 2 {
-			fill(&r, shape)
+			shape := drawShape(&r, src)
 			if !checkShape(t, src, shape) {
 				t.Fatalf("%q did not reach the lexer, and the corpus is all valid UTF-8", src)
 			}
@@ -182,8 +181,7 @@ func TestRandomShapes(t *testing.T) {
 	lexed, garbage := 0, make([]byte, 32)
 	for range randomGarbage {
 		fillFrom(&r, garbage, garbageBytes)
-		fill(&r, shape)
-		if checkShape(t, string(garbage), shape) {
+		if checkShape(t, string(garbage), drawShape(&r, string(garbage))) {
 			lexed++
 		}
 	}
@@ -197,9 +195,20 @@ func TestRandomShapes(t *testing.T) {
 	}
 }
 
-// randomGarbage is how many uniform byte strings each driver draws. Short and few: they are the
-// cheap half, and the corpus above is where the structure is.
+// randomGarbage is how many byte strings each driver draws. Short and few: they are the cheap
+// half, and the corpus above is where the structure is.
 const randomGarbage = 200
+
+// drawShape sizes the decision bytes to the source, because a fixed length quietly stops shaping
+// anything. Two bytes are one decision and about five in eight of them consume a token, so 24
+// bytes shape roughly seven — and 385 of the corpus's 431 blocks hold more tokens than that, with
+// the rest force-consumed flat into whatever node was open. The fuzz target does not have this
+// problem, since the fuzzer grows an input it gets coverage from; this driver has to be told.
+func drawShape(r *rng, src string) []byte {
+	shape := make([]byte, min(16+2*len(src), 2048))
+	fill(r, shape)
+	return shape
+}
 
 // --- the contract targets -----------------------------------------------------------------
 //
@@ -326,10 +335,9 @@ func FuzzSpliceContract(f *testing.F) {
 // TestRandomEvents drives both contracts on every `go test`, for the reason TestRandomShapes does.
 func TestRandomEvents(t *testing.T) {
 	r := rng(0xc0ffee)
-	shape := make([]byte, 36)
 
 	for _, src := range shapeSources(t) {
-		fill(&r, shape)
+		shape := drawShape(&r, src)
 		if !checkBuildContract(t, src, shape) || !checkSpliceContract(t, src, shape) {
 			t.Fatalf("%q did not reach the lexer, and the corpus is all valid UTF-8", src)
 		}
@@ -338,7 +346,7 @@ func TestRandomEvents(t *testing.T) {
 	lexed, garbage := 0, make([]byte, 32)
 	for range randomGarbage {
 		fillFrom(&r, garbage, garbageBytes)
-		fill(&r, shape)
+		shape := drawShape(&r, string(garbage))
 		if checkBuildContract(t, string(garbage), shape) && checkSpliceContract(t, string(garbage), shape) {
 			lexed++
 		}

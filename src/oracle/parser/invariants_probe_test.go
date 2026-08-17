@@ -233,6 +233,60 @@ func TestChildrenTileInvariant(t *testing.T) {
 	})
 }
 
+// TestElidedEvents is the one oracle in the battery, and so the one thing here that could pass a
+// bad splice by agreeing with it: assertSpliceOnlyInserts believes whatever this marks. Marking
+// everything is caught by the lockstep comparison, but only because it desynchronises the whole
+// stream — a *targeted* over-mark would not be, so the marks are checked directly.
+//
+// The pattern is one character per event: `x` where splice must drop it, `.` where it must not.
+func TestElidedEvents(t *testing.T) {
+	tests := []struct {
+		name   string
+		events eventStream
+		want   string
+	}{{
+		name:   "nothing empty",
+		events: eventStream{openEv(File), openEv(Statement), tokEv(0), closeEv, closeEv},
+		want:   ".....",
+	}, {
+		name:   "an empty node",
+		events: eventStream{openEv(File), tokEv(0), openEv(Modifier), closeEv, closeEv},
+		want:   "..xx.",
+	}, {
+		name: "empty nodes nested in each other",
+		events: eventStream{
+			openEv(File), tokEv(0), openEv(Block), openEv(Modifier), closeEv, closeEv, closeEv,
+		},
+		want: "..xxxx.",
+	}, {
+		// A synthesised leaf is content, so the node holding one is not empty (§6.1).
+		name:   "a node holding only a synthesised leaf",
+		events: eventStream{openEv(File), openEv(Initializer), missingEv(Error), closeEv, closeEv},
+		want:   ".....",
+	}, {
+		// The root is never marked: trailing trivia releases it, and splice alone can see that.
+		name:   "a root with no leaf in it",
+		events: eventStream{openEv(File), closeEv},
+		want:   "..",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var got strings.Builder
+			for _, drop := range elidedEvents(tc.events) {
+				if drop {
+					got.WriteByte('x')
+					continue
+				}
+				got.WriteByte('.')
+			}
+			if got.String() != tc.want {
+				t.Errorf("elided %s, want %s\nover %s", got.String(), tc.want, tc.events)
+			}
+		})
+	}
+}
+
 // TestReadingsAgreeInvariant is golden.md §1's claim. Its violating fixture is the shape the
 // parse fuzzer found in splice: a Statement whose span was widened over the newline after it,
 // which is exactly a node reading differently with trivia counted and without.
