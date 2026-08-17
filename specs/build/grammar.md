@@ -19,6 +19,15 @@ Conventions used throughout:
 - **`IDENT("text")` is an `IDENT` whose lexeme is exactly `text`** — the positional
   spelling-match Luna already uses for `from` (R223), `get` / `set` (R232), and
   `identityEquality` (equality §4.4). It is not a keyword and does not reserve the word.
+- **`!TERMINAL` is a guard**: a zero-width assertion that the next token is not that terminal
+  (R270). It consumes nothing, derives nothing, and appears in no tree — it only forbids, and it
+  takes no quantifier. Two rules in this file need one, and both have the same shape, *a leading
+  token claimed by one reading*: `{` opens a block wherever a block may appear (R268), and
+  `: type` puts a binding's right-hand side in type position (R269). Restricting a nonterminal by
+  its first token is an intersection with a regular set, so the grammar stays context-free and
+  `internal/ebnf` runs it unchanged; what the notation buys is that §0 now **states** two rules
+  that were prose, which is what makes them checkable — a rule a CFG cannot express is a rule the
+  grammar over-accepts, and the parse goldens' reject-set invariant is exactly that gap.
 - **The grammar is defined over the trivia-filtered token stream.** `WHITESPACE`, `MARGIN`,
   `SHEBANG`, `LINE_COMMENT` and `BLOCK_COMMENT` are emitted by the lexer (R236) and dropped by
   the parser (compiler §1.1), so they appear in no production. Re-attaching them to the lossless
@@ -59,8 +68,8 @@ PathSegment   ::= IDENT | WILDCARD | Keyword
 
 Declaration   ::= Attribute* BindingDecl
                 | TestDecl
-BindingDecl   ::= KW_EXPORT? BindingKw Binder COLON IDENT("type") ASSIGN TypeOnly SEMICOLON
-                | KW_EXPORT? BindingKw Binder (COLON Type)? ASSIGN Initializer SEMICOLON
+BindingDecl   ::= KW_EXPORT? BindingKw Binder COLON IDENT("type") ASSIGN Type SEMICOLON
+                | KW_EXPORT? BindingKw Binder (COLON !IDENT("type") Type)? ASSIGN Initializer SEMICOLON
 Initializer   ::= KW_COMPTIME? DeclLit | Expr
 BindingKw     ::= KW_CONST | KW_LET | KW_VAR
 Binder        ::= IDENT (QUESTION | BANG)? | DestructurePattern
@@ -77,7 +86,7 @@ AttrArg       ::= (Expr FAT_ARROW)? Expr
 Block         ::= LBRACE BlockItem* RBRACE
 BlockItem     ::= Declaration | Statement
 
-Statement     ::= SimpleStmt Modifier? SEMICOLON
+Statement     ::= !LBRACE SimpleStmt Modifier? SEMICOLON
                 | CompoundStmt
                 | DeferStmt
 SimpleStmt    ::= Expr
@@ -87,7 +96,7 @@ SimpleStmt    ::= Expr
                 | KW_YIELD Expr (FAT_ARROW Expr)?
                 | KW_YIELD_FROM Expr
 CompoundStmt  ::= Block | IfStmt | WhileStmt | ForeachStmt
-DeferStmt     ::= KW_DEFER (Block | SimpleStmt) SEMICOLON
+DeferStmt     ::= KW_DEFER (Block | !LBRACE SimpleStmt) SEMICOLON
 
 Modifier      ::= KW_IF LPAREN Expr RPAREN
                 | KW_WHILE LPAREN Expr RPAREN
@@ -172,7 +181,7 @@ VariantLit    ::= LBRACE VariantName Expr? RBRACE
 VariantName   ::= IDENT (DOT IDENT)?
 
 FnLit         ::= KW_FN LPAREN ParamList? RPAREN UseClause? (COLON Type)? FAT_ARROW FnBody
-FnBody        ::= Block | Expr
+FnBody        ::= Block | !LBRACE Expr
 GenLit        ::= KW_GEN UseClause? Block
 ParamList     ::= Param (COMMA Param)* COMMA?
 Param         ::= AMP? BindTarget QUESTION? (COLON Type)? (ASSIGN Expr)?
@@ -185,7 +194,7 @@ MatchArms     ::= MatchArm (COMMA MatchArm)* COMMA?
 MatchArm      ::= Pattern (KW_WHERE Expr)? FAT_ARROW ArmBody
 GuardArms     ::= GuardArm (COMMA GuardArm)* COMMA?
 GuardArm      ::= Expr FAT_ARROW ArmBody
-ArmBody       ::= Block | Expr
+ArmBody       ::= Block | !LBRACE Expr
 
 TryCatchExpr  ::= KW_TRY Block CatchClause+
 CatchClause   ::= KW_CATCH LPAREN CatchBinder RPAREN Block
@@ -232,11 +241,6 @@ InitList      ::= IDENT COLON Expr (COMMA IDENT COLON Expr)* COMMA?
 
 ```ebnf
 Type          ::= FnType | UnionType
-TypeOnly      ::= IntersectType (BAR IntersectType)+
-                | PostfixType (AMP PostfixType)+
-                | PrimaryType (BANG | QUESTION)+
-                | FnType
-                | LPAREN TypeOnly RPAREN
 FnType        ::= KW_FN LPAREN TypeList? RPAREN COLON Type
 TypeList      ::= Type (COMMA Type)* COMMA?
 UnionType     ::= IntersectType (BAR IntersectType)*
@@ -336,9 +340,10 @@ this a structural invariant rather than a path taken — and not dead code to be
 
 **Both cells of modules §5's grid are prelude members** (R250): the statement form and the
 assigned form. The assigned form is spelled out here rather than deferred to `BindingDecl`
-because it is the one place the grammar needs **two tokens** of lookahead — see §11's flagged
-list. It is `KW_CONST` only, and admits no type annotation; modules §6 forbids the annotation
-too, and that half is semantic.
+because at `KW_EXPORT? KW_CONST IDENT ASSIGN` the two readings part only on the token after the
+`=` — see §11's flagged list, which records what that costs a parser and what it does not. It is
+`KW_CONST` only, and admits no type annotation; modules §6 forbids the annotation too, and that
+half is semantic.
 
 `TopLevelItem` admits a `Statement`, and semantic analysis rejects it (R257). The grammar is
 permissive here for the reason §9 gives, and the payoff is direct: every corpus example parses
@@ -393,6 +398,18 @@ The statement grammar's shape is set by the **postfix modifier**, control-flow �
   would desugar to a defer inside a sugar block, whose exit is immediate. The conditional-cleanup
   idiom is one level in — `defer { close(fd) if (cond); };` — and that derives, because the
   modifier attaches to the inner statement.
+- **A `{` after `defer` is that block and never a variant literal** (R268), which is the `!LBRACE`
+  on the statement arm. It is the same rule `Statement`, `FnBody` and `ArmBody` carry, in the
+  third of its four positions.
+
+**A statement never begins with `{`** (R268). `CompoundStmt`'s `Block` and `Primary`'s
+`VariantLit` both open there, and the block wins everywhere a block may appear, so `{}` is an
+empty block and `{read};` does not derive — a variant literal at a statement head is
+parenthesized, `({read});`, exactly as it is after `=>`. Without the guard both readings derive
+and neither the grammar nor a parser could say which was meant: `{read}` is no block, `{x;}` is no
+literal, and separating them needs a look past the closing brace. The guard is what makes the
+choice one token, and the expression it forbids is one nobody writes — a statement whose whole
+work is to build a variant and discard it.
 
 **`throw` and assignment are expressions, not statements** (associativity §1, tiers 12 and 13),
 so both reach statement position through `SimpleStmt ::= Expr`. **`yield` is a statement and
@@ -472,6 +489,29 @@ That last one is why `Type` appears in no `Primary` alternative. None of the typ
 constructors — `BAR`, `AMP`, postfix `BANG` / `QUESTION`, `FnType` — has an expression
 production, so a bare `int | double` in value position derives nothing. `const number: type =
 int | double;` parses because the annotation put the right-hand side in type position.
+
+**And the annotation commits** (R269): `: type` before an `=` selects the first `BindingDecl`
+production, whose right-hand side is a `Type` and nothing else, which is the rule R256 already
+stated in prose — "decided at one token and before the `=` is even reached" (type §2). The
+`!IDENT("type")` on the second production is what makes it exclusive, and without it both derive
+`const t: type = int;`: one reading a type, the other a value annotated with the type named
+`type`. They mean the same thing, which is why the ambiguity is harmless to a reader and fatal to
+a parser.
+
+Three forms therefore stop deriving, and each is one the language has a better spelling for. A
+**function literal** cannot carry the annotation — `const t: type = fn (a): b => x;` — because a
+literal is not a type; drop the annotation and it is an ordinary binding. An **expression that
+computes a type** cannot either — `const t: type = comptype x;` — and type §2 already says these
+need no annotation, `comptype x` being an expression whose value is a type. And a **type
+expression whose first token is `type`** must be parenthesized in an annotation:
+`let x: (type | null) = 5;`. That last is the same medicine `{` takes one section up, and for the
+same reason: where a leading token is claimed, parentheses are how the other reading is spelled.
+
+This is what retired `TypeOnly`, which existed only to keep the two productions apart by
+requiring the alias's right-hand side to carry at least one type operator. It worked, and it put
+the deciding token past the whole right-hand side — arbitrarily far right (`enum { a, b } | null`)
+and arbitrarily deep (`(a|b)` is a type, `(a)` is an expression). The guard moves the decision
+back to the annotation, where R256 put it.
 
 **`KW_FN` begins a literal in expression position and a type in type position**, and never both
 in one place, which is what lets `FnLit` commit on its keyword (R45's LL(1) claim, licensed by
@@ -586,9 +626,12 @@ productions live in §0 and are not duplicated here — so this table is an inde
 second source of truth. Its purpose is mechanical: a count that a test can assert, and a list
 that makes an omission visible, exactly as lexer §10 does for tokens.
 
-**130 nonterminals over nine groups.** By §0's grouping: **18** file and declarations, **12**
+**129 nonterminals over nine groups.** By §0's grouping: **18** file and declarations, **12**
 statements, **24** expressions, **21** primaries, **23** declaration literals and closed
-sub-grammars, **8** types, **13** patterns, **10** literals, **1** keyword class.
+sub-grammars, **7** types, **13** patterns, **10** literals, **1** keyword class.
+
+A guard is not a nonterminal and adds none: `!TERMINAL` names a token, so it answers to the
+terminal pin below rather than to this count.
 
 **Every ` ```luna ` block in the corpus derives, and derives exactly once**, which
 `internal/ebnf` checks by running §0 over each of them. That is the question associativity
@@ -638,22 +681,32 @@ estimated.
 
 | Enumeration | Count | What it answers |
 |-|-|-|
-| **Dot positions** | 1,140 over 561 desugared productions | where a parser can *be* when it fails. A true bound and a useless one: most dots share a message. |
-| **Committed expect-sites** | 274, over **33 distinct terminals** | where the parser writes `expect(X)` — a dot past position 0 with a terminal next. This is the inventory of required tokens. |
-| **Recursion sites** | 429, over 175 nonterminals | where a nonterminal is predicted, so failure is reported one level down as "expected a *thing*". |
-| **Frontier classes** | **50** | the distinct answers to "what may come next", over every prefix of every four-token program (12,559 of them). |
+| **Dot positions** | 1,115 over 548 desugared productions | where a parser can *be* when it fails. A true bound and a useless one: most dots share a message. |
+| **Committed expect-sites** | 271, over **31 distinct terminals** | where the parser writes `expect(X)` — a dot past position 0 with a terminal next. This is the inventory of required tokens. |
+| **Recursion sites** | 418, over 170 nonterminals | where a nonterminal is predicted, so failure is reported one level down as "expected a *thing*". |
+| **Frontier classes** | **49** | the distinct answers to "what may come next", over every prefix of every four-token program (12,558 of them). |
 
-Ten terminals carry 233 of the 274 expect-sites — `COLON` 39, `RPAREN` 27, `IDENT` 24,
+A **guard** occupies none of these positions. `!TERMINAL` consumes nothing, so it is no dot a
+parser rests at and no token it can be missing; it is folded into the dispatch that chooses the
+production, which is the point of having it.
+
+Ten terminals carry 222 of the 271 expect-sites — `COLON` 39, `RPAREN` 26, `IDENT` 24,
 `SEMICOLON` 22, `ASSIGN` 21, `LPAREN` 21, `FAT_ARROW` 20, `RBRACKET` 18, `RBRACE` 16,
-`COMMA` 15 — and fourteen terminals are wanted at exactly one site, where a message can name its
+`COMMA` 15 — and twelve terminals are wanted at exactly one site, where a message can name its
 construct with no ambiguity.
 
 **The frontier is bimodal, and that is what shapes the diagnostics.** Its sizes run 1, 2, 4, 5,
-6 — then a gap — then 11, 14, 15, 26 … 84, with the mass at 26–62. Only three frontiers are
+6 — then a gap — then 11, 14, 15, 26 … 62, with the mass at 26–62. Only three frontiers are
 singletons (`IDENT`, `SEMICOLON`, `STRING_SQ`). Below the gap the expected set **is** the
 message ("expected `;`"); above it the set is sixty-two ways to begin an expression, and
 printing it is noise where naming the *nonterminal* is not. The two halves of §11.2's engine
 table are those two modes.
+
+**Every figure above moved with R268–R270, and the direction is worth recording**: the widest
+frontier fell from 84 to 62, because `const t: type =` no longer has both a type and an
+expression live after it, and exactly one four-token program stopped deriving — `{read};`, the
+variant-literal statement R268 retired. A rule stated in §0 is a rule that shrinks the language it
+describes; a rule stated in prose is one that does not.
 
 **What the grammar cannot supply, and the parser must.** A frontier is the union over every live
 item; a recursive-descent parser has a **stack**, and the stack is where the good message lives.
@@ -689,9 +742,12 @@ and a spec sentence says why. A rule with a reason earns a page; the engine's fi
 | Missing token | a required terminal is absent; the description names it (the 274 expect-sites) | small |
 | Expected a construct | a nonterminal was predicted and nothing could begin it; the description names which — expression, type, pattern, statement, declaration (the 429 recursion sites) | large |
 
-**The named rules.** Each is unrepresentable in §0 on purpose, so the generic message would be
-technically right and useless — `set get` reports "expected `:`" and `fn () => {read}` reports a
-missing `}`, neither of which names the actual mistake.
+**The named rules.** Each is a place the language deliberately excludes something, and the
+generic message would be technically right and useless — `set get` reports "expected `:`" and
+`fn () => {read}` reports a missing `;`, neither of which names the actual mistake. Five are
+unrepresentable in §0; the sixth is representable and is stated there (R268, R270), which changes
+nothing about why it earns a name: the rule is what the grammar rejects, the named diagnostic is
+what the parser says about it.
 
 | Title | The rule | Owner |
 |-|-|-|
@@ -700,7 +756,7 @@ missing `}`, neither of which names the actual mistake.
 | `else` on a postfix form | an else-bearing conditional is the block form | control-flow §5.1 |
 | Chained postfix modifiers | `expr if (c) foreach (h)` poses the which-nests-which trap | control-flow §5 |
 | Grant order must be `get set` | one spelling, so `set get` does not derive | protocols §2.2 |
-| Variant literal after `=>` needs parentheses | `{` there always opens a block, so the literal is `({read})` | this file, Flagged |
+| Variant literal here needs parentheses | a `{` where a block may appear always opens one, so the literal is `({read})` — after `=>`, after `defer`, and at a statement head (R268) | this file, §3 and Flagged |
 
 Two boundaries the count depends on, both already ruled elsewhere. **Import-after-the-prelude is
 an `M`, not a `P`**: §1.2 rejects it before parsing (R250), so the structural invariant §1 records
@@ -712,12 +768,35 @@ list of things that are *not* on this page.
 
 ## Flagged: hazards and the corners
 
-**The grammar needs two tokens in exactly one place.** At `KW_EXPORT? KW_CONST IDENT ASSIGN`,
-the parser must see whether `KW_IMPORT` follows to know whether it is in `PreludeItem` or
-`BindingDecl`. R250 predicted this in as many words — "the stopping condition is a parse
-decision rather than a token test: `const` and `export` need lookahead to `= import`". It is
-one junction and it left-factors cleanly; it is recorded because the LL(1) claims elsewhere are
-otherwise unqualified.
+**Two junctions need more than one token, and they need different amounts** (R271). The LL(1)
+claims elsewhere in this file are otherwise unqualified, and the earlier version of this note
+claimed there was one such place, which writing the parser disproved.
+
+**The prelude junction needs two tokens.** At `KW_EXPORT? KW_CONST IDENT ASSIGN`, the parser must
+see whether `KW_IMPORT` follows to know whether it is in `PreludeItem` or `BindingDecl`. R250
+predicted this in as many words — "the stopping condition is a parse decision rather than a token
+test: `const` and `export` need lookahead to `= import`". It left-factors cleanly as a grammar,
+though a parser may prefer not to: the two shapes are not prefix-identical in the *tree*, a
+`PreludeItem` holding a bare `IDENT` where a `BindingDecl` holds a `Binder`, so factoring costs a
+seam inside `BindingDecl` that a five-token predicate does not
+(`oracle/parser/parser-implementation.md` §4.7).
+
+**The assignment junction needs a bracket-matched scan, and no fixed number of tokens.**
+`Assignment ::= WordPrefix | AssignTarget AssignOp Assignment` has two alternatives that both
+begin with `IDENT` or `WILDCARD` and stay identical for as long as the target runs:
+`a.b[c](d).e = 1` against `a.b[c](d).e + 1` part at the token after the whole postfix chain,
+which is unbounded. It is decidable and cheap — the prefix `(IDENT | WILDCARD) Postfix*` is
+recognized exactly by a scan that matches `()[]{}` and then asks whether an `AssignOp` follows,
+consuming nothing — and it is decidable *exactly*, since `AssignOp` appears in no other
+production. This is the ordinary gap between LL and LR rather than a defect in §0: an LR parser
+needs none of it, and nothing here is ambiguous. It is recorded because the claim above used to
+say it did not exist.
+
+**The two remaining collisions are settled in §0 rather than here**, which is what R270's guard
+bought: a `{` at a statement head, after `=>`, or after `defer` opens a block (R268, §3), and
+`: type` before an `=` puts the right-hand side in type position (R269, §5). Both were prose in
+this section, and prose is exactly the form in which a rule over-accepts — the grammar derived
+`fn () => {read}` and `const t: type = int;` under readings the language does not have.
 
 **`&&` versus `&` after `is`.** In type position `AMP` is intersection, so `x is int & y` is the
 type `int & y`, not a conjunction. `x is int && y` is safe by maximal munch — `AND` is one token
@@ -733,13 +812,26 @@ argument's head is an `IDENT` and `KW_ERROR` is not one.
 **`Subscript`'s empty form is the bytes append target** (`b[] = 65`, bytes §3), which is why
 `LBRACKET RBRACKET` derives. It is meaningless anywhere else and semantic analysis says so.
 
-**`VariantLit` and `Block` share `LBRACE`.** After `FAT_ARROW` a `{` always opens a block
-(functions §3, enum §3), so a variant-literal body is parenthesized: `=> ({read})`. The rule is
-in the *body* production rather than in `Primary`, which is why `FnBody ::= Block | Expr` lists
-`Block` first — an ordered choice at that one junction, and the only one in this file.
+**`VariantLit` and `Block` share `LBRACE`, and the block wins in all four places one may appear**
+(R268): after `FAT_ARROW` in a `FnBody` and an `ArmBody` (functions §3, enum §3), after
+`KW_DEFER`, and at the head of a `Statement`. A variant literal in any of them is parenthesized —
+`=> ({read})` — and `{read};` does not derive.
 
-**A match arm's body is `Block | Expr` too**, and for the same reason: functions §3 pins the
-`{`-opens-a-block rule and says outright that it "governs match arms", which only holds if an
+**This used to be an ordered choice, and that was the defect.** `FnBody ::= Block | Expr` was
+written as an alternation and annotated in prose as ordered, "the only one in this file". A CFG
+has no ordered choice, so the grammar derived `fn () => {read}` as a variant literal while the
+prose called it a block: §0 accepted an input the language rejects, at the one site this section
+flagged, and a parser obeying the prose would have diagnosed an input the grammar derives —
+breaking the reject-set invariant the parse goldens rest on
+(`oracle/parser/testdata/golden.md` §0). The `!LBRACE` guard (R270) states the rule inside §0
+instead, so the two halves agree by construction and the choice is decided at one token.
+
+The statement head was the same collision with no rule at all, and §3 has it. What the rule
+costs is one form nobody writes: an expression statement whose whole work is to build a variant
+and discard it.
+
+**A match arm's body is `Block | !LBRACE Expr` too**, and for the same reason: functions §3 pins
+the `{`-opens-a-block rule and says outright that it "governs match arms", which only holds if an
 arm may carry a block at all. `ArmBody` is therefore `FnBody`'s twin. What an arm with a block
 body *yields* is `undefined` — a block has no value (R254), and match §9 already admits
 `undefined` into a match's result type, so nothing new enters the type system by it.

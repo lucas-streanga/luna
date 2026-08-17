@@ -1,8 +1,10 @@
 const t: type = int | string;
 const u: type = fn (int): bool;
 const v: type = @proto1 & @proto2;
+const w: type = int;
+let x: (type | null) = 5;
 ---
-File 0..97
+File 0..144
   Declaration 0..29
     BindingDecl 0..29
       KW_CONST 0..5 "const"
@@ -11,10 +13,11 @@ File 0..97
       COLON 7..8 ":"
       IDENT 9..13 "type"
       ASSIGN 14..15 "="
-      TypeOnly 16..28
-        IDENT 16..19 "int"
-        BAR 20..21 "|"
-        IDENT 22..28 "string"
+      Type 16..28
+        UnionType 16..28
+          IDENT 16..19 "int"
+          BAR 20..21 "|"
+          IDENT 22..28 "string"
       SEMICOLON 28..29 ";"
   Declaration 30..61
     BindingDecl 30..61
@@ -24,7 +27,7 @@ File 0..97
       COLON 37..38 ":"
       IDENT 39..43 "type"
       ASSIGN 44..45 "="
-      TypeOnly 46..60
+      Type 46..60
         FnType 46..60
           KW_FN 46..48 "fn"
           LPAREN 49..50 "("
@@ -44,12 +47,43 @@ File 0..97
       COLON 69..70 ":"
       IDENT 71..75 "type"
       ASSIGN 76..77 "="
-      TypeOnly 78..95
-        PrimaryType 78..85
-          AT 78..79 "@"
-          IDENT 79..85 "proto1"
-        AMP 86..87 "&"
-        PrimaryType 88..95
-          AT 88..89 "@"
-          IDENT 89..95 "proto2"
+      Type 78..95
+        IntersectType 78..95
+          PrimaryType 78..85
+            AT 78..79 "@"
+            IDENT 79..85 "proto1"
+          AMP 86..87 "&"
+          PrimaryType 88..95
+            AT 88..89 "@"
+            IDENT 89..95 "proto2"
       SEMICOLON 95..96 ";"
+  Declaration 97..117
+    BindingDecl 97..117
+      KW_CONST 97..102 "const"
+      Binder 103..104
+        IDENT 103..104 "w"
+      COLON 104..105 ":"
+      IDENT 106..110 "type"
+      ASSIGN 111..112 "="
+      Type 113..116
+        IDENT 113..116 "int"
+      SEMICOLON 116..117 ";"
+  Declaration 118..143
+    BindingDecl 118..143
+      KW_LET 118..121 "let"
+      Binder 122..123
+        IDENT 122..123 "x"
+      COLON 123..124 ":"
+      Type 125..138
+        PrimaryType 125..138
+          LPAREN 125..126 "("
+          Type 126..137
+            UnionType 126..137
+              IDENT 126..130 "type"
+              BAR 131..132 "|"
+              KW_NULL 133..137 "null"
+          RPAREN 137..138 ")"
+      ASSIGN 139..140 "="
+      Initializer 141..142
+        INT_DEC 141..142 "5"
+      SEMICOLON 142..143 ";"

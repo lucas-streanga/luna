@@ -128,7 +128,10 @@ defer cleanup of a value computed later, place the `defer` after that value exis
 
 A `defer` may take a **single call** (`defer f.close();`, `defer unlock(m);`) or a **block**
 (`defer { ...; ... }`) for multi-step cleanup; the block form is the same construct with several
-statements, and its free values are likewise captured by value at registration.
+statements, and its free values are likewise captured by value at registration. A `{` after
+`defer` is therefore always that block, never a variant literal, which is the same rule that
+governs a lambda body, a match arm and a statement head (grammar §3, functions §3, R268): a
+deferred variant literal is parenthesized, `defer ({read});`.
 
 ---
 

@@ -301,7 +301,7 @@ func (e *enumerator) run() {
 				if !first && !anyDirty(uses[i], dirty) {
 					continue
 				}
-				e.build(p, sufs[i], 0, l, "", func(s string) {
+				e.build(p, sufs[i], 0, l, "", nil, func(s string) {
 					if e.add(p.LHS, l, s) {
 						grew[p.LHS] = true
 					}
@@ -326,7 +326,14 @@ func anyDirty(names []string, dirty map[string]bool) bool {
 
 // build walks one production's right-hand side, handing every complete concatenation of
 // exactly rem tokens to emit.
-func (e *enumerator) build(p Prod, suf []int, i, rem int, acc string, emit func(string)) {
+//
+// guard is a `!TERMINAL` seen earlier in this right-hand side and not yet discharged (R270). It
+// governs the **first token produced after it**, whichever symbol produces it, so it rides along
+// until something emits one — a nullable nonterminal in between passes it on rather than
+// consuming it. Generating and then filtering would be the alternative and is not available: an
+// over-generated sentence is one the recognizer rejects, which lands in Report.Unrecognized and
+// is meant to mean the two halves disagree about the grammar.
+func (e *enumerator) build(p Prod, suf []int, i, rem int, acc string, guard *Sym, emit func(string)) {
 	if i == len(p.RHS) {
 		if rem == 0 {
 			emit(acc)
@@ -337,9 +344,16 @@ func (e *enumerator) build(p Prod, suf []int, i, rem int, acc string, emit func(
 		return // the rest of the production cannot fit
 	}
 	s := p.RHS[i]
+	if s.Negate {
+		e.build(p, suf, i+1, rem, acc, &p.RHS[i], emit)
+		return
+	}
 	if s.IsTerminal {
 		for _, txt := range e.textsFor(s) {
-			e.build(p, suf, i+1, rem-1, acc+encodeToken(s.Name, txt), emit)
+			if guard != nil && guard.Name == s.Name && (guard.Text == "" || guard.Text == txt) {
+				continue
+			}
+			e.build(p, suf, i+1, rem-1, acc+encodeToken(s.Name, txt), nil, emit)
 		}
 		return
 	}
@@ -352,9 +366,23 @@ func (e *enumerator) build(p Prod, suf []int, i, rem int, acc string, emit func(
 		// Indexed rather than ranged: build may extend this very cell through emit, and the
 		// additions are legitimate inputs to the same fixpoint round.
 		for j := 0; j < len(c.list); j++ {
-			e.build(p, suf, i+1, rem-l, acc+c.list[j], emit)
+			next := guard
+			if c.list[j] != "" {
+				if guard != nil && guardBlocks(*guard, c.list[j]) {
+					continue
+				}
+				next = nil
+			}
+			e.build(p, suf, i+1, rem-l, acc+c.list[j], next, emit)
 		}
 	}
+}
+
+// guardBlocks reports whether an encoded sentence begins with the token a guard forbids.
+func guardBlocks(g Sym, enc string) bool {
+	head, _, _ := strings.Cut(enc, tokenSep)
+	name, text, _ := strings.Cut(head, fieldSep)
+	return g.Name == name && (g.Text == "" || g.Text == text)
 }
 
 // add records a sentence, reporting whether it was new.
@@ -409,7 +437,10 @@ func (e *enumerator) suffixMins(p Prod) []int {
 	out := make([]int, len(p.RHS)+1)
 	for i := len(p.RHS) - 1; i >= 0; i-- {
 		w := 1
-		if !p.RHS[i].IsTerminal {
+		switch {
+		case p.RHS[i].Negate:
+			w = 0 // a guard yields no token
+		case !p.RHS[i].IsTerminal:
 			w = e.min[p.RHS[i].Name]
 		}
 		out[i] = saturatingAdd(out[i+1], w)
@@ -428,11 +459,13 @@ func (g *Grammar) minLens() map[string]int {
 		for _, p := range g.Prods {
 			sum := 0
 			for _, s := range p.RHS {
-				if s.IsTerminal {
+				switch {
+				case s.Negate: // a guard yields no token
+				case s.IsTerminal:
 					sum = saturatingAdd(sum, 1)
-					continue
+				default:
+					sum = saturatingAdd(sum, m[s.Name])
 				}
-				sum = saturatingAdd(sum, m[s.Name])
 			}
 			if sum < m[p.LHS] {
 				m[p.LHS] = sum

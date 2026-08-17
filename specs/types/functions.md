@@ -198,9 +198,10 @@ type position instead. Without that rule `fn (` would begin either form and the 
 a prefix all the way to the `=>`, so `fn` would commit nothing — and `const sqrt = fn (d:
 double): double;` would silently bind a type rather than fail (R255, R256). One
 disambiguation rule, pinned because the fenced variant literal also uses braces (enum
-§3.3): **after `=>`, a `{` always opens a block**; an expression body that is a variant
-literal takes parentheses, `fn (): mode => ({read})`. The same rule governs match arms
-(match spec).
+§3.3): **a `{` always opens a block wherever a block may appear**; an expression body that is a
+variant literal takes parentheses, `fn (): mode => ({read})`. The same rule governs match arms
+(match spec), a `defer`, and the head of a statement — four positions, one rule, stated in
+grammar §0 rather than beside it since R268/R270.
 
 Two functions differ in type if they differ in parameters, result, or errorability (§4),
 and in **nothing else**: the function typeid is signature plus errorability, checked at

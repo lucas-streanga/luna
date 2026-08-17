@@ -24,17 +24,50 @@ import (
 // lexeme — grammar.md's IDENT("from") form, the positional spelling-match Luna uses for `from`
 // (R223), `get` / `set` (R232) and `identityEquality` (equality §4.4). It is not a keyword and
 // does not reserve the word, so the match must be on the text and not on the kind.
+//
+// A **guard** (Negate) is grammar.md's `!TERMINAL`: a zero-width assertion that the next token is
+// not that terminal (R270). It consumes nothing, yields nothing, and appears in no derivation
+// tree — it only forbids. Two rules in the language need it, and both are of one shape, a leading
+// token claimed by one reading: `{` opens a block wherever a block may appear (R268), and `: type`
+// puts a binding's right-hand side in type position (R269). Restricting a nonterminal by its first
+// token is an intersection with a regular set, so the grammar stays context-free and Earley stays
+// exact; what it buys is that §0 states the rule that was prose, and the parser's dispatch and the
+// grammar's are then the same sentence.
 type Sym struct {
 	Name       string // token kind for a terminal, nonterminal name otherwise
 	Text       string // required lexeme, terminals only; empty means any
 	IsTerminal bool
+	Negate     bool // a guard: this terminal may not appear here (terminals only)
 }
 
 func (s Sym) String() string {
+	out := s.Name
 	if s.Text != "" {
-		return fmt.Sprintf("%s(%q)", s.Name, s.Text)
+		out = fmt.Sprintf("%s(%q)", s.Name, s.Text)
 	}
-	return s.Name
+	if s.Negate {
+		return "!" + out
+	}
+	return out
+}
+
+// carried is a right-hand side without its guards: the symbols that actually derive something.
+// Anything counting a production's arity wants this, since a guard is an assertion rather than a
+// child.
+func carried(rhs []Sym) []Sym {
+	for _, s := range rhs {
+		if !s.Negate {
+			continue
+		}
+		out := make([]Sym, 0, len(rhs)-1)
+		for _, s := range rhs {
+			if !s.Negate {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return rhs
 }
 
 // Prod is one alternative of one nonterminal: LHS ::= RHS.
@@ -152,12 +185,14 @@ func (g *Grammar) Alternatives(name string) int { return len(g.byLHS[name]) }
 // shown, and which the consumer of this set reads as "never survives into a tree". What the
 // caller wants is the property the doc comment states, "always passes through with one child",
 // and a single synthetic is exactly the case where that does not follow from the arity.
+// A guard is not a symbol for this purpose either: `FnBody ::= Block | !LBRACE Expr` still yields
+// one child on both alternatives, and R268 must not cost `FnBody` its elision.
 func (g *Grammar) PureAlternations() map[string]bool {
 	out := map[string]bool{}
 	for name, idxs := range g.byLHS {
 		pure := true
 		for _, i := range idxs {
-			rhs := g.Prods[i].RHS
+			rhs := carried(g.Prods[i].RHS)
 			if len(rhs) != 1 || strings.ContainsRune(rhs[0].Name, '·') {
 				pure = false
 				break

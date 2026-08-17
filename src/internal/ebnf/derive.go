@@ -72,9 +72,13 @@ func (g *Grammar) node(c *chart, k key) (*Node, error) {
 		if cs[0].scan {
 			at := cs[0].prev.set
 			sym := g.Prods[cur.it.prod].RHS[cur.it.pos-1]
-			out.Children = append(out.Children, &Node{
-				Name: sym.Name, Terminal: true, From: at, To: at + 1, Token: at,
-			})
+			// A guard advanced the dot without consuming, so it has a cause and no child: it is
+			// an assertion about the input, not a part of the derivation (R270).
+			if !sym.Negate {
+				out.Children = append(out.Children, &Node{
+					Name: sym.Name, Terminal: true, From: at, To: at + 1, Token: at,
+				})
+			}
 		} else {
 			child, err := g.node(c, cs[0].child)
 			if err != nil {

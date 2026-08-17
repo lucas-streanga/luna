@@ -321,3 +321,100 @@ func containsRune(s string, r rune) bool {
 	}
 	return false
 }
+
+// TestGuardForbidsALeadingToken is R270's notation: `!TERMINAL X` derives what X derives, minus
+// the strings that begin with that terminal. This is the shape R268 needs — a `{` opens a block
+// wherever a block may appear, so the expression arm may not start with one.
+func TestGuardForbidsALeadingToken(t *testing.T) {
+	// Body ::= Block | !LBRACE Expr, over a toy expression that may or may not start with `{`.
+	src := `File ::= Body
+Body ::= Block | !LBRACE Expr
+Block ::= LBRACE RBRACE
+Expr ::= IDENT | LBRACE IDENT RBRACE`
+	accepts(t, src,
+		[][]token.Kind{
+			{token.LBrace, token.RBrace}, // the block
+			{token.Ident},                // the expression, not brace-initial
+		},
+		[][]token.Kind{
+			{token.LBrace, token.Ident, token.RBrace}, // the guard's whole purpose
+		})
+}
+
+// TestGuardIsZeroWidth: the guard consumes nothing, so what follows it still has to be there.
+// A guard that ate a token would make the first case below derive.
+func TestGuardIsZeroWidth(t *testing.T) {
+	accepts(t, "File ::= !LBRACE Expr\nExpr ::= IDENT IDENT",
+		[][]token.Kind{{token.Ident, token.Ident}},
+		[][]token.Kind{{token.Ident}, {}})
+}
+
+// TestGuardMatchesTheLexemeToo: `!IDENT("type")` forbids one spelling and not the kind, which is
+// what R269 needs — an annotation may be any type but the bare identifier `type`.
+func TestGuardMatchesTheLexemeToo(t *testing.T) {
+	g := build(t, `File ::= COLON !IDENT("type") IDENT ASSIGN`)
+
+	ok := []ebnf.Token{
+		{Kind: token.Colon, Text: ":"}, {Kind: token.Ident, Text: "int"},
+		{Kind: token.Assign, Text: "="},
+	}
+	if r := g.Recognize(ok); !r.Accepted {
+		t.Errorf("should accept `: int =`: %s", r.Explain(ok))
+	}
+	bad := []ebnf.Token{
+		{Kind: token.Colon, Text: ":"}, {Kind: token.Ident, Text: "type"},
+		{Kind: token.Assign, Text: "="},
+	}
+	if r := g.Recognize(bad); r.Accepted {
+		t.Error("`: type =` derived, so the guard is matching the kind and not the lexeme")
+	}
+}
+
+// TestGuardDisambiguates is the property both rulings are for: two productions that overlap
+// become disjoint, so an input that derived twice derives once. Without the guard this grammar
+// is ambiguous on `IDENT`, which is exactly the state grammar.md's BindingDecl was in.
+func TestGuardDisambiguates(t *testing.T) {
+	ambiguous := build(t, "File ::= Left | Right\nLeft ::= IDENT\nRight ::= IDENT")
+	if r := ambiguous.Recognize(toks(token.Ident)); !r.Ambiguous {
+		t.Fatal("the control grammar is not ambiguous; the test proves nothing")
+	}
+	guarded := build(t, "File ::= Left | !IDENT Right\nLeft ::= IDENT\nRight ::= IDENT")
+	r := guarded.Recognize(toks(token.Ident))
+	if !r.Accepted || r.Ambiguous {
+		t.Errorf("accepted=%v ambiguous=%v; the guard should leave exactly one derivation",
+			r.Accepted, r.Ambiguous)
+	}
+}
+
+// TestGuardLeavesNoNodeInATree: a guard is an assertion, not a symbol, so a derivation must not
+// carry one — the parse goldens would otherwise print a child for a token nobody consumed.
+func TestGuardLeavesNoNodeInATree(t *testing.T) {
+	g := build(t, "File ::= !LBRACE IDENT SEMICOLON")
+	root, err := g.Derive(toks(token.Ident, token.Semicolon))
+	if err != nil {
+		t.Fatalf("deriving: %v", err)
+	}
+	if len(root.Children) != 2 {
+		t.Fatalf("File has %d children, want 2: the guard left a node behind", len(root.Children))
+	}
+	for i, want := range []string{"IDENT", "SEMICOLON"} {
+		if root.Children[i].Name != want {
+			t.Errorf("child %d is %s, want %s", i, root.Children[i].Name, want)
+		}
+	}
+}
+
+// TestGuardIsRejectedWhereItCannotMean: a guard names a terminal and takes no quantifier, and
+// both are refused at parse time rather than given a meaning nobody asked for.
+func TestGuardIsRejectedWhereItCannotMean(t *testing.T) {
+	for _, src := range []string{
+		"File ::= !Expr IDENT\nExpr ::= IDENT", // a nonterminal: not a regular restriction
+		"File ::= !LBRACE? IDENT",              // a quantifier on an assertion
+		"File ::= !LBRACE !LBRACKET IDENT",     // two assertions at one position
+		"File ::= !",                           // nothing to negate
+	} {
+		if _, err := ebnf.Parse(src); err == nil {
+			t.Errorf("%q parsed, and it has no meaning", src)
+		}
+	}
+}

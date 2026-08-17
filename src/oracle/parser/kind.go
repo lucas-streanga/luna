@@ -129,7 +129,6 @@ const (
 
 	// §0.6 types
 	Type
-	TypeOnly
 	FnType
 	TypeList
 	UnionType
@@ -251,7 +250,6 @@ var nodeNames = [...]string{
 	ProtoInit:          "ProtoInit",
 	InitList:           "InitList",
 	Type:               "Type",
-	TypeOnly:           "TypeOnly",
 	FnType:             "FnType",
 	TypeList:           "TypeList",
 	UnionType:          "UnionType",

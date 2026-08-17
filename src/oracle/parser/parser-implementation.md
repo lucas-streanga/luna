@@ -331,6 +331,303 @@ func Parse(f *source.File, tokens []token.Token) (*Tree, []diagnostic.Diagnostic
 `tokens` is the **full** stream, trivia included. The parser walks the filtered view of it; §2.2's
 splice pass needs the rest.
 
+### 4.5 The filtered view is a rule about the cursor, not a second slice
+
+The parser must never see trivia — that is what makes it exactly grammar.md §0 (§2.1), and splice
+panics on an event naming a trivia index. It is made true structurally rather than by discipline:
+**the cursor is an index into the full slice that never rests on trivia**, seeded past the file's
+leading run and advanced past each token's trailing one. `bump` therefore emits the cursor's own
+index, which is what §2.2 means by the view being index-parallel with the full slice: nothing is
+mapped, nothing is allocated per parse, and there is one coordinate system — the one every event,
+every diagnostic span and every panic message already speaks.
+
+**Rejected: a filtered `[]token.Token` beside the full one**, with a `filtered → full` index table
+of the kind `golden.go` builds for the bridge. That table exists there because a *derivation*
+numbers tokens in the filtered stream; the parser inherits none of the problem. It would buy O(1)
+`nth` and cost an allocation proportional to the file, a second coordinate system in every
+signature, and a translation on every event.
+
+**The cost, accepted:** `nth(n)` is a forward scan over the trivia between here and there. The
+bound is the trivia run rather than the file, §4.7 bounds the depth at five, and no cache is worth
+the invalidation.
+
+Two smaller consequences worth stating because they are load-bearing at call sites. Terminals are
+`token.Kind` throughout the cursor, so `p.at(token.KwFn)` reads as §0 writes `KW_FN`, and the one
+conversion that matters — `expect`'s synthesised leaf — is a no-op by §5's alignment of the two
+ranges. And past the end of the stream `nth` returns `token.Unset`: there is no EOF kind and none
+is wanted, since no production names Unset, so every `at` is false there and every production fails
+in the ordinary way. "Unexpected end of input" is a §11.2 diagnostic, not a terminal.
+
+### 4.6 Markers: `open`, `mark`/`precede`, `complete` — and no `abandon`
+
+A marker is **an index into the event stream**, which is the flattest thing it could be and is
+available only because §4 chose a stream over a tree. Two ways to make one, because §0's
+productions come in two shapes:
+
+- **`open(k)`** for a nonterminal whose first symbol commits it — `Block`, `FnLit`, `IfStmt`,
+  `Type`, and every production but the tiers. The event is emitted now.
+- **`mark()` then `precede(m, k)`** for the precedence tiers, which know their name and not yet
+  whether they have a node at all. `mark` emits nothing, so the tier below writes straight into the
+  enclosing node; `precede` wraps the run retroactively when the operator fires. That is §5's
+  elision written as control flow rather than checked afterwards.
+
+**The kind is given at `open` and `precede`, never at `complete`.** rust-analyzer's shape is the
+other one — `start()` emits a placeholder that `complete(kind)` patches — and it does not pay here:
+`evOpen` would acquire a transient state naming nothing, which `build` already rejects, so every
+reader of a partial stream would have to know that an open may not mean anything yet. What it buys
+is naming a node after seeing its children, and no §0 production wants that. A tier knows its name;
+it does not know whether it fires.
+
+**There is no `abandon`, and the case for one has no members.** A speculative open either ends up
+empty or it does not. Empty, splice already deletes it (§2.2, §6.1) — that is what makes
+`open(Prelude)` on a file with no imports free, and it is pinned by the splice fuzzers rather than
+by a second implementation of the same rule in the parser. Not empty — the tier that consumed its
+operand and then did not fire — is served by `mark`, which never emitted the open there would be to
+abandon. Abandoning a *non-empty* open is unwrapping rather than deleting; the stream has no event
+for it, and acquiring one means a tombstone kind and a fixup pass, which is the design the paragraph
+above declined.
+
+`precede` is an insertion, so it costs the events emitted since the mark — the left operand's
+subtree, once, at the moment the operator is seen. Left-associative runs are loops rather than
+recursion, so a chain of any length pays it once; only tiers firing inside tiers inside parentheses
+make it grow, and the input has to nest to make that happen. rust-analyzer's forward-parent link
+buys a real O(1) for a state in the stream and a fourth pass, and that trade is not worth making
+before a profile asks. `complete` takes its marker although a close names no node, so that the
+parser's stack of open markers can assert the node being closed is the one on top — a misnesting
+then panics at the call site that made it rather than in the builder.
+
+### 4.7 Lookahead: one junction ruled, three the grammar does not decide
+
+**Ruled: the prelude junction is a predicate, not a left-factoring.** grammar.md's Flagged list
+names `KW_EXPORT? KW_CONST IDENT ASSIGN` needing to see whether `KW_IMPORT` follows, and says it
+left-factors cleanly. It does, as a statement about the *grammar*. As a statement about this parser
+it costs more than the peek does, so `Prelude`'s loop asks `assignedImportAhead` — at most five
+tokens, consuming nothing — and the two productions stay whole:
+
+- **The two shapes are not prefix-identical in the tree.** `PreludeItem` holds a bare `IDENT` where
+  `BindingDecl` holds a `Binder` around one, and `KW_IMPORT ImportSpec` where `BindingDecl` holds an
+  `Initializer`; `assigned-import-lookahead.parse` prints both. So the factored parser must
+  `precede` a `Binder` as well as the item, which is correct only while the decision lands *before*
+  `ASSIGN` is consumed and the `IDENT` is still the last event emitted.
+- **It puts the seam inside the most-edited production in the file.** `BindingDecl` would no longer
+  parse its own beginning, and every other caller of `declaration` would need a second entry point
+  or the same split. §4 wants a function per nonterminal that opens, consumes and closes.
+- **Its failure mode is worse.** On `export const x =` at end of input the factored parser has
+  already committed and must invent a shape; the predicate simply fails, and the input is a
+  `BindingDecl` missing its initializer — the more common reading and the better diagnostic.
+
+The peek is a depth, not a buffer: §4.5's `nth` is a scan over a cursor that already exists.
+
+**Three junctions no fixed lookahead decided, and R268–R271 settled all three.** grammar.md used
+to say the grammar needs two tokens *in exactly one place*, and that claim was about the one
+above. Writing the spine found three more. Every one was **unambiguous** — the Earley recognizer
+derived each of the inputs below exactly once, so the corpus gate was never going to find them —
+and every one was **undecidable by a recursive-descent parser looking at *k* tokens*.* They were
+not the same defect, which is why they got three different answers.
+
+The invariant that made them matter rather than curiosities: what the grammar rejects and what
+the parser diagnoses must be the same set (`testdata/golden.md` §0). A parser that resolves a
+junction by rule diagnoses inputs §0 derives, and the equality the two-tool corpus exists to buy
+is gone. §4.7.2 is where that had already happened.
+
+#### 4.7.1 `Assignment` — an ordinary LL/LR gap, and not a defect
+
+```
+Assignment   ::= WordPrefix | AssignTarget AssignOp Assignment
+AssignTarget ::= (IDENT | WILDCARD) Postfix* | DestructurePattern
+```
+
+Both alternatives begin with `IDENT` or `WILDCARD` and stay identical for as long as the target
+runs: `a.b[c](d).e = 1` and `a.b[c](d).e + 1` both derive and differ at the token after the whole
+chain, which is unbounded. There is no *k*.
+
+**Decidable, and cheaply.** The prefix language is `(IDENT | WILDCARD) Postfix*` or a bracketed
+pattern, and the only unbounded part of it is bracket nesting, so a scan that matches `()[]{}`
+recognizes it exactly: consume the head, then loop — `DOT`/`OPT_ACCESS`/`ARROW`/`OPT_PROTO_ACCESS`
+take two tokens, `LPAREN` and `LBRACKET` skip to their closer — and report whether an `AssignOp`
+follows. It consumes nothing, emits nothing and keeps §7.3's "no backtracking anywhere". About
+twenty-five lines, and **exact in both directions**: an `AssignOp` appears in no other production,
+so a chain followed by one has no `WordPrefix` derivation; and a scan that mirrors `Postfix` stops
+exactly where the target does. `a + b = c` and `&x = 1` are rejected by the grammar and the scan
+declines both — it stops at `+` and at `AMP`, neither of which begins a target.
+
+An LR parser needs none of this, which is the whole content of the finding: this is the classic
+gap between LL and LR, not a fault in §0. **Nothing changed in grammar.md but the sentence
+claiming it does not happen** (R271, Flagged). The cost is a scan bounded by the statement, so a
+construct nesting assignments pays it per level — `O(n · depth)` on adversarial input, which is
+worth knowing where FuzzParse's per-input budget is concerned and nowhere else.
+
+*Rejected: parse the expression and rename the node* (JavaScript's cover grammar). It looks free
+because `_ = x` needs only a wrapper, and breaks on `[a, b] = t`: the expression branch has built
+`TableLit → TableEntries → TableEntry` where the target wants
+`DestructurePattern → DestrEntries → DestrEntry`. `TableEntry` admits an arbitrary `Expr` key and
+value where `DestrEntry` admits a `KeyLit` and a `BindTarget`, so the repair is not a rename but a
+re-validation in §1.4 — a second grammar for the same tokens, which is the thing that made ES's
+cover grammars famous.
+
+#### 4.7.2 The `{` rule — the CFG cannot state it, and one site already proves it
+
+`Block` and `VariantLit` both begin with `LBRACE`, and grammar.md's Flagged list resolves the
+collision *once*, after `FAT_ARROW`: "a `{` there always opens a block, so a variant-literal body
+is parenthesized". It calls `FnBody ::= Block | Expr` an **ordered choice**, "the only one in this
+file".
+
+A CFG has no ordered choice, and the consequence is measurable:
+
+| Input | The recognizer | The rule |
+|-|-|-|
+| `const m = fn () => {read};` | **derives**, exactly once, as a `VariantLit` | a block, hence an error |
+| `_ = match (x) { 1 => {read}, };` | **derives**, exactly once | a block, hence an error |
+
+So §0 accepted two inputs the language rejects, at the site the file flagged, and a parser obeying
+the prose would have diagnosed them. **`testdata/golden.md` §0's reject-set invariant was
+therefore already false**, and nothing said so because no case in the corpus wrote the
+unparenthesized form — every golden used `=> ({read})`, which is the spelling the rule produces.
+
+The statement head was the same collision with no rule at all:
+
+| Input | The recognizer |
+|-|-|
+| `{}` | derives — a `Block` |
+| `{};` | **rejected** — a block takes no `;`, and `{}` is no `VariantLit` |
+| `{read};` | derives — a `SimpleStmt` over a `VariantLit` |
+| `{read}` | **rejected** — a block needs `read;` |
+| `{read}(x);` | derives — the literal, called |
+
+It was decidable by a scan — after `{`, a non-`IDENT` means `Block`, and otherwise a `SEMICOLON` at
+brace depth 1 before the matching `}` means `Block`, since every `BlockItem` starting with an
+`IDENT` is `SimpleStmt Modifier? SEMICOLON` while a `VariantLit`'s body can hold a `;` only at
+depth 2. Fifteen lines and a bracket counter, and **the scan was the wrong answer.**
+
+**Ruled instead (R268): a `{` opens a block wherever a block may appear** — after `FAT_ARROW` in a
+`FnBody` and an `ArmBody`, after `KW_DEFER`, and at the head of a `Statement` — and a variant
+literal in any of the four is parenthesized. One uniform rule instead of two contexts with
+different answers, LL(1) at all four, and the form it costs is `{read};`, an expression statement
+that computes a literal and discards it.
+
+**And R270 is what let §0 say it.** The rule is a restriction on a nonterminal's first token,
+which is an intersection with a regular set, so the metasyntax gained `!TERMINAL` — a zero-width
+guard — and the grammar stayed context-free. `FnBody ::= Block | !LBRACE Expr` is the whole of it.
+That closes the CFG-versus-prose gap rather than managing it: the rule is now *in* §0, so the
+reject-set invariant is true by construction, and the parser's dispatch and the grammar's
+production are the same sentence. The three-token variant R269 needed is the same feature.
+
+The measured effect: exactly one four-token program stopped deriving, `{read};`, and the corpus's
+one unparenthesized site — `enum.md`'s `fn (): shape => {point}` — became a corpus-gate failure
+until it was parenthesized, which is the ruling checking itself.
+
+#### 4.7.3 `BindingDecl`'s two forms — the one that cost a design property
+
+The shape R269 retired, which is what the rest of this section is about:
+
+```
+BindingDecl ::= … Binder COLON IDENT("type") ASSIGN TypeOnly SEMICOLON
+              | … Binder (COLON Type)? ASSIGN Initializer SEMICOLON
+TypeOnly    ::= IntersectType (BAR IntersectType)+ | PostfixType (AMP PostfixType)+
+              | PrimaryType (BANG | QUESTION)+ | FnType | LPAREN TypeOnly RPAREN
+```
+
+`TypeOnly` required **at least one type operator**, and that is what kept the pair unambiguous:
+`const t: type = int;` has no operator, so only the second production derived it, and it was a
+value binding annotated with a type named `type` rather than an alias. The trick worked. What it
+cost is that the discriminator lived in the **right-hand side**, where it can be arbitrarily far
+away and arbitrarily deep:
+
+| Input | Derived as | Where the answer was |
+|-|-|-|
+| `const t: type = int;` | `Initializer` | at the `;` |
+| `const t: type = int \| string;` | `TypeOnly` | at the `\|` |
+| `const t: type = (a);` | `Initializer` | inside the parens |
+| `const t: type = (a\|b);` | `TypeOnly` | inside the parens — **depth 1** |
+| `const t: type = enum { a, b };` | `DeclLit` | after the `}` |
+| `const t: type = enum { a, b } \| null;` | `TypeOnly` | after the `}` |
+| `const t: type = fn (int): bool;` | `TypeOnly`, a `FnType` | at the `;` |
+| `const t: type = fn (a): bool => x;` | `Initializer`, a `FnLit` | at the `=>` |
+
+All eight derived exactly once. The last pair is the sharp one: at `fn (` the parser had to begin
+either a `TypeList` or a `ParamList`, and learns which at the `=>` or the `;`, past a return
+type that is itself unbounded. **No bounded scan decides this**, and the depth-1 case rules out the
+cheap approximation of looking for a type operator at depth 0.
+
+Two implementations existed and both were bad. A **token-level `TypeOnly` recognizer** is a mirror
+of §0.6 plus `EnumLit` plus skipping interpolation — a second copy of the type grammar that
+nothing pins against the first, which is the R232 defect class §1 chose a tagged tree to avoid. Or
+a **speculative parse with rollback**, which makes §7.3's "no backtracking is required anywhere"
+false — the one design property this junction actually cost.
+
+**And the language's own rule was bounded all along.** type.md §2 (R256) states it outright: the
+`: type` annotation "is what makes the right-hand side parse at all", and it "puts the right-hand
+side in type position, **decided at one token and before the `=` is even reached**". So §0 did not
+implement R256; it implemented a different rule that happened to accept the same inputs. `TypeOnly`
+was what the ambiguity gate cost — writing R256's rule as plain BNF makes the two productions
+overlap on `const t: type = int;`, because a CFG cannot say "a `Type` other than the bare
+identifier `type`".
+
+**Ruled (R269): the annotation decides, and `TypeOnly` is retired.** The discriminator is
+`COLON IDENT("type") ASSIGN` — three fixed tokens at the annotation — after which the right-hand
+side is a `Type`. R270's guard is what makes the two productions disjoint without a shadow copy of
+the type grammar: `(COLON !IDENT("type") Type)?` on the value-binding form. §0 loses a nonterminal
+and five alternatives.
+
+Three forms stop deriving, each with a better spelling already in the language: a function literal
+under the annotation (`const t: type = fn (a): b => x;` — a literal is not a type, so drop the
+annotation), an expression that computes one (`const t: type = comptype x;` — type §2 already said
+these need none), and an annotation whose type expression begins with `type`
+(`let x: (type | null) = 5;` — parenthesized, the same medicine §4.7.2 takes). The corpus needed no
+edit for any of them: all nine `: type =` sites in the specs were already type expressions.
+
+### 4.8 The nonterminal functions: one file per §0 group, one signature
+
+Nine files named for §0's nine sections — `decl.go`, `stmt.go`, `expr.go`, `primary.go`,
+`decllit.go`, `type.go`, `pattern.go`, `literal.go`, `keyword.go` — each opening with the
+productions it owns and which of them are pure alternations that never reach a tree. The goldens are
+reviewable against §0 (`testdata/golden.md` §1) and so is the code, which is the same principle and
+the same payoff: a production added to §0 with no function behind it is visible in a file whose
+header lists eighteen names and defines seventeen.
+
+**Every nonterminal function is `func (p *parser) x()`** — no parameters, no return. Nothing needs
+one: the tree is built by events rather than returned, and every decision is made from the cursor
+rather than from what a callee reported. The two places that looked like exceptions are §4.7's
+first two junctions, and both are answered by a predicate over the token stream, which keeps the
+uniformity rather than trading it away. A function that acquires a parameter is therefore a signal
+worth reading, not a detail.
+
+Four nonterminals in §0.3 and one in §0.9 get **no function at all**: `AssignOp`, `WordOp`,
+`CoalesceOp`, `CompOp` and `Keyword` are pure alternations over terminals, so a token-set test
+inside the parent is the whole of what they say, and their names reach no tree (§5). `Type` is
+spelled `typ` because `type` is a Go keyword — the only §0 name that does not survive
+transliteration.
+
+`errorToken` is the one Phase-3-adjacent name declared here, and deliberately: the spine's dispatch
+sites need somewhere to send a token they cannot place, and §6.4's progress guarantee — every error
+path consumes at least one real token — has to live in one place rather than in each group that
+invents its own. Layers 2 to 4 are still Phase 3's, and nothing in the signature anticipates them.
+
+### 4.9 Flagged: the tier count is sixteen, and five files say thirteen
+
+`golden.md` §2 lists **sixteen** expression tiers and is the list the elision rule is computed
+against; `golden.md` §4 says thirteen four sections later. The disagreement is older than either
+file and is not golden.md's to settle, so it is recorded rather than fixed:
+
+| Site | Says |
+|-|-|
+| `associativity.md` §1 | thirteen numbered tiers — 1, 1a, 2 … 13, which is **fourteen rows** |
+| `associativity.md` intro | "thirteen expression nonterminals" |
+| `grammar.md` §0.3 heading | "thirteen tiers, loosest first" |
+| `grammar.md` §4 | "thirteen tiers, thirteen nonterminals" |
+| `golden.md` §2 | the sixteen, listed |
+| `golden.md` §4 | "the thirteen expression tiers" |
+| `internal/ebnf` | three comments carrying the same number |
+
+What the numbers are counting is not the same thing. `associativity.md` numbers **operator tiers**
+and has fourteen rows under thirteen numbers, `1a` being unnumbered. `grammar.md` §0.3 stratifies
+those into **fifteen nonterminals**, and `Primary` in §0.4 is the sixteenth the elision list needs,
+`Expr` being an entry alias with no operator of its own. So "thirteen nonterminals" is wrong under
+every reading, and "thirteen tiers" is defensible only as a reference to a numbering two files away.
+
+The parser is written against **sixteen**, since that is the set that elides. Correcting the corpus
+is a sweep over five files and a `CHANGES.md` ruling, and it is not this file's to make.
+
 ## 5. The `Kind` enum: what never survives into a tree is not a kind
 
 **What never survives is exactly the pure alternations** — a nonterminal whose every production is
@@ -795,3 +1092,17 @@ starts**, and so that the API is judged by a real caller before the parser exist
   all. Tuned against the `error_producing/` goldens once they exist, not chosen now.
 - **The mismatched-bracket heuristic** (§7.2 layer 3). The scaffold is well defined when brackets
   nest; what it should do with `([)]` is not, and the answer wants real cases.
+- **Whether the assignment scan and §7.2 layer 3's bracket scaffold are one thing** — see below;
+  §4.7.1's junction is the only one of the three that stays a parser problem, R271 having recorded
+  it in grammar.md rather than changing §0.
+- **Whether the assignment junction's scan and §7.2 layer 3's bracket scaffold are one thing.**
+  Both are a linear pass matching `()[]{}` over the token stream, and the second does not exist
+  yet. Deciding now would be designing recovery from the expression grammar's side.
+- **Whether `-update` survives the bridge** (§10 step 4). `golden_bridge.go` is meant to be deleted
+  when `Parse` lands, taking `internal/ebnf` out of this package with it — but `-update` regenerates
+  a golden's tree section *through* that bridge, and `testdata/golden.md` §5 says the trees are the
+  parser's **target** rather than a transcript of it, while §3 forbids committing tool output as the
+  expectation. Either the bridge stays as the regenerator, and the package keeps the import it
+  planned to drop, or `-update` starts meaning "rewrite from the parser", which is exactly the
+  provenance §3 rules out. The third answer — `-update` goes and the trees are only ever
+  hand-edited — is the one nobody has argued for yet.

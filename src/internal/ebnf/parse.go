@@ -9,7 +9,8 @@ import (
 //
 // The notation is grammar.md's own, and small on purpose: `::=` defines, `|` alternates,
 // `? * +` quantify, `( )` groups, UPPER_SNAKE is a token kind, UpperCamel is a nonterminal,
-// and IDENT("text") is a terminal that additionally matches a lexeme.
+// IDENT("text") is a terminal that additionally matches a lexeme, and `!TERMINAL` is a guard —
+// a zero-width assertion that the next token is not that terminal (R270).
 //
 // **The desugar to BNF is the one place this package can silently disagree with the spec.**
 // Earley needs plain productions, so `A B?` has to become two alternatives and `A*` a fresh
@@ -85,7 +86,7 @@ type mlexer struct {
 func newLexer(s string) *mlexer { return &mlexer{src: []rune(s)} }
 
 type mtok struct {
-	kind rune // 'n' name, '|', '(', ')', '?', '*', '+', 0 = end
+	kind rune // 'n' name, '|', '(', ')', '?', '*', '+', '!', 0 = end
 	name string
 	text string // the "text" of IDENT("text")
 }
@@ -99,7 +100,7 @@ func (l *mlexer) next() (mtok, error) {
 	}
 	c := l.src[l.pos]
 	switch c {
-	case '|', '(', ')', '?', '*', '+':
+	case '|', '(', ')', '?', '*', '+', '!':
 		l.pos++
 		return mtok{kind: c}, nil
 	}
@@ -192,9 +193,28 @@ func (d *desugarer) parseSeq(l *mlexer) ([][]Sym, error) {
 		}
 
 		var atom []Sym // the atom as a symbol sequence, before its quantifier
+		guard := false
 		switch t.kind {
 		case 'n':
 			atom = []Sym{symbolFor(t)}
+		case '!':
+			// `!TERMINAL` — a zero-width guard (R270). It names a terminal because the
+			// restriction it expresses is on the *next token*, which is what keeps it a regular
+			// intersection and the grammar context-free; a guard over a nonterminal would be a
+			// negation of a context-free language and is not admitted.
+			n, err := l.next()
+			if err != nil {
+				return nil, err
+			}
+			if n.kind != 'n' {
+				return nil, fmt.Errorf("! must be followed by a terminal")
+			}
+			s := symbolFor(n)
+			if !s.IsTerminal {
+				return nil, fmt.Errorf("!%s: a guard names a terminal, not a nonterminal", n.name)
+			}
+			s.Negate = true
+			atom, guard = []Sym{s}, true
 		case '(':
 			alts, err := d.parseAlts(l)
 			if err != nil {
@@ -224,6 +244,17 @@ func (d *desugarer) parseSeq(l *mlexer) ([][]Sym, error) {
 		q, err := l.peek()
 		if err != nil {
 			return nil, err
+		}
+		if guard {
+			// A guard matches nothing, so quantifying it says nothing, and a second one beside it
+			// would mean two assertions at one position — which the generator carries one of.
+			// Both are refused rather than given a meaning nobody asked for.
+			switch q.kind {
+			case '?', '*', '+':
+				return nil, fmt.Errorf("!%s takes no quantifier", atom[0].Name)
+			case '!':
+				return nil, fmt.Errorf("!%s: one guard to a position", atom[0].Name)
+			}
 		}
 		switch q.kind {
 		case '?':

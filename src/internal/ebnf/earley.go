@@ -100,7 +100,9 @@ func (g *Grammar) expectedAt(c *chart, at int) []string {
 	seen := map[string]bool{}
 	for _, it := range c.order[at] {
 		p := g.Prods[it.prod]
-		if it.pos < len(p.RHS) && p.RHS[it.pos].IsTerminal {
+		// A guard is skipped: it expects nothing, it forbids. Where it does not fire, the item
+		// past it is in this same set and speaks for the production.
+		if it.pos < len(p.RHS) && p.RHS[it.pos].IsTerminal && !p.RHS[it.pos].Negate {
 			seen[p.RHS[it.pos].String()] = true
 		}
 	}
@@ -159,6 +161,14 @@ func (g *Grammar) chart(toks []Token) *chart {
 			}
 
 			sym := p.RHS[it.pos]
+			if sym.Negate { // a guard: zero-width, and it only forbids
+				if k < n && matches(sym, toks[k]) {
+					continue // the guard fires, so this production is not available here
+				}
+				next := item{prod: it.prod, pos: it.pos + 1, origin: it.origin}
+				add(k, next, &cause{prev: key{set: k, it: it}, scan: true})
+				continue
+			}
 			if !sym.IsTerminal { // prediction
 				for _, pi := range g.byLHS[sym.Name] {
 					add(k, item{prod: pi, pos: 0, origin: k}, nil)

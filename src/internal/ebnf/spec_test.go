@@ -21,7 +21,7 @@ import (
 // §10's claims, which this file is the enforcement of.
 const (
 	wantBlocks        = 9   // §0's production groups
-	wantNonterminals  = 130 // §10's total
+	wantNonterminals  = 129 // §10's total
 	wantKeywordAlts   = 50  // lexer §10's keyword count, reached through Keyword
 	wantStartUnreach  = "File"
 	corpusFloorBlocks = 400 // a walk that finds fewer has broken, not shrunk

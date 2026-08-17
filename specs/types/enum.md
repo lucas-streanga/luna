@@ -170,8 +170,9 @@ type. Anonymous enums intern structurally (value-representation §4.1), so an in
 `enum {read, write, append}` in a signature is one canonical type wherever it is written, and
 the context always resolves the literal to exactly one enum. With **no** enum-typed context
 (`let x = {read};`), the literal is a **compile error**, name the enum or annotate. One
-grammar note: directly after `=>` (a lambda or match-arm body), `{` opens a **block**, so a
-variant-literal body is parenthesized, `=> ({read})` (functions §3, R45). This is
+grammar note: wherever a block may appear — after `=>` in a lambda or match-arm body, after
+`defer`, and at the head of a statement — `{` opens a **block**, so a variant literal in any of
+them is parenthesized, `=> ({read})` and `({read});` (functions §3, grammar §3, R45, R268). This is
 the same expected-type checking every literal already gets against a declared target; nothing
 is inferred *from* the literal upward.
 
@@ -213,8 +214,12 @@ the annotated binding, the parameter type, or the return type:
 ```luna
 let d: shape = {point};                  // target: shape
 someFn({circle ['radius' => 5]});        // target: someFn's parameter type
-const f = fn (): shape => {point};                // target: the return type
+const f = fn (): shape => ({point});      // target: the return type — parenthesized, R268
 ```
+
+The parentheses on the last line are required and are not style: a `{` after `=>` opens a
+**block**, so a variant literal in a function body, a match arm, after `defer`, or at the head of
+a statement is written `({point})` (grammar §3 and Flagged, R268).
 
 This is how the string API writes an enum default, `= {nfc}` with the parameter typed `enum
 {nfc, nfd, nfkc, nfkd}` (§6). Target-typing covers the common case, construction almost always

@@ -8464,6 +8464,146 @@ in `internal/ebnf`, and the parse-golden corpus at
 which derives exactly once, with trees written by `ebnf.Derive` from §0 itself
 because the parser that will be held to them does not exist yet.
 
+**R268 — a `{` opens a block wherever a block may appear, and a variant literal
+there is parenthesized.** Four positions, one rule: after `FAT_ARROW` in a `FnBody`
+and an `ArmBody`, after `KW_DEFER`, and at the head of a `Statement`. So
+`fn () => ({read})`, `1 => ({read})`, `defer ({read});` and `({read});`, while
+`{read}` needs nothing in any other expression position — `_ = {read};` is
+untouched.
+
+**The rule is not new; stating it in §0 is.** functions §3 and enum §3.3 already
+fixed it after `=>`, and grammar.md's Flagged section called `FnBody ::= Block |
+Expr` an ordered choice, "the only one in this file". A CFG has no ordered choice,
+and the gap was measurable: the recognizer **derived** `const m = fn () => {read};`
+and `_ = match (x) { 1 => {read}, };` as variant literals, exactly once each, while
+the prose called them blocks. So §0 accepted two inputs the language rejects, at the
+site the file itself flagged, and a parser obeying the prose would have diagnosed
+inputs the grammar derives — which is the parse goldens' **reject-set invariant**
+(`oracle/parser/testdata/golden.md` §0) already false, unnoticed because every
+golden and every corpus site but one wrote the parenthesized form.
+
+The statement head was the same collision with **no rule at all**, and it is the one
+writing the parser found. `{}` derives as a block, `{read};` derived as a statement
+over a variant literal, `{read}` and `{};` derive as neither — unambiguous to Earley
+and undecidable for a recursive-descent parser without a look past the closing
+brace. `defer` is the fourth. The alternative was a bracket-matched scan (fifteen
+lines: after `{`, a non-`IDENT` means block, else a `;` at brace depth 1 means
+block), rejected because it manages the problem where the rule removes it, and
+because two contexts answering the same question differently is the defect rather
+than the cost.
+
+What it costs is one form nobody writes — an expression statement whose whole work
+is to build a variant and discard it — and **one line in the corpus**: enum §3.2's
+`const f = fn (): shape => {point};`, now `=> ({point});`. The corpus gate caught it
+the moment the guard landed, which is the ruling checking itself. Swept:
+`grammar.md` §0.2, §0.4, §3, §11.2's named-rule title and Flagged; `functions.md`
+§3; `enum.md` §3.2 and §3.3; `defer.md` §4.
+
+**R269 — `: type` decides the right-hand side, and `TypeOnly` is retired.** A
+`COLON IDENT("type") ASSIGN` selects the type-alias production, whose right-hand
+side is a `Type`; the value-binding production is guarded against that annotation.
+Three fixed tokens, at the annotation, and the right-hand side is never consulted.
+
+**This is R256's own rule, finally implemented.** type §2 states it outright — the
+annotation "puts the right-hand side in **type position**, decided at one token and
+before the `=` is even reached" — and §0 did not do that. It carried `TypeOnly`
+instead: an alias's right-hand side had to hold at least one type operator, so
+`const t: type = int;` fell to the *other* production and was a value binding
+annotated with the type named `type`. Unambiguous, and it moved the deciding token
+into the right-hand side where it can be arbitrarily far away and arbitrarily deep:
+`(a)` is an expression and `(a|b)` is a type, parting at depth 1; `enum { a, b }`
+and `enum { a, b } | null` part after the closing brace; and `fn (int): bool`
+against `fn (a): bool => x` parts at the `=>`, past a return type that is itself
+unbounded — so at `fn (` a parser cannot know whether it is in a `TypeList` or a
+`ParamList`. No bounded lookahead decides that. The two implementations available
+were a second, unpinned copy of the type grammar as a token-level recognizer (the
+R232 defect class), or a speculative parse with rollback, which would have cost the
+frontend the "no backtracking anywhere" property `parser-implementation.md` §7.3
+rests on.
+
+`TypeOnly` was what the ambiguity gate cost: R256's rule written as plain BNF makes
+the two productions overlap on `const t: type = int;`, because a CFG cannot say "a
+`Type` other than the bare identifier `type`". R270's guard says it, so the
+production is gone — **129 nonterminals, down from 130**, and five alternatives with
+it.
+
+Three forms stop deriving, each with a spelling the language already prefers. A
+**function literal** under the annotation (`const t: type = fn (a): b => x;`): a
+literal is not a type, so drop the annotation. An **expression that computes a
+type** (`const t: type = comptype x;`): type §2 already said these need none —
+`comptype x`, `declared x`, `@x` and a bare name are expressions, and the last two
+are type expressions as well, so `const p: type = @proto;` and
+`const alias: type = number;` are untouched. And an **annotation whose type
+expression begins with `type`** is parenthesized: `let x: (type | null) = 5;`. The
+corpus needed no edit — all nine `: type =` sites were already type expressions.
+Swept: `grammar.md` §0.1, §0.6, §5, §10; `type.md` §2.
+
+**R270 — the metasyntax gains `!TERMINAL`, a zero-width guard.** It asserts that the
+next token is not that terminal; it consumes nothing, derives nothing, appears in no
+tree, and takes no quantifier. Five sites use it, and they are R268's four plus
+R269's one.
+
+**It is what lets §0 state a rule instead of a spec sentence stating it**, and that
+is the general point rather than a convenience. Both rules above have one shape — *a
+leading token is claimed by one reading* — and a grammar that cannot express it
+over-accepts, which is precisely a hole in the reject-set invariant. Restricting a
+nonterminal by its first token is an **intersection with a regular set**, so the
+grammar stays context-free: Earley implements it as one check in the predictor, the
+generator as one filter, and neither `Derive` nor the ambiguity search changes
+meaning. A recursive-descent parser implements it as the dispatch it was going to
+write anyway (`if p.at(token.LBrace)`), so the grammar's production and the parser's
+branch become the same sentence.
+
+**Rejected: ordered choice** (`/`, PEG). The obvious fit, and it leaves CFG-land —
+Earley cannot express it, "derives exactly once" stops meaning what it means, and
+`internal/ebnf` stops being a recognizer for §0. R253 already declined a PEG for
+this reason: ordered choice *resolves* ambiguity silently, where detecting it is
+half the point. **Rejected: a shadow grammar** (Rust's `ExpressionWithoutBlock`).
+No metasyntax change, at the price of duplicating all sixteen expression tiers —
+§0 would go to 145 nonterminals, half of them near-identical, to say one thing.
+**Rejected: leaving it prose with a documented exception list**, which keeps the
+parser and the grammar deliberately disagreeing — the one thing the spec-literal
+parser exists to prevent.
+
+Implementation, recorded for the trail: `Sym.Negate` and `carried` in
+`internal/ebnf` (a guard is an assertion, not a symbol, so it is discounted wherever
+arity is measured — `PureAlternations` above all, or `FnBody` would lose its
+elision); the predictor, the derivation walk, the frontier reader, and the
+generator's `build`, `suffixMins` and `minLens`; six hand-computed tests in
+`desugar_test.go`, the file's own discipline. The generator and the recognizer agree
+about the guarded grammar over all 12,558 four-token programs, which is the mutual
+check that validates both halves at once.
+
+**R271 — Flagged's "the grammar needs two tokens in exactly one place" was wrong,
+and now says what is true.** Writing the parser's spine found a second junction that
+no fixed lookahead decides: `Assignment ::= WordPrefix | AssignTarget AssignOp
+Assignment`, whose two alternatives both begin with `IDENT` or `WILDCARD` and stay
+identical for as long as the target runs — `a.b[c](d).e = 1` against
+`a.b[c](d).e + 1` part at the token after the whole postfix chain.
+
+**§0 is unchanged, and that is the ruling.** Nothing here is ambiguous and an LR
+parser would need no help; this is the ordinary gap between LL and LR, and the
+recursive-descent parser pays it with a bracket-matched scan that consumes nothing —
+`(IDENT | WILDCARD) Postfix*` or a bracketed pattern, then "is the next token an
+`AssignOp`". The scan is **exact in both directions**, `AssignOp` appearing in no
+other production, so `a + b = c` and `&x = 1` are declined by the scan exactly as
+they are by the grammar. Recorded rather than repaired because the repair — a cover
+grammar, parse-the-expression-then-rename — breaks on `[a, b] = t`, where the
+expression branch has built `TableLit → TableEntries → TableEntry` and the target
+wants `DestructurePattern → DestrEntries → DestrEntry`: a different subtree over the
+same tokens, which is how ES's cover grammars became what they are.
+
+Also corrected with it: the prelude junction's note now says what factoring it
+costs a parser (the two shapes are not prefix-identical in the *tree*), and the two
+junctions R268 and R269 settled are named as settled **in §0** rather than in this
+section. §11.1's four measurements were recomputed against the new grammar and every
+one moved: **1,115** dot positions over **548** desugared productions, **271**
+expect-sites over **31** terminals, **418** recursion sites over **170**
+nonterminals, and **49** frontier classes. The widest frontier fell from 84 to 62 —
+`const t: type =` no longer has both a type and an expression live after it — and
+exactly one four-token program stopped deriving, `{read};`. A rule stated in §0 is a
+rule that shrinks the language it describes.
+
 ---
 
 ## Still open (out of scope of these rulings)

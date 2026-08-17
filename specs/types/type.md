@@ -115,10 +115,28 @@ in **type position**, decided at one token and before the `=` is even reached �
 positional trick that leaves `from` unreserved (R223) and `get` / `set` ordinary identifiers
 (R232).
 
-Forms that already **are** expressions need no annotation and are untouched: a bare name
-(`const alias = number;`), `@x`, `declared x`, `comptype x`. That is why `export const file =
-@fileDescriptor;` (std.io §2, and §5 below) is legal exactly as written — `@` is a prefix
-operator in the expression grammar, so its result is an ordinary value.
+**And it decides, rather than merely permitting** (R269). `: type` before an `=` puts the
+right-hand side in type position and admits nothing else there — grammar §0.1 spells this with a
+guard, so it is the grammar's rule and not a convention a parser is trusted to keep. Three
+consequences, each with a better spelling already available:
+
+- **A form that already *is* an expression takes no annotation.** `const alias = number;`, `@x`,
+  `declared x`, `comptype x` — all ordinary bindings whose value happens to be a type, and
+  `const alias: type = comptype x;` does not parse. That is why `export const file =
+  @fileDescriptor;` (std.io §2, and §5 below) is legal exactly as written: `@` is a prefix
+  operator in the expression grammar, so its result is an ordinary value. A **bare name** is the
+  exception that needs no rule — `const alias: type = number;` parses too, a lone identifier
+  being a type expression as readily as an expression.
+- **A function literal cannot carry it.** `const t: type = fn (a): b => x;` does not parse: a
+  literal is not a type, so the annotation was wrong. Drop it.
+- **An annotation whose type expression begins with the identifier `type` is parenthesized**:
+  `let x: (type | null) = 5;`. The bare spelling would be indistinguishable from the alias form
+  at the `=`.
+
+Before R269 the alias production required its right-hand side to carry at least one type
+operator, which kept the two readings apart at the cost of putting the deciding token past the
+whole right-hand side — arbitrarily far right and arbitrarily deep. The rule this section already
+stated, *decided at one token*, is now the rule the grammar implements.
 
 `fn` is the one form where omitting the annotation produced not an error but a **different tree**,
 which is why the rule is stated here rather than left to convention. `const sqrt = fn (d: double):
