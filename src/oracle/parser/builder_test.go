@@ -83,30 +83,6 @@ func TestBuildProducesTheHandTree(t *testing.T) {
 	}
 }
 
-// TestBuildDropsEmptyInteriorNodes is §6.1's rule, which is what lets width alone distinguish a
-// synthesised leaf from a real one: a zero-width Modifier surviving here would be
-// indistinguishable from a missing token.
-func TestBuildDropsEmptyInteriorNodes(t *testing.T) {
-	f, tokens := lexFixture(t, "empty-node.luna", handSource)
-	indices := filtered(tokens)
-
-	got := build(f, tokens, eventStream{
-		openEv(File),
-		openEv(Statement),
-		openEv(Modifier), // opened and closed with nothing between: it never existed
-		closeEv,
-		tokEv(indices[0]),
-		tokEv(indices[1]),
-		closeEv,
-		tokEv(len(tokens) - 1),
-		closeEv,
-	})
-
-	if want := dumpArena(handTree(t)); dumpArena(got) != want {
-		t.Errorf("an empty node left a trace:\n%s\nwant\n%s", dumpArena(got), want)
-	}
-}
-
 // TestBuildZeroWidthLeaf is absence: `x` with no terminator (§7.2 layer 1). Width zero is the
 // one thing distinguishing the leaf from the empty node above.
 func TestBuildZeroWidthLeaf(t *testing.T) {
@@ -157,16 +133,13 @@ func TestBuildZeroWidthLeaf(t *testing.T) {
 	}
 }
 
-// TestBuildEmptyFileHasNoTree is §6.1 at the root, and the case no golden can express, a golden's
-// source section never being empty. The rule has no exception, which is what gives Parse's nil
-// exactly one meaning.
+// TestBuildEmptyFileHasNoTree is this half of §6.1's iff, and the case no golden can express, a
+// golden's source section never being empty. The other half is splice's: nothing releases File,
+// so the stream reaching here is empty rather than a File that has to be deleted.
 func TestBuildEmptyFileHasNoTree(t *testing.T) {
 	f, tokens := lexFixture(t, "empty.luna", "")
 	if len(tokens) != 0 {
 		t.Fatalf("the empty file lexed to %d tokens", len(tokens))
-	}
-	if tree := build(f, tokens, eventStream{openEv(File), closeEv}); tree != nil {
-		t.Errorf("the empty file built a tree of %d nodes:\n%s", tree.Len(), dumpArena(tree))
 	}
 	if tree := build(f, tokens, nil); tree != nil {
 		t.Errorf("an empty stream built a tree of %d nodes", tree.Len())
@@ -248,7 +221,8 @@ func TestBuildRejects(t *testing.T) {
 		{"a leaf outside every node", eventStream{tokEv(0)}, "leaf outside every node"},
 		{"a second root", eventStream{openEv(File), tokEv(0), closeEv, openEv(File), closeEv},
 			"follows the root's close"},
-		{"an event after the root closed", eventStream{openEv(File), closeEv, tokEv(0)},
+		{"an event after the root closed",
+			eventStream{openEv(File), tokEv(0), closeEv, tokEv(1)},
 			"follows the root's close"},
 		{"a token index past the stream", eventStream{openEv(File), tokEv(3)},
 			"token(3) of a stream of 3"},
@@ -265,6 +239,10 @@ func TestBuildRejects(t *testing.T) {
 		{"synthesising Unset", eventStream{openEv(File), missingEv(Unset)},
 			"not a terminal the parser could have expected"},
 		{"a node left open", eventStream{openEv(File), tokEv(0)}, "ends inside File, 1 deep"},
+		// §6.1's elision is splice's (§2.2), so an empty node arriving here is a violation rather
+		// than something to tidy: it would be indistinguishable from a synthesised leaf.
+		{"an empty node", eventStream{openEv(File), openEv(Modifier), closeEv},
+			"closes Modifier with no children"},
 		{"an event of no kind", eventStream{{kind: eventKind(42)}}, "has kind 42"},
 	}
 

@@ -148,6 +148,103 @@ close
 	}
 }
 
+// TestSpliceHoldsOpensUntilContent is §2.2's rule: an open that never gets content never existed,
+// and no trivia is flushed on its behalf.
+func TestSpliceHoldsOpensUntilContent(t *testing.T) {
+	// What the four shapes below must all produce, three of them despite an empty node.
+	const statementAndNewline = `open(File)
+open(Statement)
+token "x"
+token ";"
+close
+token "\n"
+close
+`
+
+	tests := []struct {
+		name   string
+		src    string
+		events func(indices []int) eventStream
+		want   string
+	}{{
+		// The shape the parse fuzzer found. Flushing at the open would have left the newline as
+		// the Statement's last child, widening its span over a byte it does not own.
+		name: "an empty node before a close",
+		src:  "x;\n",
+		events: func(indices []int) eventStream {
+			return eventStream{
+				openEv(File),
+				openEv(Statement), tokEv(indices[0]), tokEv(indices[1]),
+				openEv(Modifier), closeEv,
+				closeEv,
+				closeEv,
+			}
+		},
+		want: statementAndNewline,
+	}, {
+		name: "empty nodes nested in each other",
+		src:  "x;\n",
+		events: func(indices []int) eventStream {
+			return eventStream{
+				openEv(File),
+				openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv,
+				openEv(Block), openEv(Modifier), closeEv, closeEv,
+				closeEv,
+			}
+		},
+		want: statementAndNewline,
+	}, {
+		// A synthesised leaf is content: the node it lands in is real, and survives at zero width
+		// (§6.1).
+		name: "a node released by a synthesised leaf",
+		src:  "x\n",
+		events: func(indices []int) eventStream {
+			return eventStream{
+				openEv(File),
+				openEv(Statement), tokEv(indices[0]), missingEv(Kind(token.Semicolon)), closeEv,
+				closeEv,
+			}
+		},
+		want: `open(File)
+open(Statement)
+token "x"
+missing(SEMICOLON)
+close
+token "\n"
+close
+`,
+	}, {
+		// Trailing trivia is content with nowhere further out to go, so it releases File. Without
+		// that, a comment-only file would vanish along with its comments.
+		name:   "a file of nothing but comments",
+		src:    "// c\n",
+		events: func([]int) eventStream { return eventStream{openEv(File), closeEv} },
+		want: `open(File)
+token "// c"
+token "\n"
+close
+`,
+	}, {
+		// §6.1's iff at the root: nothing releases File, so not one event is emitted and Parse
+		// has no tree to return.
+		name:   "the empty file",
+		src:    "",
+		events: func([]int) eventStream { return eventStream{openEv(File), closeEv} },
+		want:   "",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, tokens := lexFixture(t, "held.luna", tc.src)
+			got := splice(tokens, tc.events(filtered(tokens)))
+			if dump := spliceDump(tokens, tc.src, got); dump != tc.want {
+				t.Errorf("spliced to\n%s\nwant\n%s", dump, tc.want)
+			}
+			assertIndexCoverage(t, tokens, got)
+		})
+	}
+}
+
 // TestSpliceRejects is the pass's half of the panic contract. Every case here would otherwise
 // fail *silently*, which is why each is checked rather than documented.
 func TestSpliceRejects(t *testing.T) {

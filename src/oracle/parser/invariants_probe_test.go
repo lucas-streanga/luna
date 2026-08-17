@@ -449,8 +449,6 @@ func TestSpliceInvariants(t *testing.T) {
 		},
 		want: "event 3 is token(0) where token(1) was due",
 	}, {
-		// Only a *trailing* loss reads as a drop; a middle one is reported as the event that
-		// stood in its place.
 		name:   "the parser's last event dropped",
 		assert: spliceOnlyInserts,
 		corrupt: func(_ []token.Token, before, after eventStream) (eventStream, eventStream) {
@@ -458,21 +456,23 @@ func TestSpliceInvariants(t *testing.T) {
 		},
 		want: "splice dropped the parser's event 5 (close)",
 	}, {
-		name:   "one of the parser's events replaced",
+		// §2.2 drops empty nodes, so the oracle expects this open to survive: what it holds is
+		// what makes it not empty.
+		name:   "a node dropped that was not empty",
 		assert: spliceOnlyInserts,
 		corrupt: func(_ []token.Token, before, after eventStream) (eventStream, eventStream) {
 			return before, withoutEvent(after, 1) // the Statement's open
 		},
-		want: "splice put token(0) before the parser's event 1 (open(Statement))",
+		want: "the parser's event 1 is open(Statement) where splice has token(0) at 1",
 	}, {
 		name:   "an event splice had no business adding",
 		assert: spliceOnlyInserts,
 		corrupt: func(_ []token.Token, before, after eventStream) (eventStream, eventStream) {
 			return before, withEvent(after, 1, openEv(Modifier))
 		},
-		want: "splice put open(Modifier) before the parser's event 1",
+		want: "where splice has open(Modifier) at 1",
 	}, {
-		// A bug one stage upstream, and what would make the scan's greedy match inexact.
+		// A bug one stage upstream: splice is what puts trivia back.
 		name:   "the parser emitting trivia of its own",
 		assert: spliceOnlyInserts,
 		corrupt: func(_ []token.Token, before, after eventStream) (eventStream, eventStream) {

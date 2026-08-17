@@ -10,8 +10,8 @@ import (
 
 // evMissing is §7.2 layer 1's synthesised leaf. It cannot be a token event because there is no
 // token to index, and it carries no position because the builder's cursor is the one offset that
-// cannot break the tiling: pending trivia is unflushed there, so the leaf lands before those
-// bytes rather than after them.
+// cannot break the tiling. Where no open intervenes that puts it before trivia pending at the same
+// moment; where one does, releasing the open flushes first and the leaf follows those bytes.
 type eventKind uint8
 
 const (

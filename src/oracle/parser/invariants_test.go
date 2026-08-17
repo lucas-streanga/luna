@@ -295,8 +295,9 @@ func assertIndexCoverage(t reporter, tokens []token.Token, events eventStream) {
 	}
 }
 
-// assertSpliceOnlyInserts is the pass's whole contract in one scan: delete what splice added and
-// the parser's stream is back, in order and unrenumbered.
+// assertSpliceOnlyInserts is the pass's whole contract in one scan: **splice may insert trivia and
+// drop empty nodes, and may do nothing else.** Everything the parser emitted comes through in
+// order and unrenumbered, or is an open/close pair with nothing between it.
 //
 // The greedy match is exact *because* of the check on the loop's first line — the parser emits no
 // trivia event, so an inserted one can never be mistaken for one of its own.
@@ -306,34 +307,83 @@ func assertSpliceOnlyInserts(t reporter, tokens []token.Token, before, after eve
 		return e.kind == evToken && e.tok >= 0 && e.tok < len(tokens) && tokens[e.tok].IsTrivia()
 	}
 
-	j := 0
-	for i, want := range before {
-		if trivia(want) {
+	for i, e := range before {
+		if trivia(e) {
 			t.Errorf("the parser's event %d is token(%d), which is trivia: it walks the filtered "+
-				"stream, and splice is what puts trivia back", i, want.tok)
+				"stream, and splice is what puts trivia back", i, e.tok)
 		}
-		for j < len(after) && after[j] != want {
-			if got := after[j]; !trivia(got) {
-				t.Fatalf("splice put %s before the parser's event %d (%s): it may insert trivia "+
-					"and nothing else", got, i, want)
-			}
-			j++
-		}
-		if j == len(after) {
-			t.Fatalf("splice dropped the parser's event %d (%s)", i, want)
-		}
-		j++
 	}
-	for ; j < len(after); j++ {
-		if got := after[j]; !trivia(got) {
-			t.Fatalf("splice put %s after the parser's last event", got)
+	if len(after) == 0 {
+		if len(tokens) > 0 {
+			t.Fatalf("splice emitted nothing for a file of %d tokens", len(tokens))
+		}
+		return
+	}
+
+	// Lockstep, skipping what each side is allowed to differ by. Matching greedily instead would
+	// misalign the moment two identical opens appear with one of them elided — and closes are
+	// identical always.
+	drop := elidedEvents(before)
+	i, j := 0, 0
+	for i < len(before) || j < len(after) {
+		switch {
+		case i < len(before) && drop[i]:
+			i++
+		case j < len(after) && trivia(after[j]):
+			j++
+		case i == len(before):
+			t.Fatalf("splice put %s at %d, past the parser's last event", after[j], j)
+		case j == len(after):
+			t.Fatalf("splice dropped the parser's event %d (%s)", i, before[i])
+		case before[i] != after[j]:
+			t.Fatalf("the parser's event %d is %s where splice has %s at %d: it may insert trivia "+
+				"and drop empty nodes, and nothing else", i, before[i], after[j], j)
+		default:
+			i, j = i+1, j+1
 		}
 	}
 }
 
+// elidedEvents marks the events §2.2 drops: an open with no leaf between it and its close, and
+// that close. It is computed from the parser's stream rather than copied from splice — "this node
+// is empty" is a property of the input, and the point is to check the pass against it.
+//
+// The root is the exception splice makes for trailing trivia, so it is never marked; a file with
+// no content at all produces no events, which the caller has already handled.
+func elidedEvents(before eventStream) []bool {
+	drop := make([]bool, len(before))
+	var opens []int
+	var filled []bool
+	for i, e := range before {
+		switch e.kind {
+		case evOpen:
+			opens, filled = append(opens, i), append(filled, false)
+		case evClose:
+			if len(opens) == 0 {
+				continue // unbalanced, which splice itself rejects
+			}
+			at, content := opens[len(opens)-1], filled[len(filled)-1]
+			opens, filled = opens[:len(opens)-1], filled[:len(filled)-1]
+			switch {
+			case at == 0: // the root
+			case !content:
+				drop[at], drop[i] = true, true
+			case len(filled) > 0:
+				filled[len(filled)-1] = true // a surviving child is content for its parent
+			}
+		default:
+			if len(filled) > 0 {
+				filled[len(filled)-1] = true
+			}
+		}
+	}
+	return drop
+}
+
 // assertTriviaIsNeverAtAnEventEdge is §2.1's invariant a stage before the tree: it needs no
-// builder and names the offending event. The tree form stays authoritative, since it also catches
-// an empty node opened and deleted between the open and the trivia, which is invisible here.
+// builder and names the offending event. Since §2.2 drops empty nodes here rather than in the
+// builder, the two forms now see the same thing — which is the point of holding the open, and was
+// not true when a node could vanish between the trivia and the tree.
 func assertTriviaIsNeverAtAnEventEdge(t reporter, tokens []token.Token, events eventStream) {
 	t.Helper()
 	depth := 0

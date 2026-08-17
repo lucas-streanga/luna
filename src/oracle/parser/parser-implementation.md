@@ -99,30 +99,60 @@ tree with no idea that trivia is special.
 index-parallel with the full token slice, so each consumed token already knows its real index and
 no mapping table is needed.
 
-The splice pass keeps `next`, the first unemitted full index:
+The pass keeps `next`, the first unemitted full index, and a stack of **held** opens. One rule:
 
-| Event | Action |
-|-|-|
-| `token(i)` | emit `token` for every index in `next..i-1` — all trivia by construction — then `token(i)`; set `next = i+1` |
-| `open(k)` | **if the stack is non-empty**, emit trivia from `next` while it stays trivia; then `open(k)` |
-| `close` | emit `close`. **No flush** — this is the half of §2.1 that pushes trivia outward |
-| `missing(k)` | emit it. **No flush**, for the same reason and one of its own: it covers no bytes, so it belongs before the trivia it precedes rather than after |
-| end | emit the remaining trivia, then close the root |
+> **An open is held until content arrives, and pending trivia is flushed at the moment it is
+> released.** A `close` reaching a still-held open pops it: that node never existed.
 
-The last row is the root's `close`, which is where a file ends in a balanced stream: the parser
-opens and closes `File` itself, §6.1 turning on its doing so.
+Content is a leaf — a real token or a synthesised one — and, at the root, the file's trailing
+trivia. Everything else follows from that:
+
+- `token(i)`: release, then emit `token` for every index in `next..i-1`, then `token(i)`; set
+  `next = i+1`. The run is trivia by construction — §7.2 skips a token it cannot place *into* an
+  `Error` node, never past one — and splice checks it rather than assuming it.
+- `open(k)`: hold it.
+- `missing(k)`: release, then emit it.
+- `close`: pop a held open and emit nothing, or emit the `close`. The root's close flushes what
+  remains of the file first, and that trailing trivia is itself content: it releases `File` even
+  when the parse put nothing in it, which is what keeps a comment-only file from vanishing.
+
+Releasing flushes **before** emitting the held opens, so the trivia lands in the node enclosing
+them — the innermost one already open when it occurred, which is §2.1's rule verbatim. The root is
+the exception in the other direction: nothing is open before `File`, so its own open is emitted
+first and the file's leading trivia flushes *inside* it, as `File`'s first child. That is the one
+place §2.1's invariant permits trivia at an edge, and it is structural rather than carved out.
 
 Trivia needs **no new event kind**: the pass emits ordinary `token` events for trivia indices, and
 the builder makes them leaves like anything else. **A synthesised leaf does need one**, and it is
 the only other member: §7.2's layer 1 emits a zero-width leaf of the kind it expected (§6.1), and
 that cannot be a `token` event because there is no entry in the lexer's stream for it to index. It
-carries the kind alone — its position is the builder's cursor, the end of the last leaf emitted,
-which is the one offset that cannot break the tiling. Trivia pending at that moment has not been
-flushed, so the zero-width leaf lands before those bytes rather than after them.
+carries the kind alone; its position is the builder's cursor, the end of the last leaf emitted.
+Where no open intervenes, that puts it before trivia pending at the same moment — and where one
+does, the release flushes first and the leaf follows those bytes.
 
-The stack-non-empty guard is what keeps leading file trivia inside `File`. It is not flushed
-before `File` opens, because nothing is open yet; it flushes before the first top-level item's
-`open` and lands as `File`'s first child — the one place §2.1's invariant permits it.
+**Why "released by content" rather than "flushed before every open".** The pass first said: flush
+pending trivia before each `open`, never at a `close`, both halves pushing trivia outward. That is
+correct for every open which produces a node, and §6.1 does not promise one — an `open` followed
+immediately by its `close` produces nothing. Flushing on behalf of a node that then vanishes
+leaves the trivia as the *enclosing* node's last child, with that node's span widened over bytes
+it does not own: §2.1's invariant broken, and the tight span it exists to protect lost. The parse
+fuzzer found it in three shapes on its first run. No golden could have, the corpus being
+grammar-derived and never opening an empty node. Holding the open moves the decision to the point
+where the node is known to survive, and the invariant stops depending on a promise §6.1 can break.
+
+**§6.1's elision therefore lives here**, not in the builder: an empty node never reaches it, and
+one that did would be a contract violation rather than something to clean up. The same rule at the
+root is "no tree for the empty file" — nothing releases `File`, so nothing is emitted at all.
+
+**Rejected: flushing lazily, at the next token instead of at the open.** It fixes the last-child
+half by never committing trivia to a node that vanishes, and breaks the first-child half in the
+same motion: the flush would then fire after the next `open`, landing the trivia as that node's
+first child. The two halves want the flush on opposite sides of the same event, which is why no
+rule keyed to `open` at all can hold both.
+
+**Rejected: repairing it in the builder**, re-parenting trailing trivia when a node closes. A
+third of the code, and it leaves the *event stream* still placing trivia wrongly: the invariant
+would be true of trees and false of streams, and §4's flattest seam could no longer state it.
 
 **Rejected: the parser emits trivia events.** It would have to *see* trivia, contradicting the
 basis of §2.1 — that the parser is the filtered stream, which is what makes it exactly
@@ -130,12 +160,11 @@ grammar.md §0. Auto-emitting at `bump()` inside the event emitter does not save
 *after* the `open`, so trivia lands as a first child, which is precisely what the invariant
 forbids.
 
-**Rejected: the builder does it inline.** The decision logic is identical — flush before `token`,
-flush before `open`, never before `close` — and it is one fewer concept. What decides it is where
-the test seam goes: as a pass, §2.1's rule is the entire content of one function whose test is
-**events in, events out**, the flattest comparison available and exactly what §4.2 committed to.
-Inside the builder it becomes three conditions to reconstruct from reading, tested only through
-tree shape.
+**Rejected: the builder does it inline.** One fewer concept, and the test seam decides against it:
+as a pass, §2.1's rule is the entire content of one function whose test is **events in, events
+out**, the flattest comparison available and exactly what §4.2 committed to. Inside the builder it
+becomes conditions to reconstruct from reading, tested only through tree shape — and the empty-node
+interaction above would have been invisible there.
 
 ### 2.3 How the rule is pinned
 
@@ -383,10 +412,15 @@ for a `SEMICOLON` child finds one and the tree keeps the shape it would have had
 leaves `Error` as the only new kind in §5.
 
 Width alone distinguishes a synthesised leaf from a real one, on one condition, which is therefore
-a rule: **the builder emits no empty interior nodes** — an `open` immediately followed by its
+a rule: **no empty interior node reaches the tree** — an `open` immediately followed by its
 `close` produces nothing. This costs nothing, because it is the same rule the golden renderer
 already applies to absent optionals; but it has to be stated, or a zero-width `Prelude` becomes
 indistinguishable from a missing token.
+
+**§2.2 is where it happens.** Splice holds an open until content arrives, so an empty one is
+dropped before the builder is reached — which is what keeps §2.1's placement rule from committing
+trivia to a node that never existed. For the builder the rule is therefore a *precondition*: an
+empty node arriving there is a violation to reject, not a mess to tidy.
 
 Where the absence is a *construct* rather than a token — `let x = ;`, where §11.2's "expected a
 construct" fires and no single terminal was wanted — the marker is a zero-width `Error` at the
@@ -401,19 +435,18 @@ gone — and what is left is a distinction worth keeping: a node the parser *rea
 nothing to put in is not a node it never reached. §6.2's width still says everything a consumer
 acts on.
 
-**The rule has no exception, and the root is where that shows.** A file of zero bytes lexes to
-no tokens, so `File` opens and closes with nothing between it; the rule deletes it and `Parse`
-returns **no tree**. That is the honest answer rather than a corner to be carved out: a tree
-exists so the source can be reconstructed from it, and no tree reconstructs the empty string
-exactly. Nothing goes with it — the file name belongs to the `*source.File` the caller is
-already holding.
+**The rule has no exception, and the root is where that shows.** A file of zero bytes lexes to no
+tokens, so nothing ever releases `File`; not one event is emitted and `Parse` returns **no tree**.
+That is the honest answer rather than a corner to be carved out: a tree exists so the source can
+be reconstructed from it, and no tree reconstructs the empty string exactly. Nothing goes with it
+— the file name belongs to the `*source.File` the caller is already holding.
 
 The condition is an *iff*, which is what makes it safe to rely on. Tokens tile the source (R236,
 R242), so a file with any bytes in it has at least one token, and §2.3's index coverage puts
 every token in the tree as a leaf: **`File` is empty exactly when the file is.** A file of only
-whitespace or comments still parses — its trivia are `File`'s children, by the end row of
-§2.2's table — so the case this deletes is precisely the empty one, and `nil` from `Parse` has
-one meaning rather than two.
+whitespace or comments still parses — trailing trivia is content, so it releases `File` and
+becomes its children — so the case this deletes is precisely the empty one, and `nil` from
+`Parse` has one meaning rather than two.
 
 ### 6.2 `Error`'s width is the classification
 

@@ -8,9 +8,9 @@ import (
 )
 
 // build turns a spliced event stream into the tree, and is the only thing that constructs one,
-// which is what makes §4.3's immutability an invariant rather than a convention. Its two rules
-// are §6.1's — no empty interior nodes, hence nil for the empty file — and §4.2's, that a node's
-// span is its children's extent.
+// which is what makes §4.3's immutability an invariant rather than a convention. Its own rule is
+// §4.2's, that a node's span is its children's extent; §6.1's elision belongs to splice, which
+// holds an open until content arrives, so an empty node arriving here is a violation to reject.
 //
 // **Every precondition is checked and every violation panics.** The stream is our own parser's,
 // so a violation is a programmer error, and a corrupt tree is undetectable downstream.
@@ -126,10 +126,9 @@ func (b *builder) close(at int) {
 	if n == 1 {
 		b.done = true
 	}
-	// Truncating is safe because the node is empty: nothing was appended after it.
 	if !fr.filled {
-		b.tree.nodes = b.tree.nodes[:fr.id]
-		return
+		panic(fmt.Sprintf("parser: event %d closes %s with no children: splice drops an empty "+
+			"node rather than emitting one (§6.1)", at, b.tree.nodes[fr.id].kind))
 	}
 	d := &b.tree.nodes[fr.id]
 	d.size = uint32(len(b.tree.nodes)) - uint32(fr.id)
