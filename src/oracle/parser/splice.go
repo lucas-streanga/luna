@@ -1,6 +1,10 @@
 package parser
 
-import "luna/oracle/token"
+import (
+	"fmt"
+
+	"luna/oracle/token"
+)
 
 // splice fills trivia into a parse's event stream, which is what lets the parser run on the
 // trivia-filtered stream grammar.md §0 is defined over and the builder stay unaware that trivia
@@ -26,9 +30,16 @@ import "luna/oracle/token"
 // implemented as the close that returns the depth to zero, because that is where the end of the
 // file is in a balanced stream. The parser opens and closes File itself: §6.1 turns on its doing
 // so, an empty file being File opened and closed with nothing between.
+//
+// It checks the two things it depends on and panics on either, for the reason build does: the
+// stream is our own parser's, so a violation is a programmer error. **Token indices must be in
+// range and strictly ascending**, or the flush emits the wrong run and coverage breaks silently;
+// **the stream must be balanced**, or the depth never returns to zero and the file's trailing
+// trivia is dropped without trace. Kinds it never inspects, so it never checks them — build does,
+// and one violation caught once by the pass that depends on it is the whole rule.
 func splice(toks []token.Token, evs eventStream) eventStream {
 	out := make(eventStream, 0, len(evs)+len(toks))
-	next, depth := 0, 0
+	next, depth, last := 0, 0, -1
 
 	// flush emits the run of trivia at next, which is what an open defers to and a close does
 	// not do at all. Both halves push trivia outward, into the innermost node already open.
@@ -39,9 +50,18 @@ func splice(toks []token.Token, evs eventStream) eventStream {
 		}
 	}
 
-	for _, e := range evs {
+	for i, e := range evs {
 		switch e.kind {
 		case evToken:
+			if e.tok < 0 || e.tok >= len(toks) {
+				panic(fmt.Sprintf("parser: event %d is token(%d) of a stream of %d",
+					i, e.tok, len(toks)))
+			}
+			if e.tok <= last {
+				panic(fmt.Sprintf("parser: event %d is token(%d) after token(%d): the parser "+
+					"consumes the file in order, each token once", i, e.tok, last))
+			}
+			last = e.tok
 			for ; next < e.tok; next++ { // trivia by construction: the parser skipped nothing else
 				out = append(out, event{kind: evToken, tok: next})
 			}
@@ -55,6 +75,9 @@ func splice(toks []token.Token, evs eventStream) eventStream {
 			depth++
 		case evClose:
 			depth--
+			if depth < 0 {
+				panic(fmt.Sprintf("parser: event %d closes a node that was never opened", i))
+			}
 			if depth == 0 {
 				flush()
 			}
@@ -62,6 +85,10 @@ func splice(toks []token.Token, evs eventStream) eventStream {
 		default: // evMissing consumes no index and no bytes, so there is nothing to flush before it
 			out = append(out, e)
 		}
+	}
+	if depth != 0 {
+		panic(fmt.Sprintf("parser: the stream ends at depth %d: every node the parser opened "+
+			"must be closed, or the file's trailing trivia has nowhere to go", depth))
 	}
 	return out
 }

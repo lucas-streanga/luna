@@ -297,6 +297,25 @@ func (k Kind) String() string {
 // zero-width one a missing token leaves behind (§6.1).
 func (k Kind) IsToken() bool { return k < firstNode }
 
+// The three questions the builder asks of a kind before it will put one in a tree. They are
+// unexported until something outside the package needs them — §8's view will want the first.
+
+// isTrivia is what the golden renderer and the AST view both mean by "skip": whitespace, the
+// shebang, and the two comment forms.
+func isTrivia(k Kind) bool { return k.IsToken() && token.Kind(k).IsTrivia() }
+
+// isNode reports whether the kind may be opened. The §0 nonterminals and Error, which §6.2 opens
+// with positive width over tokens nobody could place; a value past Error names nothing.
+func isNode(k Kind) bool { return !k.IsToken() && k <= Error }
+
+// isSynthesisable reports whether the kind may be a zero-width leaf: the terminal an expect-site
+// wanted (§6.1), or the Error marking an absent construct. Trivia is excluded because the parser
+// never sees it and so can never expect it, and a zero-width trivia leaf would count as trivia in
+// §2.3's placement invariant while belonging to no gap in the file. Unset names nothing.
+func isSynthesisable(k Kind) bool {
+	return k == Error || (k.IsToken() && k != Unset && !isTrivia(k))
+}
+
 // AllNodes returns every node kind, Error last. Derived from the range rather than from a
 // second list, so a kind invented above appears here and has to answer to the pin.
 func AllNodes() []Kind {

@@ -225,7 +225,7 @@ table is a map.
 | Grammar | `grammar.md` | The context-free grammar over those tokens: the expression, type and pattern grammars as productions, the closed sub-grammars, and what the parser deliberately admits. |
 | Modules | `modules.md` | The file-is-a-module system: static, DAG-shaped imports bringing names into scope. |
 | Compiler | `compiler.md` | The compiler's phase pipeline, IR, optimization passes, and Go emission. |
-| Incremental compilation & build cache | `incremental-compilation-build-cache.md` | The per-module artifact cache and its correctness/reuse rules. |
+| Incremental compilation & build cache | `incremental-compilation-build-cache.md` | The per-module artifact cache and its correctness/reuse rules. |Fir
 | Tooling | `tooling.md` | The compiler-provided formatter, language server, and debugger. |
 
 ### Internal representation

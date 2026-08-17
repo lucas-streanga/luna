@@ -3,8 +3,6 @@ package parser
 import (
 	"fmt"
 	"strings"
-
-	"luna/oracle/token"
 )
 
 // Rendering a tree into a golden's tree section (`testdata/golden.md` §1).
@@ -49,7 +47,3 @@ func writeGolden(b *strings.Builder, n Node, depth int) {
 		writeGolden(b, kid, depth+1)
 	}
 }
-
-// isTrivia is the renderer's own, not an exported query: §8's view will want one, and it can
-// have it when there is a caller outside this file to name it for.
-func isTrivia(k Kind) bool { return k.IsToken() && token.Kind(k).IsTrivia() }

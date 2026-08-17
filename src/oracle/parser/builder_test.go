@@ -179,6 +179,136 @@ func TestBuildEmptyFileHasNoTree(t *testing.T) {
 	}
 }
 
+// TestBuildKeepsANodeWhoseOnlyChildIsSynthesised pins the boundary of §6.1's rule, which the
+// section does not itself draw. `let x = ;` reaches the Initializer and finds no construct to
+// put in it, so the marker is a zero-width Error — and the Initializer, having a child, survives
+// at zero width rather than being deleted.
+//
+// That is the honest answer and not the ambiguity the rule guards against. The rule exists so
+// that width can distinguish a synthesised leaf from an *empty* node, and an empty node is gone
+// by the time this one is judged; what is left is the difference between a node the parser
+// reached and found nothing in, and a node it never reached at all, which is a difference worth
+// keeping. Width still says everything a consumer acts on (§6.2).
+func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
+	const src = "let x = ;\n"
+	f, toks := lexFixture(t, "absent-construct.luna", src)
+
+	// Splice's output for the parse of that file, written out: the trivia runs are flushed
+	// before each open, and the Error lands at the cursor — the end of the space before `;`.
+	tr := build(f, toks, eventStream{
+		openEv(File),
+		openEv(Declaration),
+		openEv(BindingDecl),
+		tokEv(0),                          // KW_LET
+		tokEv(1),                          // WHITESPACE
+		openEv(Binder), tokEv(2), closeEv, // IDENT
+		tokEv(3), // WHITESPACE
+		tokEv(4), // ASSIGN
+		tokEv(5), // WHITESPACE
+		openEv(Initializer), missingEv(Error), closeEv,
+		tokEv(6), // SEMICOLON
+		closeEv,
+		closeEv,
+		tokEv(7), // WHITESPACE
+		closeEv,
+	})
+
+	decl := tr.Root().Children()[0].Children()[0]
+	if decl.Kind() != BindingDecl {
+		t.Fatalf("expected a BindingDecl, got %s", decl.Kind())
+	}
+	var init Node
+	for _, kid := range decl.Children() {
+		if kid.Kind() == Initializer {
+			init = kid
+		}
+	}
+	if init.Kind() != Initializer {
+		t.Fatalf("the Initializer was deleted; a node whose one child is synthesised has a child")
+	}
+	if o, e := init.Span(); o != 8 || e != 8 {
+		t.Errorf("the Initializer spans %d..%d, want 8..8 at the insertion point", o, e)
+	}
+	kids := init.Children()
+	if len(kids) != 1 || kids[0].Kind() != Error {
+		t.Fatalf("the Initializer has %d children, want one Error", len(kids))
+	}
+	if o, e := kids[0].Span(); o != 8 || e != 8 {
+		t.Errorf("the Error spans %d..%d, want 8..8", o, e)
+	}
+	if o, e := decl.Span(); o != 0 || e != 9 {
+		t.Errorf("the BindingDecl spans %d..%d, want 0..9 — a zero-width child widens nothing", o, e)
+	}
+	if got := leafText(tr); got != src {
+		t.Errorf("the leaves reconstruct %q, want %q", got, src)
+	}
+}
+
+// TestBuildRejects is the panic contract, one case per precondition. The rule the table enforces
+// is that a malformed stream is **always** an intentional panic: build is the only thing that
+// constructs a Tree, so a corrupt one is undetectable downstream, and a Go runtime error here
+// would be a precondition nobody checked.
+func TestBuildRejects(t *testing.T) {
+	f, toks := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
+
+	tests := []struct {
+		name string
+		evs  eventStream
+		want string
+	}{
+		{"a close with nothing open", eventStream{closeEv}, "closes a node that was never opened"},
+		{"a leaf outside every node", eventStream{tokEv(0)}, "leaf outside every node"},
+		{"a second root", eventStream{openEv(File), tokEv(0), closeEv, openEv(File), closeEv},
+			"follows the root's close"},
+		{"an event after the root closed", eventStream{openEv(File), closeEv, tokEv(0)},
+			"follows the root's close"},
+		{"a token index past the stream", eventStream{openEv(File), tokEv(3)},
+			"token(3) of a stream of 3"},
+		{"a negative token index", eventStream{openEv(File), tokEv(-1)}, "token(-1)"},
+		{"tokens out of order", eventStream{openEv(File), tokEv(1), tokEv(0)}, "after token(1)"},
+		{"a token consumed twice", eventStream{openEv(File), tokEv(1), tokEv(1)}, "after token(1)"},
+		{"opening a token kind", eventStream{openEv(Kind(token.Semicolon))}, "not a node kind"},
+		{"opening Unset", eventStream{openEv(Unset)}, "not a node kind"},
+		{"opening past the last kind", eventStream{openEv(Error + 1)}, "not a node kind"},
+		{"synthesising a node kind", eventStream{openEv(File), missingEv(Statement)},
+			"not a terminal the parser could have expected"},
+		{"synthesising trivia", eventStream{openEv(File), missingEv(Kind(token.Whitespace))},
+			"not a terminal the parser could have expected"},
+		{"synthesising Unset", eventStream{openEv(File), missingEv(Unset)},
+			"not a terminal the parser could have expected"},
+		{"a node left open", eventStream{openEv(File), tokEv(0)}, "ends inside File, 1 deep"},
+		{"an event of no kind", eventStream{{kind: eventKind(42)}}, "has kind 42"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPanics(t, tc.want, func() { build(f, toks, tc.evs) })
+		})
+	}
+}
+
+// assertPanics requires f to panic with a parser: message containing want. Both halves matter: a
+// panic of some other type is a precondition nobody checked, which is exactly what the contract
+// forbids.
+func assertPanics(t *testing.T, want string, f func()) {
+	t.Helper()
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatalf("no panic; want one containing %q", want)
+		}
+		msg, ok := r.(string)
+		if !ok {
+			t.Fatalf("panicked with %T (%v); want a parser: string — anything else is a "+
+				"precondition nobody checked", r, r)
+		}
+		if !strings.HasPrefix(msg, "parser: ") || !strings.Contains(msg, want) {
+			t.Fatalf("panicked with %q, want a parser: message containing %q", msg, want)
+		}
+	}()
+	f()
+}
+
 // leafText is the reconstruction invariant's one line: the leaves, in order, are the file.
 func leafText(t *Tree) string {
 	var b strings.Builder

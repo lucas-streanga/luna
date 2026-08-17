@@ -392,6 +392,15 @@ Where the absence is a *construct* rather than a token — `let x = ;`, where §
 construct" fires and no single terminal was wanted — the marker is a zero-width `Error` at the
 insertion point.
 
+**A node holding only that marker survives, at zero width**, and the rule above is why rather
+than an exception to it. The deletion is of nodes with *no* children, and a node whose one child
+was synthesised has one: `let x = ;` yields an `Initializer` of width zero over a zero-width
+`Error`, between the `=` and the `;`. Nothing is ambiguous by then — the ambiguity the rule
+guards against is between a synthesised leaf and an empty node, and an empty node is already
+gone — and what is left is a distinction worth keeping: a node the parser *reached* and found
+nothing to put in is not a node it never reached. §6.2's width still says everything a consumer
+acts on.
+
 **The rule has no exception, and the root is where that shows.** A file of zero bytes lexes to
 no tokens, so `File` opens and closes with nothing between it; the rule deletes it and `Parse`
 returns **no tree**. That is the honest answer rather than a corner to be carved out: a tree

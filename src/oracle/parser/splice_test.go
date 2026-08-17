@@ -179,6 +179,37 @@ close
 	}
 }
 
+// TestSpliceRejects is the pass's half of the panic contract. It checks only what it depends on
+// — indices and balance — because a bad kind is caught once, by the builder that reads it.
+//
+// Both cases here would otherwise fail *silently*, which is why they are checked rather than
+// documented: an index out of order makes the flush emit the wrong run and coverage breaks with
+// no symptom until reconstruction, and a stream whose depth never returns to zero drops the
+// file's trailing trivia with none at all.
+func TestSpliceRejects(t *testing.T) {
+	_, toks := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
+
+	tests := []struct {
+		name string
+		evs  eventStream
+		want string
+	}{
+		{"a token index past the stream", eventStream{openEv(File), tokEv(3), closeEv},
+			"token(3) of a stream of 3"},
+		{"a negative token index", eventStream{openEv(File), tokEv(-1), closeEv}, "token(-1)"},
+		{"tokens out of order", eventStream{openEv(File), tokEv(1), tokEv(0), closeEv},
+			"after token(1)"},
+		{"a close with nothing open", eventStream{closeEv}, "never opened"},
+		{"a node left open", eventStream{openEv(File), tokEv(0)}, "ends at depth 1"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPanics(t, tc.want, func() { splice(toks, tc.evs) })
+		})
+	}
+}
+
 // TestSpliceKeepsSynthesisedLeavesWhereTheyAre: a missing token consumes no index and covers no
 // bytes, so splice passes it through without flushing — the same half of §2.1 that a close
 // takes, and the only placement that keeps the zero-width leaf before the trivia it precedes in
