@@ -138,18 +138,16 @@ func ReadGoldenDir(dir string) ([]*Golden, error) {
 
 // --- lexing ----------------------------------------------------------------------------
 
-// LexedGolden is one source lexed into the two shapes the tools need: the **full** stream Parse
-// takes, trivia included (§4.4), and the trivia-filtered view grammar §0 is defined over. Both
-// are kept because the two halves of a case run over different streams — the recognizer over the
-// filtered one, the builder over all of it — and only the full one tiles the file.
+// LexedGolden is one source in both shapes a case needs: the recognizer runs over the filtered
+// view grammar §0 is defined over, the builder over the full stream Parse takes (§4.4).
 type LexedGolden struct {
-	File   *source.File  // the retained source: every span indexes into it
+	File   *source.File
 	Tokens []token.Token // every token, trivia and all
 	Input  []ebnf.Token  // the filtered view, kind plus lexeme, which is what a terminal matches
 
-	// filtered position → index into Tokens. A derivation numbers tokens in the filtered stream
-	// and an event carries the real index, so the bridge converts; it is unexported and dies
-	// with the bridge, since the parser needs no such table (§2.2).
+	// Filtered position → index into Tokens, since a derivation numbers tokens in the filtered
+	// stream and an event carries the real index. Dies with the bridge; the parser needs no such
+	// table (§2.2).
 	index []int
 }
 

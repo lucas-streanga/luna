@@ -1,9 +1,7 @@
-// The builder (§4), against hand-written event streams — the seam §4.2 chose the event stream
-// for, exercised in the direction that needs no parser.
+// The builder (§4), driven by hand-written events — the seam §4.2 chose the stream for.
 //
-// The first test's expectation is tree_test.go's arena, which was written to be it: what the
-// builder must produce for "x;\n" is already pinned there by a tree somebody wrote by hand and
-// read. The rest are what only the builder can get wrong, and what no golden can see.
+// The first test expects tree_test.go's arena, which was written to be it. The rest are what
+// only the builder can get wrong, and what no golden can see.
 package parser
 
 import (
@@ -16,8 +14,8 @@ import (
 	"luna/oracle/token"
 )
 
-// lexFixture lexes a test's source with the real lexer, so the token indices an event stream
-// carries are the ones the parser will be handed rather than ones a test invented.
+// lexFixture uses the real lexer, so the indices an event carries are the ones the parser will
+// be handed rather than ones a test invented.
 func lexFixture(t *testing.T, name, src string) (*source.File, []token.Token) {
 	t.Helper()
 	f, err := source.New(name, src)
@@ -63,10 +61,9 @@ func dumpArena(tree *Tree) string {
 	return b.String()
 }
 
-// TestBuildProducesTheHandTree is the whole of step 1: the event stream for tree_test.go's file,
-// against tree_test.go's arena. The trailing WHITESPACE is File's child rather than the
-// Statement's because splice put its event after the Statement's close — §2.1, arriving here as
-// nothing more than the order of the events.
+// TestBuildProducesTheHandTree: the trailing WHITESPACE is File's child rather than the
+// Statement's because splice put its event after the close — §2.1, arriving here as nothing
+// more than the order of the events.
 func TestBuildProducesTheHandTree(t *testing.T) {
 	f, tokens := lexFixture(t, "hand.luna", handSource)
 	indices := filtered(tokens)
@@ -110,10 +107,8 @@ func TestBuildDropsEmptyInteriorNodes(t *testing.T) {
 	}
 }
 
-// TestBuildZeroWidthLeaf is absence: `x` with no terminator, where the parser synthesises the
-// SEMICOLON it expected (§7.2 layer 1). The leaf survives with width zero, which is the one
-// thing distinguishing it from the node above; the Statement's span stops at the real token, and
-// the leaves still tile the file.
+// TestBuildZeroWidthLeaf is absence: `x` with no terminator (§7.2 layer 1). Width zero is the
+// one thing distinguishing the leaf from the empty node above.
 func TestBuildZeroWidthLeaf(t *testing.T) {
 	const src = "x"
 	f, tokens := lexFixture(t, "missing.luna", src)
@@ -162,10 +157,9 @@ func TestBuildZeroWidthLeaf(t *testing.T) {
 	}
 }
 
-// TestBuildEmptyFileHasNoTree is §6.1 at the root, and the case no golden can express, since a
-// golden's source section is never empty. The rule has no exception: File opens and closes with
-// nothing between it, so it is deleted like any other empty node and Parse's nil has exactly one
-// meaning.
+// TestBuildEmptyFileHasNoTree is §6.1 at the root, and the case no golden can express, a golden's
+// source section never being empty. The rule has no exception, which is what gives Parse's nil
+// exactly one meaning.
 func TestBuildEmptyFileHasNoTree(t *testing.T) {
 	f, tokens := lexFixture(t, "empty.luna", "")
 	if len(tokens) != 0 {
@@ -179,22 +173,18 @@ func TestBuildEmptyFileHasNoTree(t *testing.T) {
 	}
 }
 
-// TestBuildKeepsANodeWhoseOnlyChildIsSynthesised pins the boundary of §6.1's rule, which the
-// section does not itself draw. `let x = ;` reaches the Initializer and finds no construct to
-// put in it, so the marker is a zero-width Error — and the Initializer, having a child, survives
-// at zero width rather than being deleted.
+// TestBuildKeepsANodeWhoseOnlyChildIsSynthesised pins the boundary §6.1 does not itself draw:
+// a node holding only the zero-width Error survives, having a child.
 //
-// That is the honest answer and not the ambiguity the rule guards against. The rule exists so
-// that width can distinguish a synthesised leaf from an *empty* node, and an empty node is gone
-// by the time this one is judged; what is left is the difference between a node the parser
-// reached and found nothing in, and a node it never reached at all, which is a difference worth
-// keeping. Width still says everything a consumer acts on (§6.2).
+// It is not the ambiguity the rule guards against — that one is between a synthesised leaf and an
+// *empty* node, and the empty node is gone by now. What is left is the difference between a node
+// the parser reached and found nothing in and one it never reached, which is worth keeping.
 func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 	const src = "let x = ;\n"
 	f, tokens := lexFixture(t, "absent-construct.luna", src)
 
-	// Splice's output for the parse of that file, written out: the trivia runs are flushed
-	// before each open, and the Error lands at the cursor — the end of the space before `;`.
+	// Splice's output for that file, written out: trivia flushes before each open, and the Error
+	// lands at the cursor, the end of the space before `;`.
 	tree := build(f, tokens, eventStream{
 		openEv(File),
 		openEv(Declaration),
@@ -244,10 +234,8 @@ func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 	}
 }
 
-// TestBuildRejects is the panic contract, one case per precondition. The rule the table enforces
-// is that a malformed stream is **always** an intentional panic: build is the only thing that
-// constructs a Tree, so a corrupt one is undetectable downstream, and a Go runtime error here
-// would be a precondition nobody checked.
+// TestBuildRejects is the panic contract, one case per precondition. A Go runtime error here
+// would be a precondition nobody checked, which is the failure the fuzz targets will hunt.
 func TestBuildRejects(t *testing.T) {
 	f, tokens := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
 
@@ -287,9 +275,8 @@ func TestBuildRejects(t *testing.T) {
 	}
 }
 
-// assertPanics requires f to panic with a parser: message containing want. Both halves matter: a
-// panic of some other type is a precondition nobody checked, which is exactly what the contract
-// forbids.
+// assertPanics requires a parser: message: a panic of any other type is a precondition nobody
+// checked, which is what the contract forbids.
 func assertPanics(t *testing.T, want string, f func()) {
 	t.Helper()
 	defer func() {
@@ -309,7 +296,7 @@ func assertPanics(t *testing.T, want string, f func()) {
 	f()
 }
 
-// leafText is the reconstruction invariant's one line: the leaves, in order, are the file.
+// leafText: the leaves, in order, are the file.
 func leafText(tree *Tree) string {
 	var b strings.Builder
 	for id := range tree.Len() {

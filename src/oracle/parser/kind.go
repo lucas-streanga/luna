@@ -33,9 +33,7 @@ const firstNode Kind = tokenValues
 // distinction R256 exists to make.
 //
 // `Prelude` is here because it is **not** a pure alternation, though it was counted as one until
-// building a tree from the goldens said otherwise: `Prelude ::= PreludeItem*` is one symbol on
-// the right only because the desugar made the repetition a helper, and a three-import file
-// yields three children under it. §5 has the correction.
+// a tree was built from the goldens. §5 has the correction.
 const (
 	// §0.1 file and declarations
 	File Kind = firstNode + iota
@@ -297,21 +295,17 @@ func (k Kind) String() string {
 // zero-width one a missing token leaves behind (§6.1).
 func (k Kind) IsToken() bool { return k < firstNode }
 
-// The three questions the builder asks of a kind before it will put one in a tree. They are
-// unexported until something outside the package needs them — §8's view will want the first.
+// What the builder asks of a kind before putting one in a tree. Unexported until something
+// outside the package needs them — §8's view will want the first.
 
-// isTrivia is what the golden renderer and the AST view both mean by "skip": whitespace, the
-// shebang, and the two comment forms.
 func isTrivia(k Kind) bool { return k.IsToken() && token.Kind(k).IsTrivia() }
 
-// isNode reports whether the kind may be opened. The §0 nonterminals and Error, which §6.2 opens
-// with positive width over tokens nobody could place; a value past Error names nothing.
+// isNode: the §0 nonterminals, plus the Error §6.2 opens over tokens nobody could place.
 func isNode(k Kind) bool { return !k.IsToken() && k <= Error }
 
-// isSynthesisable reports whether the kind may be a zero-width leaf: the terminal an expect-site
-// wanted (§6.1), or the Error marking an absent construct. Trivia is excluded because the parser
-// never sees it and so can never expect it, and a zero-width trivia leaf would count as trivia in
-// §2.3's placement invariant while belonging to no gap in the file. Unset names nothing.
+// isSynthesisable: a terminal an expect-site could have wanted (§6.1), or the Error marking an
+// absent construct. Trivia is excluded because the parser never sees it and so cannot expect it,
+// and a zero-width trivia leaf would answer to §2.3's placement rule while covering no gap.
 func isSynthesisable(k Kind) bool {
 	return k == Error || (k.IsToken() && k != Unset && !isTrivia(k))
 }

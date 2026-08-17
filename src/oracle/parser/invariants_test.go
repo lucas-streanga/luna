@@ -1,16 +1,18 @@
 // The invariant battery: what holds of **every** tree and **every** splice, whatever was parsed.
 //
-// Two entry points, four groups. They take a tree and a token stream rather than anything this
-// phase owns, so the drivers can differ while the properties do not: hand-written events today,
-// the golden corpus today, the spec corpus and the fuzz targets next, and `Parse` itself when
-// Phase 2 lands — at which point nothing here changes. That is the point of writing it as a
-// battery rather than as assertions inside each test. A driver costs nothing to add, and an
-// invariant added here applies to every driver at once.
+// It takes a tree and a token stream rather than anything this phase owns, so drivers can differ
+// while the properties do not — hand-written events and the golden corpus today, the fuzz targets
+// next, `Parse` when Phase 2 lands, with nothing here changing. A driver then costs nothing to
+// add, and an invariant added here reaches every driver at once.
 //
-// What it deliberately does not do is compare a tree against grammar.md. That is the goldens'
-// job, and the division is the whole design: **goldens pin shape, invariants pin properties.** A
-// golden says this file produces this tree; the battery says no tree, from any input, is ever
-// malformed. Neither substitutes for the other, and only the second scales to a fuzzer.
+// **The tree has two tiers and their union**, split where the one precondition bites: some of
+// this is true of any tree the builder returns, the rest only of one built from a **spliced**
+// stream. Every driver today meets that precondition and wants the union; the fuzz targets that
+// feed `build` arbitrary streams do not, and asserting the spliced tier there would report the
+// input rather than a defect.
+//
+// It never compares a tree against grammar.md, which is the division the whole design rests on:
+// **goldens pin shape, invariants pin properties.** Only the second scales to a fuzzer.
 package parser
 
 import (
@@ -19,11 +21,10 @@ import (
 	"luna/oracle/token"
 )
 
-// reporter is the slice of *testing.T the battery uses, and it is an interface for one reason:
-// **a test helper that cannot fail is worse than no helper at all.** Standing a recorder in for T
-// is what lets invariants_probe_test.go feed each group a deliberately malformed tree and check
-// that the right assertion fires. testing.TB would be the natural spelling and cannot be
-// implemented outside the testing package, which is why this is written out.
+// reporter is an interface for one reason: **a test helper that cannot fail is worse than no
+// helper at all**, and standing a recorder in for T is what lets invariants_probe_test.go prove
+// each group fires. testing.TB is the natural spelling and cannot be implemented outside the
+// testing package.
 type reporter interface {
 	Helper()
 	Errorf(format string, args ...any)
@@ -32,17 +33,35 @@ type reporter interface {
 
 // --- the tree ----------------------------------------------------------------------------
 
-// assertTreeInvariants asserts every property a tree has by construction.
-//
-// **The precondition is the one Parse always meets: the tree was built from a spliced stream.**
-// Three of the four groups turn on it — a tree built from the parser's own events holds no
-// trivia, so its root does not span the file and its leaves are not the token stream. A test
-// comparing the two readings calls the groups it wants instead.
+// assertTreeInvariants is both tiers, and what every driver that parses a whole file wants: the
+// tree is well formed, *and* it is this file.
 func assertTreeInvariants(t reporter, tree *Tree, tokens []token.Token, src string) {
 	t.Helper()
+	assertTreeIsWellFormed(t, tree, src)
+	assertTreeIsTheFile(t, tree, tokens, src)
+}
 
-	// §6.1's iff, which build cannot enforce alone: it sees one stream and cannot know whether
-	// the trivia was spliced in, so "no tree exactly when the file is empty" is asserted here.
+// assertTreeIsWellFormed holds of **any** tree the builder returns, from any stream. Nothing here
+// reads the token stream, which is what makes it safe to assert about events nobody spliced — the
+// case the contract fuzz target lives in. Whether a nil tree should have been nil is the other
+// tier's question, since only the token stream can answer it.
+func assertTreeIsWellFormed(t reporter, tree *Tree, src string) {
+	t.Helper()
+	if tree == nil {
+		return
+	}
+	assertArenaIsATree(t, tree)
+	assertSpansNest(t, tree, src)
+}
+
+// assertTreeIsTheFile needs the precondition: **the tree was built from a spliced stream.** Every
+// claim here is about the tree standing for a particular file, and each is simply false of one
+// built from the parser's own events, which hold no trivia at all.
+func assertTreeIsTheFile(t reporter, tree *Tree, tokens []token.Token, src string) {
+	t.Helper()
+
+	// §6.1's iff, which build cannot enforce alone: it cannot tell a spliced stream from one
+	// whose trivia is simply absent.
 	if tree == nil {
 		if len(tokens) > 0 {
 			t.Fatalf("no tree for a file of %d bytes in %d tokens", len(src), len(tokens))
@@ -53,25 +72,25 @@ func assertTreeInvariants(t reporter, tree *Tree, tokens []token.Token, src stri
 		t.Fatalf("a tree of %d nodes for a file with no tokens", tree.Len())
 	}
 
-	assertArenaIsATree(t, tree)
-	assertSpansNest(t, tree, src)
+	// The absolute anchor, where assertSpansNest checks only relative ones (golden.md §1).
+	if offset, end := tree.Root().Span(); offset != 0 || end != len(src) {
+		t.Errorf("the root spans %d..%d, want 0..%d — File owns the file's leading and trailing "+
+			"trivia, and is the only node whose span differs from its non-trivia extent",
+			offset, end, len(src))
+	}
+
 	assertLeavesAreTheFile(t, tree, tokens, src)
 	assertTriviaIsNeverAtAnEdge(t, tree)
 }
 
-// assertArenaIsATree is group 1: the storage really is one, and nothing else in the package
-// checks it.
-//
-// Children navigates *by* size, so a wrong size does not fail — it silently returns a wrong child
-// list, and every other assertion in this file would still pass, because they all reach the tree
-// through that same accessor. Parent is worse: it is stored, read by one method, and no test
-// walks upward far enough to notice. This group is what makes the rest trustworthy rather than
-// self-consistent, which is why it reads the arena directly.
+// assertArenaIsATree is group 1, and it reads the arena directly because every other assertion
+// here reaches the tree through Children — which navigates *by* size, so a wrong size returns a
+// wrong child list rather than failing, and the rest of the file would agree with it. Parent is
+// worse: stored, read by one method, and checked by nothing.
 func assertArenaIsATree(t reporter, tree *Tree) {
 	t.Helper()
 
-	// Sizes first and on their own, because the tiling walk below steps *by* them: a size of
-	// zero would spin it forever rather than fail it.
+	// Sizes first and alone, because the walk below steps *by* them: a zero would spin it.
 	for id, n := range tree.nodes {
 		if n.size < 1 {
 			t.Fatalf("node %d (%s) has size %d; the smallest subtree is the node itself",
@@ -83,9 +102,8 @@ func assertArenaIsATree(t reporter, tree *Tree) {
 		}
 	}
 
-	// Every node is in the root's subtree, which in a pre-order arena is one comparison. Without
-	// it a short root size hides the nodes past its end from every walk below — they are then in
-	// no child list, and the tiling check that would have caught it never reaches them.
+	// Reachability, which a pre-order arena buys for one comparison: a short root size hides the
+	// nodes past its end from every walk below, including the tiling check that would catch it.
 	if got := int(tree.nodes[0].size); got != len(tree.nodes) {
 		t.Fatalf("the root spans %d of the arena's %d nodes; an arena holds exactly one tree",
 			got, len(tree.nodes))
@@ -106,16 +124,15 @@ func assertArenaIsATree(t reporter, tree *Tree) {
 			i += int(tree.nodes[i].size)
 			children++
 		}
-		// Stepping child by child must land exactly on the node after the subtree. Short means
-		// a size that swallows a sibling, long means one that reaches past its parent, and both
-		// give Children a wrong answer with no other symptom.
+		// Short swallows a sibling, long reaches past the parent, and both give Children a wrong
+		// answer with no other symptom.
 		if i != end {
 			t.Fatalf("node %d (%s) spans %d nodes but its children reach %d",
 				id, n.kind, n.size, i-id)
 		}
 
-		// A leaf carrying a nonterminal's kind is an empty interior node that survived — the
-		// only trace §6.1's rule can leave in an arena where size 1 *means* leaf.
+		// A leaf carrying a nonterminal's kind is an empty interior node that survived, and the
+		// only trace §6.1's rule can leave where size 1 *means* leaf.
 		if children == 0 {
 			leafKind := n.kind == Error || (n.kind.IsToken() && n.kind != Unset)
 			if !leafKind {
@@ -131,21 +148,15 @@ func assertArenaIsATree(t reporter, tree *Tree) {
 	}
 }
 
-// assertSpansNest is group 2: a node's span is exactly its children's extent, and the children
-// tile it without gap or overlap.
+// assertSpansNest is group 2. Three checks rather than one because they fail differently: a
+// parent narrower than its children is a cover that did not widen, a gap between siblings is a
+// leaf gone missing locally, and an extent right at the edges but wrong between them is a cover
+// that widened over something it should not have. Containment and ordering follow from them.
 //
-// Three checks rather than one because they fail differently. A parent narrower than its children
-// is a cover that did not widen; a gap between siblings is a leaf that went missing locally; an
-// extent that is right at the edges and wrong in between is a cover that widened over something
-// it should not have. Containment and ordering both follow, so neither is asserted separately.
+// Every check is **relative**, a node against its own children, which is why the group needs no
+// spliced stream; src is only the bound no span may cross.
 func assertSpansNest(t reporter, tree *Tree, src string) {
 	t.Helper()
-
-	if offset, end := tree.Root().Span(); offset != 0 || end != len(src) {
-		t.Errorf("the root spans %d..%d, want 0..%d — File owns the file's leading and trailing "+
-			"trivia, and is the only node whose span differs from its non-trivia extent",
-			offset, end, len(src))
-	}
 
 	for id := range tree.Len() {
 		n := tree.At(NodeID(id))
@@ -178,13 +189,10 @@ func assertSpansNest(t reporter, tree *Tree, src string) {
 	}
 }
 
-// assertLeavesAreTheFile is group 3: losslessness, in the strong form.
-//
-// Concatenating the leaves is the familiar half and the weaker one — it passes with every leaf
-// mislabelled, since a kind is not bytes. The half with teeth is that the **positive-width leaves
-// are the token stream**: same kinds, same spans, same order, none missing and none invented.
-// That is what catches a botched Kind conversion, a misalignment in the single kind space, or a
-// real token quietly replaced by a synthesised one of the same width.
+// assertLeavesAreTheFile is group 3, losslessness in the strong form. Concatenation is the weaker
+// half: it passes with every leaf mislabelled, a kind not being bytes. The half with teeth is
+// that the **positive-width leaves are the token stream**, which catches a botched Kind
+// conversion, a misaligned kind space, or a token replaced by a synthesised leaf of equal width.
 func assertLeavesAreTheFile(t reporter, tree *Tree, tokens []token.Token, src string) {
 	t.Helper()
 
@@ -199,8 +207,7 @@ func assertLeavesAreTheFile(t reporter, tree *Tree, tokens []token.Token, src st
 		text.WriteString(n.Text())
 
 		if offset == end {
-			// A zero-width leaf stands for a token that is not there, so it answers to §6.1
-			// rather than to the stream: it must be a terminal the parser could have expected.
+			// No token behind it, so it answers to §6.1 rather than to the stream.
 			if !isSynthesisable(n.Kind()) {
 				t.Errorf("node %d is a zero-width %s, which is not a terminal the parser could "+
 					"have expected", id, n.Kind())
@@ -228,14 +235,10 @@ func assertLeavesAreTheFile(t reporter, tree *Tree, tokens []token.Token, src st
 	}
 }
 
-// assertTriviaIsNeverAtAnEdge is group 4 over the tree: §2.3's second half, and the half index
-// coverage cannot see — a comment placed in the wrong node still preserves order and still
-// reconstructs.
-//
-// The invariant is what keeps inner spans tight. A node whose first child were a comment would
-// start at that comment, and recovering a tight span would need Roslyn's Span/FullSpan split, two
-// accessors on every node forever. File is the exception because the file's own leading and
-// trailing trivia have nowhere further out to go.
+// assertTriviaIsNeverAtAnEdge is group 4, §2.3's half that index coverage cannot see: a comment
+// in the wrong node still preserves order and still reconstructs. What it protects is tight inner
+// spans, whose loss would mean Roslyn's Span/FullSpan split on every node forever. File is
+// excepted because its own leading and trailing trivia have nowhere further out to go.
 func assertTriviaIsNeverAtAnEdge(t reporter, tree *Tree) {
 	t.Helper()
 	for id := range tree.Len() {
@@ -261,12 +264,9 @@ func assertTriviaIsNeverAtAnEdge(t reporter, tree *Tree) {
 
 // --- the splice ---------------------------------------------------------------------------
 
-// assertSpliceInvariants asserts what is true of every splice: it inserts trivia, and does
-// nothing else at all.
-//
-// It wants both streams because the contract is a relation between them. Coverage alone would
-// pass a pass that reordered the parser's events, and the placement rule alone would pass one
-// that dropped half of them.
+// assertSpliceInvariants wants both streams because the contract is a relation between them:
+// coverage alone would pass a splice that reordered the parser's events, and the placement rule
+// alone would pass one that dropped half of them.
 func assertSpliceInvariants(t reporter, tokens []token.Token, before, after eventStream) {
 	t.Helper()
 	assertIndexCoverage(t, tokens, after)
@@ -274,10 +274,8 @@ func assertSpliceInvariants(t reporter, tokens []token.Token, before, after even
 	assertTriviaIsNeverAtAnEventEdge(t, tokens, after)
 }
 
-// assertIndexCoverage is §2.3's first half, and the whole of losslessness a stage before the tree
-// exists: after splicing, the token indices are exactly {0..n-1}, each once and in order. It is
-// far easier to read than a tree diff when trivia goes missing, which is the reason it is checked
-// here as well as on the tree.
+// assertIndexCoverage is §2.3's first half: losslessness a stage before the tree exists, where it
+// reads far better than a tree diff when trivia goes missing.
 func assertIndexCoverage(t reporter, tokens []token.Token, events eventStream) {
 	t.Helper()
 	next := 0
@@ -297,13 +295,11 @@ func assertIndexCoverage(t reporter, tokens []token.Token, events eventStream) {
 	}
 }
 
-// assertSpliceOnlyInserts is the pass's entire contract in one scan: delete the events splice
-// added and the parser's own stream is back, in order and unrenumbered. It may not reorder, drop,
-// renumber or invent anything — only interleave trivia.
+// assertSpliceOnlyInserts is the pass's whole contract in one scan: delete what splice added and
+// the parser's stream is back, in order and unrenumbered.
 //
-// The greedy match is exact because of the check on the first line of the loop: the parser walks
-// the trivia-filtered stream, so none of its events is a trivia token, so an inserted event can
-// never be mistaken for one of the parser's.
+// The greedy match is exact *because* of the check on the loop's first line — the parser emits no
+// trivia event, so an inserted one can never be mistaken for one of its own.
 func assertSpliceOnlyInserts(t reporter, tokens []token.Token, before, after eventStream) {
 	t.Helper()
 	trivia := func(e event) bool {
@@ -335,12 +331,9 @@ func assertSpliceOnlyInserts(t reporter, tokens []token.Token, before, after eve
 	}
 }
 
-// assertTriviaIsNeverAtAnEventEdge is §2.1's invariant one stage earlier than the tree can see
-// it: a trivia event may abut the root's open and close, and no other node's.
-//
-// Both forms are worth having. This one needs no tree, runs before the builder, and names the
-// offending event; the tree form stays authoritative, because it also catches the case where an
-// empty node was opened and deleted between the open and the trivia, which is invisible here.
+// assertTriviaIsNeverAtAnEventEdge is §2.1's invariant a stage before the tree: it needs no
+// builder and names the offending event. The tree form stays authoritative, since it also catches
+// an empty node opened and deleted between the open and the trivia, which is invisible here.
 func assertTriviaIsNeverAtAnEventEdge(t reporter, tokens []token.Token, events eventStream) {
 	t.Helper()
 	depth := 0

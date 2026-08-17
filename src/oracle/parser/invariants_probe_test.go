@@ -1,15 +1,10 @@
-// The battery, tested in both directions.
+// The battery, tested in both directions, because **a test helper that cannot fail is worse than
+// no helper at all**: it reads as coverage while asserting nothing.
 //
-// `invariants_test.go` is a test helper, and **a test helper that cannot fail is worse than no
-// helper at all**: it reads as coverage while asserting nothing. So each group is fed a tree
-// broken in exactly the way it exists to catch, and is required to say so — and each is fed a
-// well-formed one and required to stay silent, which the corpus also shows but by a route that
-// would go quiet if the corpus ever stopped reaching the battery.
-//
-// The corruptions are applied to a hand-written arena rather than produced by build, because the
-// point is to describe trees the builder cannot make. That is also why the probes call each group
-// directly: a test for group 2 should fail when group 2 is broken and at no other time. One test
-// at the end covers the dispatch the direct calls skip past.
+// Corruptions are applied to a hand-written arena rather than produced by build, the point being
+// to describe trees the builder cannot make. The probes call each group directly so that a group
+// 2 test fails when group 2 is broken and at no other time; one test at the end covers the
+// dispatch that skips past.
 package parser
 
 import (
@@ -31,8 +26,8 @@ func (r *recorder) Errorf(format string, args ...any) {
 	r.reports = append(r.reports, fmt.Sprintf(format, args...))
 }
 
-// Fatalf records and then unwinds, because that is what testing.T.Fatalf does — an assertion that
-// declares the input beyond further judgement must not carry on judging it.
+// Fatalf unwinds as testing.T.Fatalf does: an assertion that declares the input beyond further
+// judgement must not carry on judging it.
 func (r *recorder) Fatalf(format string, args ...any) {
 	r.Errorf(format, args...)
 	panic(fatal{})
@@ -40,9 +35,8 @@ func (r *recorder) Fatalf(format string, args ...any) {
 
 type fatal struct{}
 
-// probe runs one assertion against a broken input and returns everything it reported. A panic
-// that is not the recorder's own is re-raised: build and splice panic with strings, and swallowing
-// one here would turn a contract violation into a silent pass.
+// probe re-raises any panic but the recorder's own: build and splice panic with strings, and
+// swallowing one here would turn a contract violation into a silent pass.
 func probe(assert func(reporter)) []string {
 	r := &recorder{}
 	func() {
@@ -58,8 +52,7 @@ func probe(assert func(reporter)) []string {
 	return r.reports
 }
 
-// assertReported is both directions in one helper: an empty want means the input was well formed
-// and nothing may be said about it.
+// assertReported is both directions: an empty want means nothing may be said at all.
 func assertReported(t *testing.T, reports []string, want string) {
 	t.Helper()
 	if want == "" {
@@ -82,17 +75,15 @@ func assertReported(t *testing.T, reports []string, want string) {
 
 // --- the trees the probes corrupt ---------------------------------------------------------
 
-// probeTree is tree_test.go's hand-written arena for "x;\n" — File over a Statement and the
-// trailing newline — with the tokens and source that go with it. Each probe gets its own copy.
+// probeTree is tree_test.go's arena for "x;\n", freshly copied for each probe to corrupt.
 func probeTree(t *testing.T) (*Tree, []token.Token, string) {
 	t.Helper()
 	_, tokens := lexFixture(t, "probe.luna", handSource)
 	return handTree(t), tokens, handSource
 }
 
-// triviaInsideStatement moves that newline under the Statement: the one shape §2.1 forbids, and
-// exactly what a splice that flushed at every close would build. Everything else about it is
-// well formed, so only group 4 may object.
+// triviaInsideStatement puts the newline under the Statement — what a splice that flushed at
+// every close would build. It is well formed in every other respect, so only group 4 may object.
 func triviaInsideStatement(t *testing.T) *Tree {
 	tree := probeTreeWithNodes(t, []node{
 		{kind: File, parent: 0, size: 5, offset: 0, end: 3},
@@ -104,8 +95,7 @@ func triviaInsideStatement(t *testing.T) *Tree {
 	return tree
 }
 
-// triviaFirstInStatement is the other edge, over " x;": the comment-like case where a node's span
-// would start at trivia, which is what would force Roslyn's Span/FullSpan split on every node.
+// triviaFirstInStatement is the other edge, over " x;": a node whose span would start at trivia.
 func triviaFirstInStatement(t *testing.T) *Tree {
 	return probeTreeWithNodes(t, []node{
 		{kind: File, parent: 0, size: 5, offset: 0, end: 3},
@@ -143,14 +133,13 @@ func TestArenaInvariants(t *testing.T) {
 		corrupt: func(tree *Tree) { tree.nodes[4].size = 9 },
 		want:    "claims 9 nodes in an arena of 5",
 	}, {
-		// The root's size is the only thing that makes the nodes past it reachable at all: with
-		// size 4 the walk lands exactly on 4 and the trailing WHITESPACE is in nobody's subtree.
+		// With size 4 the walk lands exactly on 4 and the trailing WHITESPACE is in no subtree.
 		name:    "a root that does not span the arena",
 		corrupt: func(tree *Tree) { tree.nodes[0].size = 4 },
 		want:    "the root spans 4 of the arena's 5 nodes",
 	}, {
-		// A child reaching past its parent, which is the shape a close that patched the wrong
-		// frame would leave. It stays inside the arena, so only the tiling walk can see it.
+		// What a close that patched the wrong frame leaves. It stays inside the arena, so only
+		// the tiling walk can see it.
 		name:    "a child reaching past its parent",
 		corrupt: func(tree *Tree) { tree.nodes[2].size = 3 },
 		want:    "node 1 (Statement) spans 3 nodes but its children reach 4",
@@ -163,9 +152,7 @@ func TestArenaInvariants(t *testing.T) {
 		corrupt: func(tree *Tree) { tree.nodes[0].parent = 1 },
 		want:    "the root names node 1 as its parent",
 	}, {
-		// An empty interior node that survived §6.1's deletion looks exactly like this, and this
-		// is the only trace it can leave: in an arena where size 1 *means* leaf, there is nothing
-		// else to see.
+		// What an empty interior node that survived §6.1 looks like, and the only trace it leaves.
 		name:    "a childless node carrying a nonterminal's kind",
 		corrupt: func(tree *Tree) { tree.nodes[4].kind = Modifier },
 		want:    "node 4 is a childless Modifier",
@@ -200,10 +187,6 @@ func TestSpanInvariants(t *testing.T) {
 		corrupt: func(*Tree) {},
 		want:    "",
 	}, {
-		name:    "a root that does not span the file",
-		corrupt: func(tree *Tree) { tree.nodes[0].end = 2 },
-		want:    "the root spans 0..2, want 0..3",
-	}, {
 		name:    "a span that runs backwards",
 		corrupt: func(tree *Tree) { tree.nodes[3].offset = 3 },
 		want:    "node 3 (SEMICOLON) spans 3..2",
@@ -220,8 +203,7 @@ func TestSpanInvariants(t *testing.T) {
 		corrupt: func(tree *Tree) { tree.nodes[1].end = 1 },
 		want:    "node 1 (Statement) ends at 1, its last child at 2",
 	}, {
-		// A gap between siblings is a token that is in the file and in no leaf — the local form
-		// of the failure reconstruction would only report file-wide.
+		// A token in the file and in no leaf, caught locally where reconstruction reports file-wide.
 		name: "a gap between two children",
 		corrupt: func(tree *Tree) {
 			tree.nodes[2].end = 0 // IDENT shrinks; SEMICOLON no longer abuts it
@@ -250,8 +232,7 @@ func TestLeafInvariants(t *testing.T) {
 		corrupt: func(*Tree) {},
 		want:    "",
 	}, {
-		// The mislabelled leaf is the case reconstruction cannot see: the bytes are identical,
-		// and only the kind is wrong.
+		// The case reconstruction cannot see: identical bytes, wrong kind.
 		name:    "a leaf with the wrong kind",
 		corrupt: func(tree *Tree) { tree.nodes[2].kind = Kind(token.KwLet) },
 		want:    "node 2 is KW_LET 0..1, want token 0: IDENT 0..1",
@@ -260,8 +241,7 @@ func TestLeafInvariants(t *testing.T) {
 		corrupt: func(tree *Tree) { tree.nodes[3].end = 3 },
 		want:    "node 3 is SEMICOLON 1..3, want token 1: SEMICOLON 1..2",
 	}, {
-		// A token in the file and in no leaf. The tree stays internally consistent, which is why
-		// this needs the stream to detect.
+		// The tree stays internally consistent, which is why this needs the stream to detect.
 		name: "a token missing from the tree",
 		corrupt: func(tree *Tree) {
 			tree.nodes = tree.nodes[:4]
@@ -298,9 +278,7 @@ func TestTriviaPlacementInvariant(t *testing.T) {
 		tree func(*testing.T) *Tree
 		want string
 	}{{
-		// The baseline is the positive case that matters most: File's *own* last child is trivia,
-		// and that is the one place the invariant admits it. A check that forgot the exception
-		// would fire here.
+		// The positive case that matters most: a check that forgot File's exception fires here.
 		name: "trivia at the end of File",
 		tree: handTree,
 		want: "",
@@ -325,9 +303,9 @@ func TestTriviaPlacementInvariant(t *testing.T) {
 
 // --- the tree battery as a whole -------------------------------------------------------------
 
-// TestTreeBatteryDispatches is what the direct calls above skip past: that the entry point
-// actually runs all four groups. One corruption per group, each chosen to be reported rather than
-// fatal, so none of them can mask the next.
+// TestTreeBatteryDispatches is what the direct calls above skip past: that the entry point runs
+// all four groups, across both tiers. One corruption per group, each chosen to be reported rather
+// than fatal, so none of them can mask the next.
 func TestTreeBatteryDispatches(t *testing.T) {
 	tests := []struct {
 		group   string
@@ -335,7 +313,7 @@ func TestTreeBatteryDispatches(t *testing.T) {
 		want    string
 	}{
 		{"1", func(tree *Tree) { tree.nodes[2].parent = 0 }, "names 0 as its parent"},
-		{"2", func(tree *Tree) { tree.nodes[0].end = 2 }, "the root spans 0..2"},
+		{"2", func(tree *Tree) { tree.nodes[1].offset = 1 }, "starts at 1, its first child at 0"},
 		{"3", func(tree *Tree) { tree.nodes[2].kind = Kind(token.KwLet) }, "want token 0: IDENT"},
 		{"4", func(tree *Tree) {
 			tree.nodes[1].size, tree.nodes[1].end = 4, 3
@@ -353,6 +331,34 @@ func TestTreeBatteryDispatches(t *testing.T) {
 	}
 }
 
+// TestTreeTierBoundary is the split itself, in the case it exists for: a tree built from the
+// parser's own events, with nothing spliced into them.
+//
+// It is a perfectly well-formed tree — the arena is sound and every span nests — and it is not
+// the file: it has no trivia, so its root stops short of the end and two of the three tokens are
+// in no leaf. Both statements are true at once, which is why the two tiers are separate
+// functions and why the contract fuzz target can assert the first without meeting the
+// precondition of the second.
+func TestTreeTierBoundary(t *testing.T) {
+	f, tokens := lexFixture(t, "unspliced.luna", handSource)
+	tree := build(f, tokens, eventStream{
+		openEv(File),
+		openEv(Statement), tokEv(0), tokEv(1), closeEv,
+		closeEv,
+	})
+
+	assertReported(t, probe(func(r reporter) { assertTreeIsWellFormed(r, tree, handSource) }), "")
+
+	reports := probe(func(r reporter) { assertTreeIsTheFile(r, tree, tokens, handSource) })
+	for _, want := range []string{
+		"the root spans 0..2, want 0..3",
+		"the tree holds 2 of the file's 3 tokens",
+		`the leaves reconstruct "x;"`,
+	} {
+		assertReported(t, reports, want)
+	}
+}
+
 // TestTreeBatteryPassesWellFormedTrees is the other direction at the entry point. The goldens
 // cover it thirty times over, but by a route that goes quiet if the corpus ever stops reaching
 // the battery — and the damaged tree here is one no golden holds at all.
@@ -363,9 +369,8 @@ func TestTreeBatteryPassesWellFormedTrees(t *testing.T) {
 			probe(func(r reporter) { assertTreeInvariants(r, tree, tokens, src) }), "")
 	})
 
-	// A tree with a synthesised leaf in it is well formed, and the battery has to say so: §6.1's
-	// zero-width leaf is legal, and a group that rejected it would make every recovery test fail
-	// for the wrong reason.
+	// §6.1's zero-width leaf is legal, and a group that rejected it would fail every recovery
+	// test in Phase 2 for the wrong reason.
 	t.Run("a tree with a synthesised leaf", func(t *testing.T) {
 		const src = "x"
 		f, tokens := lexFixture(t, "missing.luna", src)
@@ -378,7 +383,7 @@ func TestTreeBatteryPassesWellFormedTrees(t *testing.T) {
 			probe(func(r reporter) { assertTreeInvariants(r, tree, tokens, src) }), "")
 	})
 
-	// The empty file: §6.1's iff, and the only input for which no tree is the right answer.
+	// §6.1's iff: the only input for which no tree is the right answer.
 	t.Run("the empty file", func(t *testing.T) {
 		assertReported(t, probe(func(r reporter) { assertTreeInvariants(r, nil, nil, "") }), "")
 	})
@@ -421,8 +426,7 @@ func withoutEvent(events eventStream, at int) eventStream {
 func TestSpliceInvariants(t *testing.T) {
 	tests := []struct {
 		name string
-		// assert names which of the three is being probed, so a failure blames one of them
-		// rather than the battery.
+		// Which of the three is probed, so a failure blames one rather than the battery.
 		assert  func(r reporter, tokens []token.Token, before, after eventStream)
 		corrupt func(tokens []token.Token, before, after eventStream) (eventStream, eventStream)
 		want    string
@@ -445,8 +449,8 @@ func TestSpliceInvariants(t *testing.T) {
 		},
 		want: "event 3 is token(0) where token(1) was due",
 	}, {
-		// Only a *trailing* loss reads as a drop: an event missing from the middle is met as the
-		// event that stood where it should have been, and reported as that instead.
+		// Only a *trailing* loss reads as a drop; a middle one is reported as the event that
+		// stood in its place.
 		name:   "the parser's last event dropped",
 		assert: spliceOnlyInserts,
 		corrupt: func(_ []token.Token, before, after eventStream) (eventStream, eventStream) {
@@ -468,8 +472,7 @@ func TestSpliceInvariants(t *testing.T) {
 		},
 		want: "splice put open(Modifier) before the parser's event 1",
 	}, {
-		// The parser walks the filtered stream, so a trivia event of its own is a bug one stage
-		// upstream — and it is what would make the greedy match in the scan inexact.
+		// A bug one stage upstream, and what would make the scan's greedy match inexact.
 		name:   "the parser emitting trivia of its own",
 		assert: spliceOnlyInserts,
 		corrupt: func(_ []token.Token, before, after eventStream) (eventStream, eventStream) {

@@ -5,22 +5,13 @@ import (
 	"strings"
 )
 
-// The event stream (§4). Parsing into a flat sequence keeps the parser reading like grammar.md
-// §0, makes recovery a stream operation — "close everything down to a synchronisation point" is
-// something you can do to a stack of open events and not to a half-built tree — and leaves the
-// representation decoupled, which is most of what made §3's rejection affordable.
-//
-// It stays internal (§4.1). No consumer wants it, and exporting it would freeze what §11 leaves
-// open: the quiet period's N and the mismatched-bracket heuristic both change which events are
-// emitted, so a supported stream would make tuning recovery a breaking change.
+// The event stream (§4), internal by §4.1: exporting it would make tuning recovery a breaking
+// change, and no consumer wants it.
 
-// eventKind has deliberately no member for trivia: splice emits ordinary token events at trivia
-// indices, and the builder makes them leaves like anything else (§2.2).
-//
-// evMissing is the exception to "open, token, close", and it is §7.2 layer 1's: at an
-// expect-site the parser knows exactly one terminal is required, so it emits a zero-width leaf
-// of that kind (§6.1). It cannot be a token event, because a synthesised leaf has no entry in
-// the lexer's stream to index.
+// evMissing is §7.2 layer 1's synthesised leaf. It cannot be a token event because there is no
+// token to index, and it carries no position because the builder's cursor is the one offset that
+// cannot break the tiling: pending trivia is unflushed there, so the leaf lands before those
+// bytes rather than after them.
 type eventKind uint8
 
 const (
@@ -30,26 +21,17 @@ const (
 	evClose
 )
 
-// event is one step of the stream. A token event indexes the **full** token slice rather than
-// the filtered view the parser walks: each consumed token already knows its real index, so
-// splice needs no mapping table (§2.2).
-//
-// A missing event carries only its kind. Its position is the builder's cursor — the end of the
-// last leaf emitted — which is the one offset that cannot break the tiling: trivia pending at
-// that moment has not been flushed yet (splice does not flush at a missing, exactly as it does
-// not at a close), so the zero-width leaf sits before those bytes rather than after them.
 type event struct {
 	kind eventKind
-	node Kind // evOpen and evMissing: the node being opened, or the terminal that was expected
-	tok  int  // evToken only: an index into the full token stream
+	node Kind // evOpen and evMissing
+	// evToken only, and an index into the **full** stream: the filtered view the parser walks is
+	// index-parallel with it, so splice needs no mapping table (§2.2).
+	tok int
 }
 
-// eventStream is one parse's whole output, before splicing and before building.
 type eventStream []event
 
-// String is the debug dump §4.2 permits — test-failure output and a flag, with no
-// compatibility promise. Unindented, because flatness is the property the stream was chosen
-// for.
+// String is the debug dump §4.2 permits: test output and a flag, no compatibility promise.
 func (s eventStream) String() string {
 	var b strings.Builder
 	for _, e := range s {

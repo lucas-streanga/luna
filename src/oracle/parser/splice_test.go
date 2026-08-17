@@ -1,10 +1,8 @@
 // The splice pass (§2.2), tested events in, events out — the flattest comparison available, and
-// the reason §2.1's rule is a pass rather than three conditions inside the builder.
+// why §2.1's rule is a pass rather than three conditions inside the builder.
 //
-// The four cases are the rule's four corners: trivia before anything is open, trivia after
-// everything has closed, trivia between two siblings, and trivia before a closing delimiter. In
-// every one of them it lands in the innermost node that was *already* open when it occurred,
-// which is what keeps inner spans tight and leaves File the only node with trivia at an edge.
+// The four cases are the rule's four corners: trivia before anything is open, after everything
+// has closed, between two siblings, and before a closing delimiter.
 package parser
 
 import (
@@ -15,9 +13,8 @@ import (
 	"luna/oracle/token"
 )
 
-// spliceDump prints a stream with lexemes rather than indices, so an expectation reads as the
-// file does. eventStream.String is the debug dump §4.2 permits and is deliberately not this:
-// there, flatness is the point; here, legibility is.
+// spliceDump prints lexemes rather than indices, so an expectation reads as the file does.
+// eventStream.String is deliberately not this: there flatness is the point, here legibility.
 func spliceDump(tokens []token.Token, src string, events eventStream) string {
 	var b strings.Builder
 	for _, e := range events {
@@ -36,8 +33,7 @@ func TestSplicePlacesTrivia(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
-		// events takes the full-stream indices of the non-trivia tokens, which is the view the
-		// parser walks: it never sees trivia, and its token events carry real indices (§2.2).
+		// Indices of the non-trivia tokens: the view the parser walks, numbered as it numbers them.
 		events func(indices []int) eventStream
 		want   string
 	}{{
@@ -48,9 +44,8 @@ func TestSplicePlacesTrivia(t *testing.T) {
 				openEv(File), openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv, closeEv,
 			}
 		},
-		// Nothing is open when the comment is reached, so it is not flushed before File; it is
-		// flushed before the Statement opens, and File's first child is the one place §2.1's
-		// invariant admits trivia at an edge.
+		// Nothing is open when the comment is reached, so it flushes before the Statement instead —
+		// File's first child being the one place §2.1 admits trivia at an edge.
 		want: `open(File)
 token "// c"
 token "\n"
@@ -68,8 +63,7 @@ close
 				openEv(File), openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv, closeEv,
 			}
 		},
-		// The Statement's close does not flush, so none of this is inside it; the root's close
-		// is the table's "end" row, and File's span is therefore the file's.
+		// The Statement's close does not flush, so none of this lands inside it.
 		want: `open(File)
 open(Statement)
 token "x"
@@ -91,8 +85,7 @@ close
 				closeEv,
 			}
 		},
-		// The two directions meet here: the first close does not flush, and the second open
-		// defers until it has. Either alone would put the comment inside a Statement.
+		// Both directions meet here; either alone would put the comment inside a Statement.
 		want: `open(File)
 open(Statement)
 token "x"
@@ -122,8 +115,7 @@ close
 				closeEv,
 			}
 		},
-		// Trivia before a token is flushed by that token, so the comment lands in whatever the
-		// closing brace belongs to — the Block — rather than trailing the statement it follows.
+		// The closing brace flushes it, so it lands in the Block rather than trailing the statement.
 		want: `open(File)
 open(Statement)
 open(Block)
@@ -156,13 +148,8 @@ close
 	}
 }
 
-// TestSpliceRejects is the pass's half of the panic contract. It checks only what it depends on
-// — indices and balance — because a bad kind is caught once, by the builder that reads it.
-//
-// Both cases here would otherwise fail *silently*, which is why they are checked rather than
-// documented: an index out of order makes the flush emit the wrong run and coverage breaks with
-// no symptom until reconstruction, and a stream whose depth never returns to zero drops the
-// file's trailing trivia with none at all.
+// TestSpliceRejects is the pass's half of the panic contract. Every case here would otherwise
+// fail *silently*, which is why each is checked rather than documented.
 func TestSpliceRejects(t *testing.T) {
 	_, tokens := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
 
@@ -182,9 +169,8 @@ func TestSpliceRejects(t *testing.T) {
 		{"a close with nothing open", eventStream{closeEv}, "never opened"},
 		{"a node left open", eventStream{openEv(File), tokEv(0)}, "ends at depth 1"},
 
-		// The two halves of "the parser accounts for every token". Both would otherwise pass
-		// silently: the skipped token is still emitted, still tiles the file and still
-		// reconstructs — it is simply in a node nobody put it in.
+		// The two halves of "the parser accounts for every token": a skipped one is still emitted
+		// and still reconstructs, it is simply in a node nobody put it in.
 		{"a token the parser stepped over",
 			eventStream{openEv(File), tokEv(1), closeEv},
 			"event 1 skips token 0 (IDENT)"},
