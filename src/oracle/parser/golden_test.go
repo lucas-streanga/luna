@@ -44,11 +44,11 @@ func TestGoldens(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.Name(), func(t *testing.T) {
-			lx, err := parser.LexGolden(c.Name()+".luna", c.Source)
+			lexed, err := parser.LexGolden(c.Name()+".luna", c.Source)
 			if err != nil {
 				t.Fatalf("lexing: %v", err)
 			}
-			res := g.Recognize(lx.Input)
+			res := g.Recognize(lexed.Input)
 
 			if c.ExpectsDiagnostics() {
 				if res.Accepted {
@@ -59,7 +59,7 @@ func TestGoldens(t *testing.T) {
 			}
 
 			if !res.Accepted {
-				t.Fatalf("the grammar does not derive this: %s", res.Explain(lx.Input))
+				t.Fatalf("the grammar does not derive this: %s", res.Explain(lexed.Input))
 			}
 			if res.Ambiguous {
 				t.Fatalf("AMBIGUOUS: derives more than one way")

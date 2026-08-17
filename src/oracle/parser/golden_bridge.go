@@ -117,24 +117,24 @@ func (w goldenWalk) wrap(name string, kids eventStream) eventStream {
 // invariants of §2.3 are asserted on different stages, index coverage on the events and the
 // placement rule on the tree.
 type goldenRun struct {
-	lex  *LexedGolden
-	evs  eventStream // spliced
-	tree *Tree
+	lexed  *LexedGolden
+	events eventStream // spliced
+	tree   *Tree
 }
 
 // runGolden derives a case under the grammar and runs the derivation through the parser's own
 // stages. The error is the interesting half: a case that does not derive, or derives twice, has
 // no tree to build.
 func runGolden(g *ebnf.Grammar, c *Golden) (*goldenRun, error) {
-	lx, err := LexGolden(c.Name()+".luna", c.Source)
+	lexed, err := LexGolden(c.Name()+".luna", c.Source)
 	if err != nil {
 		return nil, fmt.Errorf("lexing: %w", err)
 	}
-	root, err := g.Derive(lx.Input)
+	root, err := g.Derive(lexed.Input)
 	if err != nil {
 		return nil, err
 	}
-	w := goldenWalk{pure: g.PureAlternations(), kinds: goldenKinds(), index: lx.index}
+	w := goldenWalk{pure: g.PureAlternations(), kinds: goldenKinds(), index: lexed.index}
 
 	// The root is opened unconditionally, where every other node earns its open. A file of
 	// nothing but comments derives no tokens at all, and File still has to be there to hold
@@ -145,8 +145,8 @@ func runGolden(g *ebnf.Grammar, c *Golden) (*goldenRun, error) {
 		ev, _ := w.events(child)
 		kids = append(kids, ev...)
 	}
-	evs := splice(lx.Toks, w.wrap(root.Name, kids))
-	return &goldenRun{lex: lx, evs: evs, tree: build(lx.File, lx.Toks, evs)}, nil
+	events := splice(lexed.Tokens, w.wrap(root.Name, kids))
+	return &goldenRun{lexed: lexed, events: events, tree: build(lexed.File, lexed.Tokens, events)}, nil
 }
 
 // GoldenTree renders the tree a case's source must produce, derived from grammar.md and built by

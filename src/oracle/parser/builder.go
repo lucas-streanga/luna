@@ -22,7 +22,7 @@ import (
 // empty, the rule deletes it, and build returns nil. §6.1 carries the reasoning and the iff that
 // keeps nil unambiguous.
 //
-// evs must be spliced. An unspliced stream builds a tree that drops every comment, which
+// events must be spliced. An unspliced stream builds a tree that drops every comment, which
 // reconstruction catches only after the fact.
 //
 // **Every precondition is checked, and every violation panics.** The stream comes from our own
@@ -39,9 +39,9 @@ import (
 // Coverage — every index present, not merely ascending — is splice's to deliver and §2.3's to
 // assert. It is deliberately not required here, so that a tree can still be built from an
 // unspliced stream when a test wants to compare the two readings.
-func build(f *source.File, toks []token.Token, evs eventStream) *Tree {
+func build(f *source.File, tokens []token.Token, events eventStream) *Tree {
 	b := builder{tree: &Tree{src: f}, lastTok: -1}
-	for i, e := range evs {
+	for i, e := range events {
 		if b.done {
 			panic(fmt.Sprintf("parser: event %d follows the root's close", i))
 		}
@@ -52,7 +52,7 @@ func build(f *source.File, toks []token.Token, evs eventStream) *Tree {
 			}
 			b.open(e.node)
 		case evToken:
-			tk := toks[b.index(e.tok, i, len(toks))]
+			tk := tokens[b.index(e.tok, i, len(tokens))]
 			b.leaf(Kind(tk.Kind), tk.Offset, tk.End(), i)
 		case evMissing:
 			if !isSynthesisable(e.node) {

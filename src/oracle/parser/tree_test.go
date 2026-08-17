@@ -33,12 +33,12 @@ func handTree(t *testing.T) *Tree {
 }
 
 func TestTreeNavigation(t *testing.T) {
-	tr := handTree(t)
-	if got := tr.Len(); got != 5 {
+	tree := handTree(t)
+	if got := tree.Len(); got != 5 {
 		t.Fatalf("Len is %d, want 5", got)
 	}
 
-	root := tr.Root()
+	root := tree.Root()
 	if root.Kind() != File {
 		t.Errorf("root is %s, want File", root.Kind())
 	}
@@ -82,10 +82,10 @@ func TestTreeNavigation(t *testing.T) {
 // every golden. It holds only because trivia are nodes rather than attachments on tokens (§2),
 // which is what makes losslessness structural instead of a rule every node type must remember.
 func TestTreeLeavesTileTheSource(t *testing.T) {
-	tr := handTree(t)
+	tree := handTree(t)
 	var b strings.Builder
-	for id := range tr.Len() {
-		n := tr.At(NodeID(id))
+	for id := range tree.Len() {
+		n := tree.At(NodeID(id))
 		if len(n.Children()) == 0 {
 			b.WriteString(n.Text())
 		}

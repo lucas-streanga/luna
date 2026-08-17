@@ -21,10 +21,10 @@ import (
 
 // RenderGolden prints a tree in the golden format. A nil tree renders as nothing — the empty
 // file, which no golden can hold anyway, since a case's source section is never empty.
-func RenderGolden(t *Tree) string {
+func RenderGolden(tree *Tree) string {
 	var b strings.Builder
-	if t != nil {
-		writeGolden(&b, t.Root(), 0)
+	if tree != nil {
+		writeGolden(&b, tree.Root(), 0)
 	}
 	return b.String()
 }

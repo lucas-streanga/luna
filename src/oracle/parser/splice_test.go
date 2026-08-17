@@ -18,12 +18,12 @@ import (
 // spliceDump prints a stream with lexemes rather than indices, so an expectation reads as the
 // file does. eventStream.String is the debug dump §4.2 permits and is deliberately not this:
 // there, flatness is the point; here, legibility is.
-func spliceDump(toks []token.Token, src string, evs eventStream) string {
+func spliceDump(tokens []token.Token, src string, events eventStream) string {
 	var b strings.Builder
-	for _, e := range evs {
+	for _, e := range events {
 		switch e.kind {
 		case evToken:
-			tk := toks[e.tok]
+			tk := tokens[e.tok]
 			fmt.Fprintf(&b, "token %q\n", src[tk.Offset:tk.End()])
 		default:
 			fmt.Fprintf(&b, "%s\n", e)
@@ -36,22 +36,22 @@ func spliceDump(toks []token.Token, src string, evs eventStream) string {
 // tree exists: after splicing, the token indices are exactly {0..n-1}, each once and in order.
 // A test elsewhere reuses it over the corpus, which is where it earns its keep — it is far
 // easier to read than a tree diff when trivia goes missing.
-func assertIndexCoverage(t *testing.T, toks []token.Token, evs eventStream) {
+func assertIndexCoverage(t *testing.T, tokens []token.Token, events eventStream) {
 	t.Helper()
 	next := 0
-	for i, e := range evs {
+	for i, e := range events {
 		if e.kind != evToken {
 			continue
 		}
 		if e.tok != next {
 			t.Fatalf("event %d is token(%d) where token(%d) was due: the indices must be "+
-				"{0..%d}, each once and in order", i, e.tok, next, len(toks)-1)
+				"{0..%d}, each once and in order", i, e.tok, next, len(tokens)-1)
 		}
 		next++
 	}
-	if next != len(toks) {
+	if next != len(tokens) {
 		t.Fatalf("the stream carries %d of the file's %d tokens: the rest are in no leaf, and "+
-			"the tree cannot reconstruct the source", next, len(toks))
+			"the tree cannot reconstruct the source", next, len(tokens))
 	}
 }
 
@@ -59,16 +59,16 @@ func TestSplicePlacesTrivia(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
-		// evs takes the full-stream indices of the non-trivia tokens, which is the view the
+		// events takes the full-stream indices of the non-trivia tokens, which is the view the
 		// parser walks: it never sees trivia, and its token events carry real indices (§2.2).
-		evs  func(ix []int) eventStream
-		want string
+		events func(indices []int) eventStream
+		want   string
 	}{{
 		name: "leading trivia lands inside File",
 		src:  "// c\nx;",
-		evs: func(ix []int) eventStream {
+		events: func(indices []int) eventStream {
 			return eventStream{
-				openEv(File), openEv(Statement), tokEv(ix[0]), tokEv(ix[1]), closeEv, closeEv,
+				openEv(File), openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv, closeEv,
 			}
 		},
 		// Nothing is open when the comment is reached, so it is not flushed before File; it is
@@ -86,9 +86,9 @@ close
 	}, {
 		name: "trailing trivia stays in File",
 		src:  "x;\n// end\n",
-		evs: func(ix []int) eventStream {
+		events: func(indices []int) eventStream {
 			return eventStream{
-				openEv(File), openEv(Statement), tokEv(ix[0]), tokEv(ix[1]), closeEv, closeEv,
+				openEv(File), openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv, closeEv,
 			}
 		},
 		// The Statement's close does not flush, so none of this is inside it; the root's close
@@ -106,11 +106,11 @@ close
 	}, {
 		name: "a comment between statements lands in the enclosing node",
 		src:  "x; // c\ny;\n",
-		evs: func(ix []int) eventStream {
+		events: func(indices []int) eventStream {
 			return eventStream{
 				openEv(File),
-				openEv(Statement), tokEv(ix[0]), tokEv(ix[1]), closeEv,
-				openEv(Statement), tokEv(ix[2]), tokEv(ix[3]), closeEv,
+				openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv,
+				openEv(Statement), tokEv(indices[2]), tokEv(indices[3]), closeEv,
 				closeEv,
 			}
 		},
@@ -134,13 +134,13 @@ close
 	}, {
 		name: "a comment before a closing brace stays in the block",
 		src:  "{ x; /* c */ }\n",
-		evs: func(ix []int) eventStream {
+		events: func(indices []int) eventStream {
 			return eventStream{
 				openEv(File),
 				openEv(Statement),
-				openEv(Block), tokEv(ix[0]),
-				openEv(Statement), tokEv(ix[1]), tokEv(ix[2]), closeEv,
-				tokEv(ix[3]), closeEv,
+				openEv(Block), tokEv(indices[0]),
+				openEv(Statement), tokEv(indices[1]), tokEv(indices[2]), closeEv,
+				tokEv(indices[3]), closeEv,
 				closeEv,
 				closeEv,
 			}
@@ -169,12 +169,12 @@ close
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, toks := lexFixture(t, "splice.luna", tc.src)
-			got := splice(toks, tc.evs(filtered(toks)))
-			if dump := spliceDump(toks, tc.src, got); dump != tc.want {
+			_, tokens := lexFixture(t, "splice.luna", tc.src)
+			got := splice(tokens, tc.events(filtered(tokens)))
+			if dump := spliceDump(tokens, tc.src, got); dump != tc.want {
 				t.Errorf("spliced to\n%s\nwant\n%s", dump, tc.want)
 			}
-			assertIndexCoverage(t, toks, got)
+			assertIndexCoverage(t, tokens, got)
 		})
 	}
 }
@@ -187,12 +187,12 @@ close
 // no symptom until reconstruction, and a stream whose depth never returns to zero drops the
 // file's trailing trivia with none at all.
 func TestSpliceRejects(t *testing.T) {
-	_, toks := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
+	_, tokens := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
 
 	tests := []struct {
-		name string
-		evs  eventStream
-		want string
+		name   string
+		events eventStream
+		want   string
 	}{
 		{"a token index past the stream", eventStream{openEv(File), tokEv(3), closeEv},
 			"token(3) of a stream of 3"},
@@ -205,7 +205,7 @@ func TestSpliceRejects(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assertPanics(t, tc.want, func() { splice(toks, tc.evs) })
+			assertPanics(t, tc.want, func() { splice(tokens, tc.events) })
 		})
 	}
 }
@@ -216,12 +216,12 @@ func TestSpliceRejects(t *testing.T) {
 // the file.
 func TestSpliceKeepsSynthesisedLeavesWhereTheyAre(t *testing.T) {
 	const src = "x // c\n"
-	f, toks := lexFixture(t, "missing.luna", src)
-	ix := filtered(toks)
+	f, tokens := lexFixture(t, "missing.luna", src)
+	indices := filtered(tokens)
 
-	evs := splice(toks, eventStream{
+	events := splice(tokens, eventStream{
 		openEv(File),
-		openEv(Statement), tokEv(ix[0]), missingEv(Kind(token.Semicolon)), closeEv,
+		openEv(Statement), tokEv(indices[0]), missingEv(Kind(token.Semicolon)), closeEv,
 		closeEv,
 	})
 	want := `open(File)
@@ -234,18 +234,18 @@ token "// c"
 token "\n"
 close
 `
-	if dump := spliceDump(toks, src, evs); dump != want {
+	if dump := spliceDump(tokens, src, events); dump != want {
 		t.Errorf("spliced to\n%s\nwant\n%s", dump, want)
 	}
-	assertIndexCoverage(t, toks, evs)
+	assertIndexCoverage(t, tokens, events)
 
 	// The tree that follows is the point: the synthesised leaf sits at the end of the token it
 	// followed, and the leaves still tile the file.
-	tr := build(f, toks, evs)
-	if got := leafText(tr); got != src {
+	tree := build(f, tokens, events)
+	if got := leafText(tree); got != src {
 		t.Errorf("the leaves reconstruct %q, want %q", got, src)
 	}
-	stmt := tr.Root().Children()[0]
+	stmt := tree.Root().Children()[0]
 	if o, e := stmt.Span(); o != 0 || e != 1 {
 		t.Errorf("the Statement spans %d..%d, want 0..1: the comment is File's, not its", o, e)
 	}

@@ -143,11 +143,11 @@ func ReadGoldenDir(dir string) ([]*Golden, error) {
 // are kept because the two halves of a case run over different streams — the recognizer over the
 // filtered one, the builder over all of it — and only the full one tiles the file.
 type LexedGolden struct {
-	File  *source.File  // the retained source: every span indexes into it
-	Toks  []token.Token // every token, trivia and all
-	Input []ebnf.Token  // the filtered view, kind plus lexeme, which is what a terminal matches
+	File   *source.File  // the retained source: every span indexes into it
+	Tokens []token.Token // every token, trivia and all
+	Input  []ebnf.Token  // the filtered view, kind plus lexeme, which is what a terminal matches
 
-	// filtered position → index into Toks. A derivation numbers tokens in the filtered stream
+	// filtered position → index into Tokens. A derivation numbers tokens in the filtered stream
 	// and an event carries the real index, so the bridge converts; it is unexported and dies
 	// with the bridge, since the parser needs no such table (§2.2).
 	index []int
@@ -159,13 +159,13 @@ func LexGolden(name, src string) (*LexedGolden, error) {
 	if err != nil {
 		return nil, err
 	}
-	toks, diags := lexer.Lex(f)
+	tokens, diags := lexer.Lex(f)
 	if len(diags) > 0 {
 		return nil, fmt.Errorf("%d lexical diagnostics, the first at offset %d",
 			len(diags), diags[0].Primary.Offset)
 	}
-	out := &LexedGolden{File: f, Toks: toks}
-	for i, tk := range toks {
+	out := &LexedGolden{File: f, Tokens: tokens}
+	for i, tk := range tokens {
 		if tk.Kind.IsTrivia() {
 			continue
 		}

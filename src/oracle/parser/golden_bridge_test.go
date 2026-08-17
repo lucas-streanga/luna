@@ -37,7 +37,7 @@ func TestGoldenCorpusInvariants(t *testing.T) {
 			if err != nil {
 				t.Fatalf("deriving and building: %v", err)
 			}
-			assertIndexCoverage(t, run.lex.Toks, run.evs)
+			assertIndexCoverage(t, run.lexed.Tokens, run.events)
 			assertReconstructs(t, run.tree, c.Source)
 			assertTriviaIsNeverAtAnEdge(t, run.tree)
 		})
@@ -47,15 +47,15 @@ func TestGoldenCorpusInvariants(t *testing.T) {
 // assertReconstructs is tooling §2's losslessness, stated as one comparison. It holds only
 // because trivia are nodes rather than attachments (§2), and it is what makes the File line's
 // span real rather than a claim the renderer prints about itself.
-func assertReconstructs(t *testing.T, tr *Tree, src string) {
+func assertReconstructs(t *testing.T, tree *Tree, src string) {
 	t.Helper()
-	if tr == nil {
+	if tree == nil {
 		t.Fatalf("no tree for %d bytes of source", len(src))
 	}
-	if got := leafText(tr); got != src {
+	if got := leafText(tree); got != src {
 		t.Errorf("the leaves reconstruct %q, want %q", got, src)
 	}
-	if o, e := tr.Root().Span(); o != 0 || e != len(src) {
+	if o, e := tree.Root().Span(); o != 0 || e != len(src) {
 		t.Errorf("the root spans %d..%d, want 0..%d", o, e, len(src))
 	}
 }
@@ -67,10 +67,10 @@ func assertReconstructs(t *testing.T, tr *Tree, src string) {
 // start at that comment, and getting a tight span back would need Roslyn's Span/FullSpan split —
 // two accessors on every node, forever. File is the exception because the file's own leading and
 // trailing trivia have nowhere further out to go.
-func assertTriviaIsNeverAtAnEdge(t *testing.T, tr *Tree) {
+func assertTriviaIsNeverAtAnEdge(t *testing.T, tree *Tree) {
 	t.Helper()
-	for id := range tr.Len() {
-		n := tr.At(NodeID(id))
+	for id := range tree.Len() {
+		n := tree.At(NodeID(id))
 		kids := n.Children()
 		if len(kids) == 0 || n.Kind() == File {
 			continue

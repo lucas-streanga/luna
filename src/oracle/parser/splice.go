@@ -37,25 +37,25 @@ import (
 // **the stream must be balanced**, or the depth never returns to zero and the file's trailing
 // trivia is dropped without trace. Kinds it never inspects, so it never checks them — build does,
 // and one violation caught once by the pass that depends on it is the whole rule.
-func splice(toks []token.Token, evs eventStream) eventStream {
-	out := make(eventStream, 0, len(evs)+len(toks))
+func splice(tokens []token.Token, events eventStream) eventStream {
+	out := make(eventStream, 0, len(events)+len(tokens))
 	next, depth, last := 0, 0, -1
 
 	// flush emits the run of trivia at next, which is what an open defers to and a close does
 	// not do at all. Both halves push trivia outward, into the innermost node already open.
 	flush := func() {
-		for next < len(toks) && toks[next].IsTrivia() {
+		for next < len(tokens) && tokens[next].IsTrivia() {
 			out = append(out, event{kind: evToken, tok: next})
 			next++
 		}
 	}
 
-	for i, e := range evs {
+	for i, e := range events {
 		switch e.kind {
 		case evToken:
-			if e.tok < 0 || e.tok >= len(toks) {
+			if e.tok < 0 || e.tok >= len(tokens) {
 				panic(fmt.Sprintf("parser: event %d is token(%d) of a stream of %d",
-					i, e.tok, len(toks)))
+					i, e.tok, len(tokens)))
 			}
 			if e.tok <= last {
 				panic(fmt.Sprintf("parser: event %d is token(%d) after token(%d): the parser "+

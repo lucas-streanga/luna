@@ -296,10 +296,10 @@ terminals** — `IDENT("from")`, `IDENT("get")`, `IDENT("type")`, `IDENT("identi
 the parser compares lexeme text and needs `Slice`.
 
 ```go
-func Parse(f *source.File, toks []token.Token) (*Tree, []diagnostic.Diagnostic)
+func Parse(f *source.File, tokens []token.Token) (*Tree, []diagnostic.Diagnostic)
 ```
 
-`toks` is the **full** stream, trivia included. The parser walks the filtered view of it; §2.2's
+`tokens` is the **full** stream, trivia included. The parser walks the filtered view of it; §2.2's
 splice pass needs the rest.
 
 ## 5. The `Kind` enum: what never survives into a tree is not a kind

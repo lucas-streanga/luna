@@ -24,18 +24,18 @@ func lexFixture(t *testing.T, name, src string) (*source.File, []token.Token) {
 	if err != nil {
 		t.Fatalf("building the source file: %v", err)
 	}
-	toks, diags := lexer.Lex(f)
+	tokens, diags := lexer.Lex(f)
 	if len(diags) > 0 {
 		t.Fatalf("the fixture does not lex cleanly: %v", diags)
 	}
-	return f, toks
+	return f, tokens
 }
 
 // filtered returns the full-stream indices of the non-trivia tokens, which is how the parser
 // sees them: it walks the filtered view and its token events carry real indices (§2.2).
-func filtered(toks []token.Token) []int {
+func filtered(tokens []token.Token) []int {
 	var out []int
-	for i, tk := range toks {
+	for i, tk := range tokens {
 		if !tk.IsTrivia() {
 			out = append(out, i)
 		}
@@ -51,12 +51,12 @@ var closeEv = event{kind: evClose}
 
 // dumpArena renders the arena itself rather than a walk over it, because the arena is what is
 // being compared: a size or a parent that is wrong shows here and nowhere in a tree dump.
-func dumpArena(t *Tree) string {
-	if t == nil {
+func dumpArena(tree *Tree) string {
+	if tree == nil {
 		return "<no tree>\n"
 	}
 	var b strings.Builder
-	for id, d := range t.nodes {
+	for id, d := range tree.nodes {
 		fmt.Fprintf(&b, "%d %s parent=%d size=%d %d..%d\n",
 			id, d.kind, d.parent, d.size, d.offset, d.end)
 	}
@@ -68,16 +68,16 @@ func dumpArena(t *Tree) string {
 // Statement's because splice put its event after the Statement's close — §2.1, arriving here as
 // nothing more than the order of the events.
 func TestBuildProducesTheHandTree(t *testing.T) {
-	f, toks := lexFixture(t, "hand.luna", handSource)
-	ix := filtered(toks)
+	f, tokens := lexFixture(t, "hand.luna", handSource)
+	indices := filtered(tokens)
 
-	got := build(f, toks, eventStream{
+	got := build(f, tokens, eventStream{
 		openEv(File),
 		openEv(Statement),
-		tokEv(ix[0]), // IDENT "x"
-		tokEv(ix[1]), // SEMICOLON
+		tokEv(indices[0]), // IDENT "x"
+		tokEv(indices[1]), // SEMICOLON
 		closeEv,
-		tokEv(len(toks) - 1), // WHITESPACE "\n", spliced in after the close
+		tokEv(len(tokens) - 1), // WHITESPACE "\n", spliced in after the close
 		closeEv,
 	})
 
@@ -90,18 +90,18 @@ func TestBuildProducesTheHandTree(t *testing.T) {
 // synthesised leaf from a real one: a zero-width Modifier surviving here would be
 // indistinguishable from a missing token.
 func TestBuildDropsEmptyInteriorNodes(t *testing.T) {
-	f, toks := lexFixture(t, "empty-node.luna", handSource)
-	ix := filtered(toks)
+	f, tokens := lexFixture(t, "empty-node.luna", handSource)
+	indices := filtered(tokens)
 
-	got := build(f, toks, eventStream{
+	got := build(f, tokens, eventStream{
 		openEv(File),
 		openEv(Statement),
 		openEv(Modifier), // opened and closed with nothing between: it never existed
 		closeEv,
-		tokEv(ix[0]),
-		tokEv(ix[1]),
+		tokEv(indices[0]),
+		tokEv(indices[1]),
 		closeEv,
-		tokEv(len(toks) - 1),
+		tokEv(len(tokens) - 1),
 		closeEv,
 	})
 
@@ -116,22 +116,22 @@ func TestBuildDropsEmptyInteriorNodes(t *testing.T) {
 // the leaves still tile the file.
 func TestBuildZeroWidthLeaf(t *testing.T) {
 	const src = "x"
-	f, toks := lexFixture(t, "missing.luna", src)
-	ix := filtered(toks)
+	f, tokens := lexFixture(t, "missing.luna", src)
+	indices := filtered(tokens)
 
-	tr := build(f, toks, eventStream{
+	tree := build(f, tokens, eventStream{
 		openEv(File),
 		openEv(Statement),
-		tokEv(ix[0]),
+		tokEv(indices[0]),
 		missingEv(Kind(token.Semicolon)),
 		closeEv,
 		closeEv,
 	})
-	if tr == nil {
+	if tree == nil {
 		t.Fatal("no tree for a file with a token in it")
 	}
 
-	stmt := tr.Root().Children()
+	stmt := tree.Root().Children()
 	if len(stmt) != 1 {
 		t.Fatalf("File has %d children, want one Statement", len(stmt))
 	}
@@ -157,7 +157,7 @@ func TestBuildZeroWidthLeaf(t *testing.T) {
 	if o, e := stmt[0].Span(); o != 0 || e != 1 {
 		t.Errorf("the Statement spans %d..%d, want 0..1 — a zero-width child widens nothing", o, e)
 	}
-	if got := leafText(tr); got != src {
+	if got := leafText(tree); got != src {
 		t.Errorf("the leaves reconstruct %q, want %q", got, src)
 	}
 }
@@ -167,15 +167,15 @@ func TestBuildZeroWidthLeaf(t *testing.T) {
 // nothing between it, so it is deleted like any other empty node and Parse's nil has exactly one
 // meaning.
 func TestBuildEmptyFileHasNoTree(t *testing.T) {
-	f, toks := lexFixture(t, "empty.luna", "")
-	if len(toks) != 0 {
-		t.Fatalf("the empty file lexed to %d tokens", len(toks))
+	f, tokens := lexFixture(t, "empty.luna", "")
+	if len(tokens) != 0 {
+		t.Fatalf("the empty file lexed to %d tokens", len(tokens))
 	}
-	if tr := build(f, toks, eventStream{openEv(File), closeEv}); tr != nil {
-		t.Errorf("the empty file built a tree of %d nodes:\n%s", tr.Len(), dumpArena(tr))
+	if tree := build(f, tokens, eventStream{openEv(File), closeEv}); tree != nil {
+		t.Errorf("the empty file built a tree of %d nodes:\n%s", tree.Len(), dumpArena(tree))
 	}
-	if tr := build(f, toks, nil); tr != nil {
-		t.Errorf("an empty stream built a tree of %d nodes", tr.Len())
+	if tree := build(f, tokens, nil); tree != nil {
+		t.Errorf("an empty stream built a tree of %d nodes", tree.Len())
 	}
 }
 
@@ -191,11 +191,11 @@ func TestBuildEmptyFileHasNoTree(t *testing.T) {
 // keeping. Width still says everything a consumer acts on (§6.2).
 func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 	const src = "let x = ;\n"
-	f, toks := lexFixture(t, "absent-construct.luna", src)
+	f, tokens := lexFixture(t, "absent-construct.luna", src)
 
 	// Splice's output for the parse of that file, written out: the trivia runs are flushed
 	// before each open, and the Error lands at the cursor — the end of the space before `;`.
-	tr := build(f, toks, eventStream{
+	tree := build(f, tokens, eventStream{
 		openEv(File),
 		openEv(Declaration),
 		openEv(BindingDecl),
@@ -213,7 +213,7 @@ func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 		closeEv,
 	})
 
-	decl := tr.Root().Children()[0].Children()[0]
+	decl := tree.Root().Children()[0].Children()[0]
 	if decl.Kind() != BindingDecl {
 		t.Fatalf("expected a BindingDecl, got %s", decl.Kind())
 	}
@@ -239,7 +239,7 @@ func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 	if o, e := decl.Span(); o != 0 || e != 9 {
 		t.Errorf("the BindingDecl spans %d..%d, want 0..9 — a zero-width child widens nothing", o, e)
 	}
-	if got := leafText(tr); got != src {
+	if got := leafText(tree); got != src {
 		t.Errorf("the leaves reconstruct %q, want %q", got, src)
 	}
 }
@@ -249,12 +249,12 @@ func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 // constructs a Tree, so a corrupt one is undetectable downstream, and a Go runtime error here
 // would be a precondition nobody checked.
 func TestBuildRejects(t *testing.T) {
-	f, toks := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
+	f, tokens := lexFixture(t, "reject.luna", handSource) // IDENT, SEMICOLON, WHITESPACE
 
 	tests := []struct {
-		name string
-		evs  eventStream
-		want string
+		name   string
+		events eventStream
+		want   string
 	}{
 		{"a close with nothing open", eventStream{closeEv}, "closes a node that was never opened"},
 		{"a leaf outside every node", eventStream{tokEv(0)}, "leaf outside every node"},
@@ -282,7 +282,7 @@ func TestBuildRejects(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assertPanics(t, tc.want, func() { build(f, toks, tc.evs) })
+			assertPanics(t, tc.want, func() { build(f, tokens, tc.events) })
 		})
 	}
 }
@@ -310,10 +310,10 @@ func assertPanics(t *testing.T, want string, f func()) {
 }
 
 // leafText is the reconstruction invariant's one line: the leaves, in order, are the file.
-func leafText(t *Tree) string {
+func leafText(tree *Tree) string {
 	var b strings.Builder
-	for id := range t.Len() {
-		if n := t.At(NodeID(id)); len(n.Children()) == 0 {
+	for id := range tree.Len() {
+		if n := tree.At(NodeID(id)); len(n.Children()) == 0 {
 			b.WriteString(n.Text())
 		}
 	}
