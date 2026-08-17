@@ -117,9 +117,13 @@ func (w goldenWalk) wrap(name string, kids eventStream) eventStream {
 // invariants of §2.3 are asserted on different stages, index coverage on the events and the
 // placement rule on the tree.
 type goldenRun struct {
-	lexed  *LexedGolden
-	events eventStream // spliced
-	tree   *Tree
+	lexed *LexedGolden
+
+	// Both streams: the contract splice answers to is a relation between them, so a driver that
+	// kept only the result could not check that the parser's own events came through untouched.
+	unspliced eventStream
+	events    eventStream
+	tree      *Tree
 }
 
 // runGolden derives a case under the grammar and runs the derivation through the parser's own
@@ -145,8 +149,14 @@ func runGolden(g *ebnf.Grammar, c *Golden) (*goldenRun, error) {
 		ev, _ := w.events(child)
 		kids = append(kids, ev...)
 	}
-	events := splice(lexed.Tokens, w.wrap(root.Name, kids))
-	return &goldenRun{lexed: lexed, events: events, tree: build(lexed.File, lexed.Tokens, events)}, nil
+	unspliced := w.wrap(root.Name, kids)
+	events := splice(lexed.Tokens, unspliced)
+	return &goldenRun{
+		lexed:     lexed,
+		unspliced: unspliced,
+		events:    events,
+		tree:      build(lexed.File, lexed.Tokens, events),
+	}, nil
 }
 
 // GoldenTree renders the tree a case's source must produce, derived from grammar.md and built by

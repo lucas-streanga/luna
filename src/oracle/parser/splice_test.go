@@ -32,29 +32,6 @@ func spliceDump(tokens []token.Token, src string, events eventStream) string {
 	return b.String()
 }
 
-// assertIndexCoverage is §2.3's first half, and the whole of losslessness a stage before the
-// tree exists: after splicing, the token indices are exactly {0..n-1}, each once and in order.
-// A test elsewhere reuses it over the corpus, which is where it earns its keep — it is far
-// easier to read than a tree diff when trivia goes missing.
-func assertIndexCoverage(t *testing.T, tokens []token.Token, events eventStream) {
-	t.Helper()
-	next := 0
-	for i, e := range events {
-		if e.kind != evToken {
-			continue
-		}
-		if e.tok != next {
-			t.Fatalf("event %d is token(%d) where token(%d) was due: the indices must be "+
-				"{0..%d}, each once and in order", i, e.tok, next, len(tokens)-1)
-		}
-		next++
-	}
-	if next != len(tokens) {
-		t.Fatalf("the stream carries %d of the file's %d tokens: the rest are in no leaf, and "+
-			"the tree cannot reconstruct the source", next, len(tokens))
-	}
-}
-
 func TestSplicePlacesTrivia(t *testing.T) {
 	tests := []struct {
 		name string
