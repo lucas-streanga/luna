@@ -960,6 +960,71 @@ Recovery is usually judged by feel. It does not have to be here.
 - **The reject-set invariant** (`testdata/golden.md` §0): what the parser diagnoses and what the
   grammar rejects are the same set.
 
+
+### 7.8 Panics are input-independent, and the driver is where one becomes a diagnostic
+
+**There is no strict-mode/tolerant-mode axis**, and the temptation to build one is what this
+section exists to head off. Three different things can go wrong, and two of the three already have
+homes:
+
+| Cause | Decided by | Mechanism |
+|-|-|-|
+| The input is malformed | the pass | a `P` diagnostic and a partial tree. Never a panic, never a mode. |
+| Whether malformed input stops the build | the **driver** | batch aborts at the phase boundary, the LSP consumes the partial result (tooling §3) |
+| **The parser is wrong** | the parser | a panic — compiler §3.1's `I`, "an invariant violated" |
+
+The middle row is why "a strict parser for production" is not wanted: production wants an *abort*,
+which the batch driver already performs, and an abort carrying a code and a span is strictly better
+than a panic carrying neither. A second, non-recovering parser would buy nothing and cost
+everything.
+
+> **The rule: no input reaches a panic.** Every panic in this package is a statement about the
+> parser's own code, so a user's file can never trigger one.
+
+**Where the risk actually is.** `complete`'s marker check and `precede`'s precondition are
+input-independent on their face — only a mis-written nonterminal function reaches them. Splice's
+four preconditions and the builder's are not: they are checked against the **event stream**, and
+recovery is what shapes that stream on damaged input. A recovery bug that only appears on
+`let x = ;;;}}}` would panic in `splice`, in production, on a user's file. So the four are made
+**structural rather than checked** — the assertion stays, and nothing can reach it:
+
+1. **Ascending, never trivia** — the cursor's own invariant (§4.5). `pos` only advances and never
+   rests on trivia, and `bump` emits `pos`.
+2. **Coverage** — `bump` is the only way past a token, and it always emits. Recovery's "skip to a
+   synchronisation point" is therefore a run of `bump`s *inside* an `Error` node, and coverage
+   follows from the API rather than from care. The residual hole is a nonterminal assigning `pos`
+   directly, and §2.3's index-coverage assertion is what closes it.
+3. **Balance** — recovery is expressed as **pop to a depth**, not as "close some nodes", so it
+   calls `complete` per frame and the stream balances by construction. This is what §4 meant by
+   recovery being a stream operation: it is a *stack* operation, and stacks do not unbalance.
+4. **Progress** — every error path consumes at least one real token (§6.4). That is the loop's
+   property, not any single function's.
+
+**Three cursor contracts follow from (4), and each is a panic.** `bump` at end of input panics:
+there is no token to consume, so layer 2's "consume one token into an `Error`" is not available
+there and the only move at the end is to unwind, which means a recovery loop wants `atEnd` in its
+condition. The alternative — a `bump` that no-ops at the end — is the worst option available,
+because it turns a recovery bug into a **spin**, and a hang is a worse failure for a language
+server than a crash. `nth` with a negative offset panics, and so does `at(token.Unset)`: nothing
+in §0 asks either question, so asking is a bug rather than a query.
+
+**The fuzzer is what makes the rule credible rather than hopeful.** Arbitrary bytes drive recovery
+into states no corpus contains, so an invariant that is only *conventionally* structural is found
+by `FuzzParse` — before a user finds it. §7.7's perturbation harness is the same instrument aimed
+at the same property from the other side.
+
+**And the net is at the driver, not here.** A panic that escapes anyway is converted to an `I`
+diagnostic by whichever driver is running — the LSP survives it, the batch compiler aborts on it
+(`oracle/driver/driver-implementation.md`). Putting the `recover` in `Parse` instead would be
+worse at both ends: the fuzzer would stop seeing bugs, and a corrupt tree would be handed
+downstream. Tests and fuzzers call `Parse` directly, so panics stay loud exactly where they are
+wanted.
+
+*(One legitimate use of panic-as-control-flow is left open and is not this: a deliberate
+**bailout** for §7.6's per-file error cap, recovered in `Parse` by designated type, which is what
+`go/parser` does for the same purpose. It arrives if that cap is ever wanted, and it is
+distinguishable from an invariant violation by its own type.)*
+
 ---
 
 ## 8. The AST view is an API, not a second tree

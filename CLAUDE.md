@@ -89,8 +89,10 @@ Two conventions that are easy to trip over:
 
 **Implementation design notes live beside their code, not in `specs/`** —
 `oracle/parser/parser-implementation.md`, `oracle/parser/testdata/golden.md`,
-`oracle/lexer/testdata/FORMAT.md`, and the root-level `driver.md`, `lexer-testing-plan.md`,
-`testing-strategy.md`. None of them are `CHANGES.md` rulings: only *language* decisions get rulings.
+`oracle/driver/driver-implementation.md`, `oracle/lexer/testdata/FORMAT.md`, and the root-level
+`driver.md`, `lexer-testing-plan.md`, `testing-strategy.md`. None of them are `CHANGES.md`
+rulings: only *language* decisions get rulings. (`driver.md` predates
+`driver-implementation.md` and covers the same subject; the two want merging.)
 
 ## Tooling commands
 
