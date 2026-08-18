@@ -1,10 +1,14 @@
-// The golden gate: every `.parse` case, against grammar.md.
+// The golden gate: every `.parse` case, against grammar.md and against the parser.
 //
-// Two things are checked per case and they are different in kind. The **grammar** must derive
-// the source exactly once — that is the ambiguity stress test, and it is what these cases were
-// written for. The **tree** must match what grammar.md's own productions yield, which is a
-// golden in the ordinary sense, and it exists now so that this package's parser has a target
-// written from the spec rather than from itself.
+// Three checks per case, and they are different in kind. The **grammar** must derive the source
+// exactly once — the ambiguity stress test these cases were written for. The **golden** must
+// match what §0's own productions yield, so a grammar change that moves a tree shows up as a
+// reviewable diff. And the **parser** must produce that same tree, raise no diagnostic, and
+// reconstruct the source (golden.md §0's parser row).
+//
+// The second and third are the same expectation from opposite sides, which is the point: the
+// golden is derived from §0 and the parser is written to §0, so a disagreement names which of
+// the two is wrong instead of leaving one diff to interpret.
 package parser_test
 
 import (
@@ -16,6 +20,7 @@ import (
 	"testing"
 
 	"luna/internal/ebnf"
+	"luna/oracle/diagnostic"
 	"luna/oracle/parser"
 )
 
@@ -83,6 +88,12 @@ func TestGoldens(t *testing.T) {
 				t.Errorf("tree does not match grammar.md:\n--- want (the file)\n%s\n--- got (the grammar)\n%s",
 					c.Tree, tree)
 			}
+
+			// And the parser must produce that same tree. The two assertions are different
+			// claims — that the golden still tracks §0, and that the parser implements §0 — so
+			// keeping both means a disagreement names which of the two is wrong, and together
+			// they compare the parser against the grammar through the committed tree.
+			assertParserAgrees(t, c, lexed)
 		})
 	}
 }
@@ -129,4 +140,53 @@ func TestGoldenFilesRoundTrip(t *testing.T) {
 			t.Errorf("%s does not round-trip through the reader", filepath.Base(c.Path))
 		}
 	}
+}
+
+// assertParserAgrees is golden.md §0's parser row: **the tree matches, no diagnostics are raised,
+// and the CST reconstructs the source.** All three, because they fail differently — a wrong Kind
+// shows in the tree, a spurious recovery shows in the diagnostics, and a dropped token shows only
+// in the reconstruction.
+//
+// While `parse` is unimplemented the case is reported **pending**, which is not a skip: the panic
+// must be exactly parse's sentinel, so the moment a body lands every golden becomes a live
+// comparison and a wrong one fails here. Anything else propagates.
+func assertParserAgrees(t *testing.T, c *parser.Golden, lexed *parser.LexedGolden) {
+	t.Helper()
+	tree, diags, pending := parseGolden(lexed)
+	if pending {
+		t.Log("pending on parse")
+		return
+	}
+	if len(diags) != 0 {
+		t.Errorf("%d diagnostics on a case the grammar derives; a clean golden raises none:\n%v",
+			len(diags), diags)
+	}
+	if tree == nil {
+		t.Fatal("no tree; only the empty file has none, and a golden's source is never empty")
+	}
+	if got := parser.RenderGolden(tree); got != c.Tree {
+		t.Errorf("the parser disagrees with the golden:\n--- want (the file)\n%s\n--- got (the parser)\n%s",
+			c.Tree, got)
+	}
+	if got := tree.Root().Text(); got != c.Source {
+		t.Errorf("the tree reconstructs %q, want %q — losslessness is the leaves concatenated",
+			got, c.Source)
+	}
+}
+
+// parseGolden runs the parser, reporting pending on parse's own sentinel and nothing else.
+func parseGolden(lexed *parser.LexedGolden) (tree *parser.Tree, diags []diagnostic.Diagnostic, pending bool) {
+	defer func() {
+		v := recover()
+		if v == nil {
+			return
+		}
+		if s, ok := v.(string); ok && s == "parser: parse is unimplemented" {
+			pending = true
+			return
+		}
+		panic(v)
+	}()
+	tree, diags = parser.Parse(lexed.File, lexed.Tokens)
+	return tree, diags, false
 }
