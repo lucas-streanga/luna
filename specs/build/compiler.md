@@ -749,7 +749,7 @@ it — and the striking fact is that most were closed by rulings made for other 
 |-|-|
 | integer width | the **spec**: no platform-sized integer exists anywhere in the surface — `int` is i64, `uint` is u64, the smalls are constraints; Go computes int64 identically on every architecture. The classic 32-vs-64 poison has no channel to flow through |
 | float arithmetic | **IEEE + §6.2**: correctly-rounded operations (`+ − * /`, `sqrt`) are bit-identical on every target Go supports (amd64 is SSE2 — Go removed x87, the historical double-rounding villain); §6.2 closed contraction |
-| endianness | **R187**: no endian-implicit byte read exists — `readI32(b, off, {little})` folds identically on any host *because* endianness has no default. The host's byte order is simply unobservable |
+| endianness | **R187**: no endian-implicit byte read exists — `readI32(b, off, .{little})` folds identically on any host *because* endianness has no default. The host's byte order is simply unobservable |
 | word-size / platform observables | **R138**: no `sizeof` exists in the surface; `platform.*` are *target* facts injected into the evaluator |
 | iteration order | **the table spec + one discipline rule**: Luna tables are insertion-ordered, so Go's randomized map order cannot leak into results — provided the evaluator never iterates a bare Go map anywhere a result depends on it. That is an implementation rule of this section |
 
@@ -961,7 +961,7 @@ in dependency order, so a module's imports are initialized before it.
   wrapper-level, none semantic: a zero-denominator `Rat` panics in Go where
   `parseRational("1/0")` must be a Luna *error* (one validation before `SetString`);
   `Rat.FloatString` rounds half-away-from-zero only, so the `roundingMode` enum
-  (`{halfEven}` default) is implemented over quotient/remainder primitives instead; and
+  (`.{halfEven}` default) is implemented over quotient/remainder primitives instead; and
   `math/big`'s mutable receiver API is emitter plumbing — Luna-level value immutability is
   preserved because emitted code controls every access, and the mutability becomes an
   allocation-reuse optimization where the emitter proves a value unshared. **`complex` is

@@ -81,8 +81,8 @@ lives in the guard (§3):
   type, exactly as `fn (_: int, x)` is. `_: any` is `_`.
 - **Table / list pattern** (`['k' => sub]`, `[sub, sub]`): matches the value's **shape**
   structurally, recursing into sub-patterns (§4).
-- **Enum variant** `{tag}` / `{tag pattern}`: matches iff the scrutinee is that variant, the
-  payload sub-pattern (if any) recursing into the carried value (`{circle ['radius' => r]}`,
+- **Enum variant** `.{tag}` / `.{tag pattern}`: matches iff the scrutinee is that variant, the
+  payload sub-pattern (if any) recursing into the carried value (`.{circle ['radius' => r]}`,
   enum §4). Grammar row in §2.1; the discrimination idiom of the enum spec.
 - **Range** `lo..hi` and **alternation** `a | b` (§5): membership in a range, and "any of these."
 
@@ -108,7 +108,7 @@ pattern := "_"                        // wildcard: match, bind nothing
          | literal                    // ("-")? (INT | DOUBLE | "inf") | STRING | true false null undefined nan  (signed fold, R183)
          | range                      // §5
          | "[" ... "]"                // table / list shape, sub-patterns recurse (§4)
-         | "{" tag pattern? "}"       // enum variant (enum §4)
+         | "." "{" tag pattern? "}"   // enum variant (enum §4, R272)
          | pattern ("|" pattern)+     // alternation (§5)
          | "(" pattern ")"
 

@@ -8604,6 +8604,88 @@ nonterminals, and **49** frontier classes. The widest frontier fell from 84 to 6
 exactly one four-token program stopped deriving, `{read};`. A rule stated in §0 is a
 rule that shrinks the language it describes.
 
+**R272 — a variant literal is `.{variant payload}`, and R268 is retired.** The leading
+dot is the whole change: `VariantLit ::= DOT LBRACE VariantName Expr? RBRACE` and
+`VariantPattern ::= DOT LBRACE VariantName Pattern? RBRACE`. `Block` and `VariantLit`
+therefore share no first token, `LBRACE` in an expression position derives nothing, and
+**R268's four `!LBRACE` guards are deleted** along with the rule they enforced. A
+variant literal needs no parentheses anywhere: `fn () => .{read}`, `1 => .{read}`,
+`defer .{read};`, `.{read};`.
+
+**R268 was correct and is superseded anyway**, which is worth separating. It ruled the
+`{` collision for the block in all four positions a block may appear and parenthesized
+the literal, and R270's guard put that rule inside §0 where the reject-set invariant
+could see it. Nothing about that was wrong. Three things decided against keeping it:
+
+- **One shape could not be diagnosed.** `=> {read}` failed at the `}` and a named rule
+  could fire confidently on it. `=> {circle ['radius' => 5]}` failed at the `=>`
+  **inside the payload**, six tokens past the mistake, because `circle [...]` had
+  already committed to a subscript — so no diagnostic sitting on the brace could see
+  it. A payload variant in a body position had no good message and could not be given
+  one.
+- **The rule was positional.** `_ = {read};`, `return {read};`, `f({read})` and
+  `'k' => {read}` were all legal while `=> {read}` was not: the same expression, the
+  same meaning, legal in four slots and illegal in the fifth. That is PHP's `new`
+  shape, carried from 5.0 to 8.4 before being removed, and positional rules are not
+  retired by better messages.
+- **It required an enumerated list.** "Wherever a block may appear" was four
+  productions, each with its own guard, so a fifth block-bearing form added later would
+  have reintroduced the over-accept by omission. `.{}` has no list to maintain, which
+  is the difference between removing a collision and adjudicating one.
+
+**The alternatives were weighed and measured, not argued.** A bare leading dot
+(`.read`, Swift's implicit member expression) reads best and was rejected on evidence:
+`VariantLit ::= DOT IDENT (LPAREN Expr RPAREN)?` is **ambiguous** — `.circle(x)` derives
+both as a payload and as a bare variant plus a call postfix — and
+`VariantLit ::= DOT IDENT (DOT IDENT)?` is **ambiguous** too, `.hand.north` deriving both
+as a qualified variant and as a variant plus field access. So `.name` forces *both* the
+payload and the qualification out of the grammar and into semantics, splits construction
+from patterns for the qualified case (a bare `hand` binds in pattern position), and makes
+call syntax promise an argument list the language does not have — enum §1 gives a variant
+exactly one payload and reuses tables for structure. `.{}` keeps the brace fence, so
+juxtaposed payloads (`.{circle ['radius' => 5]}`), qualification (`.{hand.north}`), and
+the construction-pattern symmetry all survive untouched. `.circle{…}` fixes the payload
+and not the qualification, and reintroduces the glyph being escaped.
+
+**Verified before adopting**, on the grammar built in memory: exhaustive generation from
+`File` up to four tokens — 19,888 sentences with spellings, **0 ambiguous, 0
+unrecognized, no truncated cells** — and the same from `Expr` (308,411 sentences),
+`Statement` (18,988), `Type`, `Pattern` and `Primary`, all clean, plus 22 hand-written
+hazards. Two results carry the design: **`x.{read}` does not derive**, because
+`Postfix ::= DOT IDENT` wants an identifier and `.{` can never be read as an access; and
+`.{read}.field`, `.{read}(x)` and `.{read}[0]` all derive unambiguously, a variant
+literal being an ordinary `Primary` with no special-casing anywhere.
+
+**The cost, stated fully.** In the grammar: **+4 expect-sites** (271 → 275) and **+4 dot
+positions** (1,115 → 1,119), the `LBRACE` after `DOT` being a required terminal past
+position 0 in two productions; one frontier class back, at 63. Against that: guard
+**sites 5 → 1** and occurrences **7 → 2**, `Statement`, `DeferStmt`, `FnBody` and
+`ArmBody` back to plain alternations, and §11.2 down from **six named rules to five** —
+"variant literal here needs parentheses" no longer names a situation that can occur.
+
+**Two adjacency corners, both maximal munch and both recorded in Flagged.**
+`c ?.{on} : .{off}` does not parse, `?.` being `OPT_ACCESS`; `1...{b}` does not parse,
+`...` being `SPREAD`. Neither is ambiguous and neither mis-parses — both are rejections
+that a space fixes — and only the first is plausible to type, so its diagnostic should
+name `?.` rather than report a missing identifier. `??` is unaffected:
+`x ??.{fallback}` parses. This is whitespace mattering in one place in a language with
+no significant whitespace, and it is the price of the dot.
+
+**Nothing in the lexer or the tooling changed.** `.{` is `DOT` then `LBRACE`, two tokens
+that already exist, so lexer §0 is untouched; and the tree-sitter grammar and the
+highlighters are lexical, generated from lexer §0, so they need no regeneration.
+
+Swept: `grammar.md` §0.2, §0.4, §0.7, §3, §11.1's four measurements, §11.2's named-rule
+table, the conventions list and Flagged; `enum.md` §2, §3, §3.2, §3.3; `functions.md` §3;
+`defer.md` §4; and **30 of the corpus's 431 blocks across 12 files** —
+`iterable-functions.md` (10), `enum.md` (6), `io.md` (3), `indexable-functions.md` (3),
+and eight files with one each — plus the prose mentions in `binary.md`, `datetime.md`,
+`time.md`, `introspection.md`, `rational.md`, `decimal.md`, `string-api.md`,
+`numeric-tower.md`, `compiler.md`, `stream.md` and both `examples/`. Parse goldens:
+`variant-literal-needs-parens.parse` becomes `variant-literal-dot-brace.parse`, now
+pinning all four body positions, a qualified literal, a payload literal, a pattern, and a
+ternary.
+
 ---
 
 ## Still open (out of scope of these rulings)

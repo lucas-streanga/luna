@@ -163,7 +163,7 @@ to when the duration ladder stopped at `hours`:
   - **DST overlap: earlier wins.** A result landing in a repeated wall time (1:30 AM
     on fall-back day) resolves to the **earlier** offset — the first occurrence in
     real time, the java.time / NodaTime convention. Overridable where it matters:
-    `addDays(dt, 1, onAmbiguous: {later})`, the policy visible by name (R106's
+    `addDays(dt, 1, onAmbiguous: .{later})`, the policy visible by name (R106's
     discipline, R108's named arguments).
 
 `difference(a, b): duration` is the exact elapsed time between two datetimes' instants
@@ -186,7 +186,7 @@ export const isAfter   = fn (a: @datetime, b: @datetime): bool => {};
 export const sameMoment = fn (a: @datetime, b: @datetime): bool => {};       // instant ==, zone-blind
 ```
 
-"Monday next week" is `dt.startOfWeek().addWeeks(1)` — or `dt.next({monday})` when
+"Monday next week" is `dt.startOfWeek().addWeeks(1)` — or `dt.next(.{monday})` when
 "the coming Monday" is what is meant; the enum makes both typed where PHP's
 `strtotime("monday next week")` is stringly. `isBefore`/`isAfter` compare instants
 (the ordering `<` would have provided; operators are builtin-only); `withZone` is the

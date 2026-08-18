@@ -155,7 +155,7 @@ export const baseOf = fn (t: type): type? => {};
   with two aliases for one type there is no sound answer. The alias name lives in
   source; the canonical structural spelling lives in output.
 - **`kindOf(t)`**, which category the type is, returned as the **`kind`** enum (§4.3) so
-  it is matchable. This is the dispatch primitive: `match (kindOf(t)) { {table} => ... }`
+  it is matchable. This is the dispatch primitive: `match (kindOf(t)) { .{table} => ... }`
   branches on the type's category, and it is what guards the comptime-tier structural
   queries. The function is `kindOf` and the enum is `kind` — one name each (a module
   exports one binding per name), with `kindOf` joining the `*Of` query family
@@ -306,7 +306,7 @@ enum's entire purpose. Two spelling rules:
   reserved (`type` is a predeclared identifier, keywords §5; the keyword is `proto`,
   not `protocol`). The old `typeType` dodge was over-caution.
 - **Predeclared names are safe as variants** because variant references are **fenced**
-  (`{table}`, `{kind.table}` — enum §3.3, R20): inside the fence, names resolve against
+  (`.{table}`, `.{kind.table}` — enum §3.3, R20): inside the fence, names resolve against
   the expected enum, never lexical scope. The precedent is the catalogue's mode enum,
   whose variant `values` lives beside the live `values` function without collision.
 
@@ -316,27 +316,27 @@ Notes pinned by the derivation (R128):
   queries, and a string walks like an atom. `undefined`, `null`, and `never` fold in on
   the same argument — with one eyebrow raised at `never` (it has no values), harmless
   since there is nothing to walk either way.
-- `list`, `byte`, `json`, and every user constraint report `{constraintType}` (R10,
+- `list`, `byte`, `json`, and every user constraint report `.{constraintType}` (R10,
   R124); `baseOf` (§4.1) gives the base. This is also the reconciliation with
   tables §2.1's `typeName` behavior: a value that *entered* `list` carries the
   constraint typeid (constraints §9.2), so `typeName` says `"list"` while `kindOf`
-  says `{constraintType}` — a constraint name, not a kind.
-- `iterable` and `number` are predeclared union aliases and report `{union}`; so does
+  says `.{constraintType}` — a constraint name, not a kind.
+- `iterable` and `number` are predeclared union aliases and report `.{union}`; so does
   every `T!`, the error union.
-- **`{intersection}` names exactly the mixed normal form** (R131, resolving R128's
+- **`.{intersection}` names exactly the mixed normal form** (R131, resolving R128's
   pin). `&` normalizes at interning (type §3.1, R25): atoms collapse, pure constraint
-  meets conjoin into a constraint (`{constraintType}`), pure protocol meets union into
-  a refinement (`{refinement}`) — so the *only* form that survives interning as an
+  meets conjoin into a constraint (`.{constraintType}`), pure protocol meets union into
+  a refinement (`.{refinement}`) — so the *only* form that survives interning as an
   intersection is the mixed one, a single interned type carrying both a constraint and
   a protocol set (`list & @drawable`). It is genuinely both, so its kind privileges
   neither: dispatch code queries both halves — `baseOf`/`constraintPredicate` for the
-  constraint half, `protocolsOf` (§4.5) for the protocol half. A further `{complex}`
+  constraint half, `protocolsOf` (§4.5) for the protocol half. A further `.{complex}`
   variant for "union and intersection both involved" was **rejected** (R131): `&`
   distributes over `|` at normalization, so the outermost form is always a union whose
   members are themselves intersection-free-or-mixed — `kindOf` reports the outermost
-  constructor and `unionMembers` recurses, which answers the question `{complex}` would
+  constructor and `unionMembers` recurses, which answers the question `.{complex}` would
   double-encode; and the name collides with the committed numeric type `complex`
-  (numeric-tower §5), which will report `{scalar}` — one word naming a kind and a
+  (numeric-tower §5), which will report `.{scalar}` — one word naming a kind and a
   scalar type would be actively confusing.
 - `comptype` is outside the runtime type universe (§4.2; any spec §1), so `kindOf` can
   never receive it.
@@ -418,7 +418,7 @@ An application refinement **is a first-class `type` value** with an interned `ty
 its `typeinfo` records the canonicalized protocol set, so `@Q & @P` and `@P & @Q`
 intern to one id, it sits in unions, aliases (`export const file = @fileDescriptor`),
 and compares by `typeid` (type spec §5, R25; protocols §6). `kindOf(@person)` answers
-`{refinement}` (§4.3), and `typeName` answers for it like any type. *(This corrects the
+`.{refinement}` (§4.3), and `typeName` answers for it like any type. *(This corrects the
 pre-R25 fossil this section carried — "`@P` is not a `type` value, it has no
 `typeid`" — which contradicted the very section it cited; the R127 audit's third fossil
 layer, fixed by R128.)*
@@ -571,7 +571,7 @@ and stale in its rows. Every slice is now ruled, each against §1's pillars:
   open closed), `params` (R108's names as value metadata), `paramTypes`/`returnType`
   (null on the wildcards), the `fn ≡ fn (...any): any` equation rejected.
 - **R131** — `baseOf` (subsuming `constraintBase`; resolving enum.md's recovery
-  deferral); `{intersection}` for the mixed normal form and `{complex}` rejected
+  deferral); `.{intersection}` for the mixed normal form and `.{complex}` rejected
   (§4.3); `protocolsOf` (§4.5); the sugar pins (`unionMembers` decomposes `!` and `?`;
   `typeName` never shows alias names — forced by pure-sugar aliasing, R21); the §5
   worked example rewritten on this module's own surface.

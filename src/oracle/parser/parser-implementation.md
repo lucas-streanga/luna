@@ -418,7 +418,7 @@ tokens, consuming nothing — and the two productions stay whole:
 
 The peek is a depth, not a buffer: §4.5's `nth` is a scan over a cursor that already exists.
 
-**Three junctions no fixed lookahead decided, and R268–R271 settled all three.** grammar.md used
+**Three junctions no fixed lookahead decided, and R268–R272 settled all three.** grammar.md used
 to say the grammar needs two tokens *in exactly one place*, and that claim was about the one
 above. Writing the spine found three more. Every one was **unambiguous** — the Earley recognizer
 derived each of the inputs below exactly once, so the corpus gate was never going to find them —
@@ -465,7 +465,7 @@ value where `DestrEntry` admits a `KeyLit` and a `BindTarget`, so the repair is 
 re-validation in §1.4 — a second grammar for the same tokens, which is the thing that made ES's
 cover grammars famous.
 
-#### 4.7.2 The `{` rule — the CFG cannot state it, and one site already proves it
+#### 4.7.2 The `{` rule — stated in §0, then made unnecessary
 
 `Block` and `VariantLit` both begin with `LBRACE`, and grammar.md's Flagged list resolves the
 collision *once*, after `FAT_ARROW`: "a `{` there always opens a block, so a variant-literal body
@@ -499,22 +499,46 @@ brace depth 1 before the matching `}` means `Block`, since every `BlockItem` sta
 `IDENT` is `SimpleStmt Modifier? SEMICOLON` while a `VariantLit`'s body can hold a `;` only at
 depth 2. Fifteen lines and a bracket counter, and **the scan was the wrong answer.**
 
-**Ruled instead (R268): a `{` opens a block wherever a block may appear** — after `FAT_ARROW` in a
+**First ruled (R268): a `{` opens a block wherever a block may appear** — after `FAT_ARROW` in a
 `FnBody` and an `ArmBody`, after `KW_DEFER`, and at the head of a `Statement` — and a variant
-literal in any of the four is parenthesized. One uniform rule instead of two contexts with
-different answers, LL(1) at all four, and the form it costs is `{read};`, an expression statement
-that computes a literal and discards it.
+literal in any of the four is parenthesized. **R270 is what let §0 say it**: the rule is a
+restriction on a nonterminal's first token, which is an intersection with a regular set, so the
+metasyntax gained `!TERMINAL`, a zero-width guard, and the grammar stayed context-free.
+`FnBody ::= Block | !LBRACE Expr` was the whole of it. That closed the CFG-versus-prose gap rather
+than managing it, and it is still what §4.7.3's junction rests on.
 
-**And R270 is what let §0 say it.** The rule is a restriction on a nonterminal's first token,
-which is an intersection with a regular set, so the metasyntax gained `!TERMINAL` — a zero-width
-guard — and the grammar stayed context-free. `FnBody ::= Block | !LBRACE Expr` is the whole of it.
-That closes the CFG-versus-prose gap rather than managing it: the rule is now *in* §0, so the
-reject-set invariant is true by construction, and the parser's dispatch and the grammar's
-production are the same sentence. The three-token variant R269 needed is the same feature.
+**Then ruled again (R272), and this is the one that holds: the syntax changed.** A variant literal
+opens `DOT LBRACE` — `.{read}` — so `Block` and `VariantLit` share no first token, `LBRACE` in an
+expression position derives nothing, and all four guards were deleted. The parsing arithmetic:
+**+4 expect-sites and +4 dot positions** (the `LBRACE` after `DOT` is a required terminal past
+position 0, in `VariantLit` and `VariantPattern`) against four guards and one named diagnostic —
+§11.2's "variant literal here needs parentheses" no longer names a situation that can occur.
 
-The measured effect: exactly one four-token program stopped deriving, `{read};`, and the corpus's
-one unparenthesized site — `enum.md`'s `fn (): shape => {point}` — became a corpus-gate failure
-until it was parenthesized, which is the ruling checking itself.
+**Why the second ruling, when the first was correct.** Three reasons, and the third is the one
+that decided it:
+
+- **The message could not be made good for one shape.** `=> {read}` failed at the `}` and a named
+  rule could fire confidently. `=> {circle ['radius' => 5]}` failed at the `=>` **inside the
+  payload**, six tokens past the mistake, because `circle [...]` had already committed to a
+  subscript — so the diagnostic sat where the information was gone.
+- **The rule was positional.** `_ = {read};`, `return {read};`, `f({read})` and `'k' => {read}`
+  were all legal while `=> {read}` was not. A rule that depends on where you are rather than what
+  you wrote is the shape that generates "why here and not there" indefinitely.
+- **It needed an enumerated list.** "Wherever a block may appear" was four places, each with its
+  own guard, and a fifth block-bearing form added later would have reintroduced the over-accept by
+  omission. `.{}` has no list to maintain.
+
+Verified before adopting, on the grammar built in memory: exhaustive generation from `File` at
+four tokens (19,888 sentences with spellings, **0 ambiguous, 0 unrecognized, no truncation**), the
+same from `Expr` (308,411), `Statement` (18,988), `Type`, `Pattern` and `Primary`, and 22
+hand-written hazards. `x.{read}` does not derive, `Postfix ::= DOT IDENT` wanting an identifier;
+`.{read}.field`, `.{read}(x)` and `.{read}[0]` all derive unambiguously, a variant literal being
+an ordinary `Primary` with no special-casing anywhere.
+
+**The one cost, and it is lexical rather than grammatical.** `.` gained two maximal-munch
+neighbours: `c ?.{on} : .{off}` does not parse (`?.` is `OPT_ACCESS`) and `1...{b}` does not parse
+(`...` is `SPREAD`). Both are rejections rather than mis-parses, a space fixes each, and only the
+first is plausible to type. grammar.md's Flagged section carries them.
 
 #### 4.7.3 `BindingDecl`'s two forms — the one that cost a design property
 

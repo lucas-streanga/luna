@@ -138,8 +138,8 @@ retained data from a stream by hand.
 #### sort()
 ```luna
 const sort = fn (tab: table,
-                 mode: enum {values, keys, keyThenValue, valueThenKey} = {values},
-                 order: enum {ascending, descending} = {ascending},
+                 mode: enum {values, keys, keyThenValue, valueThenKey} = .{values},
+                 order: enum {ascending, descending} = .{ascending},
                  compareFn?, combineFn?): table => {};
 ```
 **O(n·log n).** Quicksort. `mode` selects the sort operand; `keyThenValue` / `valueThenKey`
@@ -162,7 +162,7 @@ the old optional `randFn?` was unsound and fn-shaped PRNGs are unimplementable).
 
 #### groupBy()
 ```luna
-const groupBy = fn (tab: table, keyFn?, mode: enum {values, keys, both} = {values},
+const groupBy = fn (tab: table, keyFn?, mode: enum {values, keys, both} = .{values},
                     preserveKeys: bool = true): table => {};
 ```
 **O(n).** Groups elements into `groupKey => table-of-members`. `keyFn` (`fn(value): any`)
@@ -171,7 +171,7 @@ callback-transform family (iterable-functions §1.7).
 
 #### partition()
 ```luna
-const partition = fn (tab: table, predicateFn: fn, mode: enum {values, keys, both} = {values},
+const partition = fn (tab: table, predicateFn: fn, mode: enum {values, keys, both} = .{values},
                       preserveKeys: bool = true): table => {};
 ```
 **O(n).** Splits into `[passed, failed]` by `predicateFn` (`fn(value): bool`).

@@ -20,7 +20,7 @@ numbers have square roots and every polynomial has its full set of roots.
 A complex is **two `double`s** — the real part and the imaginary part. Heap-backed
 (numeric-tower §5): sixteen bytes exceed the `lval` payload word, so it is a
 reference type like `rational`, one allocation, immutable like every scalar.
-`kindOf` answers `{scalar}` (introspection §4.3); `@x` reports `complex`.
+`kindOf` answers `.{scalar}` (introspection §4.3); `@x` reports `complex`.
 
 **The component type is always `double`, permanently** (R164, closing numeric-tower
 §7's open). No `complex` over `float` (a storage optimization for large arrays, an

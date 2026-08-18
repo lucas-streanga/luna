@@ -70,7 +70,7 @@ was considered and rejected: `=` introduces *values* corpus-wide (and protocols,
 model, use `:` for member types — `=` there is initializers), while `['radius' => int]` after
 an `=` would even parse as a legal table *value* holding a type — a misreading inviting a
 defaults semantics variants do not have. The **construction and pattern forms are
-unchanged** (`{circle ['radius' => 5]}`, `{circle ['radius' => r]}`): inside the brace fence
+unchanged** (`.{circle ['radius' => 5]}`, `.{circle ['radius' => r]}`): inside the brace fence
 the adjacent thing is a value or pattern, not a type, a closed own-grammar where the
 convention is not in play.
 
@@ -129,7 +129,7 @@ Luna** — variant-scoped, never general (Luna otherwise has no shape types; mat
 spec). The exception is justified, not tolerated: this is the sole position where the
 contract must be **readable structure**, because two consumers *read* it rather than merely
 run it — the construction checker (§3.1's field-level, construction-site diagnostics:
-"`'colour'` is not a declared field") and the **match binder** (`{circle ['radius' => r]}`
+"`'colour'` is not a declared field") and the **match binder** (`.{circle ['radius' => r]}`
 binds `r: int` *because* the declared shape says so — the pattern's binders inherit declared
 field types).
 
@@ -149,30 +149,30 @@ whole-payload predicate contract exists as an explicit **opt-in**: a payload typ
 named table constraint (`circle: circleTable`, §2.1) — legal today, just not the default
 mechanism.
 
-A variant is constructed with **braces around the variant name** and its payload, `{variant
-payload}`. The braces mark an enum-variant construction, distinguishing `{nfc}` (the variant
-`nfc`) from `nfc` (a variable named `nfc`):
+A variant is constructed with a **dot and braces around the variant name** and its payload,
+`.{variant payload}`. The fence marks an enum-variant construction, distinguishing `.{nfc}` (the
+variant `nfc`) from `nfc` (a variable named `nfc`); the leading dot is what keeps it from
+colliding with a block, so a variant literal needs no parentheses anywhere (R272):
 
 ```luna
-let a = {circle ['radius' => 5]};       // variant circle, table payload
-let b = {labeled "hello"};               // variant labeled, string payload
-let c: shape = {point};                  // variant point, no payload
+let a = .{circle ['radius' => 5]};       // variant circle, table payload
+let b = .{labeled "hello"};               // variant labeled, string payload
+let c: shape = .{point};                  // variant point, no payload
 ```
 
 The payload is written as an ordinary value: a table value (`['radius' => 5]`), a primitive
-(`"hello"`), and so on. A no-payload variant is just `{point}`.
+(`"hello"`), and so on. A no-payload variant is just `.{point}`.
 
 **Which enum a fenced literal belongs to is the expected type at its position.** A variant
 literal names a variant, not an enum, so the enum is supplied by context: the annotation
-(`let c: shape = {point}`), the parameter's declared type (`openFile('x', {read})`, where the
+(`let c: shape = .{point}`), the parameter's declared type (`openFile('x', .{read})`, where the
 parameter is typed `enum {read, write, append}`), the assignment target, the match scrutinee's
 type. Anonymous enums intern structurally (value-representation §4.1), so an inline
 `enum {read, write, append}` in a signature is one canonical type wherever it is written, and
 the context always resolves the literal to exactly one enum. With **no** enum-typed context
-(`let x = {read};`), the literal is a **compile error**, name the enum or annotate. One
-grammar note: wherever a block may appear — after `=>` in a lambda or match-arm body, after
-`defer`, and at the head of a statement — `{` opens a **block**, so a variant literal in any of
-them is parenthesized, `=> ({read})` and `({read});` (functions §3, grammar §3, R45, R268). This is
+(`let x = .{read};`), the literal is a **compile error**, name the enum or annotate. A `{` on
+its own always opens a **block**, and `.{` always opens a literal, so the two never contend and
+`=> .{read}` needs no parentheses (functions §3, grammar §0.4, R45, R272). This is
 the same expected-type checking every literal already gets against a declared target; nothing
 is inferred *from* the literal upward.
 
@@ -186,10 +186,10 @@ declaration is *closed*, because a declaration **defines** a complete shape whil
 **probes** one. So:
 
 ```luna
-_ = {circle ['radius' => 5]};                     // ok: exactly the declared field, typed int
-_ = {circle ['radius' => 5, 'colour' => 'red']};  // error: 'colour' is not a declared field
-_ = {circle []};                                  // error: 'radius' is missing
-_ = {circle ['radius' => "big"]};                 // error: 'radius' must be int
+_ = .{circle ['radius' => 5]};                     // ok: exactly the declared field, typed int
+_ = .{circle ['radius' => 5, 'colour' => 'red']};  // error: 'colour' is not a declared field
+_ = .{circle []};                                  // error: 'radius' is missing
+_ = .{circle ['radius' => "big"]};                 // error: 'radius' must be int
 ```
 
 The check runs **at compile time when the payload is statically known** (the common case, a
@@ -208,73 +208,79 @@ declaration and construction are closed.
 
 ### 3.2 Construction is target-typed
 
-`{variant ...}` is **target-typed**: the enum it belongs to is inferred from the expected type,
+`.{variant ...}` is **target-typed**: the enum it belongs to is inferred from the expected type,
 the annotated binding, the parameter type, or the return type:
 
 ```luna
-let d: shape = {point};                  // target: shape
-someFn({circle ['radius' => 5]});        // target: someFn's parameter type
-const f = fn (): shape => ({point});      // target: the return type — parenthesized, R268
+let d: shape = .{point};                  // target: shape
+someFn(.{circle ['radius' => 5]});        // target: someFn's parameter type
+const f = fn (): shape => .{point};       // target: the return type
 ```
 
-The parentheses on the last line are required and are not style: a `{` after `=>` opens a
-**block**, so a variant literal in a function body, a match arm, after `defer`, or at the head of
-a statement is written `({point})` (grammar §3 and Flagged, R268).
+The last line needs no parentheses: `=>` is followed by `.{`, which opens a literal, where a bare
+`{` would open the block (grammar §0.4, R272).
 
-This is how the string API writes an enum default, `= {nfc}` with the parameter typed `enum
+This is how the string API writes an enum default, `= .{nfc}` with the parameter typed `enum
 {nfc, nfd, nfkc, nfkd}` (§6). Target-typing covers the common case, construction almost always
 happens at a typed site.
 
 ### 3.3 Qualifying an ambiguous variant
 
 When there is **no target type** and the variant name is **ambiguous across enums**, the enum
-is named **inside the braces**: `{Enum.variant}`. For example:
+is named **inside the braces**: `.{Enum.variant}`. For example:
 
 ```luna
 const direction = enum { north, south, east, west };
 const hand      = enum { north, south };
 
-let x = {north};              // ambiguous: direction.north or hand.north?
-let y = {hand.north};         // qualified: unambiguously hand's north
+let x = .{north};              // ambiguous: direction.north or hand.north?
+let y = .{hand.north};         // qualified: unambiguously hand's north
 ```
 
-The braces remain the sole construction form, so qualification does not introduce a second way
-to construct; `{north}` and `{hand.north}` are the same construction with an optionally-qualified
-variant name. The `.` in `{Enum.variant}` is **variant selection on the enum type**, a different
-operation from field access (`value.field`), but it is fenced **inside the construction braces**,
-so the two uses of `.` never collide: outside braces `.` is field access, and inside a
-construction (or pattern) a `Name.variant` is variant selection. This is the same fencing that
-distinguishes `{north}` (a variant) from `north` (a variable). Qualification is needed only in
-this no-target, name-collision case; at any typed site, target-typing (§3.2) resolves the variant
-without it.
+The fence remains the sole construction form, so qualification does not introduce a second way
+to construct; `.{north}` and `.{hand.north}` are the same construction with an optionally-qualified
+variant name.
+
+**Two dots, two jobs, and they never meet.** The **leading** dot is the literal's opener — it is
+what separates `.{read}` from a block (grammar §0.4, R272) and carries no meaning of its own. The
+**interior** dot, in `.{Enum.variant}`, is **variant selection on the enum type**, a different
+operation from field access (`value.field`), and it is fenced *inside* the braces, so the two uses
+of an interior dot never collide: outside the fence `.` is field access, and inside a construction
+(or pattern) a `Name.variant` is variant selection. That fencing is the same one that
+distinguishes `.{north}` (a variant) from `north` (a variable), and it is precisely what a
+brace-less spelling would have cost — `.hand.north` cannot be told from a variant followed by a
+field access, which is why R272 kept the braces rather than dropping them.
+
+Qualification is needed only in this no-target, name-collision case; at any typed site,
+target-typing (§3.2) resolves the variant without it.
 
 ---
 
 ## 4. Matching and destructuring
 
 An enum is discriminated with **`match`** (match spec), which is its natural and primary
-consumer. A variant pattern is `{variant payloadPattern}`, and when the payload is a table, the
+consumer. A variant pattern is `.{variant payloadPattern}`, and when the payload is a table, the
 payload pattern is **exactly the match table pattern** (match §4):
 
 ```luna
 _ = match (s) {
-  {circle ['radius' => r]} => area(r),     // circle tag; payload table matched, r bound
-  {square ['side' => n]}   => n * n,
-  {labeled name}           => name,          // string payload bound to name
-  {point}                  => 0,             // no payload
+  .{circle ['radius' => r]} => area(r),     // circle tag; payload table matched, r bound
+  .{square ['side' => n]}   => n * n,
+  .{labeled name}           => name,          // string payload bound to name
+  .{point}                  => 0,             // no payload
 };
 ```
 
-- `{circle ['radius' => r]}` matches the `circle` variant and destructures its table payload with
+- `.{circle ['radius' => r]}` matches the `circle` variant and destructures its table payload with
   the ordinary table pattern `['radius' => r]`. No enum-specific destructuring exists; the
   payload is a table, so it uses table patterns.
-- `{labeled name}` binds a non-table payload (here a string) to `name`.
-- `{point}` matches a no-payload variant.
+- `.{labeled name}` binds a non-table payload (here a string) to `name`.
+- `.{point}` matches a no-payload variant.
 
 Because a value is one variant at a time, `match` over the variants is the way to both
 discriminate (which variant) and extract (its payload) in one step. `{...}` (enum) is distinct
-from `[...]` (table) in a pattern: `['type' => "move"]` matches a **table**, `{circle [...]}`
-matches an **enum variant**. A pattern may qualify the variant (`{hand.north} => ...`) the same
+from `[...]` (table) in a pattern: `['type' => "move"]` matches a **table**, `.{circle [...]}`
+matches an **enum variant**. A pattern may qualify the variant (`.{hand.north} => ...`) the same
 way construction does (§3.3), though in `match` the scrutinee's type is known, so qualification
 is almost never needed.
 
@@ -295,7 +301,7 @@ An **anonymous** enum is an enum type written inline, with no name, most commonl
 signature:
 
 ```luna
-const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = .{nfc}): string => {};
 ```
 
 Anonymous enums exist for **one-off closed sets**, where a named top-level declaration would be
@@ -306,7 +312,7 @@ makes the closed, checked option as cheap as the magic string.
 Named and anonymous enums differ in **type identity**:
 
 - **Named enums are nominal.** `const direction = enum {north, south}` and `const hand = enum
-  {north, south}` are **different types** despite identical variants, because they are named.
+  .{north, south}` are **different types** despite identical variants, because they are named.
   Naming is a deliberate act of declaring a distinct type. (This matches the language's other
   named declarations, and is why domain types stay distinct.)
 - **Anonymous enums are structural.** Two anonymous enums are the **same type** iff they have the
@@ -324,7 +330,7 @@ Identity rules:
 - **A named enum is not structurally equal to an anonymous one** with the same variants. Naming
   opts into nominal identity, so a named `foo = enum {a, b}` is distinct from an anonymous `enum
   {a, b}`. In practice this rarely bites, because construction is target-typed (§3.2): you write
-  `{a}` and it becomes whatever type the site expects, named or anonymous, so you seldom hold an
+  `.{a}` and it becomes whatever type the site expects, named or anonymous, so you seldom hold an
   anonymous-typed value that must match a named type.
 
 This mirrors the language's grain: structural where shapes are compared (tables, protocols,
@@ -350,7 +356,7 @@ vs. extraction:
   `x is shape.circle`, tests the specific variant; `x is shape` tests "*any* variant of `shape`"
   (the subtype/interval check, §8). Neither binds the payload; they only identify.
 - **Which variant, *and* its payload? (value-level, binds.)** `match` discriminates the variant and
-  **extracts its payload together** (`match (x) { {circle ['radius' => r]} => ... }`), so `match` is how
+  **extracts its payload together** (`match (x) { .{circle ['radius' => r]} => ... }`), so `match` is how
   you *use* a variant, `@`/`is` is how you *test* one. Same relationship as `is` to `as`/`match`
   throughout the language.
 
@@ -373,12 +379,12 @@ reflection query deferred for now (§9).
 An enum **value** follows the ordinary binding rules (variables spec), with one clarification
 about what "mutate" means for a sum:
 
-- **`const c = {circle ['radius' => 5]};`** , frozen: cannot rebind, cannot switch variant,
+- **`const c = .{circle ['radius' => 5]};`** , frozen: cannot rebind, cannot switch variant,
   cannot mutate the payload.
 - **`let c = ...;`** , the **variant is fixed** (switching variant is not allowed), but the
   variant's **payload is interior-mutable** if the payload is itself mutable (for example a
   mutable table payload's contents may change), consistent with `let` on a table.
-- **`var c = ...;`** , may **switch variant** (`c = {square ['side' => 3]}`) as well as mutate,
+- **`var c = ...;`** , may **switch variant** (`c = .{square ['side' => 3]}`) as well as mutate,
   because switching variant replaces the value with a different-variant value, which needs
   rebind power.
 
@@ -407,7 +413,7 @@ representation it already defines is the tagged union, and enums are one use of 
   (ids are indices).
 - **The payload rides in the `lval` payload word.** A no-payload variant carries nothing; a
   scalar payload sits inline in the scalar word; a table payload is behind the pointer word, an
-  ordinary heap `lval`. So constructing `{circle ['radius' => 5]}` sets the variant `typeid` and
+  ordinary heap `lval`. So constructing `.{circle ['radius' => 5]}` sets the variant `typeid` and
   points the payload at the `['radius' => 5]` table.
 - **`match` compiles to a `switch` on the variant tag.** Each arm is a case on the variant
   `typeid`; the arm's payload pattern (`['radius' => r]`) lowers to ordinary table-field access

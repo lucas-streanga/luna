@@ -28,7 +28,7 @@ trivially structural and the `1/2`-versus-`2/4` footgun unrepresentable.
 
 `rational` is its own family (numeric-tower §3): no implicit widening, no
 mixed-family arithmetic — `r + 1` is a compile error; construct the operand
-(`1 as rational`). `kindOf` answers `{scalar}` (introspection §4.3); `@x` reports
+(`1 as rational`). `kindOf` answers `.{scalar}` (introspection §4.3); `@x` reports
 `rational`.
 
 ## 2. The operator table: all four, exact — the mirror of decimal's
@@ -55,7 +55,7 @@ The two exact types interconvert with no silent loss in either direction:
 const toRational = fn (d: decimal): rational => {};                    // total and exact, always
 const exactDecimal = fn (r: rational): decimal! => {};                 // exact, or an error
 const toDecimal = fn (r: rational, scale: int,
-                      rounding: roundingMode = {halfEven}): decimal => {};   // total: every rational rounds
+                      rounding: roundingMode = .{halfEven}): decimal => {};   // total: every rational rounds
 ```
 
 - **`toRational` is total and exact** — a decimal already *is* rational-shaped
@@ -69,7 +69,7 @@ const toDecimal = fn (r: rational, scale: int,
 - **`toDecimal` with a required `scale` is total** — every rational rounds to any
   scale — so the `to*` contract survives untouched; it is decimal's own `div`
   philosophy (decimal §3) arriving from the other side, same `roundingMode` enum,
-  same `{halfEven}` default.
+  same `.{halfEven}` default.
 - **The policy verbs widen once more** (completing R124's promise as extended by
   R161): `trunc` / `round` / `floor` / `ceil` take `double | decimal | rational`,
   each `int!` (conversion §2, §5).

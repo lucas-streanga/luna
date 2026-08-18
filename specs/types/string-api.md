@@ -299,7 +299,7 @@ O(n).
 
 #### normalize()
 ```luna
-const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = .{nfc}): string => {};
 ```
 Unicode normalization. Needed so that visually identical strings built differently
 (precomposed vs. combining) compare and hash equal after normalizing.

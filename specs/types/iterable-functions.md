@@ -30,7 +30,7 @@ keys are `0..n-1`; a stream whose generator yields bare values has **implicit ke
 `0, 1, 2…`. There is no "values-only" kind of stream: a stream is to a table exactly what a
 list is to a keyed table, and the implicit keys are the same integers a list would carry.
 The symmetry makes every key-facing function (`keys`, `keyOf`, `flip`, `keyFirst`, mode
-`{keys}`) total over `iterable`.
+`.{keys}`) total over `iterable`.
 
 Implicit keys behave precisely like list keys: per-element functions **preserve** them (so
 they go sparse after `filter`, as a list's do), and `values` reindexes from 0. A stream whose
@@ -96,7 +96,7 @@ The base enum has three members with a uniform meaning — `values` puts values 
 
 ```luna
 const each = fn (it: iterable, callbackFn: fn,
-                 mode: enum {values, keys, both} = {values}): iterable => {};
+                 mode: enum {values, keys, both} = .{values}): iterable => {};
 ```
 
 Two families extend or restrict the base set, each for a specific reason:
@@ -112,7 +112,7 @@ Two families extend or restrict the base set, each for a specific reason:
   *input* shape is constant across the family; only its *return* interpretation varies
   (`map` returns a `[key, value]` pair; predicate transforms return `bool`).
 - `sort`'s extended set (`keyThenValue` / `valueThenKey`) is its own, indexable-functions §4.
-- `keyOf` is intentionally mode-less (fixed value → key); `find` in `{keys}` mode already
+- `keyOf` is intentionally mode-less (fixed value → key); `find` in `.{keys}` mode already
   covers key → value. `diff` and `intersect` take the base set; `distinct` / `unique`
   compare values only and take no `mode`.
 
@@ -167,7 +167,7 @@ const keyLast = fn (it: iterable): any => {};
 #### find()
 ```luna
 const find = fn (it: iterable, value: any = null, key: any = null, compareFn?,
-                 mode: enum {values, keys, both, either} = {values}): any => {};
+                 mode: enum {values, keys, both, either} = .{values}): any => {};
 ```
 **O(n), short-circuits.** The first value satisfying the match; `undefined` if none. With no
 operands, returns the first value. Uses `==` unless `compareFn` (`fn(a, b): bool`) is set.
@@ -183,7 +183,7 @@ complement of `find`.
 #### exists()
 ```luna
 const exists = fn (it: iterable, value: any = null, key: any = null, compareFn?,
-                   mode: enum {values, keys, both, either} = {values}): bool => {};
+                   mode: enum {values, keys, both, either} = .{values}): bool => {};
 ```
 **O(1) / O(n), short-circuits.** True if at least one value / key / either / both matches.
 O(1) when matching keys only on a table; O(n) otherwise. Use for equality tests; use `some`
@@ -191,8 +191,8 @@ for predicate tests.
 
 #### some() · every()
 ```luna
-const some = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool => {};
-const every = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): bool => {};
+const some = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = .{values}): bool => {};
+const every = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = .{values}): bool => {};
 ```
 **O(n), short-circuit.** Whether any / all elements satisfy `predicateFn` (`fn(x): bool`).
 With `predicateFn` omitted, tests truthiness.
@@ -204,30 +204,30 @@ Transformers are lazy on streams: they return a new stream that runs only as it 
 
 #### map()
 ```luna
-const map = fn (it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable => {};
+const map = fn (it: iterable, transformFn?, mode: enum {values, keys, both} = .{values}): iterable => {};
 ```
 **O(n), lazy on streams.** Transforms each value via `transformFn` (`fn(value): any`). In
-`{keys}` mode keys are passed; in `{both}`, `fn(value, key): [key, value]`. In `{keys}` /
-`{both}`, a returned key that is `null` / `undefined` is skipped.
+`.{keys}` mode keys are passed; in `.{both}`, `fn(value, key): [key, value]`. In `.{keys}` /
+`.{both}`, a returned key that is `null` / `undefined` is skipped.
 
 #### filter()
 ```luna
-const filter = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = {values}): iterable => {};
+const filter = fn (it: iterable, predicateFn?, mode: enum {values, keys, both} = .{values}): iterable => {};
 ```
 **O(n), lazy on streams.** Keeps elements where `predicateFn` (`fn(value): bool`) returns
-true. `{keys}` passes keys; `{both}` passes `fn(value, key): bool`. Keys are preserved —
+true. `.{keys}` passes keys; `.{both}` passes `fn(value, key): bool`. Keys are preserved —
 implicit stream keys go sparse exactly as a list's would; follow with `values` to reindex.
 
 #### mapLeaves()
 ```luna
-const mapLeaves = fn (it: iterable, transformFn?, mode: enum {values, keys, both} = {values}): iterable => {};
+const mapLeaves = fn (it: iterable, transformFn?, mode: enum {values, keys, both} = .{values}): iterable => {};
 ```
 **O(n), lazy on streams.** Recursively descends to every leaf and applies `transformFn`.
 Table-valued elements are retained data, so descent stays lazy per element.
 
 #### each()
 ```luna
-const each = fn (it: iterable, callbackFn: fn, mode: enum {values, keys, both} = {values}): iterable => {};
+const each = fn (it: iterable, callbackFn: fn, mode: enum {values, keys, both} = .{values}): iterable => {};
 ```
 **O(n), lazy on streams.** Side-effecting iteration. Returns its input, so it chains; on a
 stream it is a lazy tap, running `callbackFn` as elements flow through. Returning `false`
@@ -339,14 +339,14 @@ concatenation, duplicate string keys flowing through in order and resolving at `
 #### diff() · intersect()
 ```luna
 const diff = fn (it: iterable, ...tabs: table,
-                 compareFn?, mode: enum {values, keys, both} = {both}): iterable => {};
+                 compareFn?, mode: enum {values, keys, both} = .{both}): iterable => {};
 const intersect = fn (it: iterable, ...tabs: table,
-                      compareFn?, mode: enum {values, keys, both} = {values}): iterable => {};
+                      compareFn?, mode: enum {values, keys, both} = .{values}): iterable => {};
 ```
 **O(n²), lazy on streams.** Keeps elements of `it` **not present in all** / **present in
 all** of `tabs`. Keys preserved. Uses `==` unless `compareFn` (`fn(a, b): bool`) is set. The
 operands are `table`, not `iterable`: they are probed for membership, which is keyed access.
-Under `mode = {both}`, equal iff key **and** value equal.
+Under `mode = .{both}`, equal iff key **and** value equal.
 
 #### distinct() · unique()
 ```luna
@@ -379,7 +379,7 @@ stream both are lazy stages.
 #### remove()
 ```luna
 const remove = fn (it: iterable, value: any = null, key: any = null, compareFn?,
-                   mode: enum {values, keys, both, either} = {values}, all: bool = false): iterable => {};
+                   mode: enum {values, keys, both, either} = .{values}, all: bool = false): iterable => {};
 ```
 **O(n), lazy on streams.** Removes the first matching element, or every match with
 `all = true` — the matcher-family complement of `filter` (equality match rather than

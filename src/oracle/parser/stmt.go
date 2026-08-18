@@ -16,9 +16,9 @@ package parser
 // `TopLevelItem` and `BlockItem`, and `bindTarget` from `Param` (primary.go) and `AssignTarget`'s
 // destructuring form.
 //
-// Two of R268's four `!LBRACE` guards are here — on `Statement`'s simple-statement arm and on
-// `DeferStmt`'s — and each is one `p.at(token.LBrace)` at the head of the function it guards.
-// The other two are `FnBody` and `ArmBody` in primary.go.
+// This group carried two of R268's four `!LBRACE` guards, on `Statement`'s simple-statement arm
+// and on `DeferStmt`'s. R272 deleted all four by giving the variant literal its own opener, so
+// `LBRACE` here means `Block` and nothing else, and neither function needs a guard.
 
 // block is `Block ::= LBRACE BlockItem* RBRACE`. The loop needs `atEnd` beside the closing brace:
 // a file that ends inside a block must leave the loop, or the parse does not terminate (§6.4).
@@ -29,11 +29,10 @@ func (p *parser) block() {
 // statement is
 // `Statement ::= SimpleStmt Modifier? SEMICOLON | CompoundStmt | DeferStmt`.
 //
-// **The dispatch is on one token, `LBRACE` included** (R268). `CompoundStmt`'s `Block` and
-// `Primary`'s `VariantLit` both begin there, and §0 now settles it in the production itself — the
-// `!LBRACE` guard on this alternative — so a `{` at a statement head opens a block and a variant
-// literal there is parenthesized, `({read});`. Before the guard both readings derived and neither
-// the grammar nor this function could say which was meant.
+// **The dispatch is on one token, `LBRACE` included** (R272). `CompoundStmt`'s `Block` is the
+// only thing that opens there — a variant literal opens `DOT LBRACE` — so `{` at a statement head
+// is a block and needs no deciding. R268 had ruled the same outcome with a guard, when the two
+// shared a first token and neither the grammar nor this function could say which was meant.
 //
 // The postfix `Modifier` is sugar the parser keeps (§9): `x = 5 if (c);` stays a `Statement` with a
 // `Modifier` child, and §11.2's named rules — a declaration or a `defer` carrying one, an `else` on

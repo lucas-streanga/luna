@@ -209,7 +209,7 @@ factor of sixteen per token, which puts length 5 out of reach.
 So generation covers **everything through four tokens** (and five from `ImportSpec`, whose
 reachable set is 21 cells), completely — 212,845 sentences on the gate, and 186,630 from `Expr`
 alone at length 4 in a longer run. The corners §11 flags are mostly **six to eight** tokens —
-the parenthesized IIFE, `x->P.m`, `fn () => {}` against a variant literal — so they sit past the
+the parenthesized IIFE, `x->P.m`, `fn () => {}` against `fn () => .{read}` — so they sit past the
 ceiling and are exactly what the goldens below are for. Neither instrument reaches where the
 other does.
 
@@ -238,7 +238,7 @@ The grammar half of those cases — that they are rejected — is checked the mo
 The seeded corners:
 
 - `FnBody ::= Block | Expr` and its twin `ArmBody` — the file's only ordered choice
-- `{` after `FAT_ARROW` opens a block, so a variant literal is parenthesized (`=> ({read})`)
+- `.{` opens a variant literal and `{` a block, so the two never contend (R272; R268 had ruled it the other way, with parentheses)
 - `KW_ERROR` in three roles: `Primary`, `PrimaryType`, and the head of `ErrorLit`
 - `&` versus `&&` after `is` — in type position `AMP` is intersection
 - the one two-token junction: `KW_EXPORT? KW_CONST IDENT ASSIGN` needing to see `KW_IMPORT`

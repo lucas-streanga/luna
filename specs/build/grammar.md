@@ -21,13 +21,14 @@ Conventions used throughout:
   `identityEquality` (equality §4.4). It is not a keyword and does not reserve the word.
 - **`!TERMINAL` is a guard**: a zero-width assertion that the next token is not that terminal
   (R270). It consumes nothing, derives nothing, and appears in no tree — it only forbids, and it
-  takes no quantifier. Two rules in this file need one, and both have the same shape, *a leading
-  token claimed by one reading*: `{` opens a block wherever a block may appear (R268), and
+  takes no quantifier. One rule in this file needs one, *a leading token claimed by one reading*:
   `: type` puts a binding's right-hand side in type position (R269). Restricting a nonterminal by
   its first token is an intersection with a regular set, so the grammar stays context-free and
-  `internal/ebnf` runs it unchanged; what the notation buys is that §0 now **states** two rules
-  that were prose, which is what makes them checkable — a rule a CFG cannot express is a rule the
-  grammar over-accepts, and the parse goldens' reject-set invariant is exactly that gap.
+  `internal/ebnf` runs it unchanged; what the notation buys is that §0 **states** a rule that was
+  prose, which is what makes it checkable — a rule a CFG cannot express is a rule the grammar
+  over-accepts, and the parse goldens' reject-set invariant is exactly that gap. It was written
+  for two rules; R272 retired the other by changing the syntax it adjudicated, which is the
+  better repair where it is available.
 - **The grammar is defined over the trivia-filtered token stream.** `WHITESPACE`, `MARGIN`,
   `SHEBANG`, `LINE_COMMENT` and `BLOCK_COMMENT` are emitted by the lexer (R236) and dropped by
   the parser (compiler §1.1), so they appear in no production. Re-attaching them to the lossless
@@ -86,7 +87,7 @@ AttrArg       ::= (Expr FAT_ARROW)? Expr
 Block         ::= LBRACE BlockItem* RBRACE
 BlockItem     ::= Declaration | Statement
 
-Statement     ::= !LBRACE SimpleStmt Modifier? SEMICOLON
+Statement     ::= SimpleStmt Modifier? SEMICOLON
                 | CompoundStmt
                 | DeferStmt
 SimpleStmt    ::= Expr
@@ -96,7 +97,7 @@ SimpleStmt    ::= Expr
                 | KW_YIELD Expr (FAT_ARROW Expr)?
                 | KW_YIELD_FROM Expr
 CompoundStmt  ::= Block | IfStmt | WhileStmt | ForeachStmt
-DeferStmt     ::= KW_DEFER (Block | !LBRACE SimpleStmt) SEMICOLON
+DeferStmt     ::= KW_DEFER (Block | SimpleStmt) SEMICOLON
 
 Modifier      ::= KW_IF LPAREN Expr RPAREN
                 | KW_WHILE LPAREN Expr RPAREN
@@ -177,11 +178,11 @@ TableLit      ::= LBRACKET TableEntries? RBRACKET
 TableEntries  ::= TableEntry (COMMA TableEntry)* COMMA?
 TableEntry    ::= Attribute* (Expr FAT_ARROW)? Expr
                 | SPREAD Expr
-VariantLit    ::= LBRACE VariantName Expr? RBRACE
+VariantLit    ::= DOT LBRACE VariantName Expr? RBRACE
 VariantName   ::= IDENT (DOT IDENT)?
 
 FnLit         ::= KW_FN LPAREN ParamList? RPAREN UseClause? (COLON Type)? FAT_ARROW FnBody
-FnBody        ::= Block | !LBRACE Expr
+FnBody        ::= Block | Expr
 GenLit        ::= KW_GEN UseClause? Block
 ParamList     ::= Param (COMMA Param)* COMMA?
 Param         ::= AMP? BindTarget QUESTION? (COLON Type)? (ASSIGN Expr)?
@@ -194,7 +195,7 @@ MatchArms     ::= MatchArm (COMMA MatchArm)* COMMA?
 MatchArm      ::= Pattern (KW_WHERE Expr)? FAT_ARROW ArmBody
 GuardArms     ::= GuardArm (COMMA GuardArm)* COMMA?
 GuardArm      ::= Expr FAT_ARROW ArmBody
-ArmBody       ::= Block | !LBRACE Expr
+ArmBody       ::= Block | Expr
 
 TryCatchExpr  ::= KW_TRY Block CatchClause+
 CatchClause   ::= KW_CATCH LPAREN CatchBinder RPAREN Block
@@ -278,7 +279,7 @@ TablePattern    ::= LBRACKET TablePatEntries? RBRACKET
 TablePatEntries ::= TablePatEntry (COMMA TablePatEntry)* COMMA?
 TablePatEntry   ::= (KeyLit FAT_ARROW)? Pattern
                   | SPREAD (IDENT | WILDCARD)
-VariantPattern  ::= LBRACE VariantName Pattern? RBRACE
+VariantPattern  ::= DOT LBRACE VariantName Pattern? RBRACE
 
 DestructurePattern ::= LBRACKET DestrEntries? RBRACKET
 DestrEntries    ::= DestrEntry (COMMA DestrEntry)* COMMA?
@@ -398,18 +399,18 @@ The statement grammar's shape is set by the **postfix modifier**, control-flow �
   would desugar to a defer inside a sugar block, whose exit is immediate. The conditional-cleanup
   idiom is one level in — `defer { close(fd) if (cond); };` — and that derives, because the
   modifier attaches to the inner statement.
-- **A `{` after `defer` is that block and never a variant literal** (R268), which is the `!LBRACE`
-  on the statement arm. It is the same rule `Statement`, `FnBody` and `ArmBody` carry, in the
-  third of its four positions.
+**A `{` is always a block, and no rule says so** (R272). `CompoundStmt`'s `Block` is the only
+thing that opens with `LBRACE` anywhere a statement, a `defer` body, a `FnBody` or an `ArmBody`
+may appear, because a variant literal opens with `DOT LBRACE` (§0.4). There is nothing to
+disambiguate and therefore nothing to state: `{}` is an empty block, `{x;}` is a block, and
+`.{read}` is a literal wherever an expression may go, body positions included.
 
-**A statement never begins with `{`** (R268). `CompoundStmt`'s `Block` and `Primary`'s
-`VariantLit` both open there, and the block wins everywhere a block may appear, so `{}` is an
-empty block and `{read};` does not derive — a variant literal at a statement head is
-parenthesized, `({read});`, exactly as it is after `=>`. Without the guard both readings derive
-and neither the grammar nor a parser could say which was meant: `{read}` is no block, `{x;}` is no
-literal, and separating them needs a look past the closing brace. The guard is what makes the
-choice one token, and the expression it forbids is one nobody writes — a statement whose whole
-work is to build a variant and discard it.
+This replaces R268, which ruled the collision the other way — the block won, and a variant
+literal in any of the four positions was parenthesized, `=> ({read})`. That rule needed a guard
+in each of the four productions and an enumerated list of what "wherever a block may appear"
+meant, so a fifth block-bearing form added later would have reintroduced the over-accept by
+omission. R272 removes the collision instead of adjudicating it, and the four guards went with
+it.
 
 **`throw` and assignment are expressions, not statements** (associativity §1, tiers 12 and 13),
 so both reach statement position through `SimpleStmt ::= Expr`. **`yield` is a statement and
@@ -681,32 +682,34 @@ estimated.
 
 | Enumeration | Count | What it answers |
 |-|-|-|
-| **Dot positions** | 1,115 over 548 desugared productions | where a parser can *be* when it fails. A true bound and a useless one: most dots share a message. |
-| **Committed expect-sites** | 271, over **31 distinct terminals** | where the parser writes `expect(X)` — a dot past position 0 with a terminal next. This is the inventory of required tokens. |
+| **Dot positions** | 1,119 over 548 desugared productions | where a parser can *be* when it fails. A true bound and a useless one: most dots share a message. |
+| **Committed expect-sites** | 275, over **31 distinct terminals** | where the parser writes `expect(X)` — a dot past position 0 with a terminal next. This is the inventory of required tokens. |
 | **Recursion sites** | 418, over 170 nonterminals | where a nonterminal is predicted, so failure is reported one level down as "expected a *thing*". |
-| **Frontier classes** | **49** | the distinct answers to "what may come next", over every prefix of every four-token program (12,558 of them). |
+| **Frontier classes** | **50** | the distinct answers to "what may come next", over every prefix of every four-token program (12,558 of them). |
 
 A **guard** occupies none of these positions. `!TERMINAL` consumes nothing, so it is no dot a
 parser rests at and no token it can be missing; it is folded into the dispatch that chooses the
 production, which is the point of having it.
 
-Ten terminals carry 222 of the 271 expect-sites — `COLON` 39, `RPAREN` 26, `IDENT` 24,
+Ten terminals carry 222 of the 275 expect-sites — `COLON` 39, `RPAREN` 26, `IDENT` 24,
 `SEMICOLON` 22, `ASSIGN` 21, `LPAREN` 21, `FAT_ARROW` 20, `RBRACKET` 18, `RBRACE` 16,
 `COMMA` 15 — and twelve terminals are wanted at exactly one site, where a message can name its
 construct with no ambiguity.
 
 **The frontier is bimodal, and that is what shapes the diagnostics.** Its sizes run 1, 2, 4, 5,
-6 — then a gap — then 11, 14, 15, 26 … 62, with the mass at 26–62. Only three frontiers are
+6 — then a gap — then 11, 14, 15, 26 … 63, with the mass at 26–63. Only three frontiers are
 singletons (`IDENT`, `SEMICOLON`, `STRING_SQ`). Below the gap the expected set **is** the
-message ("expected `;`"); above it the set is sixty-two ways to begin an expression, and
+message ("expected `;`"); above it the set is sixty-odd ways to begin an expression, and
 printing it is noise where naming the *nonterminal* is not. The two halves of §11.2's engine
 table are those two modes.
 
-**Every figure above moved with R268–R270, and the direction is worth recording**: the widest
-frontier fell from 84 to 62, because `const t: type =` no longer has both a type and an
-expression live after it, and exactly one four-token program stopped deriving — `{read};`, the
-variant-literal statement R268 retired. A rule stated in §0 is a rule that shrinks the language it
-describes; a rule stated in prose is one that does not.
+**Every figure moved with R268–R272, and the directions are worth recording.** R269 dropped the
+widest frontier from 84 to 62, `const t: type =` no longer having both a type and an expression
+live after it. R272 then added four expect-sites and four dot positions — the `LBRACE` in
+`DOT LBRACE …` is a required terminal past position 0, twice over in `VariantLit` and
+`VariantPattern` — and put one frontier class back, at 63. That is the whole parsing cost of
+`.{}`: four expect-sites, in exchange for the four guards R268 needed and the named diagnostic
+§11.2 no longer carries.
 
 **What the grammar cannot supply, and the parser must.** A frontier is the union over every live
 item; a recursive-descent parser has a **stack**, and the stack is where the good message lives.
@@ -739,15 +742,18 @@ and a spec sentence says why. A rule with a reason earns a page; the engine's fi
 | Unexpected token | a token appears where §0 admits none, and no single construct was under way | large |
 | Unexpected end of input | input ended with a production incomplete | any |
 | Unclosed delimiter | a committed `(`, `[` or `{` never met its closer; the opener is a **secondary span** | small |
-| Missing token | a required terminal is absent; the description names it (the 274 expect-sites) | small |
-| Expected a construct | a nonterminal was predicted and nothing could begin it; the description names which — expression, type, pattern, statement, declaration (the 429 recursion sites) | large |
+| Missing token | a required terminal is absent; the description names it (the 275 expect-sites) | small |
+| Expected a construct | a nonterminal was predicted and nothing could begin it; the description names which — expression, type, pattern, statement, declaration (the 418 recursion sites) | large |
 
-**The named rules.** Each is a place the language deliberately excludes something, and the
-generic message would be technically right and useless — `set get` reports "expected `:`" and
-`fn () => {read}` reports a missing `;`, neither of which names the actual mistake. Five are
-unrepresentable in §0; the sixth is representable and is stated there (R268, R270), which changes
-nothing about why it earns a name: the rule is what the grammar rejects, the named diagnostic is
-what the parser says about it.
+**The named rules.** Each is unrepresentable in §0 on purpose, so the generic message would be
+technically right and useless — `set get` reports "expected `:`", which does not name the actual
+mistake.
+
+There were six until R272. The sixth was *"variant literal here needs parentheses"*, and it is
+gone because the situation it explained no longer arises: `.{read}` collides with nothing, so
+there is no mistake to name. A named rule retired by a syntax change rather than by a better
+message is the outcome to prefer — R267 chose these five because a rule with a reason earns a
+page, and the reason there was a collision the language has since stopped having.
 
 | Title | The rule | Owner |
 |-|-|-|
@@ -756,7 +762,6 @@ what the parser says about it.
 | `else` on a postfix form | an else-bearing conditional is the block form | control-flow §5.1 |
 | Chained postfix modifiers | `expr if (c) foreach (h)` poses the which-nests-which trap | control-flow §5 |
 | Grant order must be `get set` | one spelling, so `set get` does not derive | protocols §2.2 |
-| Variant literal here needs parentheses | a `{` where a block may appear always opens one, so the literal is `({read})` — after `=>`, after `defer`, and at a statement head (R268) | this file, §3 and Flagged |
 
 Two boundaries the count depends on, both already ruled elsewhere. **Import-after-the-prelude is
 an `M`, not a `P`**: §1.2 rejects it before parsing (R250), so the structural invariant §1 records
@@ -792,11 +797,13 @@ production. This is the ordinary gap between LL and LR rather than a defect in �
 needs none of it, and nothing here is ambiguous. It is recorded because the claim above used to
 say it did not exist.
 
-**The two remaining collisions are settled in §0 rather than here**, which is what R270's guard
-bought: a `{` at a statement head, after `=>`, or after `defer` opens a block (R268, §3), and
-`: type` before an `=` puts the right-hand side in type position (R269, §5). Both were prose in
-this section, and prose is exactly the form in which a rule over-accepts — the grammar derived
-`fn () => {read}` and `const t: type = int;` under readings the language does not have.
+**The collisions this section used to adjudicate are settled in §0 rather than here.** `: type`
+before an `=` puts the right-hand side in type position, which R270's guard states in the
+production (R269, §5). The `{` collision is gone outright: a variant literal opens `.{` (R272,
+§0.4), so `LBRACE` in an expression position derives nothing and there is no choice to make.
+Both were prose in this section, and prose is exactly the form in which a rule over-accepts —
+the grammar derived `fn () => {read}` and `const t: type = int;` under readings the language does
+not have.
 
 **`&&` versus `&` after `is`.** In type position `AMP` is intersection, so `x is int & y` is the
 type `int & y`, not a conjunction. `x is int && y` is safe by maximal munch — `AND` is one token
@@ -812,29 +819,42 @@ argument's head is an `IDENT` and `KW_ERROR` is not one.
 **`Subscript`'s empty form is the bytes append target** (`b[] = 65`, bytes §3), which is why
 `LBRACKET RBRACKET` derives. It is meaningless anywhere else and semantic analysis says so.
 
-**`VariantLit` and `Block` share `LBRACE`, and the block wins in all four places one may appear**
-(R268): after `FAT_ARROW` in a `FnBody` and an `ArmBody` (functions §3, enum §3), after
-`KW_DEFER`, and at the head of a `Statement`. A variant literal in any of them is parenthesized —
-`=> ({read})` — and `{read};` does not derive.
+**`VariantLit` and `Block` no longer share a first token, and that is a ruling rather than a
+happy fact** (R272). A variant literal opens `DOT LBRACE` — `.{read}`, `.{circle ['radius' =>
+5]}`, `.{hand.north}` — so `LBRACE` in an expression position derives nothing and `FnBody ::=
+Block | Expr` is decided by one token with no rule attached.
 
-**This used to be an ordered choice, and that was the defect.** `FnBody ::= Block | Expr` was
-written as an alternation and annotated in prose as ordered, "the only one in this file". A CFG
-has no ordered choice, so the grammar derived `fn () => {read}` as a variant literal while the
-prose called it a block: §0 accepted an input the language rejects, at the one site this section
-flagged, and a parser obeying the prose would have diagnosed an input the grammar derives —
-breaking the reject-set invariant the parse goldens rest on
-(`oracle/parser/testdata/golden.md` §0). The `!LBRACE` guard (R270) states the rule inside §0
-instead, so the two halves agree by construction and the choice is decided at one token.
+**The history is worth keeping, because it cost three rulings to get here.** `FnBody ::= Block |
+Expr` was written as an alternation and annotated in prose as an ordered choice, "the only one in
+this file". A CFG has no ordered choice, so §0 *derived* `fn () => {read}` as a variant literal
+while the prose called it a block: the grammar accepted an input the language rejects, at the one
+site this section flagged, and a parser obeying the prose would have diagnosed an input the
+grammar derives — breaking the reject-set invariant the parse goldens rest on
+(`oracle/parser/testdata/golden.md` §0). R268 closed the gap by ruling for the block in all four
+positions and parenthesizing the literal, with R270's `!LBRACE` guard stating it inside §0. R272
+went further and removed the collision: a rule that must *enumerate* the places a block may
+appear is a rule that a later block-bearing form silently breaks, and `.{}` needs no list.
 
-The statement head was the same collision with no rule at all, and §3 has it. What the rule
-costs is one form nobody writes: an expression statement whose whole work is to build a variant
-and discard it.
+What the dot costs is one character and two adjacency corners, below.
 
-**A match arm's body is `Block | !LBRACE Expr` too**, and for the same reason: functions §3 pins
-the `{`-opens-a-block rule and says outright that it "governs match arms", which only holds if an
-arm may carry a block at all. `ArmBody` is therefore `FnBody`'s twin. What an arm with a block
-body *yields* is `undefined` — a block has no value (R254), and match §9 already admits
+**A match arm's body is `Block | Expr` too**, and the reason survives the change: functions §3
+pins the `{`-opens-a-block rule and says outright that it "governs match arms", which only holds
+if an arm may carry a block at all. `ArmBody` is therefore `FnBody`'s twin. What an arm with a
+block body *yields* is `undefined` — a block has no value (R254), and match §9 already admits
 `undefined` into a match's result type, so nothing new enters the type system by it.
+
+**`.{` has two adjacency corners, and both are maximal munch rather than grammar** (R272). The
+lexer takes the longest token, so a `.` that abuts a preceding operator is eaten by it:
+
+- **`c ?.{on} : .{off}` does not parse** — `?.` is `OPT_ACCESS`, which wants an `IDENT`. The
+  conditional is written `c ? .{on} : .{off}`, with the space. This is the one worth knowing,
+  since a ternary over two variants is an ordinary thing to write; the diagnostic should name
+  `?.` rather than report a missing identifier.
+- **`1...{b}` does not parse** — `...` is `SPREAD`. The range is written `1 .. .{b}`, and nobody
+  writes a range ending in a variant anyway.
+
+Neither is ambiguous and neither mis-parses: both are rejections, and a space fixes each. `??` is
+unaffected — `x ??.{fallback}` parses, `COALESCE` being two characters that do not reach the dot.
 
 ## Cross-reference notes: gaps found, and their resolutions
 

@@ -16,7 +16,7 @@ A decimal is `unscaledInteger × 10⁻ˢᶜᵃˡᵉ` — an **arbitrary-precisio
 scale. `19.99` is `1999 × 10⁻²`. Heap-backed (numeric-tower §5), one allocation,
 **grows and never overflows**: addition, subtraction, and multiplication are *always
 exact* — the digits simply grow. Every decimal digit a program was given is preserved;
-none is invented. `kindOf` answers `{scalar}` (introspection §4.3); values are
+none is invented. `kindOf` answers `.{scalar}` (introspection §4.3); values are
 immutable like every scalar; `@x` reports `decimal`.
 
 `decimal` is its **own family** (numeric-tower §3): no implicit widening in or out, no
@@ -48,7 +48,7 @@ split does the work — `decimal` is exact radix-10 *arithmetic*; `rational` is 
 ## 3. `div`, and the `roundingMode` enum
 
 ```luna
-const div = fn (a: decimal, b: decimal, scale: int, rounding: roundingMode = {halfEven}): decimal => {};
+const div = fn (a: decimal, b: decimal, scale: int, rounding: roundingMode = .{halfEven}): decimal => {};
 
 export const roundingMode = enum { halfEven, halfUp, trunc, floor, ceiling };
 ```
@@ -56,9 +56,9 @@ export const roundingMode = enum { halfEven, halfUp, trunc, floor, ceiling };
 - **`scale` is required**: the result has exactly `scale` fractional digits, rounded
   per `rounding`. A division that happens to terminate within `scale` rounds exactly
   (no special case). Division by zero is `divisionByZero`, the tower-wide panic.
-- **`{halfEven}` (banker's rounding) is the default** — the statistically unbiased
-  choice and the finance-industry standard; **`{halfUp}`** is what humans expect of
-  money at the till; `{trunc}`, `{floor}`, `{ceiling}` complete the set with the
+- **`.{halfEven}` (banker's rounding) is the default** — the statistically unbiased
+  choice and the finance-industry standard; **`.{halfUp}`** is what humans expect of
+  money at the till; `.{trunc}`, `.{floor}`, `.{ceiling}` complete the set with the
   R106 verbs' own vocabulary. The enum is closed; exotic modes (half-down,
   half-toward-zero) wait for a real customer.
 - **There is no ambient context** — Python's thread-local precision/rounding context
@@ -66,7 +66,7 @@ export const roundingMode = enum { halfEven, halfUp, trunc, floor, ceiling };
   the paradigm violation of the function-of-the-value-alone principle (constraints
   §0, R79's family), and it would poison comptime determinism. Every rounding in a
   Luna program is written at the site it happens.
-- `%`'s analogue, when needed, is derivable (`a - b * div(a, b, 0, {trunc})`); a
+- `%`'s analogue, when needed, is derivable (`a - b * div(a, b, 0, .{trunc})`); a
   named `rem` waits for demand.
 
 ## 4. Equality is normalized value equality

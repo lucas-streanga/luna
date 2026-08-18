@@ -8,10 +8,8 @@ package parser
 //
 // `FnBody`, `ArmBody` and `MatchKw` are pure alternations and never reach a tree (§5): a block body
 // shows a `Block` and an expression body shows the expression, and `match` against `match!` is the
-// token. The `!LBRACE` guard R268 put on the expression arm of the first two does not change that
-// — a guard is an assertion, not a symbol, so both arms still carry one child. `Primary` is a
-// tier — elided when it passes through, kept when it fires, which it does only for
-// `LPAREN Expr RPAREN` (`iife-parenthesized.parse`).
+// token. `Primary` is a tier — elided when it passes through, kept when it fires, which it does
+// only for `LPAREN Expr RPAREN` (`iife-parenthesized.parse`).
 //
 // **Patterns land before `match`**: `MatchArm ::= Pattern (KW_WHERE Expr)? FAT_ARROW ArmBody`, so
 // `matchExpr` has nothing to parse until pattern.go exists.
@@ -38,16 +36,16 @@ func (p *parser) tableLit() {
 	panic("parser: tableLit is unimplemented")
 }
 
-// variantLit is `VariantLit ::= LBRACE VariantName Expr? RBRACE`, and it shares `LBRACE` with
-// `Block`. **The block wins in all four places one may appear** (R268) — `FnBody` and `ArmBody`
-// here, `Statement`'s head and `DeferStmt` in stmt.go — so a variant literal in any of them is
-// parenthesized, `=> ({read})` and `({read});`. Everywhere else `{read}` is an ordinary
-// expression and needs nothing: `variant-literal-needs-parens.parse` prints the four
-// parenthesized forms beside the bare one.
+// variantLit is `VariantLit ::= DOT LBRACE VariantName Expr? RBRACE`, and the leading `DOT` is the
+// whole of R272: it shares no first token with `Block`, so `.{read}` is a literal wherever an
+// expression may go and `{` opens a block wherever a block may appear, with nothing to decide.
+// `variant-literal-dot-brace.parse` prints it in all four body positions, qualified, with a
+// payload, as a pattern, and in a ternary.
 //
-// The rule used to be prose, and `FnBody ::= Block | Expr` an "ordered choice" a CFG cannot
-// express — so §0 derived `=> {read}` as a literal while the prose called it a block. The
-// `!LBRACE` guard states it instead, which is what closed the gap.
+// It took three rulings to get here. `FnBody ::= Block | Expr` was prose-annotated as an "ordered
+// choice" a CFG cannot express, so §0 derived `=> {read}` as a literal while the prose called it a
+// block; R268 ruled for the block and parenthesized the literal; R270 stated that in §0 with a
+// guard; R272 removed the collision instead, and the guards went with it.
 func (p *parser) variantLit() {
 	panic("parser: variantLit is unimplemented")
 }

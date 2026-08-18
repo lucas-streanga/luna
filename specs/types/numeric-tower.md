@@ -299,7 +299,7 @@ Nothing here is open: three questions are resolved, and the two remainders are
 - *(**`decimal` rounding and context: resolved by R161** — the `decimal` spec exists
   (decimal.md). `+`/`-`/`*` are exact always; **`/` and `%` are omitted from the
   operator table** (compile error naming `div`), and division is the policy-carrying
-  function `div(a, b, scale, rounding: roundingMode = {halfEven})` — the R106
+  function `div(a, b, scale, rounding: roundingMode = .{halfEven})` — the R106
   discipline applied to the one operation where exactness is impossible. **There is no
   context**, rejected permanently: ambient precision/rounding state is frame-dependent
   arithmetic, the R79-family violation, and a comptime poison.)*

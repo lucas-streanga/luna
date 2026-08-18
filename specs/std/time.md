@@ -29,7 +29,7 @@ after one addition) and can forbid nothing dimensional. So the rule becomes the
 feature: only built-ins get operators — make them built-ins. The tower already reserves
 exactly this path: adding built-in types is a breaking change that lands **before the
 1.0 stability commitment**, and `match` exhaustiveness and introspection are required
-to tolerate the universe growing (numeric-tower §6). Both types report `{scalar}`
+to tolerate the universe growing (numeric-tower §6). Both types report `.{scalar}`
 (introspection §4.3, the as-they-land clause) and are predeclared identifiers
 (keywords §5).
 

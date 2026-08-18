@@ -1,0 +1,176 @@
+const m = fn () => .{read};
+_ = match (x) { 1 => .{read}, };
+.{read};
+const f = fn () => { defer .{read}; };
+_ = .{circle ['radius' => 5]};
+_ = .{hand.north};
+_ = match (x) { .{point} => 0, };
+_ = c ? .{on} : .{off};
+---
+File 0..217
+  Declaration 0..27
+    BindingDecl 0..27
+      KW_CONST 0..5 "const"
+      Binder 6..7
+        IDENT 6..7 "m"
+      ASSIGN 8..9 "="
+      Initializer 10..26
+        FnLit 10..26
+          KW_FN 10..12 "fn"
+          LPAREN 13..14 "("
+          RPAREN 14..15 ")"
+          FAT_ARROW 16..18 "=>"
+          VariantLit 19..26
+            DOT 19..20 "."
+            LBRACE 20..21 "{"
+            VariantName 21..25
+              IDENT 21..25 "read"
+            RBRACE 25..26 "}"
+      SEMICOLON 26..27 ";"
+  Statement 28..60
+    SimpleStmt 28..59
+      Assignment 28..59
+        AssignTarget 28..29
+          WILDCARD 28..29 "_"
+        ASSIGN 30..31 "="
+        MatchExpr 32..59
+          KW_MATCH 32..37 "match"
+          LPAREN 38..39 "("
+          IDENT 39..40 "x"
+          RPAREN 40..41 ")"
+          LBRACE 42..43 "{"
+          MatchArms 44..57
+            MatchArm 44..56
+              LiteralPattern 44..45
+                INT_DEC 44..45 "1"
+              FAT_ARROW 46..48 "=>"
+              VariantLit 49..56
+                DOT 49..50 "."
+                LBRACE 50..51 "{"
+                VariantName 51..55
+                  IDENT 51..55 "read"
+                RBRACE 55..56 "}"
+            COMMA 56..57 ","
+          RBRACE 58..59 "}"
+    SEMICOLON 59..60 ";"
+  Statement 61..69
+    SimpleStmt 61..68
+      VariantLit 61..68
+        DOT 61..62 "."
+        LBRACE 62..63 "{"
+        VariantName 63..67
+          IDENT 63..67 "read"
+        RBRACE 67..68 "}"
+    SEMICOLON 68..69 ";"
+  Declaration 70..108
+    BindingDecl 70..108
+      KW_CONST 70..75 "const"
+      Binder 76..77
+        IDENT 76..77 "f"
+      ASSIGN 78..79 "="
+      Initializer 80..107
+        FnLit 80..107
+          KW_FN 80..82 "fn"
+          LPAREN 83..84 "("
+          RPAREN 84..85 ")"
+          FAT_ARROW 86..88 "=>"
+          Block 89..107
+            LBRACE 89..90 "{"
+            Statement 91..105
+              DeferStmt 91..105
+                KW_DEFER 91..96 "defer"
+                SimpleStmt 97..104
+                  VariantLit 97..104
+                    DOT 97..98 "."
+                    LBRACE 98..99 "{"
+                    VariantName 99..103
+                      IDENT 99..103 "read"
+                    RBRACE 103..104 "}"
+                SEMICOLON 104..105 ";"
+            RBRACE 106..107 "}"
+      SEMICOLON 107..108 ";"
+  Statement 109..139
+    SimpleStmt 109..138
+      Assignment 109..138
+        AssignTarget 109..110
+          WILDCARD 109..110 "_"
+        ASSIGN 111..112 "="
+        VariantLit 113..138
+          DOT 113..114 "."
+          LBRACE 114..115 "{"
+          VariantName 115..121
+            IDENT 115..121 "circle"
+          TableLit 122..137
+            LBRACKET 122..123 "["
+            TableEntries 123..136
+              TableEntry 123..136
+                StringLit 123..131
+                  STRING_SQ 123..131 "'radius'"
+                FAT_ARROW 132..134 "=>"
+                INT_DEC 135..136 "5"
+            RBRACKET 136..137 "]"
+          RBRACE 137..138 "}"
+    SEMICOLON 138..139 ";"
+  Statement 140..158
+    SimpleStmt 140..157
+      Assignment 140..157
+        AssignTarget 140..141
+          WILDCARD 140..141 "_"
+        ASSIGN 142..143 "="
+        VariantLit 144..157
+          DOT 144..145 "."
+          LBRACE 145..146 "{"
+          VariantName 146..156
+            IDENT 146..150 "hand"
+            DOT 150..151 "."
+            IDENT 151..156 "north"
+          RBRACE 156..157 "}"
+    SEMICOLON 157..158 ";"
+  Statement 159..192
+    SimpleStmt 159..191
+      Assignment 159..191
+        AssignTarget 159..160
+          WILDCARD 159..160 "_"
+        ASSIGN 161..162 "="
+        MatchExpr 163..191
+          KW_MATCH 163..168 "match"
+          LPAREN 169..170 "("
+          IDENT 170..171 "x"
+          RPAREN 171..172 ")"
+          LBRACE 173..174 "{"
+          MatchArms 175..189
+            MatchArm 175..188
+              VariantPattern 175..183
+                DOT 175..176 "."
+                LBRACE 176..177 "{"
+                VariantName 177..182
+                  IDENT 177..182 "point"
+                RBRACE 182..183 "}"
+              FAT_ARROW 184..186 "=>"
+              INT_DEC 187..188 "0"
+            COMMA 188..189 ","
+          RBRACE 190..191 "}"
+    SEMICOLON 191..192 ";"
+  Statement 193..216
+    SimpleStmt 193..215
+      Assignment 193..215
+        AssignTarget 193..194
+          WILDCARD 193..194 "_"
+        ASSIGN 195..196 "="
+        Conditional 197..215
+          IDENT 197..198 "c"
+          QUESTION 199..200 "?"
+          VariantLit 201..206
+            DOT 201..202 "."
+            LBRACE 202..203 "{"
+            VariantName 203..205
+              IDENT 203..205 "on"
+            RBRACE 205..206 "}"
+          COLON 207..208 ":"
+          VariantLit 209..215
+            DOT 209..210 "."
+            LBRACE 210..211 "{"
+            VariantName 211..214
+              IDENT 211..214 "off"
+            RBRACE 214..215 "}"
+    SEMICOLON 215..216 ";"

@@ -198,10 +198,11 @@ type position instead. Without that rule `fn (` would begin either form and the 
 a prefix all the way to the `=>`, so `fn` would commit nothing — and `const sqrt = fn (d:
 double): double;` would silently bind a type rather than fail (R255, R256). One
 disambiguation rule, pinned because the fenced variant literal also uses braces (enum
-§3.3): **a `{` always opens a block wherever a block may appear**; an expression body that is a
-variant literal takes parentheses, `fn (): mode => ({read})`. The same rule governs match arms
-(match spec), a `defer`, and the head of a statement — four positions, one rule, stated in
-grammar §0 rather than beside it since R268/R270.
+§3.3): **a `{` after `=>` opens a block, and there is nothing else it could open**, since a
+variant literal is written `.{read}` (enum §3, grammar §0.4, R272). So `fn (): mode => .{read}`
+is the literal body and `fn (): mode => { … }` is the block body, told apart at one token with
+no rule attached. R268 briefly ruled this the other way — the block won and the literal was
+parenthesized, `=> ({read})` — and R272 retired that by giving the literal its own opener.
 
 Two functions differ in type if they differ in parameters, result, or errorability (§4),
 and in **nothing else**: the function typeid is signature plus errorability, checked at
@@ -511,8 +512,8 @@ A parameter may declare a **default value**, in which case it is **not required*
 omitting it is not a deficit (§3.3): the default is supplied.
 
 ```luna
-const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = {nfc}): string => {};
-_ = normalize(s); // form defaults to {nfc}; not a deficit
+const normalize = fn (str: string, form: enum {nfc, nfd, nfkc, nfkd} = .{nfc}): string => {};
+_ = normalize(s); // form defaults to .{nfc}; not a deficit
 ```
 
 Defaults are the case where a function that declares *more* parameters than the caller
@@ -553,7 +554,7 @@ eventually invokes it, as always (capabilities §3.1).
 
 ### 3.3.2 Named arguments
 
-Any argument may be passed **by name** — `f(x, mode: {both})`. Named binding is always
+Any argument may be passed **by name** — `f(x, mode: .{both})`. Named binding is always
 optional and exists for ergonomics: skipping defaulted parameters and making option-heavy
 calls readable (`a.merge(b, preserveKeys: true)`). The rules (R108):
 

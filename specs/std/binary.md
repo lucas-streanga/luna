@@ -26,14 +26,14 @@ export const endian = enum { little, big };
 A named, exported enum (R187) — deliberately its **own small type** rather than an anonymous
 inline enum, so other libraries and user functions can declare `endian`-typed parameters and
 reuse the vocabulary. Call sites are unchanged either way: a fenced literal resolves against
-the parameter's expected type (enum §3.3), so callers write `{little}` / `{big}`.
+the parameter's expected type (enum §3.3), so callers write `.{little}` / `.{big}`.
 
 **No function in this module defaults its endianness.** A default would bake a silent
 portability bias — network formats are big-endian, most file formats little-endian — so the
 byte order is named at every call, the cost-visible stance (and Go's choice too). The rule
 turned out to carry a second leg (R193): because every read names its order, **the host's
 byte order is unobservable**, which is one of the channels that make comptime folding
-host-independent (compiler §6.3) — `readI32(b, off, {little})` folds to the same value on
+host-independent (compiler §6.3) — `readI32(b, off, .{little})` folds to the same value on
 any machine.
 
 ## 2. The read family
@@ -53,7 +53,7 @@ export const readU64 = fn (b: bytes, offset: int, endianness: endian): uint => {
   (`i16 | i32 | int`) and a narrowing at every call site. Different return types are
   different contracts, and different contracts get different names — the policy-verb and
   R157 two-names discipline. One name, one signature (functions §3.4).
-- **Reads are exact-width and position-explicit**: `readI32(b, off, {little})` reads the four
+- **Reads are exact-width and position-explicit**: `readI32(b, off, .{little})` reads the four
   octets `b[off..off+3]` (inclusive) as a little-endian two's-complement integer. Signed reads
   sign-extend into the return type; unsigned reads zero-extend. `readU64` is the one member
   whose values need `uint` (its top range does not fit `int`; the function keeps the wire

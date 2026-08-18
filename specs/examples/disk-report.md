@@ -35,12 +35,12 @@ const main = fn () use (io, filesystem, argv): int! => {
       continue;
     }
     let info = probed as @fileInfo;
-    sizes[p] = info->size if (info->kind == {entryKind.file});
+    sizes[p] = info->size if (info->kind == .{entryKind.file});
   }
 
   die('no readable files') if (sizes.isEmpty());
 
-  foreach (p => size in sizes.sort(order: {descending}).take(20)) {
+  foreach (p => size in sizes.sort(order: .{descending}).take(20)) {
     println("${human(size).padStart(6)}  ${p}");
   }
   println("${human(sizes.sum() as int)} across ${sizes.count()} files");
@@ -69,9 +69,9 @@ What it exercises:
 - **`->` is protocol space** (protocols §3): `info->size` reads a granted `@fileInfo` member,
   resolved at compile time, while `sizes[p]` is element space and `human(size).padStart(6)`
   is UFCS to a free function. Three spellings, three meanings, no overlap.
-- **A qualified variant literal** (enum §3.3): `{entryKind.file}` names its enum because a
+- **A qualified variant literal** (enum §3.3): `.{entryKind.file}` names its enum because a
   comparison operand supplies no target type to infer from (§3.2 lists annotations,
-  parameters, and return types); at a typed site — `sort(order: {descending})` — the bare
+  parameters, and return types); at a typed site — `sort(order: .{descending})` — the bare
   form is enough.
 - **`sum` returns `int | double`** (iterable-functions §2.10), so `human`, which takes an
   `int`, gets an explicit `as int`. The union is the honest type of an aggregate over an

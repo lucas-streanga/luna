@@ -21,7 +21,7 @@ const settings = proto {
   const get host: hostname;              // required: no default, one binding per application
   const get port: port;
   let get workers: poolSize = 4;         // defaulted, per-table, overridable at apply
-  let get level: logLevel = {info};
+  let get level: logLevel = .{info};
 };
 
 export const loadSettings = fn (raw: json): @settings! => {
@@ -99,7 +99,7 @@ What it exercises:
 - **Tests are declarations** (tests §1, §2): pass by returning, fail by throwing. The second
   test *wants* the error as a value, so it uses `try` and asserts on `is error` — the
   explicit test, with no flow narrowing to accidentally rely on.
-- **A variant literal is target-typed** (enum §3.2): `{info}` needs no qualification as a
+- **A variant literal is target-typed** (enum §3.2): `.{info}` needs no qualification as a
   member default, because the declared type `logLevel` is the target. Note the members:
   `error` is a keyword, so an enum cannot have a variant of that name — `fatal` is not a
   stylistic choice.

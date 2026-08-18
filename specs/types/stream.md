@@ -8,7 +8,7 @@ by, and is not kept). Together these are what make a stream memory-efficient: yo
 the whole sequence at once.
 
 ```luna
-let f = openFile('data.log', {read});
+let f = openFile('data.log', .{read});
 foreach (lineNumber => line in f.lines()) {
   // `lines()` is a stream: one line in memory at a time, not the whole file
 }
@@ -123,7 +123,7 @@ error where statically evident. This is what keeps the stream↔table parallel e
 element **values**, like a table's, are per-element dynamic (§6).
 
 Implicit keys are real keys, behaving precisely as a list's: every key-facing function
-(`keys`, `keyOf`, `keyFirst`, `flip`, mode `{keys}`) sees them; per-element transforms
+(`keys`, `keyOf`, `keyFirst`, `flip`, mode `.{keys}`) sees them; per-element transforms
 preserve them (so they go sparse after `filter`, as a list's would); `values` reindexes
 them. A stream whose implicit keys were never disturbed collects to a `list`; explicit or
 disturbed keys collect to a keyed `table` (§5.1, iterable-functions §2.11).

@@ -104,7 +104,7 @@ Option parameters are **inline anonymous enums**, and call sites name variants w
 **fenced literal**, resolved by the parameter's expected type (enum spec §3.3):
 
 ```luna
-openFile('data.bin', {read}, {binary});
+openFile('data.bin', .{read}, .{binary});
 ```
 
 Anonymous enums intern structurally (value-representation §4.1), so the same inline enum in
@@ -117,9 +117,9 @@ two signatures is one type. The axes: **mode** `enum {read, write, append}`, **f
 ```luna
 export const openFile = fn (
   fileName: path,
-  mode:           enum {read, write, append} = {read},
-  format:         enum {text, binary}        = {text},
-  sourceEncoding: enum {utf8, utf16le, utf16be, latin1} = {utf8},
+  mode:           enum {read, write, append} = .{read},
+  format:         enum {text, binary}        = .{text},
+  sourceEncoding: enum {utf8, utf16le, utf16be, latin1} = .{utf8},
 ) use (io): file! => {};
 ```
 
@@ -141,7 +141,7 @@ closed file **panics** (misuse, an invariant violation, the same category as wro
 
 ```luna
 // inside an errorable (fn!) context: a bare call propagates failure to the caller
-var fd = openFile('log.txt', {append});
+var fd = openFile('log.txt', .{append});
 defer close(fd);
 // to HANDLE the failure here instead, `try` recovers it as a value:
 // let opened = try openFile(...);   // opened : file | error, match on it (errors §8)
@@ -218,7 +218,7 @@ export const seek       = fn (fd: file, pos: int) use (io): undefined => {};
 
 `append` writes at the **end** regardless of cursor; `write` writes **at the cursor** and is
 **binary-mode only**, as is `seek`, byte offsets are only meaningful where no decoding sits
-between bytes and content. Writing to a `{read}` file panics (misuse). **The file is the
+between bytes and content. Writing to a `.{read}` file panics (misuse). **The file is the
 cursor**: `lines()` and `chunks()` are views over it, consuming them advances it, `seek`
 moves it under any live stream, and the next stream element reads from wherever the cursor
 now is, defined, single-owner, and on the owner's head.
