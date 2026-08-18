@@ -50,6 +50,9 @@ var stubs = []struct {
 	{"expectWord", func(p *parser) { p.expectWord("from") }},
 	{"errorToken", func(p *parser) { p.errorToken() }},
 
+	// list.go — §0's one list shape
+	{"commaList", func(p *parser) { p.commaList(ArgList, token.RParen, func() {}) }},
+
 	// marker.go — where a node begins
 	{"open", func(p *parser) { p.open(File) }},
 	{"mark", func(p *parser) { p.mark() }},
