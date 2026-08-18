@@ -1,8 +1,7 @@
 package parser
 
 import (
-	"fmt"
-
+	"luna/oracle/diagnostic"
 	"luna/oracle/source"
 	"luna/oracle/token"
 )
@@ -23,12 +22,12 @@ func build(f *source.File, tokens []token.Token, events eventStream) *Tree {
 	b := builder{tree: &Tree{src: f}, lastTok: -1}
 	for i, e := range events {
 		if b.done {
-			panic(fmt.Sprintf("parser: event %d follows the root's close", i))
+			panic(diagnostic.Bugf("parser: event %d follows the root's close", i))
 		}
 		switch e.kind {
 		case evOpen:
 			if !isNode(e.node) {
-				panic(fmt.Sprintf("parser: event %d opens %s, which is not a node kind", i, e.node))
+				panic(diagnostic.Bugf("parser: event %d opens %s, which is not a node kind", i, e.node))
 			}
 			b.open(e.node)
 		case evToken:
@@ -36,18 +35,18 @@ func build(f *source.File, tokens []token.Token, events eventStream) *Tree {
 			b.leaf(Kind(tk.Kind), tk.Offset, tk.End(), i)
 		case evMissing:
 			if !isSynthesisable(e.node) {
-				panic(fmt.Sprintf("parser: event %d synthesises %s, which is not a terminal the "+
+				panic(diagnostic.Bugf("parser: event %d synthesises %s, which is not a terminal the "+
 					"parser could have expected", i, e.node))
 			}
 			b.leaf(e.node, b.pos, b.pos, i) // §6.1: zero width, at the insertion point
 		case evClose:
 			b.close(i)
 		default:
-			panic(fmt.Sprintf("parser: event %d has kind %d", i, e.kind))
+			panic(diagnostic.Bugf("parser: event %d has kind %d", i, e.kind))
 		}
 	}
 	if n := len(b.stack); n > 0 {
-		panic(fmt.Sprintf("parser: the stream ends inside %s, %d deep",
+		panic(diagnostic.Bugf("parser: the stream ends inside %s, %d deep",
 			b.tree.nodes[b.stack[n-1].id].kind, n))
 	}
 	if len(b.tree.nodes) == 0 {
@@ -68,10 +67,10 @@ type builder struct {
 
 func (b *builder) index(tok, at, n int) int {
 	if tok < 0 || tok >= n {
-		panic(fmt.Sprintf("parser: event %d is token(%d) of a stream of %d", at, tok, n))
+		panic(diagnostic.Bugf("parser: event %d is token(%d) of a stream of %d", at, tok, n))
 	}
 	if tok <= b.lastTok {
-		panic(fmt.Sprintf("parser: event %d is token(%d) after token(%d): the stream consumes "+
+		panic(diagnostic.Bugf("parser: event %d is token(%d) after token(%d): the stream consumes "+
 			"the file in order, each token once", at, tok, b.lastTok))
 	}
 	b.lastTok = tok
@@ -105,7 +104,7 @@ func (b *builder) open(k Kind) {
 func (b *builder) leaf(k Kind, offset, end, at int) {
 	n := len(b.stack)
 	if n == 0 {
-		panic(fmt.Sprintf("parser: event %d is a leaf outside every node", at))
+		panic(diagnostic.Bugf("parser: event %d is a leaf outside every node", at))
 	}
 	b.tree.nodes = append(b.tree.nodes, node{
 		kind:   k,
@@ -121,7 +120,7 @@ func (b *builder) leaf(k Kind, offset, end, at int) {
 func (b *builder) close(at int) {
 	n := len(b.stack)
 	if n == 0 {
-		panic(fmt.Sprintf("parser: event %d closes a node that was never opened", at))
+		panic(diagnostic.Bugf("parser: event %d closes a node that was never opened", at))
 	}
 	fr := b.stack[n-1]
 	b.stack = b.stack[:n-1]
@@ -129,7 +128,7 @@ func (b *builder) close(at int) {
 		b.done = true
 	}
 	if !fr.filled {
-		panic(fmt.Sprintf("parser: event %d closes %s with no children: splice drops an empty "+
+		panic(diagnostic.Bugf("parser: event %d closes %s with no children: splice drops an empty "+
 			"node rather than emitting one (§6.1)", at, b.tree.nodes[fr.id].kind))
 	}
 	d := &b.tree.nodes[fr.id]

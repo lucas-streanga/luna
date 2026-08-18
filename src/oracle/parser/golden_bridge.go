@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"luna/internal/ebnf"
+	"luna/oracle/diagnostic"
 )
 
 // **This file is scaffolding and is meant to be deleted**, taking the package's only
@@ -82,7 +83,7 @@ func (w goldenWalk) wrap(name string, kids eventStream) eventStream {
 	k, ok := w.kinds[name]
 	if !ok {
 		// Unreachable while kind_test.go's pin holds, and the one thing that pin exists to catch.
-		panic(fmt.Sprintf("parser: %s survives into a tree and has no Kind", name))
+		panic(diagnostic.Bugf("parser: %s survives into a tree and has no Kind", name))
 	}
 	out := make(eventStream, 0, len(kids)+2)
 	out = append(out, event{kind: evOpen, node: k})

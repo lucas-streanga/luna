@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"luna/internal/spec"
+	"luna/oracle/diagnostic"
 	"luna/oracle/lexer"
 	"luna/oracle/source"
 	"luna/oracle/token"
@@ -244,9 +245,9 @@ func contractPanic(t *testing.T, f func()) (panicked bool) {
 		if v == nil {
 			return
 		}
-		msg, ok := v.(string)
-		if !ok || !strings.HasPrefix(msg, "parser: ") {
-			t.Fatalf("panicked with %T (%v); a violation must be an intentional parser: panic",
+		bug, ok := v.(diagnostic.Bug)
+		if !ok || !strings.HasPrefix(bug.Message, "parser: ") {
+			t.Fatalf("panicked with %T (%v); a violation must be an intentional diagnostic.Bug",
 				v, v)
 		}
 		panicked = true

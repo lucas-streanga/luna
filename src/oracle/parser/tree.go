@@ -1,8 +1,7 @@
 package parser
 
 import (
-	"fmt"
-
+	"luna/oracle/diagnostic"
 	"luna/oracle/source"
 )
 
@@ -62,7 +61,7 @@ func (t *Tree) Root() Node { return t.At(0) }
 // or holding one across a reparse, and neither is recoverable (§3.1).
 func (t *Tree) At(id NodeID) Node {
 	if int(id) >= len(t.nodes) {
-		panic(fmt.Sprintf("parser: no node %d in a tree of %d", id, len(t.nodes)))
+		panic(diagnostic.Bugf("parser: no node %d in a tree of %d", id, len(t.nodes)))
 	}
 	return Node{t: t, id: id}
 }

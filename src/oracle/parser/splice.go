@@ -1,8 +1,7 @@
 package parser
 
 import (
-	"fmt"
-
+	"luna/oracle/diagnostic"
 	"luna/oracle/token"
 )
 
@@ -64,18 +63,18 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 		switch e.kind {
 		case evToken:
 			if e.tok < 0 || e.tok >= len(tokens) {
-				panic(fmt.Sprintf("parser: event %d is token(%d) of a stream of %d",
+				panic(diagnostic.Bugf("parser: event %d is token(%d) of a stream of %d",
 					i, e.tok, len(tokens)))
 			}
 			if e.tok <= last {
-				panic(fmt.Sprintf("parser: event %d is token(%d) after token(%d): the parser "+
+				panic(diagnostic.Bugf("parser: event %d is token(%d) after token(%d): the parser "+
 					"consumes the file in order, each token once", i, e.tok, last))
 			}
 			// The parser walks the filtered stream, so it never consumes trivia — and a flush is
 			// bounded only by that: it runs while the tokens stay trivia, so one aimed at a trivia
 			// token would consume past it and emit the index twice.
 			if tokens[e.tok].IsTrivia() {
-				panic(fmt.Sprintf("parser: event %d is token(%d), which is %s: the parser walks "+
+				panic(diagnostic.Bugf("parser: event %d is token(%d), which is %s: the parser walks "+
 					"the filtered stream, and splice is what puts trivia back",
 					i, e.tok, tokens[e.tok].Kind))
 			}
@@ -83,7 +82,7 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 			release()
 			for ; next < e.tok; next++ {
 				if !tokens[next].IsTrivia() {
-					panic(fmt.Sprintf("parser: event %d skips token %d (%s): the parser consumes "+
+					panic(diagnostic.Bugf("parser: event %d skips token %d (%s): the parser consumes "+
 						"every token, one it cannot place into an Error node rather than past it",
 						i, next, tokens[next].Kind))
 				}
@@ -109,7 +108,7 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 			}
 			depth--
 			if depth < 0 {
-				panic(fmt.Sprintf("parser: event %d closes a node that was never opened", i))
+				panic(diagnostic.Bugf("parser: event %d closes a node that was never opened", i))
 			}
 			if depth == 0 {
 				flush()
@@ -120,13 +119,13 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 		}
 	}
 	if n := depth + len(held); n != 0 {
-		panic(fmt.Sprintf("parser: the stream ends at depth %d: every node the parser opened "+
+		panic(diagnostic.Bugf("parser: the stream ends at depth %d: every node the parser opened "+
 			"must be closed, or the file's trailing trivia has nowhere to go", n))
 	}
 	// The flush above stopped at the first token that is not trivia, so anything left is one the
 	// parser never reached.
 	if next != len(tokens) {
-		panic(fmt.Sprintf("parser: the stream ends with token %d (%s) in no event: every token "+
+		panic(diagnostic.Bugf("parser: the stream ends with token %d (%s) in no event: every token "+
 			"reaches a leaf, or the tree cannot reconstruct the file",
 			next, tokens[next].Kind))
 	}

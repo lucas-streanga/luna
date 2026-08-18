@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"luna/oracle/diagnostic"
 	"luna/oracle/lexer"
 	"luna/oracle/source"
 	"luna/oracle/token"
@@ -311,13 +312,13 @@ func assertPanics(t *testing.T, want string, f func()) {
 		if r == nil {
 			t.Fatalf("no panic; want one containing %q", want)
 		}
-		msg, ok := r.(string)
+		bug, ok := r.(diagnostic.Bug)
 		if !ok {
-			t.Fatalf("panicked with %T (%v); want a parser: string — anything else is a "+
-				"precondition nobody checked", r, r)
+			t.Fatalf("panicked with %T (%v); want a diagnostic.Bug — anything else is a "+
+				"precondition nobody checked, and Bug is what the driver classifies on", r, r)
 		}
-		if !strings.HasPrefix(msg, "parser: ") || !strings.Contains(msg, want) {
-			t.Fatalf("panicked with %q, want a parser: message containing %q", msg, want)
+		if !strings.HasPrefix(bug.Message, "parser: ") || !strings.Contains(bug.Message, want) {
+			t.Fatalf("panicked with %q, want a parser: message containing %q", bug.Message, want)
 		}
 	}()
 	f()

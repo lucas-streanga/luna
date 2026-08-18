@@ -372,3 +372,25 @@ var modulesCodes = []diagnostic.Code{
 	diagnostic.ImportOutsidePrelude,
 	diagnostic.MissingEntry,
 }
+
+// A Bug keeps the template apart from the rendered message, which is the only reason the type
+// exists: two instances of one invariant violation must group as one bug and read as two.
+func TestBugKeepsItsTemplate(t *testing.T) {
+	a := diagnostic.Bugf("parser: event %d closes a node that was never opened", 42)
+	b := diagnostic.Bugf("parser: event %d closes a node that was never opened", 7)
+
+	if a.Template != b.Template {
+		t.Errorf("templates differ: %q and %q", a.Template, b.Template)
+	}
+	if a.Message == b.Message {
+		t.Errorf("both rendered to %q; the arguments are what a reader needs", a.Message)
+	}
+	if want := "parser: event 42 closes a node that was never opened"; a.Message != want {
+		t.Errorf("rendered %q, want %q", a.Message, want)
+	}
+	// Go prints an error panic value by its Error(), so the rendered text is what a crash shows.
+	var err error = a
+	if err.Error() != a.Message {
+		t.Errorf("Error() is %q, want the rendered message", err.Error())
+	}
+}

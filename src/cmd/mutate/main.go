@@ -819,8 +819,8 @@ var mutants = []mutant{
 	{
 		name:   "the builder accepts an empty node",
 		file:   "oracle/parser/builder.go",
-		old:    "\tif !fr.filled {\n\t\tpanic(fmt.Sprintf(\"parser: event %d closes %s with no children",
-		new:    "\tif false {\n\t\tpanic(fmt.Sprintf(\"parser: event %d closes %s with no children",
+		old:    "\tif !fr.filled {\n\t\tpanic(diagnostic.Bugf(\"parser: event %d closes %s with no children",
+		new:    "\tif false {\n\t\tpanic(diagnostic.Bugf(\"parser: event %d closes %s with no children",
 		expect: "TestBuildRejects",
 	},
 	{
