@@ -1,15 +1,14 @@
-// The scaffold's own check, and the one file here that is meant to shrink: **every name Phase 2
-// will implement exists, and every one of them panics.**
+// The scaffold.s own check, and the one file here meant to shrink: every name Phase 2 will
+// implement exists, and every one of them panics.
 //
-// A stub that returns a zero value instead of panicking is the fail-open this repository arms
-// itself against everywhere else — check.sh treating a missing tool as a failure rather than a
-// skip is the same rule one level up. An unimplemented `atEnd` returning false would not report
-// "not written yet"; it would report a tree that disagrees with a golden, and the diff would be
-// read against grammar.md §0 for a defect that is not there.
+// A stub that returned a zero value would not report "not written yet" — it would report a tree
+// disagreeing with a golden, and the diff would be read against grammar.md §0 for a defect that is
+// not there. That is the fail-open check.sh guards against when it treats a missing tool as a
+// failure rather than a skip.
 //
-// It is also what keeps the scaffold compiling under `unused`: nothing calls these yet, and a
-// `//nolint` on each would suppress a check where this asserts one. An entry leaves the table when
-// its function acquires a body, and the file goes with the last of them.
+// It is also what keeps the scaffold compiling under `unused`, where a `//nolint` on each stub
+// would suppress a check where this asserts one. An entry leaves the table when its function
+// acquires a body, and the file goes with the last of them.
 package parser
 
 import (
@@ -153,10 +152,8 @@ func toString(v any) string {
 	return ""
 }
 
-// TestScaffoldParserState pins what `parse` starts from: the two inputs it is handed, a cursor at
-// the beginning, and three empty sinks. It is a shape check rather than a behaviour one — there is
-// no behaviour yet — and it exists because the struct is the session's reviewable artifact and an
-// unread field would be a field nobody noticed was wrong.
+// TestScaffoldParserState is a shape check, there being no behaviour yet: the struct is this
+// phase.s reviewable artifact, and an unread field is a field nobody noticed was wrong.
 func TestScaffoldParserState(t *testing.T) {
 	f, err := source.New("scaffold.luna", "x;")
 	if err != nil {
