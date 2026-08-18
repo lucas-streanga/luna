@@ -1,0 +1,44 @@
+while (c) { f(); }
+_ = a < b;
+_ = a >= b;
+---
+File 0..42
+  Statement 0..18
+    WhileStmt 0..18
+      KW_WHILE 0..5 "while"
+      LPAREN 6..7 "("
+      IDENT 7..8 "c"
+      RPAREN 8..9 ")"
+      Block 10..18
+        LBRACE 10..11 "{"
+        Statement 12..16
+          SimpleStmt 12..15
+            PostfixExpr 12..15
+              IDENT 12..13 "f"
+              Postfix 13..15
+                LPAREN 13..14 "("
+                RPAREN 14..15 ")"
+          SEMICOLON 15..16 ";"
+        RBRACE 17..18 "}"
+  Statement 19..29
+    SimpleStmt 19..28
+      Assignment 19..28
+        AssignTarget 19..20
+          WILDCARD 19..20 "_"
+        ASSIGN 21..22 "="
+        Comparison 23..28
+          IDENT 23..24 "a"
+          LT 25..26 "<"
+          IDENT 27..28 "b"
+    SEMICOLON 28..29 ";"
+  Statement 30..41
+    SimpleStmt 30..40
+      Assignment 30..40
+        AssignTarget 30..31
+          WILDCARD 30..31 "_"
+        ASSIGN 32..33 "="
+        Comparison 34..40
+          IDENT 34..35 "a"
+          GE 36..38 ">="
+          IDENT 39..40 "b"
+    SEMICOLON 40..41 ";"

@@ -1,0 +1,84 @@
+const c = constraint n: int where n > 0 where n < 10;
+const p = capability;
+const q = capability { io, exec };
+const a = attribute ['path' => string, 'code' => int = 1];
+---
+File 0..170
+  Declaration 0..53
+    BindingDecl 0..53
+      KW_CONST 0..5 "const"
+      Binder 6..7
+        IDENT 6..7 "c"
+      ASSIGN 8..9 "="
+      Initializer 10..52
+        ConstraintLit 10..52
+          KW_CONSTRAINT 10..20 "constraint"
+          IDENT 21..22 "n"
+          COLON 22..23 ":"
+          Type 24..27
+            IDENT 24..27 "int"
+          KW_WHERE 28..33 "where"
+          Comparison 34..39
+            IDENT 34..35 "n"
+            GT 36..37 ">"
+            INT_DEC 38..39 "0"
+          KW_WHERE 40..45 "where"
+          Comparison 46..52
+            IDENT 46..47 "n"
+            LT 48..49 "<"
+            INT_DEC 50..52 "10"
+      SEMICOLON 52..53 ";"
+  Declaration 54..75
+    BindingDecl 54..75
+      KW_CONST 54..59 "const"
+      Binder 60..61
+        IDENT 60..61 "p"
+      ASSIGN 62..63 "="
+      Initializer 64..74
+        CapabilityLit 64..74
+          KW_CAPABILITY 64..74 "capability"
+      SEMICOLON 74..75 ";"
+  Declaration 76..110
+    BindingDecl 76..110
+      KW_CONST 76..81 "const"
+      Binder 82..83
+        IDENT 82..83 "q"
+      ASSIGN 84..85 "="
+      Initializer 86..109
+        CapabilityLit 86..109
+          KW_CAPABILITY 86..96 "capability"
+          LBRACE 97..98 "{"
+          CapList 99..107
+            IDENT 99..101 "io"
+            COMMA 101..102 ","
+            IDENT 103..107 "exec"
+          RBRACE 108..109 "}"
+      SEMICOLON 109..110 ";"
+  Declaration 111..169
+    BindingDecl 111..169
+      KW_CONST 111..116 "const"
+      Binder 117..118
+        IDENT 117..118 "a"
+      ASSIGN 119..120 "="
+      Initializer 121..168
+        AttributeLit 121..168
+          KW_ATTRIBUTE 121..130 "attribute"
+          LBRACKET 131..132 "["
+          AttrParams 132..167
+            AttrParam 132..148
+              StringLit 132..138
+                STRING_SQ 132..138 "'path'"
+              FAT_ARROW 139..141 "=>"
+              Type 142..148
+                IDENT 142..148 "string"
+            COMMA 148..149 ","
+            AttrParam 150..167
+              StringLit 150..156
+                STRING_SQ 150..156 "'code'"
+              FAT_ARROW 157..159 "=>"
+              Type 160..163
+                IDENT 160..163 "int"
+              ASSIGN 164..165 "="
+              INT_DEC 166..167 "1"
+          RBRACKET 167..168 "]"
+      SEMICOLON 168..169 ";"

@@ -1,0 +1,68 @@
+_ = match (x) {
+  1..5 => 0,
+  1..<5 => 1,
+  ['k' => v] => v,
+  [...rest] => 2,
+};
+---
+File 0..83
+  Statement 0..82
+    SimpleStmt 0..81
+      Assignment 0..81
+        AssignTarget 0..1
+          WILDCARD 0..1 "_"
+        ASSIGN 2..3 "="
+        MatchExpr 4..81
+          KW_MATCH 4..9 "match"
+          LPAREN 10..11 "("
+          IDENT 11..12 "x"
+          RPAREN 12..13 ")"
+          LBRACE 14..15 "{"
+          MatchArms 18..79
+            MatchArm 18..27
+              RangePattern 18..22
+                LiteralPattern 18..19
+                  INT_DEC 18..19 "1"
+                RANGE 19..21 ".."
+                LiteralPattern 21..22
+                  INT_DEC 21..22 "5"
+              FAT_ARROW 23..25 "=>"
+              INT_DEC 26..27 "0"
+            COMMA 27..28 ","
+            MatchArm 31..41
+              RangePattern 31..36
+                LiteralPattern 31..32
+                  INT_DEC 31..32 "1"
+                RANGE_EXCL 32..35 "..<"
+                LiteralPattern 35..36
+                  INT_DEC 35..36 "5"
+              FAT_ARROW 37..39 "=>"
+              INT_DEC 40..41 "1"
+            COMMA 41..42 ","
+            MatchArm 45..60
+              TablePattern 45..55
+                LBRACKET 45..46 "["
+                TablePatEntries 46..54
+                  TablePatEntry 46..54
+                    KeyLit 46..49
+                      StringLit 46..49
+                        STRING_SQ 46..49 "'k'"
+                    FAT_ARROW 50..52 "=>"
+                    IDENT 53..54 "v"
+                RBRACKET 54..55 "]"
+              FAT_ARROW 56..58 "=>"
+              IDENT 59..60 "v"
+            COMMA 60..61 ","
+            MatchArm 64..78
+              TablePattern 64..73
+                LBRACKET 64..65 "["
+                TablePatEntries 65..72
+                  TablePatEntry 65..72
+                    SPREAD 65..68 "..."
+                    IDENT 68..72 "rest"
+                RBRACKET 72..73 "]"
+              FAT_ARROW 74..76 "=>"
+              INT_DEC 77..78 "2"
+            COMMA 78..79 ","
+          RBRACE 80..81 "}"
+    SEMICOLON 81..82 ";"
