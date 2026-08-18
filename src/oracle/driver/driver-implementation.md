@@ -59,8 +59,12 @@ allocates when §1.8 exists to raise it.
 **The panic is spelled `panic(diagnostic.Bugf(…))`**, which keeps the format template. That is the
 one part of a crash report that cannot be added later: rendering happens at the call site, so
 `event 42 …` and `event 7 …` are one bug wearing two faces unless the template is captured where
-it is written. `oracle/parser` enforces the spelling with a test over its own syntax trees; the
-other passes are a sweep away from the same rule.
+it is written.
+
+The rule is enforced over the whole oracle by a test in `oracle/diagnostic` that walks syntax
+trees rather than text, so it sees `panic(` in code and never in a comment or a string — which
+matters, since this section names the form. **The driver is exempt**, and deliberately: it is the
+layer that *catches* a Bug, so its own panics answer to a design still being written (§1.2).
 
 Three mechanics, verified rather than assumed, that the recover can rely on:
 

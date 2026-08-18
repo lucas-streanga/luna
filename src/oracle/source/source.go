@@ -130,7 +130,7 @@ func (f *File) Slice(offset, length int) string { return f.text[offset : offset+
 // caller bug, not a diagnostic, and panics.
 func (f *File) Position(offset int) Position {
 	if offset < 0 || offset > len(f.text) {
-		panic(fmt.Sprintf("source: offset %d out of range [0, %d] in %s", offset, len(f.text), f.name))
+		panic(diagnostic.Bugf("source: offset %d out of range [0, %d] in %s", offset, len(f.text), f.name))
 	}
 	f.once.Do(f.buildLines)
 

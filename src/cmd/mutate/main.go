@@ -656,7 +656,7 @@ var mutants = []mutant{
 	{
 		name:   "a missing token stream is tolerated rather than a driver bug",
 		file:   "oracle/modules/validate.go",
-		old:    `			panic("modules: no token stream for " + f.Path)`,
+		old:    `			panic(diagnostic.Bugf("modules: no token stream for %s", f.Path))`,
 		new:    `			continue`,
 		expect: "TestMissingTokenStreamPanics",
 	},

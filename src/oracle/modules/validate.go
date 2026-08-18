@@ -130,7 +130,7 @@ func (v *validator) report(code diagnostic.Code, e Edge, format string, args ...
 	if !ok {
 		// Every edge comes from a file discovery read, so its module is in the set. A miss is a
 		// caller assembling a Result by hand, not a program condition.
-		panic("modules: edge from unknown module " + e.From)
+		panic(diagnostic.Bugf("modules: edge from unknown module %s", e.From))
 	}
 	span := diagnostic.Span{Filename: from.Path, Offset: e.Offset, Length: e.Len}
 	v.diags.Add(diagnostic.New(code, span, format, args...))
@@ -147,7 +147,7 @@ func (v *validator) preludes(toks map[string][]token.Token) {
 		if !ok {
 			// §1.2 runs after §1.1, so every file has a stream. A missing one is a driver bug,
 			// and silently reading nil would turn it into "this file has no late imports".
-			panic("modules: no token stream for " + f.Path)
+			panic(diagnostic.Bugf("modules: no token stream for %s", f.Path))
 		}
 		for _, t := range stream {
 			if t.Kind == token.KwImport && t.Offset >= f.PreludeEnd {

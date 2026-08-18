@@ -59,7 +59,6 @@
 package lexer
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -142,9 +141,9 @@ func (s *Scanner) Next() (token.Token, bool) {
 	// the culprit.
 	switch {
 	case s.pos <= start:
-		panic(fmt.Sprintf("lexer: %s consumed no bytes at %d in %s", kind, start, s.f.Name()))
+		panic(diagnostic.Bugf("lexer: %s consumed no bytes at %d in %s", kind, start, s.f.Name()))
 	case s.pos > len(s.src):
-		panic(fmt.Sprintf("lexer: %s at %d ran to %d, past the end of %s (%d bytes)",
+		panic(diagnostic.Bugf("lexer: %s at %d ran to %d, past the end of %s (%d bytes)",
 			kind, start, s.pos, s.f.Name(), len(s.src)))
 	}
 	return token.Token{Kind: kind, Offset: start, Len: s.pos - start}, true
@@ -169,7 +168,7 @@ func (s *Scanner) lex() token.Kind {
 	case modeTripleSq:
 		return s.lexTripleSqMode()
 	default:
-		panic(fmt.Sprintf("lexer: unknown mode %d", k))
+		panic(diagnostic.Bugf("lexer: unknown mode %d", k))
 	}
 }
 

@@ -1015,9 +1015,9 @@ at the same property from the other side.
 
 **Every one of them is written `panic(diagnostic.Bugf(…))`**, which keeps the format template a
 crash report groups on — the one part that cannot be added at the recover, since rendering
-happens where the panic is written. `panic_test.go` enforces the spelling over this package's own
-syntax trees rather than by memory, and its count of remaining `is unimplemented` sentinels is
-this phase's progress bar.
+happens where the panic is written. `oracle/diagnostic/panic_test.go` enforces the spelling over the whole
+oracle rather than by memory, and its count of remaining `is unimplemented` sentinels is this
+phase's progress bar.
 
 **And the net is at the driver, not here.** A panic that escapes anyway is converted to an `I`
 diagnostic by whichever driver is running — the LSP survives it, the batch compiler aborts on it

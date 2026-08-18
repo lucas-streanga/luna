@@ -238,7 +238,7 @@ type List []*Diagnostic
 // compiler bug rather than a condition in the program being compiled.
 func (l *List) Add(d *Diagnostic) {
 	if err := d.Validate(); err != nil {
-		panic(err)
+		panic(Bugf("diagnostic: %s", err))
 	}
 	*l = append(*l, d)
 }

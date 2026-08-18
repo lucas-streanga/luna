@@ -156,7 +156,7 @@ func describeEscape(code diagnostic.Code, lexeme string) string {
 	case diagnostic.InvalidCodepointEscape:
 		return fmt.Sprintf("`%s` names no Unicode scalar value", lexeme)
 	}
-	panic("lexer: no description for escape code " + string(code))
+	panic(diagnostic.Bugf("lexer: no description for escape code %s", code))
 }
 
 // textRun consumes the mode's text run: bytes up to the next one that could begin another
