@@ -300,8 +300,14 @@ func findRoot() (string, error) {
 	}
 }
 
-// codeRe matches column 1 of §11: a backticked diagnostic code.
+// codeRe matches column 1: a backticked diagnostic code.
 var codeRe = regexp.MustCompile("^`([A-Z][0-9]{4})`$")
+
+// unallocated is what a code column holds for a check that is specified and not yet numbered.
+// R250 and R251 rule that a code waits for an implementation to raise it and a test to pin it, so
+// a stage table outlives its numbering and the reader has to carry rows that have none — with the
+// Code field empty, which is what lets a caller count them rather than lose them.
+const unallocated = "—"
 
 // parseCodeRow splits one row of §11's error summary. Titles are taken verbatim,
 // backticks included: "Unexpected `#`" is the title, not a marked-up version of one.
@@ -311,12 +317,18 @@ func parseCodeRow(text string, line int) (CodeRow, error) {
 	if len(f) != 4 {
 		return CodeRow{}, fmt.Errorf("want 4 columns, got %d: %q", len(f), text)
 	}
-	m := codeRe.FindStringSubmatch(strings.TrimSpace(f[0]))
-	if m == nil {
+	code := strings.TrimSpace(f[0])
+	m := codeRe.FindStringSubmatch(code)
+	if m == nil && code != unallocated {
 		return CodeRow{}, fmt.Errorf("unrecognized code column: %q", f[0])
 	}
+	if m != nil {
+		code = m[1]
+	} else {
+		code = ""
+	}
 	return CodeRow{
-		Line: line, Code: m[1],
+		Line: line, Code: code,
 		Title: strings.TrimSpace(f[1]), When: f[2], Authority: f[3],
 	}, nil
 }

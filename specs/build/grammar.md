@@ -658,11 +658,17 @@ Every syntax error, with the code that names it. Codes are `P` + four digits, al
 append-only and never reused (compiler §3.1). Each has a fixed **title**; the description is
 per-instance and volatile. Tests pin the code and the primary span, never the prose.
 
-**No code is allocated yet.** The parser does not exist, and R250 and R251 both established the
-rule this follows: a code allocated before there is an implementation to raise it and a test to
-pin it is a code nothing checks. This section is the table those codes land in, and it lands
-with the file so that the first `P` code has a home — which is precisely what R250 and R251
-lacked when they had to defer their `M` codes.
+**One code is allocated, and nine rows wait with an em dash.** R250 and R251 established the rule
+this follows: a code allocated before there is an implementation to raise it and a test to pin it
+is a code nothing checks — and worse, a published code is a promise the compiler can produce it.
+`P0001` is `expect`'s, §7.2 layer 1 being the only recovery that needs no judgement and therefore
+the only one a parser without recovery can raise. The other nine take their numbers as the checks
+that raise them land.
+
+R272 is why the rule earns its keep rather than merely sounding careful: it retired one of §11.2's
+named rules outright, by changing the syntax so the situation cannot arise. Under R240's
+never-reuse rule, a number allocated eagerly would now be burned on a diagnostic the language
+cannot produce.
 
 What is already fixed, ahead of the numbers:
 
@@ -737,13 +743,13 @@ and a spec sentence says why. A rule with a reason earns a page; the engine's fi
 
 **The engine.**
 
-| Title | Raised when | Frontier |
-|-|-|-|
-| Unexpected token | a token appears where §0 admits none, and no single construct was under way | large |
-| Unexpected end of input | input ended with a production incomplete | any |
-| Unclosed delimiter | a committed `(`, `[` or `{` never met its closer; the opener is a **secondary span** | small |
-| Missing token | a required terminal is absent; the description names it (the 275 expect-sites) | small |
-| Expected a construct | a nonterminal was predicted and nothing could begin it; the description names which — expression, type, pattern, statement, declaration (the 418 recursion sites) | large |
+| Code | Title | Raised when | Frontier |
+|-|-|-|-|
+| — | Unexpected token | a token appears where §0 admits none, and no single construct was under way | large |
+| — | Unexpected end of input | input ended with a production incomplete | any |
+| — | Unclosed delimiter | a committed `(`, `[` or `{` never met its closer; the opener is a **secondary span** | small |
+| `P0001` | Missing token | a required terminal is absent; the description names it (the 275 expect-sites) | small |
+| — | Expected a construct | a nonterminal was predicted and nothing could begin it; the description names which — expression, type, pattern, statement, declaration (the 418 recursion sites) | large |
 
 **The named rules.** Each is unrepresentable in §0 on purpose, so the generic message would be
 technically right and useless — `set get` reports "expected `:`", which does not name the actual
@@ -755,13 +761,13 @@ there is no mistake to name. A named rule retired by a syntax change rather than
 message is the outcome to prefer — R267 chose these five because a rule with a reason earns a
 page, and the reason there was a collision the language has since stopped having.
 
-| Title | The rule | Owner |
-|-|-|-|
-| Declaration with a postfix modifier | `let x = 5 if (c);` would scope the binding inside the sugar block, where it is provably unusable | control-flow §5.1 |
-| `defer` with a postfix modifier | `defer close(fd) if (c);` would run the cleanup **immediately**, at the sugar block's exit | control-flow §5.1 |
-| `else` on a postfix form | an else-bearing conditional is the block form | control-flow §5.1 |
-| Chained postfix modifiers | `expr if (c) foreach (h)` poses the which-nests-which trap | control-flow §5 |
-| Grant order must be `get set` | one spelling, so `set get` does not derive | protocols §2.2 |
+| Code | Title | The rule | Owner |
+|-|-|-|-|
+| — | Declaration with a postfix modifier | `let x = 5 if (c);` would scope the binding inside the sugar block, where it is provably unusable | control-flow §5.1 |
+| — | `defer` with a postfix modifier | `defer close(fd) if (c);` would run the cleanup **immediately**, at the sugar block's exit | control-flow §5.1 |
+| — | `else` on a postfix form | an else-bearing conditional is the block form | control-flow §5.1 |
+| — | Chained postfix modifiers | `expr if (c) foreach (h)` poses the which-nests-which trap | control-flow §5 |
+| — | Grant order must be `get set` | one spelling, so `set get` does not derive | protocols §2.2 |
 
 Two boundaries the count depends on, both already ruled elsewhere. **Import-after-the-prelude is
 an `M`, not a `P`**: §1.2 rejects it before parsing (R250), so the structural invariant §1 records

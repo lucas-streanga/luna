@@ -1,3 +1,8 @@
+
+**Every prefix is its stage's initial**, which is what makes the letter guessable from the name
+and the name recoverable from a code. `P` is the one that had to be chosen rather than derived —
+`S` was already Semantic — so the stage is named **Parse** and not "Syntax", or the mnemonic would
+hold for eight rows and break on the ninth (R240, corrected here).
 # Compiler implementation
 
 This document specifies the high-level structure of the Luna compiler: its phase pipeline, where
@@ -489,7 +494,7 @@ property that matters most when slices are implemented in parallel (claude-agent
 | Prefix | Owns | Where |
 |-|-|-|
 | `L` | Lexical | §1.1 |
-| `P` | Syntax | §1.3 |
+| `P` | Parse | §1.3 |
 | `S` | Semantic | §1.4 |
 | `M` | Modules | §1.0 discovery, §1.2 import validation |
 | `C` | Comptime | §6 |
@@ -497,6 +502,11 @@ property that matters most when slices are implemented in parallel (claude-agent
 | `F` | Format | `luna -f` |
 | `T` | Tooling | LSP, debugger, test runner |
 | `I` | Internal | an invariant violated — "this is a compiler bug" |
+
+**Every prefix is its stage's initial**, which is what makes the letter guessable from the name and
+the name recoverable from a code. `P` is the one that had to be chosen rather than derived — `S`
+was already Semantic — so the stage is named **Parse**, not "Syntax": under the older name the
+mnemonic held for eight rows and broke on the ninth, and nothing in the corpus expanded `P`.
 
 Discovery and import validation share `M` because a user cannot tell which of them noticed that an
 import does not resolve. There is deliberately **no prefix for lowering or emission**: §1.7

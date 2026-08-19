@@ -28,7 +28,7 @@ type Stage byte
 
 const (
 	Lexical  Stage = 'L' // §1.1
-	Syntax   Stage = 'P' // §1.3
+	Parse    Stage = 'P' // §1.3
 	Semantic Stage = 'S' // §1.4
 	Modules  Stage = 'M' // §1.0 discovery, §1.2 import validation
 	Comptime Stage = 'C' // §6
@@ -84,12 +84,14 @@ func (c Code) Title() string {
 		return lexicalTitles[c]
 	case Modules:
 		return modulesTitles[c]
+	case Parse:
+		return parseTitles[c]
 	}
 	return ""
 }
 
 var stages = map[Stage]bool{
-	Lexical: true, Syntax: true, Semantic: true, Modules: true, Comptime: true,
+	Lexical: true, Parse: true, Semantic: true, Modules: true, Comptime: true,
 	Build: true, Format: true, Tooling: true, Internal: true,
 }
 

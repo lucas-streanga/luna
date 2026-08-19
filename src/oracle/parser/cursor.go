@@ -60,15 +60,13 @@ func (p *parser) eatWord(text string) bool {
 }
 
 // expect is §7.2 layer 1, the only recovery needing no judgement: on a mismatch it synthesises a
-// zero-width leaf of kind k (§6.1), reports Missing token subject to §7.6, and **consumes
-// nothing**.
+// zero-width leaf of kind k (§6.1), raises **P0001, Missing token** subject to §7.6, and
+// **consumes nothing**.
 //
 // Consuming nothing is what makes it safe to call anywhere and unsafe to loop on — a loop whose
 // body reaches only an expect makes no progress (§6.4), which is why errorToken exists. It
 // returns nothing so that call sites cannot invent their own repair; layers 2 to 4 live in one
 // place.
-//
-// R267 allocates the P code when this body lands, not before.
 func (p *parser) expect(k token.Kind) {
 	panic("parser: expect is unimplemented")
 }

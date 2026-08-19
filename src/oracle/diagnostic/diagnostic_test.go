@@ -55,7 +55,7 @@ func TestCodeStage(t *testing.T) {
 		want diagnostic.Stage
 	}{
 		{"L0001", diagnostic.Lexical},
-		{"P0001", diagnostic.Syntax},
+		{"P0001", diagnostic.Parse},
 		{"S0143", diagnostic.Semantic},
 		{"I0001", diagnostic.Internal},
 	} {
@@ -393,4 +393,63 @@ func TestBugKeepsItsTemplate(t *testing.T) {
 	if err.Error() != a.Message {
 		t.Errorf("Error() is %q, want the rendered message", err.Error())
 	}
+}
+
+// TestParseCodesMatchSpec pins the parse codes against grammar.md §11.2, which is their registry,
+// the same shape TestCodesMatchSpec uses for lexer §11.
+//
+// What is different here is that §11.2 outlives its numbering: nine of its ten rows are specified
+// and unallocated, carrying an em dash. Counting them is the point — an unallocated row is a check
+// waiting for an implementation to raise it (R250, R251, R267), and a count that shrinks silently
+// would lose the ones still waiting.
+func TestParseCodesMatchSpec(t *testing.T) {
+	rows, err := spec.LoadCodes("specs/build/grammar.md")
+	if err != nil {
+		t.Fatalf("reading grammar.md §11.2: %v", err)
+	}
+	if len(rows) != wantParseRows {
+		t.Fatalf("§11.2 lists %d diagnostics, want %d; the tables changed shape",
+			len(rows), wantParseRows)
+	}
+
+	inSpec := map[string]bool{}
+	allocated := 0
+	for _, row := range rows {
+		if row.Code == "" {
+			continue // specified, not yet numbered
+		}
+		allocated++
+		inSpec[row.Code] = true
+		c := diagnostic.Code(row.Code)
+		if !c.Valid() {
+			t.Errorf("§11.2:%d: %q is not a well-formed code", row.Line, row.Code)
+			continue
+		}
+		if c.Stage() != diagnostic.Parse {
+			t.Errorf("§11.2:%d: %s is not a parse code", row.Line, c)
+		}
+		if got := c.Title(); got != row.Title {
+			t.Errorf("§11.2:%d: %s title is %q in the spec, %q in Go", row.Line, c, row.Title, got)
+		}
+	}
+	if allocated != len(parseCodes) {
+		t.Errorf("§11.2 numbers %d diagnostics, Go defines %d", allocated, len(parseCodes))
+	}
+	for _, c := range parseCodes {
+		if !inSpec[string(c)] {
+			t.Errorf("%s is defined in Go but has no §11.2 row", c)
+		}
+	}
+	t.Logf("§11.2 lists %d diagnostics, %d allocated", len(rows), allocated)
+}
+
+// wantParseRows is §11.2's total — five engine diagnostics and five named rules. A floor would not
+// do: this table shrinks as well as grows, R272 having retired a named rule outright, and either
+// direction is worth a review.
+const wantParseRows = 10
+
+// parseCodes is every code codes_parse.go defines, listed rather than derived for the reason
+// lexicalCodes is.
+var parseCodes = []diagnostic.Code{
+	diagnostic.MissingToken,
 }

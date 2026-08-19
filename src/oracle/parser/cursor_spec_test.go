@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"luna/oracle/diagnostic"
 	"luna/oracle/token"
 )
 
@@ -194,7 +195,11 @@ func TestCursorExpectSynthesisesAndDoesNotConsume(t *testing.T) {
 				p.pos, want)
 		}
 		if len(p.diags) != 1 {
-			t.Errorf("a failed expect raised %d diagnostics, want 1", len(p.diags))
+			t.Fatalf("a failed expect raised %d diagnostics, want 1", len(p.diags))
+		}
+		if got := p.diags[0].Code; got != diagnostic.MissingToken {
+			t.Errorf("raised %s, want %s — `expect` is the only site that raises it, which is why "+
+				"R267 let it take the first P number", got, diagnostic.MissingToken)
 		}
 	})
 }
