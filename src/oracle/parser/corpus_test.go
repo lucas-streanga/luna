@@ -17,29 +17,16 @@ import (
 	"luna/oracle/diagnostic"
 )
 
-// parseRun keeps every stage: the splice invariants are a relation between two streams rather
-// than a property of either, which is why goldenRun does the same.
-type parseRun struct {
-	lexed     *LexedGolden
-	unspliced eventStream
-	events    eventStream
-	tree      *Tree
-	diags     []diagnostic.Diagnostic
-}
-
-// runParse drives one source through the whole pass. Nil with no message is **pending** and not a
-// skip: the panic must be parse's own sentinel, so a block becomes a live assertion the moment a
-// body lands. Nil with one is a **violated invariant**, which §7.8 makes a parser bug; catching it
-// attributes it to this block instead of aborting the run on the first, and which blocks break is
-// the whole diagnosis. Anything else propagates.
-func runParse(lexed *LexedGolden) (run *parseRun, bug string) {
+// parseBlock is runParse (parse_fuzz_test.go) under this file's own policy for a Bug: report it
+// against the block that raised it rather than end the run on the first, since which blocks break
+// is the whole diagnosis when a corpus this size goes red. FuzzParse takes the opposite policy
+// deliberately, a stack being the report there.
+//
+// Nil with no message is pending, and pending is not a skip; runParse has that argument.
+func parseBlock(lexed *LexedGolden) (run *parseRun, bug string) {
 	defer func() {
 		v := recover()
 		if v == nil {
-			return
-		}
-		if s, ok := v.(string); ok && s == "parser: parse is unimplemented" {
-			run = nil
 			return
 		}
 		if b, ok := v.(diagnostic.Bug); ok {
@@ -48,15 +35,7 @@ func runParse(lexed *LexedGolden) (run *parseRun, bug string) {
 		}
 		panic(v)
 	}()
-	events, diags := parse(lexed.File, lexed.Tokens)
-	spliced := splice(lexed.Tokens, events)
-	return &parseRun{
-		lexed:     lexed,
-		unspliced: events,
-		events:    spliced,
-		tree:      build(lexed.File, lexed.Tokens, spliced),
-		diags:     diags,
-	}, ""
+	return runParse(lexed.File, lexed.Tokens), ""
 }
 
 func TestSpecCorpusThroughParse(t *testing.T) {
@@ -75,7 +54,7 @@ func TestSpecCorpusThroughParse(t *testing.T) {
 		if err != nil {
 			continue // a lexical failure is oracle/lexer's to report, not this test's
 		}
-		run, bug := runParse(lexed)
+		run, bug := parseBlock(lexed)
 		if bug != "" {
 			broke++
 			t.Errorf("%s:%d violated an invariant: %s", b.Path, b.Line, bug)
@@ -96,8 +75,8 @@ func TestSpecCorpusThroughParse(t *testing.T) {
 			if len(run.diags) != 0 {
 				t.Errorf("%d diagnostics on a block the grammar derives:\n%v", len(run.diags), run.diags)
 			}
-			assertSpliceInvariants(t, run.lexed.Tokens, run.unspliced, run.events)
-			assertTreeInvariants(t, run.tree, run.lexed.Tokens, b.Source)
+			assertSpliceInvariants(t, run.tokens, run.unspliced, run.events)
+			assertTreeInvariants(t, run.tree, run.tokens, b.Source)
 		})
 	}
 
