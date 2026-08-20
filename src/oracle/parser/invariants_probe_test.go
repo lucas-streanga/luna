@@ -82,7 +82,7 @@ func probeTree(t *testing.T) (*Tree, []token.Token, string) {
 	return handTree(t), tokens, handSource
 }
 
-// triviaInsideStatement puts the newline under the Statement — what a splice that flushed at
+// triviaInsideStatement puts the newline under the Statement, what a splice that flushed at
 // every close would build. It is well formed in every other respect, so only group 4 may object.
 func triviaInsideStatement(t *testing.T) *Tree {
 	tree := probeTreeWithNodes(t, []node{
@@ -236,7 +236,7 @@ func TestChildrenTileInvariant(t *testing.T) {
 // TestElidedEvents is the one oracle in the battery, and so the one thing here that could pass a
 // bad splice by agreeing with it: assertSpliceOnlyInserts believes whatever this marks. Marking
 // everything is caught by the lockstep comparison, but only because it desynchronises the whole
-// stream — a *targeted* over-mark would not be, so the marks are checked directly.
+// stream. A *targeted* over-mark would not be, so the marks are checked directly.
 //
 // The pattern is one character per event: `x` where splice must drop it, `.` where it must not.
 func TestElidedEvents(t *testing.T) {
@@ -416,7 +416,7 @@ func TestTreeBatteryDispatches(t *testing.T) {
 // TestTreeTierBoundary is the split itself, in the case it exists for: a tree built from the
 // parser's own events, with nothing spliced into them.
 //
-// It is a perfectly well-formed tree — the arena is sound and every span nests — and it is not
+// It is a perfectly well-formed tree, the arena sound and every span nesting, and it is not
 // the file: it has no trivia, so its root stops short of the end and two of the three tokens are
 // in no leaf. Both statements are true at once, which is why the two tiers are separate
 // functions and why the contract fuzz target can assert the first without meeting the
@@ -442,8 +442,8 @@ func TestTreeTierBoundary(t *testing.T) {
 }
 
 // TestTreeBatteryPassesWellFormedTrees is the other direction at the entry point. The goldens
-// cover it thirty times over, but by a route that goes quiet if the corpus ever stops reaching
-// the battery — and the damaged tree here is one no golden holds at all.
+// cover it many times over, but by a route that goes quiet if the corpus ever stops reaching
+// the battery, and the damaged tree here is one no golden holds at all.
 func TestTreeBatteryPassesWellFormedTrees(t *testing.T) {
 	t.Run("the hand-written tree", func(t *testing.T) {
 		tree, tokens, src := probeTree(t)

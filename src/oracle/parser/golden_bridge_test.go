@@ -48,7 +48,7 @@ func TestGoldenCorpusInvariants(t *testing.T) {
 const specCorpusFloor = 400
 
 // TestSpecCorpusInvariants runs every Luna block in the spec through the machinery. It is the free
-// coverage golden.md §0 promised — 431 files nobody wrote for the parser, against properties
+// coverage golden.md §0 promised: files nobody wrote for the parser, checked against properties
 // rather than shapes, which is what lets them be used without expectations.
 //
 // What it adds over the fuzz drivers, which already lex these same sources, is **grammatical**

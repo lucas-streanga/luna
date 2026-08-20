@@ -12,7 +12,7 @@ import (
 )
 
 // Rule is one TextMate rule. The json tags are the tmLanguage schema, and the Shiki
-// grammar is the same object in a TypeScript encoding — one model, two emitters, which is
+// grammar is the same object in a TypeScript encoding: one model, two emitters, which is
 // why those two can no longer disagree.
 type Rule struct {
 	Name          string           `json:"name,omitempty"`
@@ -48,7 +48,7 @@ type Grammar struct {
 // keywordScopes maps internal/highlight's classes to the TextMate scopes themes key on.
 //
 // The two vocabularies stay separate deliberately. A theme that has never heard of Luna
-// still colours `storage.type.luna` correctly, because it matches on the `storage` prefix —
+// still colours `storage.type.luna` correctly, because it matches on the `storage` prefix,
 // emitting `tok-decl` as a scope name would render every keyword unstyled in every theme but
 // ours. What crosses over is the *grouping*, which is the judgement worth sharing: whether
 // `spawn` reads as control flow or as a declaration is decided once, in highlight, and this
@@ -147,7 +147,7 @@ func build(p *patterns) *Grammar {
 		{Name: "comment.line.double-slash.luna", Match: p.pattern("LINE_COMMENT")},
 		// §0 gives BLOCK_COMMENT as one `(?s)/\*.*?\*/` pattern, which cannot survive the
 		// translation: TextMate matches within a line, so a multi-line comment has to be a
-		// begin/end pair. F4 settles the only question that raises — block comments do not
+		// begin/end pair. F4 settles the only question that raises: block comments do not
 		// nest, so the first `*/` closes it and no `patterns` are needed inside.
 		{Name: "comment.block.luna", Begin: `/\*`, End: `\*/`},
 	}}
@@ -192,7 +192,7 @@ func build(p *patterns) *Grammar {
 		Name:  "string.regexp.luna",
 		Begin: p.pattern("REGEX_OPEN"),
 		// REGEX_CLOSE carries the flags (§0), and the regex is the one form that may span
-		// lines (R244) — hence no `$` alternative in the end pattern.
+		// lines (R244), hence no `$` alternative in the end pattern.
 		End:         p.pattern("REGEX_CLOSE"),
 		EndCaptures: map[string]Scope{"0": {Name: "keyword.other.regexp-flags.luna"}},
 		Patterns:    interpolated(p, escape.Regex),
@@ -263,7 +263,7 @@ func notAttrOpen(name string) bool { return name != "ATTR_OPEN" }
 
 // keywordRules emits one rule per class group, preserving §0's row order inside each.
 //
-// Order within a group is what carries maximal munch — `\bmatch!` must be attempted before
+// Order within a group is what carries maximal munch: `\bmatch!` must be attempted before
 // `\bmatch\b`, and §0 already lists it that way. Order *between* groups does not matter,
 // because every keyword pattern is `\b`-anchored, so `in` cannot claim the front of
 // `import` however the groups are arranged. The groups are emitted sorted by class so the
@@ -293,13 +293,13 @@ func keywordRules(p *patterns) []Rule {
 	return out
 }
 
-// highlightedTypes is types.md's list minus the names §3 also reserves as keywords —
+// highlightedTypes is types.md's list minus the names §3 also reserves as keywords,
 // `null`, `fn`, `proto`, `error`, `capability`.
 //
 // highlight can afford to keep them: it consults the set only for a token the lexer already
 // classified IDENT, so a keyword never reaches it. A grammar has no such guarantee. Both
 // rules can match `error`, and which wins is a question of rule order in TextMate and of the
-// host's convention in tree-sitter — Neovim takes the last capture, Zed the first. Removing
+// host's convention in tree-sitter: Neovim takes the last capture, Zed the first. Removing
 // the overlap answers it the same way everywhere, and it answers it correctly: those words
 // lex as keywords, so colouring them as types is never right.
 func highlightedTypes(p *patterns) []string {
@@ -328,13 +328,13 @@ func kindByName(name string) token.Kind {
 	panic(fmt.Sprintf("grammar: §0 names %s, the token inventory does not", name))
 }
 
-// interpolated is the pattern list for a literal that admits `${…}` — the three forms of
+// interpolated is the pattern list for a literal that admits `${…}`, the three forms of
 // F1-F3, plus the cooked triple since R246.
 //
 // The nested `$self` is how a TextMate grammar answers the non-regularity those flags name.
 // The engine tries the inner patterns and the end pattern together and takes whichever
 // matches first, so in `"${x ?? "none"}"` the `${` rule wins over the closing quote and
-// consumes through its own `}` — the same answer the mode stack gives, reached differently.
+// consumes through its own `}`, the same answer the mode stack gives, reached differently.
 func interpolated(p *patterns, ctx escape.Context) []Rule {
 	rules := escapeRules(ctx)
 	rules = append(rules,
@@ -375,7 +375,7 @@ func escapeRules(ctx escape.Context) []Rule {
 		switch c := set[i]; c {
 		case 'u':
 			// `u` is in the row, but a bare `\u` is malformed rather than valid (L0013), so it
-			// cannot go in the character class — the braces and digits are part of the escape.
+			// cannot go in the character class: the braces and digits are part of the escape.
 			alts = append(alts, `\\u\{[0-9a-fA-F]{1,6}\}`)
 		case 'x':
 			alts = append(alts, `\\x[0-9a-fA-F]{2}`) // exactly two (bytes §7)

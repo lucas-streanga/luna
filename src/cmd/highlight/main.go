@@ -10,8 +10,8 @@
 // approximate a lexer it could simply run.
 //
 // -strict is the part worth having beyond colour. Every block goes through the real lexer,
-// so a snippet with an unterminated literal or a stray byte fails the build instead of
-// being confidently mis-coloured — a check the spec's examples have never had.
+// so a snippet with an unterminated literal or a stray byte fails the build instead of being
+// confidently mis-coloured, a check the spec's examples have never had.
 //
 // # Wiring
 //
@@ -20,9 +20,9 @@
 //	go run ./cmd/highlight -css > public/luna.css
 //	for f in $(grep -rl '```luna' ../specs); do go run ./cmd/highlight -md -strict "$f"; done
 //
-// Nothing here knows about Shiki, Astro, or any other renderer, and that is the point: the
-// interface is a markdown file in and a markdown file out, so the site's own pipeline keeps
-// whatever it does with everything that is not Luna.
+// Nothing here knows about Shiki, Astro or any other renderer, which is the point: the interface
+// is a markdown file in and a markdown file out, so the site's pipeline keeps whatever it does
+// with everything that is not Luna.
 //
 // Classes rather than the inline colours Shiki bakes into each span, so light and dark are
 // one stylesheet instead of two renders, and retheming does not mean regenerating pages.

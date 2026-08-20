@@ -5,7 +5,7 @@
 // the wrong quote, and nested delimiters plus nested braces need counting, which no RE2
 // pattern can do.
 //
-// §6 fixes the attempt order and the `$` chain is the load-bearing part: DOLLAR_TEXT's
+// §6 fixes the attempt order and the `$` chain is the important part: DOLLAR_TEXT's
 // pattern would match at every `$` if tried first, and is correct only because both
 // interpolation forms are attempted before it. lexInterp keeps all three in one place so
 // the order cannot be got wrong in one mode and right in another.
@@ -60,8 +60,8 @@ func (s *Scanner) lexRegexMode() token.Kind {
 	return s.textRun(token.RegexText, "\"\\$")
 }
 
-// lexCommandMode scans inside a backtick literal. Escapes are R150's — the earlier
-// no-escapes reading is retired (command §2.2) — and `$name` is not an interpolation
+// lexCommandMode scans inside a backtick literal. Escapes are R150's, the earlier
+// no-escapes reading being retired (command §2.2), and `$name` is not an interpolation
 // here, so a `$` not followed by `{` is DOLLAR_TEXT.
 func (s *Scanner) lexCommandMode() token.Kind {
 	switch s.src[s.pos] {
@@ -107,7 +107,7 @@ func (s *Scanner) lexInterp(form literalForm) token.Kind {
 // lexEscape consumes one ESCAPE_PAIR and validates it against string §5.1 (R248).
 //
 // The token is emitted either way: an illegal escape is still a backslash pair, its bytes
-// are claimed, and §2's tiling does not care whether they were legal — the diagnostic is
+// are claimed, and §2's tiling does not care whether they were legal; the diagnostic is
 // the parallel channel R243 separated. The span comes from escape.Check, which is what
 // makes a whole `\u{1F600}` one token and a malformed `\u{` two bytes (R245).
 func (s *Scanner) lexEscape(form literalForm) token.Kind {
@@ -126,7 +126,7 @@ func (s *Scanner) lexEscape(form literalForm) token.Kind {
 		return token.Invalid
 	}
 	if s.pos+1 >= len(s.src) {
-		// A backslash at end of input pairs with nothing, so it begins no token — which
+		// A backslash at end of input pairs with nothing, so it begins no token, which
 		// is L0012's condition, and §11 names a bare `\` as its own example (R248 keeps
 		// it there rather than calling it an unknown escape: there is no character to be
 		// absent from a table row). finish reports the unterminated literal separately;
@@ -173,7 +173,7 @@ func (s *Scanner) textRun(kind token.Kind, stop string) token.Kind {
 //
 // The newline is not consumed: it is ordinary WHITESPACE in the mode underneath, which is
 // what lets the next line lex as code rather than as more literal. So this consumes
-// nothing itself and hands off to the mode it uncovered — and emits no INVALID, because
+// nothing itself and hands off to the mode it uncovered, and emits no INVALID because
 // every byte of the literal was already claimed by a token (R243). The caret goes on the
 // opener, which is what went unclosed.
 func (s *Scanner) unterminatedMode(form literalForm) token.Kind {

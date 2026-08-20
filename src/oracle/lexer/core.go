@@ -5,9 +5,8 @@
 // dispatches on the leading byte instead, which is the same order realized: the
 // productions that share a first byte are the ones §8's ordering constrains, and each
 // such group is resolved in its own branch, in its own file, or by the longest-first
-// table in tables.go. Where §8's order is load-bearing across groups — comments before
-// division, `b"` before IDENT, the triples before their single-quote counterparts — the
-// branch says so.
+// table in tables.go. Where §8's order is vital across groups (comments before division,
+// `b"` before IDENT, the triples before their single-quote counterparts) the branch says so.
 package lexer
 
 import (
@@ -22,7 +21,7 @@ func (s *Scanner) lexDefault() token.Kind {
 	c := s.src[s.pos]
 	switch {
 	case s.pos == 0 && s.has("#!"):
-		// `\A#![^\n]*` — offset 0 only, and `INTERP_EXPR` can never be there (§2, R85).
+		// `\A#![^\n]*`: offset 0 only, and `INTERP_EXPR` can never be there (§2, R85).
 		return s.lexLine(token.Shebang)
 	case isSpace(c):
 		return s.lexWhitespace()
@@ -74,8 +73,8 @@ func (s *Scanner) lexDefault() token.Kind {
 	}
 
 	// The catch-all (§0, §11). One byte, so a multi-byte rune yields one INVALID and one
-	// L0012 per byte — the spec's wording, and the price of a rule stated over bytes
-	// rather than runes.
+	// L0012 per byte: the spec's wording, and the price of a rule stated over bytes rather
+	// than runes.
 	return s.invalid(diagnostic.UnexpectedCharacter, 1,
 		"unexpected character %q", s.src[s.pos:s.pos+1])
 }
@@ -126,7 +125,7 @@ func (s *Scanner) lexBrace() token.Kind {
 // UTF-8 (lexical-structure §1), so a byte >= 0x80 can only be inside content these
 // classes deliberately exclude.
 
-// isSpace is any whitespace, newline included — §0's `[ \t\r\n]+` run. isHorizontalSpace
+// isSpace is any whitespace, newline included: §0's `[ \t\r\n]+` run. isHorizontalSpace
 // in triple.go is the one that stops at a newline; the two are easy to confuse, so each
 // says which it is.
 func isSpace(c byte) bool { return c == ' ' || c == '\t' || c == '\r' || c == '\n' }

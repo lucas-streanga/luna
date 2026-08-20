@@ -7,8 +7,8 @@ import (
 	"luna/oracle/token"
 )
 
-// The cursor's specs. Every one is written against §4.5's invariant — pos is len(tokens) or an
-// index that is never trivia — because that invariant is what the rest of the pass assumes and
+// The cursor's specs. Every one is written against §4.5's invariant, pos being len(tokens) or
+// an index that is never trivia, because that invariant is what the rest of the pass assumes and
 // the only thing a cursor bug can break.
 
 func TestCursorAtEndIsPosPastTheLastToken(t *testing.T) {
@@ -180,7 +180,7 @@ func TestCursorExpectConsumesOnAMatch(t *testing.T) {
 }
 
 // §7.2 layer 1: synthesise a zero-width leaf of the expected kind, report, and **consume
-// nothing** — the token stays for the caller's own dispatch to meet.
+// nothing**: the token stays for the caller's own dispatch to meet.
 func TestCursorExpectSynthesisesAndDoesNotConsume(t *testing.T) {
 	expects(t, func(t *testing.T) {
 		p := parserFor(t, "}")

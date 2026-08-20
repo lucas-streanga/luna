@@ -1,7 +1,7 @@
 // Every internal panic in the oracle carries its format template, checked against the source
 // rather than remembered.
 //
-// A message that has been through fmt.Sprintf — or through string concatenation — is a different
+// A message that has been through fmt.Sprintf, or through string concatenation, is a different
 // string for every instance, so `event 42 …` and `event 7 …` are one bug wearing two faces and a
 // crash report has nothing stable to group on. Everything else a report wants can be added where
 // the panic is caught: the stack, the classification, the file, the version. **The template is
@@ -10,7 +10,7 @@
 //
 // The check lives here because Bugf does, and the rule it pins is Bugf's: everything in the
 // oracle that panics goes through it. It walks syntax trees rather than text, so it sees `panic(`
-// in code and never in a comment or a string — which matters, since this package's own doc
+// in code and never in a comment or a string, which matters since this package's own doc
 // comments name the form.
 package diagnostic_test
 

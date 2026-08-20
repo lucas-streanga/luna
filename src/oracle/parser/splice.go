@@ -12,7 +12,7 @@ import (
 //	an open is held until content arrives, and pending trivia is flushed when it is released.
 //
 // Holding is what keeps trivia out of a node that never existed. Flushing eagerly at each open
-// was correct for every open that produces a node, and §6.1 does not promise one — the trivia
+// was correct for every open that produces a node, and §6.1 does not promise one. The trivia
 // then ended up as the *enclosing* node's last child, widening its span over bytes it does not
 // own. §6.1's elision therefore lives here: an empty node is dropped rather than built and
 // deleted, and the same rule at the root is "no tree for the empty file".
@@ -23,7 +23,7 @@ import (
 // **It panics on the three preconditions it needs**, for the reason build does. Indices must be
 // in range and ascending, the stream balanced, and every token accounted for. The last is the one
 // splice needs to *deliver* coverage rather than one it reads, and it fails silently without a
-// check: an unconsumed token is still emitted, still tiles, still reconstructs — it just lands in
+// check: an unconsumed token is still emitted, still tiles, still reconstructs; it just lands in
 // a node nobody put it in. It holds by design, §7.2 skipping a token *into* an Error node (§6.2)
 // rather than past one. Kinds it never inspects, so it never checks them; build does.
 func splice(tokens []token.Token, events eventStream) eventStream {
@@ -39,7 +39,7 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 	}
 
 	// release emits the held opens, and first the trivia that was pending when the outermost of
-	// them was held — which belongs to the node enclosing them all. The root inverts that: nothing
+	// them was held, which belongs to the node enclosing them all. The root inverts that: nothing
 	// is open before File, so it is emitted first and the file's leading trivia flushes inside it,
 	// the one place §2.1's invariant admits trivia at an edge.
 	release := func() {
@@ -70,7 +70,7 @@ func splice(tokens []token.Token, events eventStream) eventStream {
 				panic(diagnostic.Bugf("parser: event %d is token(%d) after token(%d): the parser "+
 					"consumes the file in order, each token once", i, e.tok, last))
 			}
-			// The parser walks the filtered stream, so it never consumes trivia — and a flush is
+			// The parser walks the filtered stream, so it never consumes trivia, and a flush is
 			// bounded only by that: it runs while the tokens stay trivia, so one aimed at a trivia
 			// token would consume past it and emit the index twice.
 			if tokens[e.tok].IsTrivia() {

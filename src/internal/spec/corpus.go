@@ -9,7 +9,7 @@ import (
 // Block is one fenced code block labelled `luna` in the spec.
 //
 // The corpus is worth three things (lexer-testing-plan §9) and this type serves all of
-// them: a regression corpus, fuzz seeds, and — once a parser exists — a parse gate, which
+// them: a regression corpus, fuzz seeds, and (once a parser exists) a parse gate, which
 // is the strong one. Path and Line are carried for that third use, where a failure has to
 // name the block it came from.
 type Block struct {
@@ -42,7 +42,7 @@ func LunaBlocks() ([]Block, error) {
 //
 // Reading *through* the link matters for more than finding the files. Resolving it to the
 // real path would put every file outside the module, and `go help test` tracks only files
-// a test opened *within* its module — so the corpus checks would go silently cacheable,
+// a test opened *within* its module, so the corpus checks would go silently cacheable,
 // which is the exact fail-open the symlink was added to prevent.
 func walkMarkdown(dir, root string, out *[]Block) error {
 	entries, err := os.ReadDir(dir)
@@ -75,7 +75,7 @@ func walkMarkdown(dir, root string, out *[]Block) error {
 
 // blocksIn extracts the labelled blocks of one file. An unclosed fence yields whatever
 // followed it, which is the reading a markdown renderer takes and needs no error of its
-// own — the spec's own fences are checked by eye, not by this.
+// own: the spec's fences are checked by eye, not by this.
 func blocksIn(path, md string) []Block {
 	var out []Block
 	lines := strings.Split(md, "\n")

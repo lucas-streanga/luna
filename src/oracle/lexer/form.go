@@ -10,8 +10,8 @@ import "luna/oracle/escape"
 // escape.Context, because these came apart once already. `"""` shares `"…"`'s escape table
 // (R248) while spanning lines (R246), so deriving line-spanning from the escape context
 // was correct until the multi-line forms landed and silently wrong afterwards. Gathered
-// here, an impossible combination cannot be named at a call site — which is the whole of
-// what the type is for.
+// here, an impossible combination cannot be named at a call site, which is the whole of what
+// the type is for.
 type literalForm uint8
 
 const (
@@ -28,7 +28,7 @@ type rules struct {
 	escapes escape.Context
 
 	// splices is `${…}`; splicesIdent is the shorter `$name`, which string §5 gives to
-	// double-quoted strings alone — in a command or a regex a `$` not followed by `{` is
+	// double-quoted strings alone; in a command or a regex a `$` not followed by `{` is
 	// ordinary DOLLAR_TEXT.
 	splices      bool
 	splicesIdent bool
@@ -40,8 +40,7 @@ type rules struct {
 
 // formRules is the table those facts live in. `”'` is deliberately absent: it admits no
 // escapes and no interpolation, and lexTripleSq handles its newlines itself, so it would
-// be a row nothing reads — the kind of dead entry that misleads whoever scans the table
-// next.
+// be a row nothing reads, the kind of dead entry that misleads whoever scans the table next.
 var formRules = [...]rules{
 	formSq:       {escapes: escape.StringSq},
 	formDq:       {escapes: escape.StringDq, splices: true, splicesIdent: true},

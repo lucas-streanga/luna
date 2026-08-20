@@ -1,6 +1,6 @@
 package parser
 
-// grammar.md **§0.5 — Declaration literals and the closed sub-grammars**.
+// grammar.md **§0.5: Declaration literals and the closed sub-grammars**.
 //
 // `DeclLit` and `VariantPayload` are pure alternations and never reach a tree (§5), so an
 // `Initializer` shows the `ProtoLit` or `EnumLit` directly.
@@ -26,7 +26,7 @@ func (p *parser) useClause() {
 	panic("parser: useClause is unimplemented")
 }
 
-// protoInit is the `apply` operator's own closed grammar — a proto name and an optional
+// protoInit is the `apply` operator's own closed grammar: a proto name and an optional
 // initializer list, never an expression (protocols §4.2).
 func (p *parser) protoInit() {
 	panic("parser: protoInit is unimplemented")

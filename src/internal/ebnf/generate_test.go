@@ -51,8 +51,8 @@ func TestGenerateFindsClassicAmbiguity(t *testing.T) {
 }
 
 // TestGenerateLeavesLayeredGrammarAlone: the same language, stratified the way grammar.md
-// stratifies its thirteen tiers, is unambiguous — and left-recursive, which the enumeration's
-// per-length fixpoint has to handle.
+// stratifies its own, is unambiguous and left-recursive, which the enumeration's per-length
+// fixpoint has to handle.
 func TestGenerateLeavesLayeredGrammarAlone(t *testing.T) {
 	g := build(t, `
 File ::= File PLUS Term | Term
@@ -72,7 +72,7 @@ Term ::= IDENT
 
 // TestGenerateFindsNullableUnderOptional pins the one desugar hazard `?` carries. `A B? C`
 // expands to two alternatives rather than a synthetic nullable nonterminal (parse.go), which
-// is unambiguous — unless B is itself nullable, in which case the empty B is reachable two
+// is unambiguous unless B is itself nullable, in which case the empty B is reachable two
 // ways and the *EBNF* was already ambiguous. grammar.md has no such pair: every nonterminal it
 // writes under `?` requires at least one token. This is the test that would notice one arriving.
 func TestGenerateFindsNullableUnderOptional(t *testing.T) {
@@ -90,7 +90,7 @@ Maybe ::= COMMA?
 }
 
 // TestGenerateSpellingsKnob: the collision that needs a required lexeme in *two* positions is
-// unreachable without the knob, because each production only ever emits its own — so neither
+// unreachable without the knob, because each production only ever emits its own, so neither
 // generates the sentence that both accept. This is the case the knob exists for; a collision
 // needing one spelling is found either way.
 func TestGenerateSpellingsKnob(t *testing.T) {
@@ -143,19 +143,19 @@ func TestGenerateRejectsUnknownStart(t *testing.T) {
 // The deep sweep is a **proof over a fixed grammar**, not a regression over changing code: its
 // answer moves only when grammar.md does, so re-running it on every commit re-establishes what
 // the last run established. It lives in `cmd/ambiguity -sweep`, behind `./check.sh --ambiguity`,
-// with fuzzing and mutation. What stays here is three tokens — half a second under `-race` —
-// which is enough to fail loudly if the grammar is broken outright, and enough to keep the
+// with fuzzing and mutation. What stays here is a bound short enough to cost a fraction of a
+// second, still enough to fail loudly if the grammar is broken outright and to keep the
 // generator wired to the real grammar so it cannot rot unnoticed.
 //
-// **The ceiling either way is structural, not a want of tuning.** Two facts set it. The thirteen
+// **The ceiling either way is structural, not a want of tuning.** Two facts set it. The
 // expression tiers each store the whole expression language at every length, so the table
-// carries the same strings a dozen times over. And the grammar is one connected component —
-// `StringLit` admits interpolation, `Splice` holds an `Expr` — so even enumerating `Type` drags
-// in every expression form there is: naming a sub-language narrows the *output* and almost never
-// the *work*. The table is 227k strings at length 3 and 3.7M at length 4, sixteen times per
-// token. So the 6-to-8-token corners grammar.md §11 flags — the parenthesized IIFE, `x->P.m`,
-// `fn () => {}` against a variant literal — are past the ceiling of this instrument entirely,
-// and are golden-file work (oracle/parser/testdata/golden.md).
+// carries the same strings once per tier. And the grammar is one connected component:
+// `StringLit` admits interpolation and `Splice` holds an `Expr`, so even enumerating `Type`
+// drags in every expression form there is. Naming a sub-language narrows the *output* and
+// almost never the *work*, and the table grows by more than an order of magnitude per added
+// token. The longer corners grammar.md §11 flags (the parenthesized IIFE, `x->P.m`, `fn () =>
+// {}` against a variant literal) are past this instrument entirely, and are golden-file
+// work (oracle/parser/testdata/golden.md).
 func TestGrammarUnambiguousAtGateDepth(t *testing.T) {
 	g := load(t)
 	rep := enumerate(t, g, ebnf.Bound{Start: "File", MaxLen: 3})

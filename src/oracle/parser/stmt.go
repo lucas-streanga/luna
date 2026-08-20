@@ -1,6 +1,6 @@
 package parser
 
-// grammar.md **§0.2 — Statements**.
+// grammar.md **§0.2: Statements**.
 //
 // `BlockItem`, `CompoundStmt` and `BindTarget` are pure alternations and never reach a tree (§5),
 // so a `Block` prints a `Statement` over an `IfStmt` with nothing between. `Statement` and
@@ -15,8 +15,8 @@ func (p *parser) block() {
 	panic("parser: block is unimplemented")
 }
 
-// statement keeps the postfix `Modifier` as sugar (§9); §11.2's named rules — a declaration or a
-// `defer` carrying one, an `else` on one, two chained — are messages Phase 3 selects, not shapes
+// statement keeps the postfix `Modifier` as sugar (§9); §11.2's named rules (a declaration or a
+// `defer` carrying one, an `else` on one, two chained) are messages Phase 3 selects, not shapes
 // in the tree (§6.3).
 func (p *parser) statement() {
 	panic("parser: statement is unimplemented")

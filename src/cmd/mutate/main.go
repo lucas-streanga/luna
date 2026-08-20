@@ -5,8 +5,8 @@
 //	go run ./cmd/mutate -run margin
 //
 // It tests the *tests*. Each mutant is a deliberate small defect; the suite is run against
-// it; and a mutant the suite still passes is a **survivor** — which is a hole in the suite,
-// because something broke and nothing noticed.
+// it; and a mutant the suite still passes is a **survivor**, which is a hole in the suite:
+// something broke and nothing noticed.
 //
 // Coverage spans every package with behaviour worth breaking: the lexer, the escape table,
 // source, token, diagnostic, and the two module phases with the driver that wires them.
@@ -14,8 +14,8 @@
 // Survivors are the output that matters, and the tool exits non-zero when there are any.
 //
 // Mutants are written by hand rather than generated. Two reasons, both learned the hard
-// way in this package. A generated mutant is often *equivalent* — semantically identical
-// to the original, unkillable by anything, and only distinguishable by a human — so a
+// way in this package. A generated mutant is often *equivalent*, semantically identical
+// to the original, unkillable by anything, and only distinguishable by a human, so a
 // generator mostly produces triage work. And a hand-written mutant can say which test
 // ought to catch it, which turns "something failed" into "the test I believed in failed",
 // the difference between coverage and understanding.
@@ -480,7 +480,7 @@ var mutants = []mutant{
 	// --- discovery: the walk (§1.0) ---
 	{
 		// Bounded on purpose. Dropping the !seen check outright loops forever, which the
-		// harness can only report as a timeout — no named test fires, so it says nothing
+		// harness can only report as a timeout. No named test fires, so it says nothing
 		// about which check was watching. Un-seeding the entry instead lets it be reached
 		// exactly twice, which a file-set assertion catches precisely.
 		name:   "the visited set does not start with the entry",
@@ -708,7 +708,7 @@ var mutants = []mutant{
 	// deliberately not mutated: it is scaffolding, deleted when Parse lands.
 	//
 	// **Several of these panic rather than fail**, because the package checks its preconditions
-	// always and on purpose — and a panic ends the test binary, so only the first test to reach it
+	// always and on purpose, and a panic ends the test binary, so only the first test to reach it
 	// gets to report. Where that happens `expect` names *that* test rather than the one which owns
 	// the rule, and the narrow test never runs at all. It is worth knowing which mutants are in
 	// that class, so each says so.
@@ -735,7 +735,7 @@ var mutants = []mutant{
 		expect: "TestSplicePlacesTrivia",
 	},
 	{
-		// Both of these make a *precondition* fire, and a panic ends the test binary — so the
+		// Both of these make a *precondition* fire, and a panic ends the test binary, so the
 		// only test that gets to report is whichever runs first, by file name. The narrow tests
 		// that own these rules (TestSpliceHoldsOpensUntilContent, TestSplicePlacesTrivia) never
 		// run at all. `expect` therefore names the first test to reach it rather than the one
@@ -757,7 +757,7 @@ var mutants = []mutant{
 	},
 	{
 		// Panics: the index is emitted twice, which the builder meets as a token out of order. Which
-		// test reports it therefore moves whenever an earlier-sorting file gains one — it was
+		// test reports it therefore moves whenever an earlier-sorting file gains one. It was
 		// TestRandomShapes until builder_test.go grew a case that reaches this first.
 		name:   "a consumed token is left unconsumed",
 		file:   "oracle/parser/splice.go",
@@ -791,7 +791,7 @@ var mutants = []mutant{
 	{
 		// Panics, and unavoidably: `filled` doubles as "this frame has a child", so *any* mutant
 		// that misroutes cover leaves some node empty and trips §6.1 before the run ends. Clamping
-		// to the root is still worth it over a bare `n-3` — it keeps File covered long enough for
+		// to the root is still worth it over a bare `n-3`: it keeps File covered long enough for
 		// the span assertions to report, which is what this mutant is for.
 		name:   "a closed node widens its grandparent",
 		file:   "oracle/parser/builder.go",
@@ -929,7 +929,7 @@ func main() {
 		case killed:
 			// Whether the *expected* test noticed, not merely whether something did. A
 			// kill by some other test is still a kill, but it means the suite's shape is
-			// not what its author believed — and that is worth seeing.
+			// not what its author believed, and that is worth seeing.
 			if !contains(by, m.expect) {
 				fmt.Printf("killed by %s — but not by %s\n", strings.Join(by, ", "), m.expect)
 				unexpected = append(unexpected, m)
@@ -950,7 +950,7 @@ func main() {
 		if sig, yes := stopping(); yes {
 			// Leave here rather than falling through to the summary. An interrupted run
 			// has established nothing, and printing "0 survived" over the handful that
-			// did run would report a pass for work that was never done — the same
+			// did run would report a pass for work that was never done, the same
 			// fail-open check.sh's --count=1 and missing-tool rules exist to refuse.
 			fmt.Fprintf(os.Stderr, "\nmutate: interrupted after %d of %d; nothing is concluded\n",
 				i+1, len(selected))
@@ -989,8 +989,8 @@ const (
 // which cannot run a defer can still restore it. Guarded because the signal handler reads
 // it from its own goroutine while run writes it from main's.
 //
-// One mutant is live at a time — run is sequential, deliberately, since two mutants at once
-// would each be tested against the other's defect — so a single slot is the whole state.
+// One mutant is live at a time. run is sequential on purpose, since two mutants at once would
+// each be tested against the other's defect, so a single slot is the whole state.
 //
 // stopping is the half that is easy to leave out, and the test caught its absence: restoring
 // on a signal is useless on its own, because main is still running and will apply the *next*
@@ -1004,7 +1004,7 @@ var pending struct {
 }
 
 // apply records the file and writes the mutation, both under one lock, so an interrupt can
-// only land wholly before or wholly after — never in the window between a write and the
+// only land wholly before or wholly after, never in the window between a write and the
 // note saying it happened.
 //
 // It reports false once a signal has been seen, which is how the loop learns to stop.
@@ -1052,7 +1052,7 @@ func restoreLocked() {
 }
 
 // stopping reports the signal seen, if any, so the loop can leave promptly rather than
-// running the suite once per remaining mutant with nothing mutated — and so it can exit
+// running the suite once per remaining mutant with nothing mutated, and so it can exit
 // with the status that signal deserves.
 func stopping() (syscall.Signal, bool) {
 	pending.Lock()
@@ -1064,7 +1064,7 @@ func stopping() (syscall.Signal, bool) {
 //
 // This exists because a **terminating signal runs no deferred function**, and Ctrl-C is the
 // likely interruption: mutation is the minutes-long step of check.sh, so it is the one a
-// person actually stops. Without this, the mutant applied at that moment stays applied — a
+// person actually stops. Without this, the mutant applied at that moment stays applied: a
 // checked-in source file quietly holding a deliberate defect, which is the single failure
 // this tool must never have. (It has happened: `source.go`'s BOM check was found reading
 // `if false`, and the three failures it caused looked like a design bug rather than a
@@ -1115,7 +1115,7 @@ func run(root string, m mutant) (outcome, []string) {
 		os.Exit(1)
 	}
 
-	// Exactly one occurrence, or the mutation is ambiguous — and an ambiguous one applied
+	// Exactly one occurrence, or the mutation is ambiguous, and an ambiguous one applied
 	// somewhere unreached is indistinguishable from a weak suite. Checked before arming,
 	// because nothing has been written yet and there is nothing to put back.
 	if n := strings.Count(string(original), m.old); n != 1 {

@@ -9,7 +9,7 @@ import (
 //
 // Skipping trivia is the whole transform, everything else having been decided upstream: tiers
 // that did not fire never reached the tree, empty nodes were deleted (§6.1), and spans are read
-// off the node. File's span needs no special case for the same reason — §2.1 confines trivia at
+// off the node. File's span needs no special case for the same reason: §2.1 confines trivia at
 // an edge to File alone, so it comes out 0..len(source) on its own.
 
 // RenderGolden prints a tree in the golden format. A nil tree renders as nothing: the empty file,

@@ -1,14 +1,14 @@
 // Package parser is the oracle's recursive-descent parser (compiler §1.3): tokens in, a
 // lossless CST and P diagnostics out.
 //
-// Three stages, one per file — parse the trivia-filtered tokens grammar.md §0 is defined over
+// Three stages, one per file: parse the trivia-filtered tokens grammar.md §0 is defined over
 // into a flat event stream, splice the trivia back in by index, build the arena. Splitting them
 // is a test seam before it is anything else, so a failure names one of the three rather than
 // leaving one diff over a nested structure (§4).
 //
-// parser-implementation.md is authoritative for how the tree is shaped and why — kind-tagged
-// rather than a struct per construct, one arena, trivia as ordinary nodes, immutable once built
-// — each with the alternative it beat. Neither it nor testdata/golden.md is a CHANGES.md
+// parser-implementation.md is authoritative for how the tree is shaped and why: kind-tagged
+// rather than a struct per construct, one arena, trivia as ordinary nodes, immutable once
+// built, each with the alternative it beat. Neither it nor testdata/golden.md is a CHANGES.md
 // ruling: only language decisions get those.
 //
 // Names belonging to the golden format are Golden-scoped, ReadGolden rather than Read, so that
@@ -28,7 +28,7 @@ import (
 // *source.File is still needed, for the spelling-matched terminals. tokens is the **full** stream,
 // because splice needs the trivia the parser never sees.
 //
-// Damaged input still gets a tree, and so does a file whose lexing failed — an INVALID token is
+// Damaged input still gets a tree, and so does a file whose lexing failed: an INVALID token is
 // excess in §6's sense and raises no P code, the lexer having already raised an L (§6.5).
 // **The empty file is the one input with no tree** (§6.1), and therefore the only nil.
 func Parse(f *source.File, tokens []token.Token) (*Tree, []diagnostic.Diagnostic) {
@@ -39,7 +39,7 @@ func Parse(f *source.File, tokens []token.Token) (*Tree, []diagnostic.Diagnostic
 // parse is the recursive descent: a function per grammar.md §0 nonterminal, over the
 // trivia-filtered view. Its shape is `newParser`, `p.file()`, return the two sinks.
 //
-// There is no error return and no early exit — error tolerance is a property of the pass (tooling
+// There is no error return and no early exit; error tolerance is a property of the pass (tooling
 // §3). Every path therefore ends with a stream satisfying splice's preconditions: balanced with
 // File opened and closed here, indices ascending and never trivia, and every non-trivia token
 // consumed, one that could not be placed having gone **into** an Error node rather than past it.

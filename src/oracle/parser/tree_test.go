@@ -1,4 +1,4 @@
-// The arena and the navigation API (§3.1), against a tree written by hand — the same seam §4.2
+// The arena and the navigation API (§3.1), against a tree written by hand: the same seam §4.2
 // gives the builder one stage up, so the storage is judged by use without waiting for a parser.
 package parser
 
@@ -10,7 +10,7 @@ import (
 	"luna/oracle/token"
 )
 
-// The trailing WHITESPACE hangs off File rather than off Statement — §2.1 in miniature, since
+// The trailing WHITESPACE hangs off File rather than off Statement: §2.1 in miniature, since
 // close happens before pending trivia is flushed.
 const handSource = "x;\n"
 
@@ -79,8 +79,8 @@ func TestTreeNavigation(t *testing.T) {
 }
 
 // TestTreeAtRejectsAnUnknownID pins the documented panic: a NodeID means nothing without its
-// tree, so one from another tree — or from a previous parse, IDs being stable within one only —
-// is a caller error rather than something to return zero for.
+// tree, so one from another tree, or from a previous parse since IDs are stable within one
+// only, is a caller error rather than something to return zero for.
 func TestTreeAtRejectsAnUnknownID(t *testing.T) {
 	tree := handTree(t)
 	assertPanics(t, "no node 5 in a tree of 5", func() { tree.At(NodeID(tree.Len())) })

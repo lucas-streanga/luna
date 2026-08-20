@@ -15,7 +15,7 @@ import (
 
 const (
 	ext = ".luna"
-	// std is the standard library's virtual root (modules §10) — resolved by the compiler,
+	// std is the standard library's virtual root (modules §10), resolved by the compiler,
 	// never a directory, and a name a project may not take.
 	std = "std"
 )
@@ -25,14 +25,14 @@ const (
 // fsys is rooted at the **module root**, so a file's path within it is its module path with
 // dots for slashes: `utils/parse.luna` is `utils.parse`, and entry is the root module with
 // the empty path (modules §3). That is why the parameter is an fs.FS and not a directory
-// name — the mapping needs no path arithmetic, callers pass os.DirFS(dir), and tests pass
+// name: the mapping needs no path arithmetic, callers pass os.DirFS(dir), and tests pass
 // fstest.MapFS. §3's one rule covers applications and libraries alike: the root is the
 // directory of the entry file.
 //
 // It raises no diagnostic (R250). A path resolving to no file is skipped and its Edge kept
 // for §1.2; cycles are terminated by the visited set and diagnosed there too.
 //
-// The error return is not a diagnostic channel — only "discovery could not proceed": an
+// The error return is not a diagnostic channel, only "discovery could not proceed": an
 // unreadable entry, or an I/O failure on a file that exists.
 //
 // A file ingress rejects (invalid UTF-8, a leading BOM) is still listed, with an empty prelude
@@ -46,7 +46,7 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 
 	var res Result
 	// Keyed by file, not module, so a file reached by two spellings is read once. This is also
-	// what terminates cycles — discovery's whole involvement with them (R190).
+	// what terminates cycles, discovery's whole involvement with them (R190).
 	seen := map[string]bool{entry: true}
 
 	for queue := []string{entry}; len(queue) > 0; {
@@ -71,7 +71,7 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 
 		f, err := source.New(file, string(src))
 		if err != nil {
-			// Ingress rejected the bytes, so the prelude cannot be read — but the file is still
+			// Ingress rejected the bytes, so the prelude cannot be read, but the file is still
 			// part of the program. Listing it is what puts it in §1.1's input, and §1.1 is what
 			// reports the ingress error; dropping it here would leave nobody to.
 			res.Files = append(res.Files, File{Path: file, Module: module})
@@ -88,7 +88,7 @@ func Discover(fsys fs.FS, entry string) (Result, error) {
 			})
 
 			// R250 left std resolution unruled and there is no tree to resolve against, so the
-			// edge is recorded and nothing followed — committing to neither answer.
+			// edge is recorded and nothing followed, committing to neither answer.
 			if reserved(imported.path) {
 				continue
 			}
@@ -115,7 +115,7 @@ func fileOf(module string) string {
 // module and has the empty path (modules §3).
 //
 // Not a total inverse: a directory whose name contains a dot would round-trip to the wrong
-// module. No import path can address such a directory — dots become slashes — so the only file
+// module. No import path can address such a directory, dots becoming slashes, so the only file
 // that could sit in one is the entry, which returns the empty path and never round-trips.
 func moduleOf(file, entry string) string {
 	if file == entry {
@@ -169,7 +169,7 @@ type preludeReader struct {
 	ok  bool
 }
 
-// advance moves to the next significant token. Stopping early is just not calling it again —
+// advance moves to the next significant token. Stopping early is just not calling it again,
 // what Scanner exists for.
 func (p *preludeReader) advance() {
 	for {
@@ -186,7 +186,7 @@ func (p *preludeReader) text() string { return p.f.Slice(p.tok.Offset, p.tok.Len
 
 // atWord matches an identifier by spelling. Only `from` needs this: it is unreserved
 // (modules §5, R223) and lexes as IDENT, so the from-clause is recognized positionally. `as`
-// is a real keyword (§0, `KW_AS`) and needs no such treatment — which together are what keep
+// is a real keyword (§0, `KW_AS`) and needs no such treatment, which together are what keep
 // `import { parse as from } from m;` legal, the alias target being an ordinary name.
 func (p *preludeReader) atWord(w string) bool { return p.at(token.Ident) && p.text() == w }
 
@@ -194,7 +194,7 @@ func (p *preludeReader) atWord(w string) bool { return p.at(token.Ident) && p.te
 //
 // Keywords qualify, and that is the point: a path segment is not a name. modules §5 makes
 // `import std.filesystem;` bind nothing called `filesystem`, so `test` and `error` in a path
-// collide with nothing — while `test/` and `error/` are among the most ordinary directory
+// collide with nothing, while `test/` and `error/` are among the most ordinary directory
 // names there are, and §3 maps paths straight onto directories.
 //
 // The line this must not cross is the braced name list, whose entries *do* bind. Nothing here
@@ -202,8 +202,8 @@ func (p *preludeReader) atWord(w string) bool { return p.at(token.Ident) && p.te
 // demands token.Ident, so a keyword cannot become a binding by this route.
 //
 // Only the parser's view changes; the lexer still emits KW_TEST and is untouched. Luna
-// already resolves one token-kind-versus-role question by position — R223's unreserved
-// `from` — and this is the same move in the other direction.
+// already resolves one token-kind-versus-role question by position, R223's unreserved
+// `from`, and this is the same move in the other direction.
 func (p *preludeReader) atSegment() bool {
 	if !p.ok {
 		return false
@@ -254,8 +254,8 @@ func (p *preludeReader) item() (importRef, bool) {
 // skipAnnotation consumes `: T`, leaving the reader on the `=`.
 //
 // The type is skipped rather than parsed: §1.3 owns type syntax, and discovery needs only to
-// reach the `=` to learn whether an import follows. modules §6 makes the annotation legal —
-// an assigned import's type "is `table`, annotatable and inferable" — and dropping the form
+// reach the `=` to learn whether an import follows. modules §6 makes the annotation legal,
+// an assigned import's type being "`table`, annotatable and inferable", and dropping the form
 // loses its edge with nothing to catch it, the annotated spelling being as valid as the bare
 // one.
 //
@@ -289,7 +289,7 @@ func (p *preludeReader) skipAnnotation() bool {
 // spec parses what follows `import`: a bare path, or a braced name list and a from-clause.
 func (p *preludeReader) spec() (importRef, bool) {
 	if p.accept(token.LBrace) {
-		// Names are skipped wholesale — discovery wants the path, and the list's contents are
+		// Names are skipped wholesale: discovery wants the path, and the list's contents are
 		// §1.3's business.
 		for !p.at(token.RBrace) {
 			if !p.ok {
@@ -313,7 +313,7 @@ func (p *preludeReader) spec() (importRef, bool) {
 }
 
 // path parses a dotted module path, returning where its last token ends. A segment is an
-// identifier or a keyword — see atSegment.
+// identifier or a keyword (see atSegment).
 //
 // The end is tracked rather than inferred from the assembled string, because the two disagree
 // wherever trivia sits between the segments: `a . b` is three characters of module path and

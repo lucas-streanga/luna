@@ -17,7 +17,7 @@ import (
 // caller gets. Nothing here needs the prelude reader, so nothing here should see it.
 
 // mark points at the byte where the prelude is expected to end. It is stripped before the
-// source reaches Discover, so its index *is* the expected offset — which beats counting
+// source reaches Discover, so its index *is* the expected offset, which beats counting
 // bytes by hand and keeps a case readable when its source changes.
 //
 // A source with no mark expects the prelude to run to end of file.
@@ -161,7 +161,7 @@ import decoy.late;
 		"real/two.luna": "",
 	})
 	// The comment decoys are skipped as trivia and the prelude continues past them; the rest
-	// sit after the prelude, so discovery never reads them at all — including the late import,
+	// sit after the prelude, so discovery never reads them at all, including the late import,
 	// which is §1.2's error to raise, not discovery's to find.
 	equal(t, "edges", edges(res), []string{"(root)->real.one", "(root)->real.two"})
 	equal(t, "files", paths(res), []string{"app.luna", "real/one.luna", "real/two.luna"})
@@ -245,7 +245,7 @@ func TestReservedRoot(t *testing.T) {
 
 	// `stdlib` is the case that matters: it *does* begin with the reserved name, so it is what
 	// separates "reserved is `std` exactly, or a path beneath it" from "reserved is anything
-	// starting with std". `standard` cannot make that distinction — it begins `sta` — and is
+	// starting with std". `standard` cannot make that distinction, beginning `sta`, and is
 	// kept only as an ordinary neighbour. Mutation testing found the original test asserting
 	// the distinction with `standard` alone, which tested nothing.
 	equal(t, "files", paths(res), []string{"app.luna", "stdlib.luna", "standard.luna"})
@@ -265,7 +265,7 @@ func TestMissingImportIsSkipped(t *testing.T) {
 // TestIngressRejectedFileIsListed pins the fix for a hole this suite originally asserted.
 //
 // A file the lexer's ingress refuses cannot have its prelude read, so its dependencies go
-// undiscovered — that part is unavoidable. What matters is that the file itself is still
+// undiscovered, which is unavoidable. What matters is that the file itself is still
 // listed: §1.1 lexes the discovered set and owns the lexical codes, so a file dropped here is
 // a BOM nobody reports, surfacing at §1.2 as a bogus unresolved import instead.
 func TestIngressRejectedFileIsListed(t *testing.T) {
@@ -306,8 +306,8 @@ func TestIngressRejectedEntryIsListed(t *testing.T) {
 // TestErrors covers the one channel that is not a diagnostic: discovery could not start.
 // TestErrors covers the one channel that is not a diagnostic: discovery could not start.
 //
-// A malformed path carries no code — it is a caller bug, belonging to the `I` stage per
-// modules §12's uncoded list — so those cases pin the prose, having nothing better. The
+// A malformed path carries no code, being a caller bug that belongs to the `I` stage per
+// modules §12's uncoded list, so those cases pin the prose, having nothing better. The
 // missing entry does carry one, and pins that instead (testing-strategy §2).
 func TestErrors(t *testing.T) {
 	t.Run("missing entry carries M0005", func(t *testing.T) {
@@ -360,8 +360,8 @@ func TestEmptyTree(t *testing.T) {
 }
 
 // TestFormSpace sweeps the grammar the prelude admits, rather than the forms I happened to
-// think of. §5's grid crossed with the two modifiers §6 allows on an assigned import —
-// `export`, and a type annotation — is ten spellings of one edge, and every one must produce
+// think of. §5's grid crossed with the two modifiers §6 allows on an assigned import
+// (`export` and a type annotation) is every spelling of one edge, and each must produce
 // it.
 //
 // This exists because the annotation was missed: `const d = import p;` was tested and
@@ -405,7 +405,7 @@ func TestFormSpace(t *testing.T) {
 }
 
 // TestSpecExamplesAreDiscoverable pins discovery to the spec's own worked examples. Every
-// import modules.md writes in a `luna` block must yield an edge — if the spec shows a form,
+// import modules.md writes in a `luna` block must yield an edge: if the spec shows a form,
 // discovery reads it, and neither can drift without the other noticing.
 //
 // The corpus is read rather than copied for the reason §0's token table is: a form added to
@@ -523,7 +523,7 @@ func TestKeywordSegmentPositions(t *testing.T) {
 }
 
 // TestKeywordsAreNotNames is the boundary. A path segment is not a name, so relaxing path
-// position must not relax the two places a name is actually bound — otherwise this stops
+// position must not relax the two places a name is actually bound, or this stops
 // being "keywords may appear in paths" and becomes "keywords are identifiers".
 func TestKeywordsAreNotNames(t *testing.T) {
 	t.Run("a binding name may not be a keyword", func(t *testing.T) {
@@ -543,8 +543,8 @@ func TestKeywordsAreNotNames(t *testing.T) {
 
 	t.Run("a braced name list is the parser's to judge", func(t *testing.T) {
 		// Discovery skips the names wholesale, so `{ test }` is followed rather than rejected.
-		// Over-approximation is the safe direction — the file set grows, and §1.3 reports the
-		// illegal binding — but it is deliberate, not an oversight.
+		// Over-approximation is the safe direction, the file set growing while §1.3 reports the
+		// illegal binding, and it is deliberate rather than an oversight.
 		res := run(t, "app.luna", map[string]string{
 			"app.luna": "import { test } from dep;\n",
 			"dep.luna": "",

@@ -125,12 +125,12 @@ type badEscape struct {
 // Stopping at whichever comes first is what makes the fast path exact rather than
 // optimistic. If the closing delimiter arrives before any `${`, the literal provably
 // holds no splice and §0's span pattern is the whole answer; if a `${` arrives first,
-// that delimiter may well be inside the splice — F1's example, `"${x ?? "none"}"` — and
-// no regex can settle it. Since R244 the whole question is line-local, so the lookahead
+// that delimiter may well be inside the splice (F1's example, `"${x ?? "none"}"`) and no
+// regex can settle it. Since R244 the whole question is line-local, so the lookahead
 // is bounded by a line rather than by the file.
 //
-// Escapes are one pair, in every delimited form — command literals included since R150
-// (command §2.2, closing G5) — but a backslash-newline is not one of them in a
+// Escapes are one pair in every delimited form, command literals included since R150
+// (command §2.2, closing G5), but a backslash-newline is not one of them in a
 // newline-bounded form, so a trailing `\` cannot continue the literal.
 func probeLiteral(src string, i int, close byte, form literalForm) probe {
 	// Read once. The loop would otherwise re-derive them on every byte of the literal.
@@ -179,12 +179,12 @@ func (s *Scanner) reportEscapes(bad []badEscape) {
 	}
 }
 
-// unterminated reports L0009 and covers what the literal consumed as one INVALID — bytes
+// unterminated reports L0009 and covers what the literal consumed as one INVALID: bytes
 // to the newline that ended it, or to end of input for the file's last line and for a
 // regex (R244).
 //
 // The two spans differ on purpose. The diagnostic's primary span is a caret position and
-// belongs on the opening delimiter — that is what went unclosed — while the token records
+// belongs on the opening delimiter, which is what went unclosed, while the token records
 // what the scanner consumed. Keeping those separate is what R242 bought, and it is why
 // §2's tiling survives here.
 func (s *Scanner) unterminated(form literalForm, openerLen, end int) token.Kind {

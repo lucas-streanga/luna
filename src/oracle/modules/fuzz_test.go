@@ -15,7 +15,7 @@ import (
 //
 // The lexer earned its fuzzer by consuming arbitrary input; discovery consumes exactly the
 // same input and then runs a hand-written parser over the result, which is the part no other
-// technique reaches. The risk is not a wrong answer — the tables cover those — but a panic on
+// technique reaches. The risk is not a wrong answer, which the tables cover, but a panic on
 // a shape nobody thought to write down.
 //
 // Properties beyond "did not panic" are asserted below, because a fuzzer that only checks for
@@ -89,7 +89,7 @@ func FuzzDiscover(f *testing.F) {
 
 		_, diags := modules.Validate(res, toks)
 		for _, d := range diags {
-			// A code with no title is one no spec table names, which Validate refuses — the
+			// A code with no title is one no spec table names, which Validate refuses:
 			// same guard the end-to-end tests apply, here over inputs nobody chose.
 			if err := d.Validate(); err != nil {
 				t.Errorf("%v", err)

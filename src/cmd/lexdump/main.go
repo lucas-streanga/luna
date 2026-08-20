@@ -1,16 +1,16 @@
 // Command lexdump prints the token stream for a file or for stdin.
 //
-// The tool you want when a golden surprises you and you would rather try three variants
-// than write three files:
+// The tool you want when a golden surprises you and you would rather try three variants than
+// write three files:
 //
 //	go run ./cmd/lexdump file.luna
 //	echo 'let x = ~"a"bar;' | go run ./cmd/lexdump
 //	go run ./cmd/lexdump -golden file.luna > oracle/lexer/testdata/case.lex
 //
-// Token lines are testdata/*.lex notation already (FORMAT.md), because that is the
-// notation these are reviewed against — no second vocabulary to learn. Diagnostics carry
-// their line, column, and description as well, which a golden does not record; -golden
-// drops those so the output can be pasted straight into a case.
+// Token lines use testdata/*.lex notation (FORMAT.md), which is what these are reviewed
+// against, so there is no second vocabulary to learn. Diagnostics also carry their line,
+// column and description, which a golden does not record; -golden drops those so the output
+// pastes straight into a case.
 package main
 
 import (

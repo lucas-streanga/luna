@@ -28,7 +28,7 @@ import (
 var update = flag.Bool("update", false, "rewrite testdata/*.lex from actual lexer output")
 
 // entry is one expectation line: a token, or a diagnostic when Code is set. Both
-// carry a span, which is what lets them be compared in one ordered sequence — the
+// carry a span, which is what lets them be compared in one ordered sequence: the
 // order the scanner produced them, which is source order.
 type entry struct {
 	Code   diagnostic.Code // empty for a token line
@@ -201,7 +201,7 @@ func TestGolden(t *testing.T) {
 
 // checkPlacement pins the corpus's own layout, because a misfiled golden is otherwise
 // invisible: it still passes, it just stops meaning what its directory says. A split
-// maintained only by habit degrades silently, and this one is worth keeping honest —
+// maintained only by habit degrades silently, and this one is worth keeping honest:
 // "these inputs lex clean" is a claim about the language, not about the filesystem.
 func checkPlacement(t *testing.T, g golden, got []entry) {
 	t.Helper()
@@ -237,7 +237,7 @@ func compare(t *testing.T, g golden, got []entry) {
 //
 // It holds on invalid input too, because bytes no real production claims are covered
 // by INVALID rather than dropped. Diagnostics take no part: they are a parallel
-// channel, and their spans are caret positions rather than coverage records — which
+// channel, and their spans are caret positions rather than coverage records, which
 // is exactly what R242 separated.
 func checkTiling(t *testing.T, g golden, got []entry) {
 	t.Helper()

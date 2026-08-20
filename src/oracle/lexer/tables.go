@@ -8,13 +8,12 @@ import "luna/oracle/token"
 // and §8.5's maximal-munch chains.
 
 // keywords promotes an identifier to its keyword, which is §3's recommended
-// implementation: one IDENT scan and a lookup, rather than 49 patterns attempted in
-// order. The two compound keywords are absent — `match!` and `yield from` are folded
+// implementation: one IDENT scan and a lookup, rather than a pattern per keyword tried
+// in order. The two compound keywords are absent; `match!` and `yield from` are folded
 // by the peeks in lexWord, because neither is a plain word.
 //
-// 47 entries, matching §3's count. `panic`, `_`, the proto grant modifiers `get` and
-// `set`, and every builtin type name are deliberately not here: they lex as IDENT
-// (keywords §4–§5).
+// `panic`, `_`, the proto grant modifiers `get` and `set`, and every builtin type name
+// are deliberately not here: they lex as IDENT (keywords §4–§5).
 var keywords = map[string]token.Kind{
 	"var":        token.KwVar,
 	"let":        token.KwLet,
@@ -71,10 +70,10 @@ type op struct {
 	kind token.Kind
 }
 
-// operators is every token recognized by its bytes alone: §0's 37 operator rows and 7
-// of its 10 punctuation rows, grouped by first byte and **longest lexeme first within
+// operators is every token recognized by its bytes alone: §0's operator rows and most of
+// its punctuation, grouped by first byte and **longest lexeme first within
 // a group**. The within-group order is §8.5's chains transcribed verbatim, and it is a
-// correctness requirement rather than a style (F6) — `??` listed before `?` is what
+// correctness requirement rather than a style (F6): `??` listed before `?` is what
 // makes `??` one token. Order *between* groups is irrelevant, since dispatch is on the
 // first byte.
 //
@@ -108,9 +107,9 @@ var operators = []op{
 	{",", token.Comma}, {";", token.Semicolon}, {":", token.Colon},
 }
 
-// opsByByte indexes operators by first byte, preserving table order — so the
-// longest-first property above survives into the lookup, and matching is a walk over
-// at most seven candidates rather than the whole table.
+// opsByByte indexes operators by first byte, preserving table order, so the longest-first
+// property above survives into the lookup and matching walks a handful of candidates
+// rather than the whole table.
 var opsByByte [256][]op
 
 func init() {

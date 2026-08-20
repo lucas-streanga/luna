@@ -3,7 +3,7 @@
 // This is what let §1 choose a kind tag over a struct per construct, and what lets the
 // constants be hand-written: the enum is checkable against grammar.md §0 both ways, where a
 // struct per production would let a production added to §0 with nothing behind it pass
-// unnoticed — the R232 defect class one level up.
+// unnoticed, the R232 defect class one level up.
 //
 // In-package, because the numeric half is about firstNode.
 package parser
@@ -96,7 +96,7 @@ func TestKindsMatchGrammar(t *testing.T) {
 
 // TestTokenRangeIsMirrored is the other half of §5's single kind space: Kind(tk.Kind) must be a
 // conversion and not a translation. Asserted per token rather than by comparing two totals,
-// since enums of equal size can still disagree value by value — and the teeth are in the name
+// since enums of equal size can still disagree value by value, and the teeth are in the name
 // comparison, because a node kind inside the token range would take its name from nodeNames
 // instead of delegating.
 func TestTokenRangeIsMirrored(t *testing.T) {

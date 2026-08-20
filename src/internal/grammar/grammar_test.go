@@ -16,7 +16,7 @@ import (
 // TestGeneratedFilesAreCurrent is the regeneration check, and the whole point of generating
 // these.
 //
-// cmd/grammarcheck could only ask whether a grammar still named a retired keyword — a probe,
+// cmd/grammarcheck could only ask whether a grammar still named a retired keyword, a probe
 // so it found what it was told to look for and nothing else. This asks the total question
 // instead: are the bytes on disk the bytes this package produces? A ruling that moves a §0
 // row now fails the suite, and so does a hand edit to a generated file.
@@ -46,7 +46,7 @@ func TestGeneratedFilesAreCurrent(t *testing.T) {
 	}
 }
 
-// knownDefective are the §0 rows whose pattern is wrong pending a ruling — every one of
+// knownDefective are the §0 rows whose pattern is wrong pending a ruling. Every one of
 // them the `\x7c` confusion described on defects.
 //
 // Listing them keeps the suite green without hiding them: the test asserts each one still
@@ -78,7 +78,7 @@ var contextual = map[string]bool{
 // §0's first column is examples of the token and its fourth is the pattern that must match
 // them. Nothing had ever run one against the other: the lexer is hand-written from the prose
 // and its tests are written from the lexer, so a pattern could be wrong in the table for
-// years and no check would notice — which is exactly what happened to four rows.
+// years and no check would notice, which is exactly what happened.
 func TestSpecPatternsMatchTheirExamples(t *testing.T) {
 	inv, err := spec.Load()
 	if err != nil {
@@ -134,12 +134,12 @@ func TestSpecPatternsMatchTheirExamples(t *testing.T) {
 //
 // TestGeneratedFilesAreCurrent guards the first arrow. This guards the second, and it exists
 // because src/ is *committed*: Zed fetches the grammar by repo and rev and compiles
-// src/parser.c with its own toolchain — it has no tree-sitter-cli — so the generated parser
+// src/parser.c with its own toolchain, having no tree-sitter-cli, so the generated parser
 // is the shipped artifact, not a build intermediate (zed-luna/README.md, R60).
 //
 // Both ends of that arrow being tracked is what makes the lag committable. git cannot tell
 // you: it sees two modified files and has no idea one is derived from the other. So this
-// asks the question directly — grammar.json embeds every pattern verbatim, so a pattern
+// asks the question directly: grammar.json embeds every pattern verbatim, so a pattern
 // present in the source and absent from the compiled form means the container step has not
 // been run since the source last changed.
 //
@@ -180,7 +180,7 @@ func TestCompiledParserIsCurrent(t *testing.T) {
 
 // compiledPatterns returns every string in the compiled grammar, joined.
 //
-// Decoded rather than searched raw, because the two files escape differently — grammar.js
+// Decoded rather than searched raw, because the two files escape differently: grammar.js
 // writes `b?"` where grammar.json writes `b?\"`. Decoding normalizes that away, which is the
 // trap that made an earlier version of this check report `#[` missing from three files that
 // all had it.
@@ -220,7 +220,7 @@ func compiledPatterns(path string) (string, error) {
 // TestQueryNamesOnlyRealNodes is the check that keeps Zed from losing Luna entirely.
 //
 // A tree-sitter query naming a node type the parser does not produce fails as a whole with
-// TSQueryErrorNodeType — not that one pattern, the whole file — so highlights.scm getting
+// TSQueryErrorNodeType, not that one pattern but the whole file, so highlights.scm getting
 // ahead of parser.c takes highlighting down for the language rather than degrading. The
 // generator gates on node-types.json for that reason; this asserts the result independently,
 // so a hand edit to the query is caught too.
@@ -300,9 +300,9 @@ func TestTmLanguageIsValidJSON(t *testing.T) {
 }
 
 // TestEveryPatternCompilesAsRE2 checks what generation actually emits, defect corrections
-// included. RE2 is the strictest of the three engines involved — oniguruma runs the
+// included. RE2 is the strictest of the three engines involved: oniguruma runs the
 // TextMate grammars and Rust's regex-syntax runs tree-sitter's, and both accept everything
-// RE2 does — so compiling here is the nearest thing to evidence the grammars load.
+// RE2 does, so compiling here is the nearest thing to evidence the grammars load.
 //
 // Nearest, not proof. Nothing available locally can tell whether generated grammar.js is
 // well-formed *JavaScript*, because that is settled by node inside the container; a pattern
@@ -353,7 +353,7 @@ func TestEveryPatternCompilesAsRE2(t *testing.T) {
 // and reports three rows failing for a reason that is entirely its own.
 //
 // Rows describing their token in prose ("spaces, tabs, newlines") yield none, and so do
-// spans carrying an ellipsis or a placeholder — `#!…`, `<margin>"""` — which illustrate a
+// spans carrying an ellipsis or a placeholder (`#!…`, `<margin>"""`) which illustrate a
 // shape rather than a lexeme.
 func examples(col string) []string {
 	var out []string
@@ -380,7 +380,7 @@ func examples(col string) []string {
 		if len(ex) > 1 && strings.HasPrefix(ex, " ") && strings.HasSuffix(ex, " ") {
 			ex = ex[1 : len(ex)-1]
 		}
-		// The first column is prose, so a pipe in it is markdown-escaped — unlike the pattern
+		// The first column is prose, so a pipe in it is markdown-escaped, unlike the pattern
 		// column, which uses `\x7c` for the same purpose. The OR and BAR rows show `\|\|`.
 		ex = strings.ReplaceAll(ex, `\|`, "|")
 

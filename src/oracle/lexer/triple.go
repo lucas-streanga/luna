@@ -1,6 +1,6 @@
 // The multi-line literal modes, `TRIPLE_DQ_STRING` and `TRIPLE_SQ_STRING` (R246).
 //
-// `"""` is `"…"` with more lines — the same escape table, the same interpolation — and
+// `"""` is `"…"` with more lines, the same escape table and the same interpolation, and
 // the raw triple, spelled with three single quotes, has no escapes and no interpolation:
 // every byte between the delimiters is its own.
 // Both strip a **margin**, the closing delimiter's indentation, from each content line.
@@ -8,7 +8,7 @@
 // The margin is emitted as a trivia token rather than removed, which is what makes
 // stripping a *classification* instead of a transformation: nothing deletes anything, the
 // decoder concatenates content and skips trivia, and §2's tiling needs no special case.
-// The cooked-versus-raw difference then reduces to one bit — whether a line's trailing
+// The cooked-versus-raw difference then reduces to one bit: whether a line's trailing
 // whitespace is trivia or content.
 //
 // Neither form has a single-token fast path. A triple always has margins to tokenize, so
@@ -31,7 +31,7 @@ const (
 // lexTripleOpen scans an opener and enters its mode.
 //
 // The margin lives at the *end* of the literal, so the scanner must find the closing line
-// before it can lex the body — one lookahead per literal, the same shape as F1's `${`
+// before it can lex the body, one lookahead per literal, the same shape as F1's `${`
 // probe. Finding no closer is not an error here: the mode is entered anyway and finish
 // reports the unterminated literal at end of input, exactly as the single-line modes do.
 func (s *Scanner) lexTripleOpen(delim string, kind modeKind, open token.Kind) token.Kind {
@@ -134,7 +134,7 @@ func (s *Scanner) lexTripleDqMode() token.Kind {
 
 // lexTripleSqMode scans the raw triple, the simplest literal in the language: after
 // the margin, a line is one RAW_TEXT run. No escapes, no interpolation, and trailing
-// whitespace preserved — which is what makes this the form for content that is sensitive
+// whitespace preserved, which is what makes this the form for content that is sensitive
 // to it (R246).
 func (s *Scanner) lexTripleSqMode() token.Kind {
 	if s.atLineStart() {
@@ -157,8 +157,8 @@ func (s *Scanner) lexTripleSqMode() token.Kind {
 // delimiter, or content.
 //
 // When the following line is the closer, the token spans the newline *and* the margin
-// *and* the delimiter. That is how R246's rule — the last newline belongs to the
-// delimiter rather than to the value — becomes structural, settled by one token's span
+// *and* the delimiter. That is how R246's rule, the last newline belonging to the
+// delimiter rather than to the value, becomes structural: settled by one token's span
 // rather than by a special case wherever the value is built.
 func (s *Scanner) lexLineBreak(delim string, close, content token.Kind) token.Kind {
 	if n := s.closerLen(s.pos+1, delim); n >= 0 {
@@ -170,8 +170,8 @@ func (s *Scanner) lexLineBreak(delim string, close, content token.Kind) token.Ki
 	return content
 }
 
-// closerLen reports how many bytes the closing delimiter occupies at i — the margin
-// followed by the delimiter — or -1 when the line at i is not the closing line.
+// closerLen reports how many bytes the closing delimiter occupies at i, the margin followed
+// by the delimiter, or -1 when the line at i is not the closing line.
 //
 // Checked at a line start as well as after a newline, because the closer may be the very
 // first line after the opener: that is the empty multi-line string, whose newline the
@@ -208,9 +208,9 @@ func (s *Scanner) atLineStart() bool { return s.pos > 0 && s.src[s.pos-1] == '\n
 // the caller falls through to the line's content.
 //
 // The check is a **byte prefix**, never a column count: comparing columns would require a
-// tab width, and §9 (R236) refuses to pick one. So it is stricter than "further left" — a
+// tab width, and §9 (R236) refuses to pick one. So it is stricter than "further left": a
 // four-space margin rejects a line indented with a tab, whose position is unknowable
-// without the width nobody has chosen — and that strictness is the point, since the
+// without the width nobody has chosen. That strictness is the point, since the
 // alternative is a literal whose value depends on an editor setting.
 func (s *Scanner) lexMargin() token.Kind {
 	m := s.modes[s.modeIndex()]

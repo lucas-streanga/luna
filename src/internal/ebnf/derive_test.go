@@ -10,7 +10,7 @@ import (
 )
 
 // sketch renders a tree as one line, `Name(child child)`, with token spans on the leaves. It
-// is deliberately not the golden format — these tests check the *shape* the chart reconstructs,
+// is deliberately not the golden format; these tests check the *shape* the chart reconstructs,
 // and the format is internal/golden's business.
 func sketch(n *ebnf.Node) string {
 	if n.Terminal {

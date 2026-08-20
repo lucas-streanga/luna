@@ -1,6 +1,6 @@
 package parser
 
-// grammar.md **§0.1 — File and declarations**.
+// grammar.md **§0.1: File and declarations**.
 //
 // `TopLevelItem`, `PathSegment` and `BindingKw` are pure alternations that never reach a tree
 // (§5), so they dispatch rather than open; the last two are token tests inside their callers.
@@ -23,7 +23,7 @@ func (p *parser) prelude() {
 // assignedImportAhead decides grammar.md's flagged prelude junction with a predicate that peeks at
 // most five tokens and consumes nothing, rather than by left-factoring `PreludeItem` against
 // `BindingDecl`. §4.7 has the argument; the short version is that the two are not
-// prefix-identical in the *tree* — a bare `IDENT` against a `Binder` — so factoring costs a seam
+// prefix-identical in the *tree*, a bare `IDENT` against a `Binder`, so factoring costs a seam
 // inside `BindingDecl` and fails worse at end of input.
 func (p *parser) assignedImportAhead() bool {
 	panic("parser: assignedImportAhead is unimplemented")

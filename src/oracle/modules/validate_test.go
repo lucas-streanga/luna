@@ -17,7 +17,7 @@ import (
 // the only way the three agree about what a `Result` looks like. Hand-built `Result`s would
 // let a test assert against a shape discovery never produces.
 
-// validate discovers, lexes every discovered file, and validates — the driver's job, in
+// validate discovers, lexes every discovered file, and validates: the driver's job, in
 // miniature (driver.md §1).
 func validate(t *testing.T, entry string, files map[string]string) (modules.Graph, diagnostic.List) {
 	t.Helper()
@@ -45,7 +45,7 @@ func validate(t *testing.T, entry string, files map[string]string) (modules.Grap
 	return modules.Validate(res, toks)
 }
 
-// codes renders the diagnostics as "CODE@file:offset", which is what tests pin —
+// codes renders the diagnostics as "CODE@file:offset", which is what tests pin,
 // testing-strategy §2 pins the code and the primary span, never the prose.
 func codes(l diagnostic.List) []string {
 	out := make([]string, 0, len(l))
@@ -82,7 +82,7 @@ func layers(g modules.Graph) []string {
 
 // TestCleanGraphHasNoDiagnostics is the floor. Every case below asserts that some check
 // fires; this one asserts they stay quiet, which a validator that reported everything would
-// fail and a validator that reported nothing would pass — hence the layer assertion too.
+// fail and a validator that reported nothing would pass, hence the layer assertion too.
 func TestCleanGraphHasNoDiagnostics(t *testing.T) {
 	g, diags := validate(t, "app.luna", map[string]string{
 		"app.luna": "import b;\nimport c;\n",

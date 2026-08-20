@@ -2,7 +2,7 @@
 //
 // Three parties must agree about the token inventory: lexer §0's table, lexer §10's
 // prose summary, and this package's constants. Checking code against the table alone
-// would miss the defect this project has already shipped once — R232 fixed a "47
+// would miss the defect this project has already shipped once: R232 fixed a "47
 // patterns" claim standing over a 49-row table, a prose-vs-table drift that no
 // two-party check sees.
 //
@@ -53,10 +53,10 @@ func TestSpecReaderIsArmed(t *testing.T) {
 			got, categoryCount, inv.Claims.ByCategory)
 	}
 
-	// The 131-vs-127 arithmetic depends on rows the reader must tell apart: three
-	// sharing INVALID, and four sharing DOUBLE and BYTES. If it stops distinguishing
+	// The row-versus-kind arithmetic depends on rows the reader must tell apart: the ones
+	// sharing INVALID, and the ones sharing DOUBLE and BYTES. If it stops distinguishing
 	// them the totals still add up by accident, so assert the shapes directly. Since
-	// R242 no row is nameless — every §0 row names a token.
+	// R242 no row is nameless: every §0 row names a token.
 	var nameless, noted, invalid int
 	for _, r := range inv.Rows {
 		switch {
@@ -127,7 +127,7 @@ func TestCategoriesMatchSpec(t *testing.T) {
 }
 
 // TestCountsAgree is the three-party check. §0's table, §10's prose, and this
-// package must report the same totals — which is the shape of the R232 defect.
+// package must report the same totals, which is the shape of the R232 defect.
 func TestCountsAgree(t *testing.T) {
 	inv := loadSpec(t)
 	actual, claims := inv.Actual(), inv.Claims
@@ -158,8 +158,8 @@ func TestCountsAgree(t *testing.T) {
 }
 
 // TestUnsetIsNotAToken pins the zero value. Kind's zero must not name a real
-// token, or an uninitialized token silently reads as WHITESPACE — the first kind
-// declared — and every span check downstream inherits the lie.
+// token, or an uninitialized token silently reads as WHITESPACE (the first kind declared) and
+// every span check downstream inherits the lie.
 func TestUnsetIsNotAToken(t *testing.T) {
 	if got := token.Unset.String(); got != "UNSET" {
 		t.Errorf("Unset.String() = %q, want %q", got, "UNSET")

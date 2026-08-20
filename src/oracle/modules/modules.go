@@ -3,7 +3,7 @@
 //
 // One package because R190 makes them two halves of one job: discovery **finds**, validation
 // **judges**. Discovery answers *which files* and raises no diagnostic (R250); every import
-// error — unresolvable path, cycle, late import — is validation's.
+// error (unresolvable path, cycle, late import) is validation's.
 //
 // Discovery exists to break the pipeline's bootstrap circle: lexing cannot start without the
 // file set, and the file set is written in imports, which only lexing can read.
@@ -11,8 +11,8 @@
 // # Layout
 //
 //	modules.go   the types both phases pass
-//	discover.go  §1.0 — Discover, the BFS walk, the prelude reader, path resolution
-//	validate.go  §1.2 — Validate, the DAG, and every import diagnostic
+//	discover.go  §1.0, Discover, the BFS walk, the prelude reader, path resolution
+//	validate.go  §1.2, Validate, the DAG, and every import diagnostic
 package modules
 
 import (
@@ -24,7 +24,7 @@ import (
 // Error is a reason discovery could not proceed, carrying the code that names it.
 //
 // It is not a diagnostic.Diagnostic, for the reason source.Error is not: there is no file to
-// point a span at — the entry named one that does not exist — so the caller converts, adding
+// point a span at, the entry having named one that does not exist, so the caller converts, adding
 // what it knows. The dependency runs one way, modules to diagnostic, which keeps diagnostic a
 // leaf and lets a renderer sit above both.
 //
@@ -44,7 +44,7 @@ type File struct {
 	Path string // slash-separated, relative to the root: `utils/parse.luna`
 
 	// Module is Path with dots for slashes and no extension: `utils.parse`. The root module's
-	// path is empty (modules §3) — the one module not named by its file.
+	// path is empty (modules §3), the one module not named by its file.
 	Module string
 
 	// PreludeEnd is the offset of the first token that is not part of an import, or the file
@@ -60,12 +60,12 @@ type File struct {
 //
 // To is the *written* path, not a resolved file, and that is the point: an edge survives when
 // nothing on disk answers it. Discovery skips the missing file silently and §1.2 reports it
-// from here — the no-diagnostics contract without losing the error (R250).
+// from here: the no-diagnostics contract without losing the error (R250).
 type Edge struct {
 	From, To string // module paths
 
-	// Offset and Len span the path as written, in the file From came from. Free — the prelude
-	// reader is holding those tokens when it records the edge — and §1.2 cannot do without
+	// Offset and Len span the path as written, in the file From came from. Free, since the prelude
+	// reader is holding those tokens when it records the edge, and §1.2 cannot do without
 	// them: an unresolved import whose diagnostic points at the file rather than at the import
 	// is a diagnostic that makes the reader search.
 	//

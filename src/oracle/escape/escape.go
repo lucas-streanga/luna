@@ -8,7 +8,7 @@
 // project spends its process avoiding.
 //
 // The check is three staged questions, in order, each reachable only by passing the one
-// before — which is what keeps the codes disjoint (R248):
+// before, which is what keeps the codes disjoint (R248):
 //
 //   - Is the character in this context's row?      no → L0005
 //   - Is its shape well formed?                    no → L0013 (\u{…}), L0016 (\xNN)
@@ -25,7 +25,7 @@ import (
 	"luna/oracle/diagnostic"
 )
 
-// Context is the literal form an escape appears in — the key string §5.1's table is
+// Context is the literal form an escape appears in, the key string §5.1's table is
 // written on, and the one thing a later phase would have to re-derive, which is why the
 // lexer is what runs this (R248).
 type Context uint8
@@ -41,14 +41,14 @@ const (
 // allowed is string §5.1's table, one row per context: the characters that may follow a
 // backslash.
 //
-// **Regex has no row**, deliberately — an empty one would read as "nothing is allowed
+// **Regex has no row**, deliberately: an empty one would read as "nothing is allowed
 // there", the opposite of the truth. Check answers it before consulting this table; the
 // array is sized to hold the index anyway, so a future edit that drops that guard reads a
 // zero value rather than running off the end.
 //
 // Bytes carries both quote escapes. §5.1's row is written for the `b"…"` form, but bytes
 // §7 rules that the quote style does not matter, and a literal must be able to escape
-// whichever delimiter closes it — so `b'don\'t'` is legal for the same reason `b"say \""`
+// whichever delimiter closes it, so `b'don\'t'` is legal for the same reason `b"say \""`
 // is. That is an inference from two rules rather than a third rule stated outright.
 var allowed = [Regex + 1]string{
 	StringDq: "ntr\\\"$u",
@@ -63,7 +63,7 @@ var allowed = [Regex + 1]string{
 func (c Context) passthrough() bool { return c == Regex }
 
 // Allowed is the characters that may follow a backslash in ctx, or the empty string where
-// the context has no table — the regex, whose escapes pass through undecoded.
+// the context has no table, the regex being the one whose escapes pass through undecoded.
 //
 // Exported for the grammar generator, which turns the same rows into the escape rules the
 // editor grammars carry. Reading them from here rather than restating them is the point:
@@ -101,7 +101,7 @@ func Check(src string, i int, ctx Context) (n int, code diagnostic.Code) {
 
 // codepoint validates `\u{H…}`: one to six hex digits in braces.
 //
-// A malformed one reports over the `\u` alone — the span R245 arranged deliberately, by
+// A malformed one reports over the `\u` alone, the span R245 arranged deliberately, by
 // making the long alternative fail so `\\.` takes two bytes, precisely so a caret has
 // somewhere to sit. A well-formed one naming no scalar reports over the whole escape,
 // because there the digits are the problem and the reader needs to see them.
@@ -121,7 +121,7 @@ func codepoint(src string, i int) (int, diagnostic.Code) {
 	n := j + 1 - i
 	// Surrogates are not scalar values: they exist only to encode astral planes in UTF-16
 	// and have no UTF-8 form, so admitting them would break the validity lexical-structure
-	// §1 establishes at ingress — which is the whole reason \u{…} exists and \xNN is
+	// §1 establishes at ingress, which is the whole reason \u{…} exists and \xNN is
 	// bytes-only (string §5.1).
 	if v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF) {
 		return n, diagnostic.InvalidCodepointEscape
@@ -129,7 +129,7 @@ func codepoint(src string, i int) (int, diagnostic.Code) {
 	return n, ""
 }
 
-// hexByte validates `\xNN`: exactly two hex digits (bytes §7). Two, not "up to two" —
+// hexByte validates `\xNN`: exactly two hex digits (bytes §7). Two, not "up to two":
 // `\x8` is a typo rather than a shorthand, and a raw octet has a fixed width.
 func hexByte(src string, i int) (int, diagnostic.Code) {
 	if !isHex(byteAt(src, i+2)) || !isHex(byteAt(src, i+3)) {

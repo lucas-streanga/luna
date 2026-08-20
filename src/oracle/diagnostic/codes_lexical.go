@@ -1,10 +1,10 @@
 package diagnostic
 
-// The lexical diagnostics — lexer §11's table, one constant per row, in one file so
+// The lexical diagnostics: lexer §11's table, one constant per row, in one file so
 // it can be diffed against the spec at a glance.
 //
-// Two are raised at ingress by package source, before any tokenizing; the other ten
-// by the lexer. They live together anyway, because §11 is one table and splitting the
+// Two are raised at ingress by package source, before any tokenizing; the rest by
+// the lexer. They live together anyway, because §11 is one table and splitting the
 // series by which package happens to raise it would defeat the point of the file.
 //
 // Numbering is append-only and never reused (R240). A retired check's code stays
@@ -33,7 +33,7 @@ const (
 
 // lexicalTitles is the title fixed to each lexical code.
 //
-// A title is part of a code's identity (R240) — it is what `luna explain L0003`
+// A title is part of a code's identity (R240). It is what `luna explain L0003`
 // prints, and unlike a description it does not vary per instance. These are §11's
 // Title column verbatim, and a test pins them against it.
 var lexicalTitles = map[Code]string{

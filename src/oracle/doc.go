@@ -7,7 +7,7 @@
 // production compiler's own source (R234, R241).
 //
 // The constraint: the production compiler shares no code with this tree
-// (R241). It is written in Luna, so the language barrier enforces that — a
+// (R241). It is written in Luna, so the language barrier enforces that: a
 // Luna program cannot import a Go package. Nothing under compiler/ may be
 // wired to oracle/value or oracle/std.
 //
@@ -25,7 +25,7 @@
 // Vocabulary is the data phases pass between them: token, source, diagnostic, ast, lir,
 // value. These are not stages and are not nested inside the stage that happens to
 // produce them, because each sits below several. source in particular is reached by
-// everything that can report a location — parser for a syntax error, sema for a type
+// everything that can report a location: parser for a syntax error, sema for a type
 // error, eval for a runtime one, diagnostic because R240 makes every span (file, offset,
 // length).
 //

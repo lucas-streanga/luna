@@ -1,15 +1,15 @@
 // The spec corpus gate (lexer-testing-plan §9).
 //
 // Every ```luna block in the spec must lex with no diagnostic at all. That is a stronger
-// claim than the fuzz seeds make — they assert only the structural properties, because a
-// mutated seed is expected to be broken — and it is the claim worth attaching a name to,
+// claim than the fuzz seeds make, which assert only the structural properties because a
+// mutated seed is expected to be broken, and it is the claim worth attaching a name to,
 // so a failure says which block in which file rather than "seed#312".
 //
 // What this gate does *not* catch is worth stating, because the opposite was once assumed
 // here. A lexing gate is permissive: retired spellings lex perfectly well. `pub` is an
 // IDENT, `caps.io` is IDENT DOT IDENT, `use (&io)` is KW_USE LPAREN AMP IDENT RPAREN. The
-// one exception is R237, which made `/…/` lexically invalid rather than merely retired —
-// and that exception is exactly how the site R237's own sweep missed was found.
+// one exception is R237, which made `/…/` lexically invalid rather than merely retired,
+// and that exception is how the site R237's own sweep missed was found.
 //
 // So this is a regression guard for the implementation, plus a discovery tool for the one
 // class of spec drift that changes what is lexable.

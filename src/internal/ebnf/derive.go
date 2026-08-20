@@ -55,7 +55,7 @@ func (g *Grammar) Derive(toks []Token) (*Node, error) {
 //
 // The chart records how an item was reached, not what it contains, so the children come out by
 // walking the dot backwards: each cause names the item one position earlier plus the thing that
-// filled the gap — a scanned terminal, or a completed nonterminal. Walking from the end means
+// filled the gap: a scanned terminal, or a completed nonterminal. Walking from the end means
 // they arrive in reverse, which is why the slice is turned at the finish.
 func (g *Grammar) node(c *chart, k key) (*Node, error) {
 	p := g.Prods[k.it.prod]

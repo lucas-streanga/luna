@@ -1,7 +1,7 @@
 // Package grammar generates the editor highlighting grammars from the oracle.
 //
 // Three artifacts under tooling/ tokenize Luna outside the compiler, and cmd/grammarcheck
-// exists because all three had drifted from §0 — one still naming a keyword retired in
+// exists because all three had drifted from §0, one still naming a keyword retired in
 // R145, all four missing R237's `~"…"` and R246's triples. Every one of those findings was
 // a *table*: a keyword list, a delimiter form, a set of operators. Tables are exactly what
 // a generator gets right for free.
@@ -11,13 +11,12 @@
 // The vocabulary is read from the oracle and the spec at generation time:
 //
 //   - Patterns come from §0's fourth column, verbatim. internal/spec already parses it, and
-//     since R237 those patterns are RE2-clean — that ruling removed the division-set
+//     since R237 those patterns are RE2-clean, that ruling having removed the division-set
 //     lookbehind precisely because RE2 could not express it, which is also what makes them
 //     portable to oniguruma without translation.
 //   - Attempt order comes from §0's row order, which §8 already sorts longest-first. A
 //     TextMate `patterns` array is first-match-wins in order, so maximal munch transfers as
-//     a straight transcription. This is the load-bearing coincidence that makes the whole
-//     idea work.
+//     a straight transcription. That coincidence is what makes the whole idea work.
 //   - Keyword *grouping* comes from internal/highlight, so the docs renderer and the editor
 //     grammars classify `spawn` the same way because they read one table, not because two
 //     people made the same call.
@@ -27,7 +26,7 @@
 // The rule *structure* is not derived, and cannot be. §0 describes a mode stack; a TextMate
 // grammar is begin/end/patterns. Both are pushdown machines and the mapping is faithful, but
 // it is a translation between formalisms rather than a transcription, so the skeleton in
-// textmate.go is written by hand. That is the piece a new literal form makes you edit —
+// textmate.go is written by hand. That is the piece a new literal form makes you edit,
 // roughly a once-a-ruling event, against tables that refresh themselves every run.
 //
 // # What generation does not buy
@@ -66,7 +65,7 @@ func loadPatterns() (*patterns, error) {
 			continue
 		}
 		if fixed, bad := defects[r.Name]; bad {
-			// One entry replaces every row of the name — DOUBLE owns two — so a defect is
+			// One entry replaces every row of the name, DOUBLE owning two, so a defect is
 			// corrected once rather than per row.
 			if _, seen := p.byName[r.Name]; !seen {
 				p.order = append(p.order, r.Name)
@@ -88,9 +87,9 @@ func loadPatterns() (*patterns, error) {
 
 // pattern is the single regex for name, and fails loudly when there is not exactly one.
 //
-// Three §0 rows carry prose where a pattern would go — MARGIN's "the closing delimiter's
+// Three §0 rows carry prose where a pattern would go: MARGIN's "the closing delimiter's
 // exact indentation bytes", INTERP_CLOSE's "the `}` returning brace depth to zero", and
-// INVALID's catch-all — because each is a rule about lexer state rather than about bytes.
+// INVALID's catch-all, because each is a rule about lexer state rather than about bytes.
 // None is reachable from a TextMate grammar anyway. Asking for one of them is a bug in the
 // caller, and a renamed or reformatted row is a bug in the spec sweep; both surface here
 // rather than as a silently empty rule in a shipped grammar.
@@ -124,7 +123,7 @@ func (p *patterns) alternation(names []string) string {
 	return strings.Join(parts, "|")
 }
 
-// lexeme is a token's spelling, from §0's first column — `var`, `match!`, `yield from`.
+// lexeme is a token's spelling, from §0's first column: `var`, `match!`, `yield from`.
 //
 // The first column rather than the name, because the name loses the spelling: KW_MATCH_BANG
 // says nothing about the `!` and KW_YIELD_FROM nothing about the space. Rows whose first
@@ -164,7 +163,7 @@ func (p *patterns) namesInOrder(category string, keep func(string) bool) []strin
 }
 
 // backtickRe takes the pattern column's leading code span. Triple backticks come first
-// because the command rows are written that way — their pattern contains a backtick.
+// because the command rows are written that way: their pattern contains a backtick.
 var backtickRe = regexp.MustCompile("^(?:```(.+?)```|``(.+?)``|`(.+?)`)")
 
 // defects are §0 rows whose pattern does not compile to what the row means, with the
@@ -175,7 +174,7 @@ var backtickRe = regexp.MustCompile("^(?:```(.+?)```|``(.+?)``|`(.+?)`)")
 // *literal* pipe, and these three rows use it where **alternation** is meant. `0\x7c[1-9]…`
 // as written matches the three-character string `0|1`; it matches neither `42` nor `0`,
 // which are the examples in its own first column. The OR and BAR rows, which do mean a
-// literal pipe, are correct — so the notation carries two incompatible meanings and nothing
+// literal pipe, are correct, so the notation carries two incompatible meanings and nothing
 // distinguishes them.
 //
 // The correction is not in doubt: §4 and every worked example read these as alternation, and

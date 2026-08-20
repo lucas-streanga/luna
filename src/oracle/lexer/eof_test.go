@@ -1,13 +1,13 @@
 // The conditions a golden cannot express (lexer-testing-plan §2).
 //
 // A .lex file's input is everything before the `---` separator, trailing newline included,
-// so a source that *ends without one* is unrepresentable — the same limitation txtar has,
+// so a source that *ends without one* is unrepresentable, the same limitation txtar has,
 // and FORMAT.md says such cases belong in a Go table test instead. This is that table.
 //
 // Two productions can only be reached that way. `lexLine`'s end-of-input branch, where a
 // line comment or shebang runs off the end rather than meeting a newline; and, since R244
 // bounded every single-byte-opener literal at its line, a literal that reaches end of
-// input at all — which for those forms requires the file to stop mid-line.
+// input at all, which for those forms requires the file to stop mid-line.
 //
 // The fuzz suite covers both incidentally, on inputs nobody chose. These name them.
 package lexer_test
@@ -68,7 +68,7 @@ func TestEndOfInput(t *testing.T) {
 	}, {
 		// The same backslash on the *mode* path, where lexEscape reaches it and condemns
 		// the byte on its own. The fast path above raises only L0009, because it never
-		// looks at an escape individually — the two paths differ, and R247 rules that
+		// looks at an escape individually. The two paths differ, and R247 rules that
 		// difference deliberate rather than an inconsistency to iron out.
 		name: "backslash at end of input, mode path",
 		src:  `let s = "a${x}b\`,
@@ -78,7 +78,7 @@ func TestEndOfInput(t *testing.T) {
 		codes: []diagnostic.Code{diagnostic.UnterminatedLiteral, diagnostic.UnexpectedCharacter},
 	}, {
 		// On the mode path, every byte is claimed by a real token, so there is no INVALID
-		// at all — and finish reports one diagnostic per frame left open, outermost first.
+		// at all, and finish reports one diagnostic per frame left open, outermost first.
 		name: "splice open at end of input",
 		src:  `let s = "a${x`,
 		kinds: []token.Kind{token.KwLet, token.Ident, token.Assign,

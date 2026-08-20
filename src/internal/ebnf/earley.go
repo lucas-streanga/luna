@@ -13,7 +13,7 @@ import (
 // different from §0, which is the one thing this tool must not be. A PEG would be worse still:
 // ordered choice *resolves* ambiguity silently, where detecting it is half the point.
 //
-// Earley takes any context-free grammar unchanged — left-recursive, ambiguous, epsilon-ridden.
+// Earley takes any context-free grammar unchanged: left-recursive, ambiguous, epsilon-ridden.
 
 // Token is the recognizer's input: a kind and the lexeme, since a terminal may require both
 // (grammar.md's IDENT("from")).
@@ -41,7 +41,7 @@ type key struct {
 // deduplicates items, so two derivations that finish through the same production are one
 // item and the count says "1". Only ambiguity at the very top production would ever show.
 // Recording each item's causes turns the chart into a parse forest, where an item reached two
-// different ways is an ambiguous node — the real question.
+// different ways is an ambiguous node, which is the real question.
 //
 // A scan has exactly one cause and can never be ambiguous. A completion's cause names both
 // halves: the item that was waiting, and the completed item that satisfied it.
@@ -59,8 +59,8 @@ type Result struct {
 
 	// Expected is the terminals that would have let the parse continue at Furthest, sorted.
 	// It is the grammar's own answer to "what belongs here", and it is filled in only on a
-	// rejection — computing it for every accepted input would cost the generator dearly and
-	// tell it nothing.
+	// rejection, since computing it for every accepted input would cost the generator dearly
+	// and tell it nothing.
 	Expected []string
 }
 
@@ -91,8 +91,8 @@ func (g *Grammar) Recognize(toks []Token) Result {
 
 // expectedAt reads the frontier: every terminal sitting immediately after a dot in the item set
 // the parse reached. That set *is* the grammar's answer to "what could come next here", and it
-// is the raw material of a syntax diagnostic — though not the diagnostic itself, since a list of
-// forty admissible tokens is a fact, not a sentence anyone wants to read.
+// is the raw material of a syntax diagnostic, though not the diagnostic itself: a long list of
+// admissible tokens is a fact, not a sentence anyone wants to read.
 func (g *Grammar) expectedAt(c *chart, at int) []string {
 	if at < 0 || at >= len(c.order) {
 		return nil
@@ -174,7 +174,7 @@ func (g *Grammar) chart(toks []Token) *chart {
 					add(k, item{prod: pi, pos: 0, origin: k}, nil)
 				}
 				// An epsilon production completes in the same set, so an item waiting on a
-				// nullable nonterminal must be advanced here too — the classic Earley
+				// nullable nonterminal must be advanced here too: the classic Earley
 				// nullable bug, and the reason `A B? C` parses at all.
 				for _, pi := range g.byLHS[sym.Name] {
 					if len(g.Prods[pi].RHS) == 0 {
@@ -212,8 +212,8 @@ func (g *Grammar) chart(toks []Token) *chart {
 // to a parse, and reports whether any of them was reached more than one way.
 //
 // The walk is restricted to reachable items on purpose. An item elsewhere in the chart may
-// well have two causes without the input being ambiguous — Earley explores derivations that
-// go nowhere — so counting over the whole chart would report ambiguity that does not exist.
+// well have two causes without the input being ambiguous, since Earley explores derivations
+// that go nowhere, so counting over the whole chart would report ambiguity that is not there.
 func anyAmbiguous(roots []key, causes map[key][]cause) bool {
 	seen := map[key]bool{}
 	stack := append([]key{}, roots...)
@@ -259,9 +259,9 @@ func (r Result) Explain(toks []Token) string {
 		where = fmt.Sprintf("no parse at token %d (%s %q)",
 			r.Furthest, toks[r.Furthest].Kind, toks[r.Furthest].Text)
 	}
-	// Frontiers are bimodal over this grammar: the small ones run 1, 2, 4, 5, 6 and the next
-	// size is 11. Below the gap the list *is* the message; above it, it is forty ways to start
-	// an expression and says nothing. So the cut is where the data puts it, not at a round
+	// Frontiers are bimodal over this grammar: a cluster of small ones, then a jump to sizes an
+	// order larger. Below the gap the list *is* the message; above it, it is every way to start
+	// an expression and says nothing. So the cut sits in the gap the data shows, not at a round
 	// number picked for tidiness.
 	if len(r.Expected) > 0 && len(r.Expected) <= 6 {
 		where += ", expected " + strings.Join(r.Expected, " or ")

@@ -2,8 +2,8 @@
 //
 //	go run ./cmd/luna app.luna
 //
-// It runs the batch pipeline as far as the passes go — §1.0 discover, §1.1 lex, §1.2 import
-// validation — and prints the diagnostics as JSON.
+// It runs the batch pipeline as far as the passes go (§1.0 discover, §1.1 lex, §1.2 import
+// validation) and prints the diagnostics as JSON.
 //
 // The JSON is throwaway. Diagnostic rendering is its own concern and gets its own module:
 // line and column, a caret under the span, `luna explain <code>`. This exists so there is

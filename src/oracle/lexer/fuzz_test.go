@@ -1,7 +1,7 @@
 // The fuzz target (lexer-testing-plan §6).
 //
 // A lexer is an unusually good fuzz target because every property worth checking needs no
-// oracle — the answers are structural, so an arbitrary input can be judged without anyone
+// oracle: the answers are structural, so an arbitrary input can be judged without anyone
 // knowing what it should have lexed to.
 //
 // This is an *internal* test, deliberately: the mode-stack property reads s.modes, and
@@ -29,8 +29,8 @@ import (
 //     that is not a wasted case: the rejection must be a *source.Error carrying L0001 or
 //     L0002 (lexical-structure §1), never a panic and never some other code.
 //  2. The scan never panics, on any byte sequence at all.
-//  3. It terminates. Structural since R242 — Next panics unless the step covered at least
-//     one byte — so a target that returns has proved it, and one that loops is caught by
+//  3. It terminates. Structural since R242, Next panicking unless the step covered at least
+//     one byte, so a target that returns has proved it and one that loops is caught by
 //     the fuzzer's own timeout rather than by an assertion here.
 //  4. Spans tile the input exactly: monotonic, gapless, summing to the length.
 //  5. Every frame still open at end of input is explained by a diagnostic, and no token
@@ -40,7 +40,7 @@ import (
 // tautological**, and deliberately so: Next builds every span as start..s.pos and asserts
 // that a mode both advanced and stayed in bounds, so tokens tile by construction and this
 // check survives only as a guard on that arithmetic. Nor does it see a mode consuming the
-// *wrong* number of bytes while staying in range — that still tiles perfectly and produces
+// *wrong* number of bytes while staying in range: that still tiles perfectly and produces
 // the wrong tokens. R242's direction was to convert tested properties into structural
 // ones; the residue is the wrong-token class, which §7's differential was the only thing
 // that would have caught.
@@ -64,10 +64,10 @@ func FuzzLexer(f *testing.F) {
 // checkProperties asserts the five properties over one input.
 //
 // Shared with TestRandomStreams rather than restated there, because the properties are one
-// idea and the two callers differ only in where their bytes come from — coverage-guided
+// idea and the two callers differ only in where their bytes come from: coverage-guided
 // mutation from real Luna here, blind uniform draws there. It also matters that this runs
 // at all by default: a plain `go test` gives a fuzz target only its seed corpus, so
-// without the random caller these would be checked on 537 curated inputs and on nothing
+// without the random caller these would be checked on the curated seeds and on nothing
 // else until somebody remembered to pass -fuzz.
 func checkProperties(t *testing.T, data []byte) {
 	src, err := source.New("fuzz", string(data))

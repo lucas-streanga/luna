@@ -3,8 +3,8 @@
 // These come first and matter most. The desugar is the one place this package can disagree
 // with grammar.md without saying so: if `A B?` rewrites wrongly, the tool tests a language the
 // spec does not describe and every corpus result afterwards is quietly worthless. So each
-// rewrite is checked against a hand-computed language — the strings it must accept and the
-// strings it must reject — rather than against its own output.
+// rewrite is checked against a hand-computed language, the strings it must accept and the
+// strings it must reject, rather than against its own output.
 package ebnf_test
 
 import (
@@ -33,7 +33,7 @@ func build(t *testing.T, src string) *ebnf.Grammar {
 }
 
 // accepts asserts the exact language of a small grammar: every string in yes must derive and
-// every string in no must not. Checking both directions is the point — a desugar that admits
+// every string in no must not. Checking both directions is the point: a desugar that admits
 // too much passes a yes-only test.
 func accepts(t *testing.T, src string, yes, no [][]token.Kind) {
 	t.Helper()
@@ -93,7 +93,7 @@ func TestStar(t *testing.T) {
 }
 
 func TestPlus(t *testing.T) {
-	// `A+` excludes it — the difference `*` and `+` exist to express.
+	// `A+` excludes the empty string, which is the difference `*` and `+` exist to express.
 	accepts(t, "File ::= COMMA+",
 		[][]token.Kind{
 			{token.Comma},
@@ -166,7 +166,7 @@ Item ::= IDENT COMMA?
 }
 
 func TestSpellingMatchedTerminal(t *testing.T) {
-	// IDENT("from") matches the lexeme, not just the kind — the positional match that leaves
+	// IDENT("from") matches the lexeme, not just the kind: the positional match that leaves
 	// `from` unreserved (R223).
 	g := build(t, `File ::= IDENT("from") IDENT`)
 
@@ -187,7 +187,7 @@ func TestAmbiguityIsDetected(t *testing.T) {
 	// The nonterminals are UpperCamel deliberately: a name with no lowercase letter is a
 	// *terminal* by symbolFor's rule, so `A ::= IDENT` would define a production for a token
 	// kind and never be reached. grammar.md's names are all UpperCamel, so this only bites
-	// in hand-written test grammars — here, once.
+	// in hand-written test grammars, as here.
 	g := build(t, `
 File ::= Left | Right
 Left ::= IDENT
@@ -205,8 +205,8 @@ Right ::= IDENT
 // TestAmbiguityBelowTheStartSymbol is the case that exposed the first implementation as
 // unsound. Counting completed start items cannot see this: both derivations finish through
 // the *same* File production, and Earley deduplicates items, so the count says one. Only
-// recording why each item entered the chart — and walking back from the accepting item —
-// makes an ambiguous node visible.
+// recording why each item entered the chart, then walking back from the accepting item, makes
+// an ambiguous node visible.
 func TestAmbiguityBelowTheStartSymbol(t *testing.T) {
 	g := build(t, `
 File ::= LPAREN Inner RPAREN
@@ -273,7 +273,7 @@ List ::= IDENT | List COMMA IDENT
 
 func TestNullableNonterminal(t *testing.T) {
 	// A nonterminal that derives ε must let the item waiting on it advance in the same set.
-	// Miss this and `A B? C` silently stops parsing — the classic Earley nullable bug.
+	// Miss this and `A B? C` silently stops parsing: the classic Earley nullable bug.
 	accepts(t, `
 File ::= LPAREN Maybe RPAREN
 Maybe ::= IDENT | Nothing
@@ -323,7 +323,7 @@ func containsRune(s string, r rune) bool {
 }
 
 // TestGuardForbidsALeadingToken is R270's notation: `!TERMINAL X` derives what X derives, minus
-// the strings that begin with that terminal. This is the shape R268 needs — a `{` opens a block
+// the strings that begin with that terminal. This is the shape R268 needs: a `{` opens a block
 // wherever a block may appear, so the expression arm may not start with one.
 func TestGuardForbidsALeadingToken(t *testing.T) {
 	// Body ::= Block | !LBRACE Expr, over a toy expression that may or may not start with `{`.
@@ -350,7 +350,7 @@ func TestGuardIsZeroWidth(t *testing.T) {
 }
 
 // TestGuardMatchesTheLexemeToo: `!IDENT("type")` forbids one spelling and not the kind, which is
-// what R269 needs — an annotation may be any type but the bare identifier `type`.
+// what R269 needs: an annotation may be any type but the bare identifier `type`.
 func TestGuardMatchesTheLexemeToo(t *testing.T) {
 	g := build(t, `File ::= COLON !IDENT("type") IDENT ASSIGN`)
 
@@ -387,7 +387,7 @@ func TestGuardDisambiguates(t *testing.T) {
 }
 
 // TestGuardLeavesNoNodeInATree: a guard is an assertion, not a symbol, so a derivation must not
-// carry one — the parse goldens would otherwise print a child for a token nobody consumed.
+// carry one, or the parse goldens would print a child for a token nobody consumed.
 func TestGuardLeavesNoNodeInATree(t *testing.T) {
 	g := build(t, "File ::= !LBRACE IDENT SEMICOLON")
 	root, err := g.Derive(toks(token.Ident, token.Semicolon))

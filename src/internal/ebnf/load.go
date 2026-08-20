@@ -50,8 +50,8 @@ func LoadProductions() ([]Prod, error) {
 }
 
 // BlockCount reports how many production blocks grammar.md carries, which the tests assert
-// against §0's nine sections — a reader that silently found fewer would make every check
-// below vacuous, the same fail-open internal/spec guards with its own armed check.
+// against §0's sections: a reader that silently found fewer would make every check below
+// vacuous, the same fail-open internal/spec guards with its own armed check.
 func BlockCount() (int, error) {
 	root, err := spec.Root()
 	if err != nil {
@@ -66,9 +66,8 @@ func BlockCount() (int, error) {
 }
 
 // fencedBlocks concatenates every ```ebnf block, and counts them. Fence recognition matches
-// internal/spec exactly — an unindented opening line, closed by the next line beginning with
-// a fence — because the two readers walk the same corpus and a divergence between them would
-// be invisible.
+// internal/spec exactly (an unindented opening line, closed by the next line beginning with a
+// fence) because the two readers walk the same corpus and a divergence would be invisible.
 func fencedBlocks(md string) (string, int) {
 	var b strings.Builder
 	n := 0

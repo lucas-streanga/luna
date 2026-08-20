@@ -5,7 +5,7 @@
 // counts that summarize it (lexer §10). Anything that hardcodes either will drift,
 // and drift between prose and table is a defect this project has already shipped
 // once: R232 fixed a "47 patterns" claim standing over a 49-row table. Reading the
-// markdown is what lets a test hold all three parties — table, prose, and code — to
+// markdown is what lets a test hold all three parties (table, prose and code) to
 // the same numbers.
 //
 // Test-only in practice, but an ordinary package: the spec-literal reference lexer
@@ -50,7 +50,7 @@ type Row struct {
 // productions, which §0 categorizes "error" precisely so a count can exclude them.
 func (r Row) IsToken() bool { return r.Name != "" }
 
-// Counts holds lexer §10's claimed totals — the prose summary, not the table.
+// Counts holds lexer §10's claimed totals: the prose summary, not the table.
 // Comparing these against the table is the check that catches the R232 defect.
 type Counts struct {
 	Tokens     int
@@ -106,7 +106,7 @@ func (inv *Inventory) Actual() Counts {
 // with the working directory set to their own package, so walking is what keeps this
 // working when a package moves.
 //
-// The walk stops at the module root, and that is load-bearing rather than tidy — see
+// The walk stops at the module root, and that is vital rather than tidy. See
 // findRoot.
 func Load() (*Inventory, error) {
 	root, err := findRoot()
@@ -211,7 +211,7 @@ var (
 
 // parseRow splits one table row.
 //
-// Splitting on " | " rather than "|" is load-bearing: the OR and BAR rows carry
+// Splitting on " | " rather than "|" is vital: the OR and BAR rows carry
 // escaped pipes (`\|\|`) inside column 1, and splitting on the bare character
 // shreds them. SplitN caps the count at four so a pattern containing " | " would
 // land intact in the last field rather than overflowing into a fifth.
@@ -269,13 +269,13 @@ func Root() (string, error) { return findRoot() }
 //
 // That refusal is the point. The spec lives outside the module, and `go help test` says
 // a cached result is reused unless a file the test opened **within the package's module**
-// has changed — so reading the spec through its real path makes every pin in this
+// has changed, so reading the spec through its real path makes every pin in this
 // package silently cacheable: edit lexer.md, run `go test ./...`, get a stale `ok
 // (cached)` that verified nothing. The repository carries a `src/specs -> ../specs`
 // symlink so the spec is reachable from inside the module and Go tracks it.
 //
-// A checkout without that symlink would still *work* — the walk would simply continue
-// past the module root and find the real directory — which is exactly the failure to
+// A checkout without that symlink would still *work*, the walk continuing past the module root
+// to find the real directory, which is exactly the failure to
 // refuse: the pins would go on passing while checking a file the cache ignores. Stopping
 // at go.mod converts a silent regression into this error.
 func findRoot() (string, error) {
@@ -305,7 +305,7 @@ var codeRe = regexp.MustCompile("^`([A-Z][0-9]{4})`$")
 
 // unallocated is what a code column holds for a check that is specified and not yet numbered.
 // R250 and R251 rule that a code waits for an implementation to raise it and a test to pin it, so
-// a stage table outlives its numbering and the reader has to carry rows that have none — with the
+// a stage table outlives its numbering and the reader has to carry rows that have none, with the
 // Code field empty, which is what lets a caller count them rather than lose them.
 const unallocated = "—"
 

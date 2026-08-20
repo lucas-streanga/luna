@@ -8,7 +8,7 @@ import (
 )
 
 // Problem is something worth failing a docs build over, located in the markdown file
-// rather than in the extracted block — which is the only location a person editing the
+// rather than in the extracted block, which is the only location a person editing the
 // document can act on.
 //
 // Code is the L#### of a lexical diagnostic, or a short word for a problem this rewriter
@@ -26,12 +26,12 @@ type Problem struct {
 //
 // Highlighting docs through the real lexer buys a second thing besides colour, and it is
 // arguably the bigger one: a snippet that does not lex is now a build failure. A regex
-// grammar cannot notice — it colours the broken snippet just as confidently — so today the
+// grammar cannot notice, colouring the broken snippet just as confidently, so today the
 // spec's examples are checked by eye. Every block passes through the oracle here, and
 // cmd/highlight -strict is what turns that into a gate.
 //
-// Fence recognition matches internal/spec exactly: a line whose trimmed text is ```luna —
-// so a fence indented inside a list item counts — closed by the next line whose first
+// Fence recognition matches internal/spec exactly: a line whose trimmed text is ```luna, so
+// a fence indented inside a list item counts, closed by the next line whose first
 // non-space is a backtick fence. Keeping the two identical means the corpus the tests lex
 // and the corpus the docs render are the same set of blocks, and neither can quietly
 // include one the other misses.

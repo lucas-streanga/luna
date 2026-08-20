@@ -8,7 +8,7 @@ import (
 	"luna/oracle/token"
 )
 
-// The frontier — what the grammar says may come next at the point a parse stopped. It is the
+// The frontier: what the grammar says may come next at the point a parse stopped. It is the
 // raw material of a syntax diagnostic, and the reason it is tested against hand-computed
 // grammars is that "what may follow" is easy to get subtly wrong at exactly the places that
 // matter: after a nullable, and at end of input.

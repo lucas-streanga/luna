@@ -1,4 +1,4 @@
-// The splice pass (§2.2), tested events in, events out — the flattest comparison available, and
+// The splice pass (§2.2), tested events in, events out: the flattest comparison available, and
 // why §2.1's rule is a pass rather than three conditions inside the builder.
 //
 // The four cases are the rule's four corners: trivia before anything is open, after everything
@@ -44,7 +44,7 @@ func TestSplicePlacesTrivia(t *testing.T) {
 				openEv(File), openEv(Statement), tokEv(indices[0]), tokEv(indices[1]), closeEv, closeEv,
 			}
 		},
-		// Nothing is open when the comment is reached, so it flushes before the Statement instead —
+		// Nothing is open when the comment is reached, so it flushes before the Statement instead,
 		// File's first child being the one place §2.1 admits trivia at an edge.
 		want: `open(File)
 token "// c"
@@ -307,7 +307,7 @@ func TestSpliceRejects(t *testing.T) {
 			"ends with token 1 (SEMICOLON) in no event"},
 
 		// Found by FuzzSpliceContract. A flush is bounded only by the run of trivia ending, so a
-		// token event naming trivia consumes past itself and emits the index twice — coverage
+		// token event naming trivia consumes past itself and emits the index twice: coverage
 		// broken with nothing raised.
 		{"the parser consuming trivia",
 			eventStream{openEv(File), tokEv(2), closeEv},
@@ -322,7 +322,7 @@ func TestSpliceRejects(t *testing.T) {
 }
 
 // TestSpliceKeepsSynthesisedLeavesWhereTheyAre: a missing token consumes no index and covers no
-// bytes, so splice passes it through without flushing — the same half of §2.1 that a close
+// bytes, so splice passes it through without flushing, the same half of §2.1 that a close
 // takes, and the only placement that keeps the zero-width leaf before the trivia it precedes in
 // the file.
 func TestSpliceKeepsSynthesisedLeavesWhereTheyAre(t *testing.T) {

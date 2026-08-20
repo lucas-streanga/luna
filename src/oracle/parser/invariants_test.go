@@ -1,7 +1,7 @@
 // The invariant battery: what holds of **every** tree and **every** splice, whatever was parsed.
 //
 // It takes a tree and a token stream rather than anything this phase owns, so drivers can differ
-// while the properties do not — hand-written events and the golden corpus today, the fuzz targets
+// while the properties do not: hand-written events and the golden corpus today, the fuzz targets
 // next, `Parse` when Phase 2 lands, with nothing here changing. A driver then costs nothing to
 // add, and an invariant added here reaches every driver at once.
 //
@@ -42,7 +42,7 @@ func assertTreeInvariants(t reporter, tree *Tree, tokens []token.Token, src stri
 }
 
 // assertTreeIsWellFormed holds of **any** tree the builder returns, from any stream. Nothing here
-// reads the token stream, which is what makes it safe to assert about events nobody spliced — the
+// reads the token stream, which is what makes it safe to assert about events nobody spliced, the
 // case the contract fuzz target lives in. Whether a nil tree should have been nil is the other
 // tier's question, since only the token stream can answer it.
 func assertTreeIsWellFormed(t reporter, tree *Tree, src string) {
@@ -88,8 +88,8 @@ func assertTreeIsTheFile(t reporter, tree *Tree, tokens []token.Token, src strin
 // assertReadingsAgree is golden.md §1's claim, in the words the format makes it: every node but
 // the root spans the same bytes whether trivia is counted or not.
 //
-// It *follows* from trivia never sitting at an edge — the first and last leaf under any other
-// node are then real tokens — so this catches nothing the check above does not. It is written out
+// It *follows* from trivia never sitting at an edge, the first and last leaf under any other
+// node being real tokens, so this catches nothing the check above does not. It is written out
 // because the golden format's decision rests on it: a tree section prints one number per node
 // without saying which reading it is, and that is only safe while there is one number.
 func assertReadingsAgree(t reporter, tree *Tree) {
@@ -126,7 +126,7 @@ func nonTriviaExtent(tree *Tree, id NodeID) (offset, end int, ok bool) {
 }
 
 // assertArenaIsATree is group 1, and it reads the arena directly because every other assertion
-// here reaches the tree through Children — which navigates *by* size, so a wrong size returns a
+// here reaches the tree through Children, which navigates *by* size, so a wrong size returns a
 // wrong child list rather than failing, and the rest of the file would agree with it. Parent is
 // worse: stored, read by one method, and checked by nothing.
 func assertArenaIsATree(t reporter, tree *Tree) {
@@ -195,7 +195,7 @@ func assertArenaIsATree(t reporter, tree *Tree) {
 //
 // Every check is **relative**, a node against its own children, which is why the group needs no
 // spliced stream; src is only the bound no span may cross. That a node's children leave no *gap*
-// is a completeness claim rather than a relative one — assertChildrenTile, one tier up.
+// is a completeness claim rather than a relative one: assertChildrenTile, one tier up.
 func assertSpansNest(t reporter, tree *Tree, src string) {
 	t.Helper()
 
@@ -232,7 +232,7 @@ func assertSpansNest(t reporter, tree *Tree, src string) {
 
 // assertChildrenTile is the completeness half of the spans: consecutive children abut, so a token
 // in the file is in some leaf. It needs the spliced stream that group 3 needs, for the same
-// reason — a gap is only a defect once every token is supposed to be there.
+// reason: a gap is only a defect once every token is supposed to be there.
 func assertChildrenTile(t reporter, tree *Tree) {
 	t.Helper()
 	for id := range tree.Len() {
@@ -359,7 +359,7 @@ func assertIndexCoverage(t reporter, tokens []token.Token, events eventStream) {
 // drop empty nodes, and may do nothing else.** Everything the parser emitted comes through in
 // order and unrenumbered, or is an open/close pair with nothing between it.
 //
-// The greedy match is exact *because* of the check on the loop's first line — the parser emits no
+// The greedy match is exact *because* of the check on the loop's first line: the parser emits no
 // trivia event, so an inserted one can never be mistaken for one of its own.
 func assertSpliceOnlyInserts(t reporter, tokens []token.Token, before, after eventStream) {
 	t.Helper()
@@ -381,7 +381,7 @@ func assertSpliceOnlyInserts(t reporter, tokens []token.Token, before, after eve
 	}
 
 	// Lockstep, skipping what each side is allowed to differ by. Matching greedily instead would
-	// misalign the moment two identical opens appear with one of them elided — and closes are
+	// misalign the moment two identical opens appear with one of them elided, and closes are
 	// identical always.
 	drop := elidedEvents(before)
 	i, j := 0, 0
@@ -405,7 +405,7 @@ func assertSpliceOnlyInserts(t reporter, tokens []token.Token, before, after eve
 }
 
 // elidedEvents marks the events §2.2 drops: an open with no leaf between it and its close, and
-// that close. It is computed from the parser's stream rather than copied from splice — "this node
+// that close. It is computed from the parser's stream rather than copied from splice: "this node
 // is empty" is a property of the input, and the point is to check the pass against it.
 //
 // The root is the exception splice makes for trailing trivia, so it is never marked; a file with
@@ -442,7 +442,7 @@ func elidedEvents(before eventStream) []bool {
 
 // assertTriviaIsNeverAtAnEventEdge is §2.1's invariant a stage before the tree: it needs no
 // builder and names the offending event. Since §2.2 drops empty nodes here rather than in the
-// builder, the two forms now see the same thing — which is the point of holding the open, and was
+// builder, the two forms now see the same thing, which is the point of holding the open and was
 // not true when a node could vanish between the trivia and the tree.
 func assertTriviaIsNeverAtAnEventEdge(t reporter, tokens []token.Token, events eventStream) {
 	t.Helper()

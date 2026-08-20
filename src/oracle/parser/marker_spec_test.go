@@ -63,7 +63,7 @@ func TestMarkerPrecedeWrapsWhatWasEmittedSinceTheMark(t *testing.T) {
 	})
 }
 
-// A tier that does not fire leaves no trace at all — the rule that makes the tree equal a
+// A tier that does not fire leaves no trace at all, the rule that makes the tree equal a
 // golden's tree section (§4.8).
 func TestMarkerAMarkThatNeverPrecedesCostsNothing(t *testing.T) {
 	expects(t, func(t *testing.T) {

@@ -4,9 +4,9 @@
 //	go run ./cmd/gengrammar -check   # report drift, write nothing
 //
 // Run it after any ruling that touches the token table. TestGeneratedFilesAreCurrent runs
-// -check's comparison in the suite, so forgetting is a test failure rather than a grammar
-// that quietly colours a retired keyword — which is what cmd/grammarcheck found all three of
-// these doing.
+// -check's comparison in the suite, so forgetting is a test failure rather than a grammar that
+// quietly colours a retired keyword, which is what cmd/grammarcheck found all three of these
+// doing.
 //
 // grammar.js is deliberately not generated. Changing it means regenerating parser.c through
 // the pinned container (tooling/generate-grammar.sh), so it stays hand-written and

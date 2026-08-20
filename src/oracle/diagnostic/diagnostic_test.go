@@ -113,7 +113,7 @@ func TestCodesMatchSpec(t *testing.T) {
 
 // lexicalCodes is every code codes_lexical.go defines. Listed explicitly rather than
 // derived, so that adding a constant without adding it here fails the count check
-// above — a derived list would silently grow to match itself.
+// above: a derived list would silently grow to match itself.
 var lexicalCodes = []diagnostic.Code{
 	diagnostic.InvalidUTF8,
 	diagnostic.ByteOrderMark,
@@ -399,7 +399,7 @@ func TestBugKeepsItsTemplate(t *testing.T) {
 // the same shape TestCodesMatchSpec uses for lexer §11.
 //
 // What is different here is that §11.2 outlives its numbering: nine of its ten rows are specified
-// and unallocated, carrying an em dash. Counting them is the point — an unallocated row is a check
+// and unallocated, carrying a dash. Counting them is the point: an unallocated row is a check
 // waiting for an implementation to raise it (R250, R251, R267), and a count that shrinks silently
 // would lose the ones still waiting.
 func TestParseCodesMatchSpec(t *testing.T) {
@@ -443,7 +443,7 @@ func TestParseCodesMatchSpec(t *testing.T) {
 	t.Logf("§11.2 lists %d diagnostics, %d allocated", len(rows), allocated)
 }
 
-// wantParseRows is §11.2's total — five engine diagnostics and five named rules. A floor would not
+// wantParseRows is §11.2's total, its engine diagnostics plus its named rules. A floor would not
 // do: this table shrinks as well as grows, R272 having retired a named rule outright, and either
 // direction is worth a review.
 const wantParseRows = 10

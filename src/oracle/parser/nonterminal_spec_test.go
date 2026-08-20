@@ -21,7 +21,7 @@ var nonterminalSpecs = []struct {
 	src  string
 	want string
 }{
-	// §0.1 — file and declarations
+	// §0.1: file and declarations
 	{"file", func(p *parser) { p.file() }, "x;",
 		"open(File) open(Prelude) close open(Statement) open(SimpleStmt) token(0) close token(1) close close"},
 	// Even here the Prelude pair is emitted: the parser always opens it and splice elides the
@@ -37,7 +37,7 @@ var nonterminalSpecs = []struct {
 	{"attribute", func(p *parser) { p.attribute() }, "#[a]",
 		"open(Attribute) token(0) token(1) token(2) close"},
 
-	// §0.2 — statements
+	// §0.2: statements
 	{"block", func(p *parser) { p.block() }, "{}",
 		"open(Block) token(0) token(1) close"},
 	{"statement", func(p *parser) { p.statement() }, "x;",
@@ -47,7 +47,7 @@ var nonterminalSpecs = []struct {
 	{"bindTarget", func(p *parser) { p.bindTarget() }, "x",
 		"token(0)"},
 
-	// §0.3 — the tier spine. Each tier fires, and only the tier that fired opens.
+	// §0.3: the tier spine. Each tier fires, and only the tier that fired opens.
 	{"expr", func(p *parser) { p.expr() }, "a",
 		"token(0)"},
 	{"assignment", func(p *parser) { p.assignment() }, "a=b",
@@ -95,7 +95,7 @@ var nonterminalSpecs = []struct {
 	{"arg", func(p *parser) { p.arg() }, "a",
 		"open(Arg) token(0) close"},
 
-	// §0.4 — primaries. Primary is a tier: it survives only for the parenthesized form.
+	// §0.4: primaries. Primary is a tier: it survives only for the parenthesized form.
 	{"primary", func(p *parser) { p.primary() }, "a",
 		"token(0)"},
 	{"primary", func(p *parser) { p.primary() }, "(a)",
@@ -113,7 +113,7 @@ var nonterminalSpecs = []struct {
 	{"tryCatchExpr", func(p *parser) { p.tryCatchExpr() }, "try{}catch(e){}",
 		"open(TryCatchExpr) token(0) open(Block) token(1) token(2) close open(CatchClause) token(3) token(4) open(CatchBinder) token(5) close token(6) open(Block) token(7) token(8) close close close"},
 
-	// §0.5 — declaration literals
+	// §0.5: declaration literals
 	{"declLit", func(p *parser) { p.declLit() }, "enum{}",
 		"open(EnumLit) token(0) token(1) token(2) close"},
 	{"enumLit", func(p *parser) { p.enumLit() }, "enum{}",
@@ -123,13 +123,13 @@ var nonterminalSpecs = []struct {
 	{"protoInit", func(p *parser) { p.protoInit() }, "P",
 		"open(ProtoInit) token(0) close"},
 
-	// §0.6 — types. `Type` is the elision rule's one override.
+	// §0.6: types. `Type` is the elision rule's one override.
 	{"typ", func(p *parser) { p.typ() }, "int",
 		"open(Type) token(0) close"},
 	{"typ", func(p *parser) { p.typ() }, "a|b",
 		"open(Type) open(UnionType) token(0) token(1) token(2) close close"},
 
-	// §0.7 — patterns
+	// §0.7: patterns
 	{"pattern", func(p *parser) { p.pattern() }, "a",
 		"token(0)"},
 	{"pattern", func(p *parser) { p.pattern() }, "a|b",
@@ -137,7 +137,7 @@ var nonterminalSpecs = []struct {
 	{"destructurePattern", func(p *parser) { p.destructurePattern() }, "[a]",
 		"open(DestructurePattern) token(0) open(DestrEntries) open(DestrEntry) token(1) close close token(2) close"},
 
-	// §0.8 — literals
+	// §0.8: literals
 	{"literal", func(p *parser) { p.literal() }, "1",
 		"token(0)"},
 	{"stringLit", func(p *parser) { p.stringLit() }, "'a'",

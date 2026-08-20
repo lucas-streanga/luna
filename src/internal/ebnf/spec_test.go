@@ -51,9 +51,9 @@ func TestGrammarReaderIsArmed(t *testing.T) {
 	}
 }
 
-// TestNonterminalCount pins §10's headline number. Counting only the names grammar.md writes
-// — synthetics from the desugar carry an interpunct and are excluded — so the assertion is
-// about the spec rather than about this package's rewriting.
+// TestNonterminalCount pins §10's headline number. It counts only the names grammar.md writes
+// (synthetics from the desugar carry an interpunct and are excluded), so the assertion is about
+// the spec rather than about this package's rewriting.
 func TestNonterminalCount(t *testing.T) {
 	g := load(t)
 	var spec []string

@@ -1,4 +1,4 @@
-// The builder (§4), driven by hand-written events — the seam §4.2 chose the stream for.
+// The builder (§4), driven by hand-written events: the seam §4.2 chose the stream for.
 //
 // The first test expects tree_test.go's arena, which was written to be it. The rest are what
 // only the builder can get wrong, and what no golden can see.
@@ -63,7 +63,7 @@ func dumpArena(tree *Tree) string {
 }
 
 // TestBuildProducesTheHandTree: the trailing WHITESPACE is File's child rather than the
-// Statement's because splice put its event after the close — §2.1, arriving here as nothing
+// Statement's because splice put its event after the close: §2.1, arriving here as nothing
 // more than the order of the events.
 func TestBuildProducesTheHandTree(t *testing.T) {
 	f, tokens := lexFixture(t, "hand.luna", handSource)
@@ -150,7 +150,7 @@ func TestBuildEmptyFileHasNoTree(t *testing.T) {
 // TestBuildKeepsANodeWhoseOnlyChildIsSynthesised pins the boundary §6.1 does not itself draw:
 // a node holding only the zero-width Error survives, having a child.
 //
-// It is not the ambiguity the rule guards against — that one is between a synthesised leaf and an
+// It is not the ambiguity the rule guards against; that one is between a synthesised leaf and an
 // *empty* node, and the empty node is gone by now. What is left is the difference between a node
 // the parser reached and found nothing in and one it never reached, which is worth keeping.
 func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
@@ -210,7 +210,7 @@ func TestBuildKeepsANodeWhoseOnlyChildIsSynthesised(t *testing.T) {
 
 // TestBuildErrorWrapsSkippedTokens is §6's other failure, and the half nothing had ever built:
 // **excess**, where the input carries tokens the grammar cannot place. Those bytes exist, so the
-// node has positive width and wraps them — width being the whole classification (§6.2), and this
+// node has positive width and wraps them, width being the whole classification (§6.2) and this
 // shape being what §6.6 promises the golden format already carries.
 func TestBuildErrorWrapsSkippedTokens(t *testing.T) {
 	const src = "x @ y;"

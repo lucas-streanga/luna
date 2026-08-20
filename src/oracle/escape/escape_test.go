@@ -53,8 +53,8 @@ func TestTableMatchesSpec(t *testing.T) {
 		checked++
 
 		// The regex row is prose, not a set: its escapes are RE2's, passed through undecoded,
-		// and Luna decodes exactly one. Allowed reports "" for it on purpose — an empty row
-		// would read as "nothing is allowed here", the opposite of the truth — so what there
+		// and Luna decodes exactly one. Allowed reports "" for it on purpose, since an empty row
+		// would read as "nothing is allowed here", the opposite of the truth. So what there
 		// is to check is that it stays that way, and Check's passthrough is what tests the
 		// behaviour.
 		if ctx == escape.Regex {
@@ -82,8 +82,8 @@ func TestTableMatchesSpec(t *testing.T) {
 
 // Both filters below are needed, for different rows. The double-quoted row puts an em dash
 // *inside* a parenthetical and then lists `\u{H…}` after it, so cutting at the dash first
-// would drop a real escape. The bytes row uses a dash to introduce escapes it **forbids** —
-// "no `\$`, no `\u{}`" — which read exactly like the positive ones to a naive scan.
+// would drop a real escape. The bytes row uses a dash to introduce escapes it **forbids**
+// ("no `\$`, no `\u{}`"), which read exactly like the positive ones to a naive scan.
 var (
 	parenthetical = regexp.MustCompile(`\([^)]*\)`)
 	fence         = regexp.MustCompile("`+")
@@ -104,7 +104,7 @@ func escapeChars(cell string) string {
 	return string(out)
 }
 
-// spans pulls the code spans out of a cell, honouring variable fence widths — the command
+// spans pulls the code spans out of a cell, honouring variable fence widths. The command
 // row is written with a doubled fence because its escape contains a backtick.
 func spans(cell string) []string {
 	var out []string
@@ -145,7 +145,7 @@ func sorted(s string) string {
 // One entry, and it is a spec gap rather than a bug: bytes §7 rules that the quote style
 // does not matter, and a literal must be able to escape whichever delimiter closes it, so
 // `b'don\'t'` is legal for the same reason `b"say \""` is. escape.go calls that "an
-// inference from two rules rather than a third rule stated outright" — and §5.1, which the
+// inference from two rules rather than a third rule stated outright", and §5.1, which the
 // spec calls the *one authority*, does not state it.
 //
 // Recorded here rather than fudged into the comparison, so that adding `\'` to §5.1's bytes

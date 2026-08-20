@@ -4,8 +4,8 @@
 // lexical-structure §1 and lexer §9 state, not a description of code that exists.
 //
 // One property is deliberately not tested: that the line index is built *lazily*.
-// §9 states laziness as a performance property — "a compile that emits no diagnostic
-// builds no table" — and asserting it means either white-box inspection or allocation
+// §9 states laziness as a performance property ("a compile that emits no diagnostic builds no
+// table"), and asserting it means either white-box inspection or allocation
 // counting, both of which pin an implementation strategy rather than a behaviour. If
 // it regresses, nothing observable changes.
 package source_test
@@ -41,7 +41,7 @@ func codeOf(t *testing.T, err error) diagnostic.Code {
 
 func TestAcceptsValidUTF8(t *testing.T) {
 	// Non-ASCII is legal only inside literal and comment content (lexical-structure
-	// §1), which is where these put it — but validation is byte-level and does not
+	// §1), which is where these put it, but validation is byte-level and does not
 	// know that, so the distinction is the lexer's, not this package's.
 	cases := map[string][]byte{
 		"empty":                []byte(""),
@@ -63,7 +63,7 @@ func TestAcceptsValidUTF8(t *testing.T) {
 }
 
 // bom is U+FEFF encoded. Written as bytes because Go's own compiler rejects a
-// literal byte-order mark in source — the same rule Luna adopts, for the same
+// literal byte-order mark in source, the same rule Luna adopts, for the same
 // reason.
 var bom = []byte{0xEF, 0xBB, 0xBF}
 
@@ -225,7 +225,7 @@ func TestPositionCRLF(t *testing.T) {
 
 func TestPositionCountsRunesNotBytes(t *testing.T) {
 	// The column is a rune count over the line's prefix (§9). "é" is two bytes, so a
-	// byte-counting implementation reports one column too many — the exact bug this
+	// byte-counting implementation reports one column too many, the exact bug this
 	// case exists to catch.
 	f := mustNew(t, "// é x\n")
 	const offsetOfX = 6 // '/', '/', ' ', 0xC3, 0xA9, ' ', 'x'
@@ -248,7 +248,7 @@ func TestPositionOnLineWithMultiByteBefore(t *testing.T) {
 	if got := f.Text()[offsetOfSemicolon]; got != ';' {
 		t.Fatalf("test is miscalibrated: byte %d is %q, not ';'", offsetOfSemicolon, got)
 	}
-	// Eleven runes precede the ';' on line 2 — l e t ␣ s ␣ = ␣ ' é ' — so the column
+	// Eleven runes precede the ';' on line 2 (l e t ␣ s ␣ = ␣ ' é '), so the column
 	// is 12. Twelve *bytes* precede it, because é is two, and a byte-counting
 	// implementation therefore reports 13. Counting the runes above is how this
 	// expectation stays auditable: the first draft of this test asserted 13.

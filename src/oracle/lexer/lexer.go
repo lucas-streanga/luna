@@ -3,7 +3,7 @@
 // It is a complete phase, not a service the parser calls into: §1.1 tokenizes each
 // file before parsing begins and with no symbol knowledge, which is what lets files
 // lex in parallel and what forces every ambiguity to be resolved from lexer-local
-// state alone. R237 is why that is affordable — replacing bare /…/ with ~"…" removed
+// state alone. R237 is why that is affordable: replacing bare /…/ with ~"…" removed
 // the one construct that needed to know what came before it.
 //
 // Errors are collected, never fatal (§1.1): the scanner reports a lexical condition,
@@ -13,7 +13,7 @@
 //
 // # Lexing does not pipeline into parsing, deliberately
 //
-// The obvious optimization — let the parser pull tokens as they are produced — is
+// The obvious optimization, letting the parser pull tokens as they are produced, is
 // ruled out by §3: "a phase cannot meaningfully consume the broken output of the
 // previous one." The argument is diagnostic quality, not speed. Pipelined, a lexical
 // error at byte 5000 arrives after the parser has already consumed everything before
@@ -27,7 +27,7 @@
 // project. Intra-file pipelining would only shorten latency on a single enormous file,
 // bought with the property above.
 //
-// Scanner therefore exists for early termination, not streaming — see its doc.
+// Scanner therefore exists for early termination, not streaming; see its doc.
 //
 // # Layout
 //
@@ -41,7 +41,7 @@
 //	word.go         identifiers, keywords, the wildcard (§3, §7)
 //	number.go       numeric literals (§4)
 //	form.go         literalForm: what each delimited literal admits
-//	literal_fast.go the span-regex fast path — a literal with no `${` is one token
+//	literal_fast.go the span-regex fast path: a literal with no `${` is one token
 //	literal_mode.go the single-line literal modes, for one that has a `${`
 //	triple.go       the multi-line literal modes (R246)
 //	tables.go       the keyword and operator lookups
@@ -50,12 +50,12 @@
 // than `package lexer_test`, for the one property that reads the mode stack.
 //
 //	golden_test.go  testdata: source paired with the token dump it must produce
-//	munch_test.go   every token pair × three separators — §0's longest-match rule
+//	munch_test.go   every token pair against each separator, §0's longest-match rule
 //	corpus_test.go  every `luna` block in the spec, one named subtest each
 //	eof_test.go     what a golden cannot express: end of input mid-construct
 //	scanner_test.go the incremental API, including discovery's early stop
-//	fuzz_test.go    FuzzLexer, and the property checks both fuzzers share — internal
-//	random_test.go  pseudo-random streams through those same checks — internal
+//	fuzz_test.go    FuzzLexer, and the property checks both fuzzers share (internal)
+//	random_test.go  pseudo-random streams through those same checks (internal)
 package lexer
 
 import (
@@ -76,7 +76,7 @@ import (
 func Lex(f *source.File) ([]token.Token, diagnostic.List) {
 	s := New(f)
 	// Real source runs a few bytes per token, trivia included. A starting point, not
-	// a bound — append handles the file that disagrees.
+	// a bound; append handles the file that disagrees.
 	toks := make([]token.Token, 0, len(f.Text())/4+8)
 	for {
 		tok, ok := s.Next()
@@ -116,7 +116,7 @@ func New(f *source.File) *Scanner {
 // out of step with the table it is pinned against.
 //
 // A lexical error does not stop the scan. Next records the diagnostic, advances by at
-// least one byte, and returns the next token it can find — so a caller that ignores
+// least one byte, and returns the next token it can find, so a caller that ignores
 // Errors still terminates and still sees a stream that tiles the input.
 func (s *Scanner) Next() (token.Token, bool) {
 	if s.pos >= len(s.src) {
@@ -131,7 +131,7 @@ func (s *Scanner) Next() (token.Token, bool) {
 	// every mode passes through. Both are compiler bugs rather than conditions in the
 	// program being compiled, so both panic.
 	//
-	// **Progress** is §11's rule — one token per step covering at least one byte — and is
+	// **Progress** is §11's rule, one token per step covering at least one byte, and is
 	// the whole of what makes the scan terminate (R242).
 	//
 	// **Bounds** is the other half, and it is here because nothing else would notice.
@@ -150,7 +150,7 @@ func (s *Scanner) Next() (token.Token, bool) {
 }
 
 // lex runs the current mode's scanner. It is separate from Next because a mode that ends
-// without consuming anything — a raw newline closing a string (R244) — pops and calls
+// without consuming anything (a raw newline closing a string, R244) pops and calls
 // this again, so the token comes from the mode underneath. That recursion is bounded by
 // the stack depth, every step popping, and DEFAULT never pops.
 func (s *Scanner) lex() token.Kind {
@@ -172,7 +172,7 @@ func (s *Scanner) lex() token.Kind {
 	}
 }
 
-// finish reports the literals and interpolations still open at end of input — one
+// finish reports the literals and interpolations still open at end of input: one
 // diagnostic per frame, outermost first, since source order is what a reader wants and
 // each frame names a construct that really was left open.
 //
@@ -194,7 +194,7 @@ func (s *Scanner) finish() {
 	}
 }
 
-// Errors returns the diagnostics collected so far — a copy, so a caller cannot reorder or
+// Errors returns the diagnostics collected so far, as a copy, so a caller cannot reorder or
 // extend the scanner's own list. During a scan it grows; after the scan completes it is
 // the file's full set.
 //
@@ -220,7 +220,7 @@ type mode struct {
 	margin string
 
 	// Where the frame was opened. Kept because every diagnostic about an unclosed
-	// construct wants its caret on the *opener* — that is what went unclosed — and by
+	// construct wants its caret on the *opener*, which is what went unclosed, and by
 	// the time the failure is known the scanner is somewhere else entirely, at a
 	// newline or at end of input.
 	open, openLen int
@@ -254,8 +254,8 @@ func (k modeKind) noun() string {
 //
 // An index rather than a *mode: a pointer into the stack is invalidated by the next push,
 // and a write through a stale one would land on a frame that is no longer innermost with
-// nothing to say it had. Callers that only read may take a copy — mode is small and holds
-// no pointers — but the mutable path goes through the slice.
+// nothing to say it had. Callers that only read may take a copy, mode being small and free
+// of pointers, but the mutable path goes through the slice.
 func (s *Scanner) modeIndex() int { return len(s.modes) - 1 }
 
 // push opens a frame. It takes the whole frame rather than its parts, so a field like the
@@ -280,14 +280,14 @@ func byteAt(src string, i int) byte {
 }
 
 // error records a diagnostic. offset and length are the *caret* span, which is not
-// always the span of the bytes consumed — see unterminated.
+// always the span of the bytes consumed; see unterminated.
 func (s *Scanner) error(code diagnostic.Code, offset, length int, format string, args ...any) {
 	span := diagnostic.Span{Filename: s.f.Name(), Offset: offset, Length: length}
 	s.errors.Add(diagnostic.New(code, span, format, args...))
 }
 
 // invalid consumes n bytes, records the diagnostic condemning them, and yields the
-// INVALID token that covers them — R242's pairing, in one place so the two cannot
+// INVALID token that covers them: R242's pairing, in one place so the two cannot
 // drift apart. It is for the cases where the caret and the coverage coincide; where
 // they do not, the caller writes both out.
 func (s *Scanner) invalid(code diagnostic.Code, n int, format string, args ...any) token.Kind {

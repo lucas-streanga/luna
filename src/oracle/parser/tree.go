@@ -23,7 +23,7 @@ type Tree struct {
 	nodes []node
 }
 
-// node is one arena slot. Storage is pre-order — the choice §3.1 left to the keyboard — so that
+// node is one arena slot. Storage is pre-order, the choice §3.1 left to the keyboard, so that
 // a subtree is the contiguous range [id, id+size): the builder's open/close becomes
 // append-and-patch with no child-index array beside it, and "every node" is a loop.
 //
@@ -50,7 +50,7 @@ type Node struct {
 func (t *Tree) Source() *source.File { return t.src }
 
 // Len is the number of nodes. IDs are dense and pre-order, so a loop over 0..Len()-1 is a
-// whole-tree walk — which is how §2.3's invariants are checked without a traversal.
+// whole-tree walk, which is how §2.3's invariants are checked without a traversal.
 func (t *Tree) Len() int { return len(t.nodes) }
 
 // Root is the File node, always ID 0. Every tree has one: an empty file has no File node and no
@@ -81,7 +81,7 @@ func (n Node) Span() (offset, end int) {
 }
 
 // Text is the source the node spans. Trivia are nodes like any other (§2), so the root's text
-// is the file — that identity is losslessness, stated as one comparison.
+// is the file, and that identity is losslessness stated as one comparison.
 func (n Node) Text() string {
 	offset, end := n.Span()
 	return n.t.src.Slice(offset, end-offset)

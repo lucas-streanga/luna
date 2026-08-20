@@ -16,7 +16,7 @@ import (
 // dependency order". Concatenating them yields the topological order §1.2 owes, so nothing is
 // lost by being specific.
 //
-// Nodes are module paths — the root's being empty — which is unambiguous only because R251
+// Nodes are module paths, the root's being empty, which is unambiguous only because R251
 // makes importing the root an error, so no file answers to two names by the time a Graph
 // exists. Adjacency is not repeated here; Result.Edges already holds it.
 type Graph struct {
@@ -38,12 +38,12 @@ func (g Graph) Order() []string {
 //
 // It reports, in one pass and without stopping at the first (compiler §3):
 //
-//   - unresolved imports — an edge naming no file, excluding `std.*`, which reaches no file by
+//   - unresolved imports: an edge naming no file, excluding `std.*`, which reaches no file by
 //     construction (R251)
-//   - root imports — an edge resolving to the entry's file, which is its own error rather than
+//   - root imports: an edge resolving to the entry's file, which is its own error rather than
 //     a cycle, because the fix is to stop importing the entry (R251, modules §3)
-//   - cycles — every one of them, each with its full path (R251)
-//   - late imports — any KW_IMPORT past a file's PreludeEnd, the prelude rule R250 moved here
+//   - cycles: every one of them, each with its full path (R251)
+//   - late imports: any KW_IMPORT past a file's PreludeEnd, the prelude rule R250 moved here
 //     from §1.3
 //
 // toks is keyed by File.Path and must hold an entry for every file in res. A missing entry is
@@ -52,7 +52,7 @@ func (g Graph) Order() []string {
 //
 // The token streams are needed only for the late-import check. Everything else reads res
 // alone, which is why §1.2's DAG half could be computed before §1.1 if an implementation
-// wanted to — it is the reporting that waits (R250).
+// wanted to: it is the reporting that waits (R250).
 func Validate(res Result, toks map[string][]token.Token) (Graph, diagnostic.List) {
 	v := &validator{res: res, file: map[string]File{}, imports: map[string][]string{}}
 	for _, f := range res.Files {
@@ -68,7 +68,7 @@ func Validate(res Result, toks map[string][]token.Token) (Graph, diagnostic.List
 
 // validator carries what the four checks share. Every traversal runs over res.Files or
 // res.Edges in their given order, never over a map, so the diagnostics come out the same way
-// on every run — which §2 asks of the whole compiler and differential testing needs.
+// on every run, which §2 asks of the whole compiler and differential testing needs.
 type validator struct {
 	res     Result
 	file    map[string]File     // module path -> file
@@ -82,7 +82,7 @@ type validator struct {
 func (v *validator) resolve() {
 	// The root is found by its empty module path, which modules §3 makes a fact about the
 	// program. Discovery also happens to list it first, but position is an artifact of the BFS
-	// — reading it from there would keep working until discovery sorted its output or gained a
+	// Reading it from there would keep working until discovery sorted its output or gained a
 	// pass, and would then stop reporting root imports rather than fail.
 	entry := ""
 	for _, f := range v.byPath {
@@ -109,7 +109,7 @@ func (v *validator) resolve() {
 		default:
 			// Deduped: discovery keeps the *raw* edge list (R190), so importing a module twice
 			// yields two edges. Adjacency has no use for the second, and leaving it in reports
-			// the same cycle once per duplicate — `import b; import b;` in b.luna gave two
+			// the same cycle once per duplicate: `import b; import b;` in b.luna gave two
 			// identical M0003s.
 			if !slices.Contains(v.imports[e.From], e.To) {
 				v.imports[e.From] = append(v.imports[e.From], e.To)
@@ -139,8 +139,8 @@ func (v *validator) report(code diagnostic.Code, e Edge, format string, args ...
 // preludes enforces the prelude rule, which R250 moved here from §1.3.
 //
 // Any KW_IMPORT past a file's prelude end is invalid, and the check needs no structure because
-// both violations modules §4 names are errors — a late top-level import and one inside a
-// function, a block or a conditional — so it never has to tell them apart.
+// both violations modules §4 names are errors, a late top-level import and one inside a
+// function, a block or a conditional, so it never has to tell them apart.
 func (v *validator) preludes(toks map[string][]token.Token) {
 	for _, f := range v.byPath {
 		stream, ok := toks[f.Path]

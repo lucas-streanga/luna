@@ -5,10 +5,9 @@ import "luna/oracle/token"
 // Kind names a node: a grammar.md §0 nonterminal, a token kind for a leaf, or Error.
 //
 // **One kind space, not two** (parser-implementation.md §5), because the tree is homogeneous
-// and every generic walk over it — the golden renderer, the formatter, the LSP's folding —
+// and every generic walk over it (the golden renderer, the formatter, the LSP's folding)
 // wants one tag. The low range mirrors token.Kind's values so that Kind(tk.Kind) is a
-// conversion and not a translation; uint16, because the two ranges together leave a byte
-// fifteen spare values.
+// conversion and not a translation; uint16, because the two ranges together overflow a byte.
 //
 // The constants are hand-written, and kind_test.go's pin against §0 is what makes that safe:
 // 105 generated constants are a file nobody reads, 105 written ones a file somebody reviewed
@@ -19,15 +18,14 @@ type Kind uint16
 // not masquerade as a real one. Distinct from Error, which the parser deliberately produces.
 const Unset = Kind(token.Unset)
 
-// tokenValues is the width of token.Kind's range — lexer §0's 134 kinds plus Unset. Pinned by
-// TestTokenRangeIsMirrored, because a token added to §0 widens it and a node kind must not be
+// tokenValues is the width of token.Kind's range, pinned by TestTokenRangeIsMirrored because a token added to §0 widens it and a node kind must not be
 // sitting where it lands.
 const tokenValues = 135
 
 // firstNode is where the node kinds begin: one past token.Kind's last value, no gap.
 const firstNode Kind = tokenValues
 
-// The node kinds, in §0's order. A pure alternation is not among them — it is pure dispatch and
+// The node kinds, in §0's order. A pure alternation is not among them: it is pure dispatch and
 // always collapses, so it never reaches a tree (§5). `Type` is the one kept anyway: eliding it
 // leaves a bare IDENT in type position indistinguishable from an expression's, which is the
 // distinction R256 exists to make.
@@ -63,7 +61,7 @@ const (
 	ForeachStmt
 	ForeachBinder
 
-	// §0.3 expressions — the tiers survive whenever they fire, and only then
+	// §0.3 expressions: the tiers survive whenever they fire, and only then
 	Assignment
 	AssignTarget
 	WordPrefix
@@ -158,13 +156,13 @@ const (
 
 	// Error is the only kind with no nonterminal behind it, and its width is the whole
 	// classification: zero means something should be here, positive means these tokens should
-	// not be (§6.2). One kind rather than eleven, because splitting it along §11.2 would put a
-	// second, unpinned copy of that table here (§6.3).
+	// not be (§6.2). One kind rather than one per §11.2 row, because splitting it that way would
+	// put a second, unpinned copy of that table here (§6.3).
 	Error
 )
 
 // nodeNames is keyed rather than positional, so reordering the block above cannot shift a name
-// onto the wrong kind — the hazard token.Kind's own table guards against. The spellings are
+// onto the wrong kind, the hazard token.Kind's own table guards against. The spellings are
 // §0's, and kind_test.go checks them against §0 itself.
 var nodeNames = [...]string{
 	File:               "File",
@@ -289,12 +287,12 @@ func (k Kind) String() string {
 	return "UNKNOWN"
 }
 
-// IsToken reports whether the kind came from the lexer — true of every leaf's, including the
+// IsToken reports whether the kind came from the lexer: true of every leaf's, including the
 // zero-width one a missing token leaves behind (§6.1).
 func (k Kind) IsToken() bool { return k < firstNode }
 
 // What the builder asks of a kind before putting one in a tree. Unexported until something
-// outside the package needs them — §8's view will want the first.
+// outside the package needs them; §8's view will want the first.
 
 func isTrivia(k Kind) bool { return k.IsToken() && token.Kind(k).IsTrivia() }
 

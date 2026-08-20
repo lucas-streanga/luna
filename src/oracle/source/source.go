@@ -2,7 +2,7 @@
 // buffer the lexer may scan, and a byte offset becomes a location a person can read.
 //
 // Validity is established once, up front (lexical-structure §1), so nothing
-// downstream re-checks — the lexer matches ASCII bytes precisely because the rest has
+// downstream re-checks: the lexer matches ASCII bytes precisely because the rest has
 // already been proven well-formed UTF-8. Two conditions are rejected here: invalid
 // UTF-8 (L0001), and a leading byte-order mark (L0002), refused rather than stripped
 // so byte offset 0 stays meaningful for the shebang rule.
@@ -26,7 +26,7 @@ import (
 // Error is an ingress failure: the code that names it and the offset it was found at.
 //
 // It is not a diagnostic.Diagnostic, because at ingress there is no *File to point a
-// span at — New rejects text before returning one. The caller converts, supplying the
+// span at, New rejecting text before it returns one. The caller converts, supplying the
 // file name it already has. The dependency runs one way, source to diagnostic, which
 // is what keeps diagnostic a leaf and lets a renderer sit above both.
 type Error struct {
@@ -57,7 +57,7 @@ type File struct {
 	// parallel and a *File can be reached both from its own lexer and from whatever
 	// later renders a collected diagnostic. -race would catch the unguarded version
 	// (testing-strategy §7), but sync.Once costs one atomic load after the first call
-	// — cheaper than finding out.
+	// which is cheaper than finding out.
 	once  sync.Once
 	lines []int32 // byte offset where each line starts
 }
@@ -89,7 +89,7 @@ func Load(path string) (*File, error) {
 
 // scan makes the single pass lexical-structure §1 describes: it proves the text is
 // valid UTF-8 and, because it is visiting every byte anyway, records whether any byte
-// was non-ASCII. On failure bad is the offset of the first byte that broke validity —
+// was non-ASCII. On failure bad is the offset of the first byte that broke validity:
 // the diagnostic points at where the text stopped being well-formed, not at the file.
 func scan(text string) (ascii bool, bad int, ok bool) {
 	ascii = true

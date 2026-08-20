@@ -13,13 +13,13 @@ import (
 //
 // Running the corpus proves the grammar unambiguous over the inputs someone happened to write.
 // That is evidence, and it is the weaker half: every ambiguity R264 fixed was found by running
-// real Luna, none by imagining cases, which is exactly the blind spot — an ambiguous form
+// real Luna, none by imagining cases, which is exactly the blind spot: an ambiguous form
 // nobody has written yet is invisible to it. This closes the other half. Enumerate every
 // sentence the grammar derives up to a length and ask the recognizer about each one; within
 // the bound, a clean answer is a proof rather than evidence.
 //
 // **The generator deliberately does not decide ambiguity itself.** Enumerating derivation
-// *trees* and colliding their yields would answer the question directly — and would be a
+// *trees* and colliding their yields would answer the question directly, and would be a
 // second implementation of the thing R264 records getting wrong once already, silently. Every
 // verdict routes through Recognize instead, so the package has exactly one ambiguity oracle,
 // and that buys a mutual check for free: a sentence this generator emits that the recognizer
@@ -34,7 +34,7 @@ import (
 // Bound is how far an enumeration goes.
 type Bound struct {
 	// Start is the nonterminal to enumerate from. Empty means the grammar's own start symbol.
-	// Naming a smaller one — Type, Pattern, Expr — is the usual move: the interesting corners
+	// Naming a smaller one (Type, Pattern, Expr) is the usual move: the interesting corners
 	// are sub-languages, and File spends its budget on statement scaffolding before it reaches
 	// them.
 	Start string
@@ -43,15 +43,15 @@ type Bound struct {
 	MaxLen int
 
 	// MaxPerCell caps the distinct strings kept for one (nonterminal, length) pair. Zero means
-	// no cap. A run that hits it is no longer exhaustive and says so — see Report.Exhaustive.
+	// no cap. A run that hits it is no longer exhaustive and says so; see Report.Exhaustive.
 	MaxPerCell int
 
 	// Spellings additionally emits, for every *unconstrained* terminal, each lexeme that some
-	// production requires of that kind — the IDENT("from") / IDENT("get") / IDENT("type")
+	// production requires of that kind: the IDENT("from") / IDENT("get") / IDENT("type")
 	// family. A spelling-matched terminal always emits its own lexeme, knob or not, so a
 	// collision needing one such spelling is found either way; what this buys is every
 	// sentence where an ordinary position happens to carry a reserved-ish word. That is the
-	// `import { from } from a` shape, and the combinations across positions — two required
+	// `import { from } from a` shape, and the combinations across positions: two required
 	// spellings in one sentence are unreachable without it, since neither production generates
 	// the other's lexeme. It costs a factor of one-plus-the-spellings on every IDENT.
 	Spellings bool
@@ -80,7 +80,7 @@ func (s Sentence) String() string {
 // Truncation records one cell that hit MaxPerCell.
 //
 // It is reported rather than logged because a silent cap turns "found nothing" into "looked at
-// a prefix of nothing" while the test still passes — the fail-open shape check.sh's own notes
+// a prefix of nothing" while the test still passes: the fail-open shape check.sh's own notes
 // are written against.
 type Truncation struct {
 	Nonterminal string
@@ -274,9 +274,9 @@ func (g *Grammar) reachableFrom(start string) []Prod {
 // Rounds after the first are driven by a worklist, and that is not a micro-optimization. Once
 // lengths 0..L-1 are final, the *only* mutable input at length L is another length-L cell, so a
 // production can produce something new only if one of its own nonterminals just grew. Without
-// the worklist a naive fixpoint re-runs every production every round, and grammar.md's thirteen
-// expression tiers need one round per tier to propagate a single string from Primary up to
-// Expr — fifteen full passes over the grammar to add what the last one added.
+// the worklist a naive fixpoint re-runs every production every round, and grammar.md's
+// expression tiers need one round per tier to carry a single string from Primary up to Expr:
+// a full pass over the whole grammar to add what the last one added.
 func (e *enumerator) run() {
 	sufs := make([][]int, len(e.prods))
 	uses := make([][]string, len(e.prods))
@@ -329,7 +329,7 @@ func anyDirty(names []string, dirty map[string]bool) bool {
 //
 // guard is a `!TERMINAL` seen earlier in this right-hand side and not yet discharged (R270). It
 // governs the **first token produced after it**, whichever symbol produces it, so it rides along
-// until something emits one — a nullable nonterminal in between passes it on rather than
+// until something emits one; a nullable nonterminal in between passes it on rather than
 // consuming it. Generating and then filtering would be the alternative and is not available: an
 // over-generated sentence is one the recognizer rejects, which lands in Report.Unrecognized and
 // is meant to mean the two halves disagree about the grammar.

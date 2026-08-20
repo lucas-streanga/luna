@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// LoadCodes reads one spec file's error-summary table — the `| Code | Title |` grid every
+// LoadCodes reads one spec file's error-summary table, the `| Code | Title |` grid every
 // stage keeps (lexer §11, modules §12, R240).
 //
 // Separate from LoadFrom because that one is the *lexer's* reader and insists on §0's token

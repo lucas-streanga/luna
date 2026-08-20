@@ -6,8 +6,8 @@ import (
 	"luna/oracle/token"
 )
 
-// lexNumber scans a numeric literal. §8.5's order — DOUBLE first, then the radix
-// prefixes, then the leading-zero error production, then INT_DEC — appears here as
+// lexNumber scans a numeric literal. §8.5's order (DOUBLE first, then the radix prefixes,
+// then the leading-zero error production, then INT_DEC) appears here as
 // decisions about the byte following a leading `0`, plus a digit-after-the-point test.
 // That test is what keeps `1..5` INT RANGE INT and `1.toDouble()` INT DOT IDENT with no
 // lookahead, which RE2 has none of to offer (F6).
@@ -20,7 +20,7 @@ func (s *Scanner) lexNumber() token.Kind {
 			if k := s.scanRadix(c); k != token.Unset {
 				return k
 			}
-			// No digit after the prefix — `0x`, `0b2`, and `0x_FF`, which Go permits and
+			// No digit after the prefix: `0x`, `0b2`, and `0x_FF`, which Go permits and
 			// §4 does not. §0 has no error production for that, so `0` lexes as INT_DEC
 			// here and the letters as an IDENT on the next call.
 		case 'X', 'B', 'O':
@@ -63,7 +63,7 @@ func (s *Scanner) lexNumber() token.Kind {
 }
 
 // scanRadix consumes `0x…`, `0b…`, or `0o…` with its digits. It returns Unset without
-// moving when no valid digit follows the prefix, since §4 requires one immediately — a
+// moving when no valid digit follows the prefix, since §4 requires one immediately; a
 // separator may not lead.
 func (s *Scanner) scanRadix(prefix byte) token.Kind {
 	var kind token.Kind
@@ -108,7 +108,7 @@ func (s *Scanner) scanExponent() bool {
 }
 
 // scanDigitRun consumes `d(?:_?d)*` from i, where the caller has already checked that
-// src[i] is a digit. One underscore, strictly between two digits, in any radix — so
+// src[i] is a digit. One underscore, strictly between two digits, in any radix, so
 // `1_000` runs and `1_`, `1__0`, `0x_FF` all stop where the separator rule does (R238).
 func scanDigitRun(src string, i int, digit func(byte) bool) int {
 	for i++; i < len(src); {

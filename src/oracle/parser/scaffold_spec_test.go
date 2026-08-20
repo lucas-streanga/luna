@@ -1,7 +1,7 @@
 // The scaffold's behavioural specs: what each function must do, written before the bodies.
 //
 // **A spec is not a skip.** Every one runs for real; a stub's panic is caught and the spec is
-// reported *pending on that stub*, which is checked against `scaffoldStubs` — the same table
+// reported *pending on that stub*, which is checked against `scaffoldStubs`, the same table
 // TestScaffoldIsUnimplemented pins. So a spec can only be pending for a function the scaffold
 // agrees is unwritten, and the moment a body lands its name leaves that table and every spec
 // waiting on it becomes a real assertion, failing loudly if the body is wrong. Nothing has to be

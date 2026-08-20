@@ -2,7 +2,7 @@
 // event stream, so every input reaches build and the assertion is the whole battery.
 //
 // It models the event contract rather than the grammar, deliberately. Recovery will emit shapes no
-// production describes — empty nodes, Error over garbage, adjacent synthesised leaves — and those
+// production describes (empty nodes, Error over garbage, adjacent synthesised leaves) and those
 // are what the builder is least tested on. Nothing here checks a tree is *right*; that is the
 // goldens' job, and the division is what lets this one run on inputs nobody wrote.
 //
@@ -132,7 +132,7 @@ func checkShape(t *testing.T, src string, shape []byte) bool {
 		return false
 	}
 	// Lexical diagnostics are *not* a reason to stop. An INVALID token is a real token that tiles
-	// the file, and §6.5 — the parser running on a file that failed to lex — is reachable no other
+	// the file, and §6.5, the parser running on a file that failed to lex, is reachable no other
 	// way in this suite.
 	tokens, _ := lexer.Lex(f)
 
@@ -201,9 +201,9 @@ func TestRandomShapes(t *testing.T) {
 const randomGarbage = 200
 
 // drawShape sizes the decision bytes to the source, because a fixed length quietly stops shaping
-// anything. Two bytes are one decision and about five in eight of them consume a token, so 24
-// bytes shape roughly seven — and 385 of the corpus's 431 blocks hold more tokens than that, with
-// the rest force-consumed flat into whatever node was open. The fuzz target does not have this
+// anything. Two bytes are one decision and most of them consume a token, so a fixed draw shapes
+// only the head of a source and most corpus blocks hold more tokens than that, with the rest
+// force-consumed flat into whatever node was open. The fuzz target does not have this
 // problem, since the fuzzer grows an input it gets coverage from; this driver has to be told.
 func drawShape(r *rng, src string) []byte {
 	shape := make([]byte, min(16+2*len(src), 2048))
@@ -215,7 +215,7 @@ func drawShape(r *rng, src string) []byte {
 //
 // The other direction: bytes become an event stream with **no** well-formedness at all, so almost
 // every input violates a precondition. What is asserted is therefore the contract rather than the
-// tree — either an intentional `parser:` panic, or a value that holds up. A Go runtime error here
+// tree: either an intentional `parser:` panic, or a value that holds up. A Go runtime error here
 // is the finding: it means a precondition nobody checked.
 //
 // Only the invariants that survive an arbitrary stream are asserted. The tier that says the tree
@@ -393,8 +393,8 @@ func fill(r *rng, buf []byte) {
 }
 
 // garbageBytes is the alphabet the random half draws its sources from. Uniform bytes would be
-// worse than useless: almost none are valid UTF-8, so ingress rejects them and nothing here runs
-// — which is what the count in each driver exists to catch. Drawing from ASCII the lexer branches
+// worse than useless: almost none are valid UTF-8, so ingress rejects them and nothing here
+// runs, which is what the count in each driver exists to catch. Drawing from ASCII the lexer branches
 // on gets past ingress and into real token streams, INVALID ones included.
 const garbageBytes = " \t\n;{}()[]<>=+-*/%!?.,:&|@#$\\\"'`~_0123456789abcxyz" +
 	"letconstfnmatchimporttest"

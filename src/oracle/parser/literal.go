@@ -1,6 +1,6 @@
 package parser
 
-// grammar.md **§0.8 — Literals**.
+// grammar.md **§0.8: Literals**.
 //
 // `Literal`, `IntLit`, `BytesLit`, `DqPiece`, `RegexPiece` and `CmdPiece` are pure alternations
 // and never reach a tree (§5): a decimal integer is an `INT_DEC` leaf with nothing over it.

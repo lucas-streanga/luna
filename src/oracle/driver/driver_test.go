@@ -57,7 +57,7 @@ func TestCleanBuild(t *testing.T) {
 }
 
 // TestLexicalErrorsStopBeforeValidation is §3's rule: a phase cannot consume the broken
-// output of the previous one. app.luna also has a cycle, which must NOT be reported — §1.2
+// output of the previous one. app.luna also has a cycle, which must NOT be reported: §1.2
 // never ran.
 func TestLexicalErrorsStopBeforeValidation(t *testing.T) {
 	diags := build(t, "app.luna", map[string]string{
@@ -75,7 +75,7 @@ func TestLexicalErrorsStopBeforeValidation(t *testing.T) {
 }
 
 // TestIngressIsReported closes R251's loop. Discovery lists a BOM-bearing file precisely so
-// this phase sees it, and the driver is the only place L0002 can be raised — lexer.Lex takes
+// this phase sees it, and the driver is the only place L0002 can be raised, since lexer.Lex takes
 // a *source.File, which for rejected bytes never exists.
 func TestIngressIsReported(t *testing.T) {
 	diags := build(t, "app.luna", map[string]string{
@@ -141,13 +141,13 @@ func TestEveryDiagnosticValidates(t *testing.T) {
 // The assertion is the **expected** sequence, not "the same as last time". Self-comparison
 // looks like it tests ordering and does not: a merge that collected in completion order but
 // happened to be stable would pass, and so would one that was deterministic and simply wrong
-// — reversed, or sorted by filename. Naming discovery's order outright is what makes those
+// reversed, or sorted by filename. Naming discovery's order outright is what makes those
 // fail.
 //
 // The repeat is for the other half: ordering must not depend on which goroutine finished
 // first, and one run cannot show that.
 func TestOrderFollowsTheFileSet(t *testing.T) {
-	// app imports b, c, d, so discovery's BFS yields app, b, c, d — and every file carries an
+	// app imports b, c, d, so discovery's BFS yields app, b, c, d, and every file carries an
 	// unterminated string, so each contributes exactly one diagnostic.
 	files := map[string]string{"app.luna": "import b;\nimport c;\nimport d;\nlet s = \"a;\n"}
 	for _, n := range []string{"b", "c", "d"} {
@@ -166,7 +166,7 @@ func TestOrderFollowsTheFileSet(t *testing.T) {
 }
 
 // errFS fails the second read of a named file, standing in for the tree changing under a
-// build — discovery read it, the driver could not.
+// build: discovery read it, the driver could not.
 type errFS struct {
 	fs.FS
 	fail  string
@@ -214,7 +214,7 @@ func justCodes(l diagnostic.List) []string {
 // without a word of complaint.
 //
 // Every case below asserts that something goes wrong. This one asserts that nothing does,
-// which is the harder property — a driver that reported spuriously would pass all of them.
+// which is the harder property: a driver that reported spuriously would pass all of them.
 func TestRealisticProject(t *testing.T) {
 	diags := build(t, "main.luna", map[string]string{
 		"main.luna": `// the app root
@@ -280,7 +280,7 @@ func TestEveryModuleCodeEndToEnd(t *testing.T) {
 
 // TestEveryFileIsLexed proves reachability rather than asserting it. Each module in a deep,
 // branching tree carries its own lexical error, so a file the driver failed to lex would go
-// silently unreported — which is exactly how a dropped file looks.
+// silently unreported, which is exactly how a dropped file looks.
 func TestEveryFileIsLexed(t *testing.T) {
 	files := map[string]string{
 		"app.luna":          "import a.one;\nimport a.two;\nimport b.deep.three;\nlet s = \"app;\n",
@@ -300,7 +300,7 @@ func TestEveryFileIsLexed(t *testing.T) {
 }
 
 // TestManyFilesSaturateThePool pushes past the worker bound. With more files than CPUs the
-// semaphore actually queues, which is the path a single-digit tree never exercises — and
+// semaphore actually queues, which is the path a single-digit tree never exercises, and
 // -race is watching while it does.
 func TestManyFilesSaturateThePool(t *testing.T) {
 	const n = 200
@@ -401,7 +401,7 @@ func TestGraphSurvivesTheBuild(t *testing.T) {
 		t.Fatalf("reached %s, want validate", res.Reached)
 	}
 
-	// d has no imports, b and c depend only on d, the root on both — three layers, deepest
+	// d has no imports, b and c depend only on d, the root on both: three layers, deepest
 	// first, which is the order §1.4 analyses in.
 	equal(t, layerNames(res.Graph.Layers), []string{"d", "b,c", "(root)"})
 	equal(t, filePaths(res.Files), []string{"app.luna", "b.luna", "c.luna", "d.luna"})
@@ -419,7 +419,7 @@ func TestReachedNamesThePhase(t *testing.T) {
 		{"a lexical error stops after lex", map[string]string{
 			"app.luna": "let s = \"oops;\n",
 		}, driver.PhaseDiscover},
-		// Every module is in the cycle, so the graph is empty — but validation ran, and that
+		// Every module is in the cycle, so the graph is empty, but validation ran, and that
 		// is the distinction Reached exists to carry.
 		{"a cycle still reaches validate", map[string]string{
 			"app.luna": "import b;\n", "b.luna": "import c;\n", "c.luna": "import b;\n",

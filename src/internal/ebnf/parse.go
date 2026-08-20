@@ -9,17 +9,17 @@ import (
 //
 // The notation is grammar.md's own, and small on purpose: `::=` defines, `|` alternates,
 // `? * +` quantify, `( )` groups, UPPER_SNAKE is a token kind, UpperCamel is a nonterminal,
-// IDENT("text") is a terminal that additionally matches a lexeme, and `!TERMINAL` is a guard —
+// IDENT("text") is a terminal that additionally matches a lexeme, and `!TERMINAL` is a guard,
 // a zero-width assertion that the next token is not that terminal (R270).
 //
 // **The desugar to BNF is the one place this package can silently disagree with the spec.**
 // Earley needs plain productions, so `A B?` has to become two alternatives and `A*` a fresh
 // left-recursive pair. If that rewrite is wrong the tool tests a language grammar.md does not
-// describe and every result afterwards is quietly worthless — the same fail-open shape
+// describe and every result afterwards is quietly worthless: the same fail-open shape
 // lexer-testing-plan §1 guards for the spec reader. desugar_test.go therefore checks the
 // rewrites against hand-computed languages before any corpus run is trusted.
 //
-// Synthetic nonterminals are named `LHS·n` — the interpunct cannot occur in a spec name, so a
+// Synthetic nonterminals are named `LHS·n`; the interpunct cannot occur in a spec name, so a
 // synthetic can never collide with or masquerade as one grammar.md defines.
 func Parse(src string) ([]Prod, error) {
 	rules, err := splitRules(src)
@@ -113,7 +113,7 @@ func (l *mlexer) next() (mtok, error) {
 	}
 	t := mtok{kind: 'n', name: string(l.src[start:l.pos])}
 
-	// IDENT("text") — a terminal carrying a required lexeme.
+	// IDENT("text"): a terminal carrying a required lexeme.
 	if l.pos < len(l.src) && l.src[l.pos] == '(' && l.pos+1 < len(l.src) && l.src[l.pos+1] == '"' {
 		end := l.pos + 2
 		for end < len(l.src) && l.src[end] != '"' {
@@ -198,7 +198,7 @@ func (d *desugarer) parseSeq(l *mlexer) ([][]Sym, error) {
 		case 'n':
 			atom = []Sym{symbolFor(t)}
 		case '!':
-			// `!TERMINAL` — a zero-width guard (R270). It names a terminal because the
+			// `!TERMINAL`: a zero-width guard (R270). It names a terminal because the
 			// restriction it expresses is on the *next token*, which is what keeps it a regular
 			// intersection and the grammar context-free; a guard over a nonterminal would be a
 			// negation of a context-free language and is not admitted.
@@ -247,7 +247,7 @@ func (d *desugarer) parseSeq(l *mlexer) ([][]Sym, error) {
 		}
 		if guard {
 			// A guard matches nothing, so quantifying it says nothing, and a second one beside it
-			// would mean two assertions at one position — which the generator carries one of.
+			// would mean two assertions at one position, where the generator carries one.
 			// Both are refused rather than given a meaning nobody asked for.
 			switch q.kind {
 			case '?', '*', '+':

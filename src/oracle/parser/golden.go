@@ -14,9 +14,9 @@ import (
 )
 
 // The `.parse` golden format, described by `testdata/golden.md`. It was fixed before the parser
-// existed because one corpus feeds two tools — `internal/ebnf` answers whether grammar.md
-// derives the source section, exactly once, and the parser is held to the tree and the
-// diagnostics — and fixing the shape first is what let the second join without a migration.
+// existed because one corpus feeds two tools: `internal/ebnf` answers whether grammar.md
+// derives the source section exactly once, and the parser is held to the tree and the
+// diagnostics. Fixing the shape first is what let the second join without a migration.
 
 // GoldenSeparator is the line that divides a case's sections.
 const GoldenSeparator = "---"
@@ -79,7 +79,7 @@ func ReadGolden(path string) (*Golden, error) {
 }
 
 // splitGoldenSections cuts on lines that are exactly the separator. The source keeps its
-// trailing newline — everything before the first separator is the input, and real files end
+// trailing newline: everything before the first separator is the input, and real files end
 // with one.
 func splitGoldenSections(s string) []string {
 	var out []string

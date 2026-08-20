@@ -2,13 +2,13 @@ package diagnostic
 
 import "fmt"
 
-// Bug is a panic payload: an invariant violated, which compiler §3.1 files under `I` — "this is
+// Bug is a panic payload: an invariant violated, which compiler §3.1 files under `I`, "this is
 // a compiler bug". It is not a Diagnostic and deliberately carries no Code or Span: a panic has
 // no position, and which code it becomes is the driver's to decide when it recovers
 // (`oracle/driver/driver-implementation.md` §1).
 //
 // **Template is why this type exists.** A message that has been through fmt.Sprintf is a
-// different string per instance — `event 42 …` and `event 7 …` are one bug wearing two faces —
+// different string per instance. `event 42 …` and `event 7 …` are one bug wearing two faces, so
 // so a crash report has nothing stable to group on. Everything else a report wants can be added
 // at the recover: the stack (debug.Stack in the deferred function still sees the panicking
 // frames), the classification (a Go fault satisfies runtime.Error, ours does not), the file, the

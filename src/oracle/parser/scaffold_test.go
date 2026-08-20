@@ -1,7 +1,7 @@
 // The scaffold.s own check, and the one file here meant to shrink: every name Phase 2 will
 // implement exists, and every one of them panics.
 //
-// A stub that returned a zero value would not report "not written yet" — it would report a tree
+// A stub that returned a zero value would not report "not written yet"; it would report a tree
 // disagreeing with a golden, and the diff would be read against grammar.md §0 for a defect that is
 // not there. That is the fail-open check.sh guards against when it treats a missing tool as a
 // failure rather than a skip.
@@ -33,11 +33,11 @@ var stubs = []struct {
 	name string
 	call func(*parser)
 }{
-	// parser.go — the spine's entry and its state
+	// parser.go: the spine's entry and its state
 	{"parse", func(p *parser) { parse(nil, nil) }},
 	{"newParser", func(p *parser) { newParser(nil, nil) }},
 
-	// cursor.go — the trivia-filtered view
+	// cursor.go: the trivia-filtered view
 	{"atEnd", func(p *parser) { p.atEnd() }},
 	{"at", func(p *parser) { p.at(token.Semicolon) }},
 	{"nth", func(p *parser) { p.nth(1) }},
@@ -50,16 +50,16 @@ var stubs = []struct {
 	{"expectWord", func(p *parser) { p.expectWord("from") }},
 	{"errorToken", func(p *parser) { p.errorToken() }},
 
-	// list.go — §0's one list shape
+	// list.go: §0's one list shape
 	{"commaList", func(p *parser) { p.commaList(ArgList, token.RParen, func() {}) }},
 
-	// marker.go — where a node begins
+	// marker.go: where a node begins
 	{"open", func(p *parser) { p.open(File) }},
 	{"mark", func(p *parser) { p.mark() }},
 	{"precede", func(p *parser) { p.precede(marker(0), Additive) }},
 	{"complete", func(p *parser) { p.complete(marker(0)) }},
 
-	// decl.go — §0.1 file and declarations
+	// decl.go: §0.1 file and declarations
 	{"file", func(p *parser) { p.file() }},
 	{"prelude", func(p *parser) { p.prelude() }},
 	{"assignedImportAhead", func(p *parser) { p.assignedImportAhead() }},
@@ -67,13 +67,13 @@ var stubs = []struct {
 	{"declaration", func(p *parser) { p.declaration() }},
 	{"attribute", func(p *parser) { p.attribute() }},
 
-	// stmt.go — §0.2 statements
+	// stmt.go: §0.2 statements
 	{"block", func(p *parser) { p.block() }},
 	{"statement", func(p *parser) { p.statement() }},
 	{"simpleStmt", func(p *parser) { p.simpleStmt() }},
 	{"bindTarget", func(p *parser) { p.bindTarget() }},
 
-	// expr.go — §0.3 the tier spine
+	// expr.go: §0.3 the tier spine
 	{"expr", func(p *parser) { p.expr() }},
 	{"assignment", func(p *parser) { p.assignment() }},
 	{"assignTargetAhead", func(p *parser) { p.assignTargetAhead() }},
@@ -96,7 +96,7 @@ var stubs = []struct {
 	{"argList", func(p *parser) { p.argList() }},
 	{"arg", func(p *parser) { p.arg() }},
 
-	// primary.go — §0.4 primary expressions
+	// primary.go: §0.4 primary expressions
 	{"primary", func(p *parser) { p.primary() }},
 	{"tableLit", func(p *parser) { p.tableLit() }},
 	{"variantLit", func(p *parser) { p.variantLit() }},
@@ -105,24 +105,24 @@ var stubs = []struct {
 	{"matchExpr", func(p *parser) { p.matchExpr() }},
 	{"tryCatchExpr", func(p *parser) { p.tryCatchExpr() }},
 
-	// decllit.go — §0.5 declaration literals
+	// decllit.go: §0.5 declaration literals
 	{"declLit", func(p *parser) { p.declLit() }},
 	{"enumLit", func(p *parser) { p.enumLit() }},
 	{"useClause", func(p *parser) { p.useClause() }},
 	{"protoInit", func(p *parser) { p.protoInit() }},
 
-	// type.go — §0.6 types
+	// type.go: §0.6 types
 	{"typ", func(p *parser) { p.typ() }},
 
-	// pattern.go — §0.7 patterns
+	// pattern.go: §0.7 patterns
 	{"pattern", func(p *parser) { p.pattern() }},
 	{"destructurePattern", func(p *parser) { p.destructurePattern() }},
 
-	// literal.go — §0.8 literals
+	// literal.go: §0.8 literals
 	{"literal", func(p *parser) { p.literal() }},
 	{"stringLit", func(p *parser) { p.stringLit() }},
 
-	// keyword.go — §0.9 the keyword class
+	// keyword.go: §0.9 the keyword class
 	{"isPathSegment", func(p *parser) { isPathSegment(token.Ident) }},
 }
 

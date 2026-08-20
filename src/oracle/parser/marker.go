@@ -1,7 +1,7 @@
 package parser
 
 // Markers: where a node begins (§4.6). Two ways to make one, because §0's productions come in
-// two shapes — a nonterminal whose first symbol commits it opens eagerly, and a precedence tier,
+// two shapes: a nonterminal whose first symbol commits it opens eagerly, and a precedence tier,
 // which knows its name but not yet whether it has a node at all, marks and precedes.
 //
 // There is no abandon, and §4.6 has the argument: an empty speculative open is splice's to drop
@@ -31,7 +31,7 @@ func (p *parser) mark() marker {
 	panic("parser: mark is unimplemented")
 }
 
-// precede inserts, so it costs the events emitted since the mark — the left operand's subtree,
+// precede inserts, so it costs the events emitted since the mark, the left operand's subtree,
 // once, when the operator is seen. Left-associative runs are loops, so a chain of any length pays
 // it once. rust-analyzer's forward-parent link buys a real O(1) for a state in the stream and a
 // fourth pass, and that trade wants a profile first.
@@ -44,7 +44,7 @@ func (p *parser) precede(m marker, k Kind) marker {
 }
 
 // complete takes the marker although a close names no node, so that the parser's stack can assert
-// the node being closed is the one on top — turning a misnesting into a panic at the call site
+// the node being closed is the one on top, turning a misnesting into a panic at the call site
 // that made it rather than in the builder, or a wrong tree where it happens to balance.
 func (p *parser) complete(m marker) {
 	panic("parser: complete is unimplemented")

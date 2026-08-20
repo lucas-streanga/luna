@@ -96,7 +96,7 @@ func TestMarkdownPreservesNonBlockText(t *testing.T) {
 //
 // Every ```luna block in the spec goes through the oracle. A block that does not lex is
 // either a mistake in the spec or an example that means to be broken, and either way the
-// spec is where it gets settled — so this failing is informative rather than annoying.
+// spec is where it gets settled, so this failing is informative rather than annoying.
 func TestSpecRendersWithoutBuildProblems(t *testing.T) {
 	blocks, err := spec.LunaBlocks()
 	if err != nil {

@@ -47,7 +47,7 @@ func TestRandomStreams(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			// A fixed seed per subtest, so a failure names an input that reproduces by
-			// rerunning — no flake, and no "works on my machine".
+			// rerunning: no flake, and no "works on my machine".
 			r := rng(0x5eed)
 			lexed := 0
 			for i := range randomIterations {
@@ -57,7 +57,7 @@ func TestRandomStreams(t *testing.T) {
 			}
 
 			// Reported rather than assumed. If ingress ever began rejecting everything,
-			// this test would still pass while exercising nothing — the fail-open shape
+			// this test would still pass while exercising nothing: the fail-open shape
 			// that keeps turning up in this package.
 			t.Logf("%d of %d inputs reached the lexer", lexed, randomIterations)
 			if c.alphabet != "" && lexed != randomIterations {
@@ -82,7 +82,7 @@ func checkOne(t *testing.T, i int, data []byte) (reached bool) {
 	return accepted(data)
 }
 
-// accepted asks the question source.New answers, for the reach count alone — a wrong
+// accepted asks the question source.New answers, for the reach count alone; a wrong
 // answer here misreports a number rather than letting a broken input through.
 func accepted(data []byte) bool {
 	_, err := source.New("random", string(data))
@@ -109,8 +109,8 @@ func draw(r *rng, alphabet string) []byte {
 // Two reasons, and the second is the one that matters. The linter forbids math/rand in
 // tests (testing-strategy §7) because a suite drawing on ambient randomness is not
 // reproducible. And math/rand does not promise its sequence across Go releases, so a fixed
-// seed there would silently start meaning something else after a toolchain bump — five
-// lines here means a reported failure reproduces exactly, for as long as the file exists.
+// seed there would silently start meaning something else after a toolchain bump. A few
+// lines here mean a reported failure reproduces exactly, for as long as the file exists.
 type rng uint64
 
 func (r *rng) next() uint64 {

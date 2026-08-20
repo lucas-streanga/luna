@@ -15,7 +15,7 @@ import (
 // so a violation is a programmer error, and a corrupt tree is undetectable downstream.
 //
 // Coverage is the exception, deliberately: it belongs to splice, and not requiring it here is
-// what lets a test build from the parser's own events — TestTreeTierBoundary, which pins where
+// what lets a test build from the parser's own events, as TestTreeTierBoundary does, pinning where
 // the battery's two tiers divide. Such a stream must still carry no empty node, §6.1's elision
 // having moved to splice.
 func build(f *source.File, tokens []token.Token, events eventStream) *Tree {

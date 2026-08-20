@@ -6,8 +6,8 @@ package highlight
 // every declaration below reads a `--luna-*` variable, and overriding one variable on
 // `.luna` changes that colour everywhere it is used.
 //
-// Both themes live in one declaration each, via light-dark(). The obvious alternative — a
-// prefers-color-scheme block redefining all eighteen variables — states the palette twice,
+// Both themes live in one declaration each, via light-dark(). The obvious alternative, a
+// prefers-color-scheme block redefining every variable, states the palette twice,
 // and a palette stated twice is a palette that drifts. It also only answers the *system*
 // preference, so a site with its own light/dark toggle would leave code blocks stranded in
 // the wrong theme. Here the toggle has a hook:

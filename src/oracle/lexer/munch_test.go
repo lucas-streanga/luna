@@ -5,8 +5,8 @@
 // because at this size exhaustive is affordable and randomness would only obscure which
 // pair failed.
 //
-// What is under test is §0's own convention — "longest match wins, and where patterns
-// overlap the attempt order in §8 is normative" — which F6 calls load-bearing rather than
+// What is under test is §0's own convention, "longest match wins, and where patterns
+// overlap the attempt order in §8 is normative", which F6 calls vital rather than
 // stylistic. Every rule below is a consequence of it: word juxtaposition is longest-match
 // on identifiers, numeric continuation on numbers, the regex flag on `[imsxb]*`, `match!`
 // on a compound keyword. Only the comment opener is ordering rather than length.
@@ -14,7 +14,7 @@
 // Two things are checked, and the second is the one §8 exists for.
 //
 // **The metamorphic relation.** Separated by anything, a pair must lex as exactly those
-// two tokens. That says the tokenization of A does not depend on what follows it — which
+// two tokens. That says the tokenization of A does not depend on what follows it, which
 // is what makes the lexer a function of its input rather than of its context, and is the
 // property R237 bought by retiring `/…/`.
 //
@@ -24,7 +24,7 @@
 // asserted.
 //
 // This is combinatorial and metamorphic, not mutation testing: nothing here mutates the
-// lexer. Mutation was used *on* this sweep, to confirm it bites — a spurious operator
+// lexer. Mutation was used *on* this sweep, to confirm it bites: a spurious operator
 // table entry surfaces as an unclassified fusion, and teaching the `yield from` fold to
 // skip comments breaks the metamorphic relation, which no other test in the package sees.
 package lexer_test
@@ -39,7 +39,7 @@ import (
 )
 
 // A sample is a concrete lexeme that must lex to exactly one token of the given kind.
-// Some kinds carry more than one, where a second shape reaches a rule the first cannot —
+// Some kinds carry more than one, where a second shape reaches a rule the first cannot:
 // `from` is an IDENT, but it is the only one that can complete `yield from`.
 type sample struct {
 	kind   token.Kind
@@ -102,7 +102,7 @@ func samples(t *testing.T) []sample {
 
 	// Every kind the sweep should reach must have a sample. Without this a token added to
 	// §0 would simply go unswept, and the sweep would keep passing over a smaller corpus
-	// than it claims — the shape of fail-open this project keeps finding.
+	// than it claims, the shape of fail-open this project keeps finding.
 	have := map[token.Kind]bool{}
 	for _, s := range out {
 		have[s.kind] = true
@@ -147,7 +147,7 @@ func TestMaximalMunch(t *testing.T) {
 		for _, b := range all {
 			// Separated, the pair must be exactly [A, B]: whatever follows A cannot change
 			// what A is. The one exception is the `yield from` fold, whose whitespace-only
-			// regex is normative (§0) — a comment between the words defeats it, which is
+			// regex is normative (§0); a comment between the words defeats it, which is
 			// the same fact from the other side.
 			for _, sep := range []string{" ", "/*c*/"} {
 				got := kinds(t, a.lexeme+sep+b.lexeme)
@@ -158,7 +158,7 @@ func TestMaximalMunch(t *testing.T) {
 				case a.kind == token.Slash && sep == "/*c*/":
 					// The separator itself fuses: `/` before `/*` is `//`, so the pair
 					// opens a line comment and the rest of the line is trivia. §5's rule
-					// that the *next* byte decides between the four `/` forms, working —
+					// that the *next* byte decides between the four `/` forms, working:
 					// asserted rather than excepted, since it is a fact about the language.
 					want = nil
 				}
@@ -220,7 +220,7 @@ const (
 	compoundKeyword = "compound keyword"
 )
 
-// classify names the rule that explains a fusion, or "" when none does — which fails the
+// classify names the rule that explains a fusion, or "" when none does, which fails the
 // sweep. fused is the lexeme of the first token the concatenation produced.
 func classify(a, b sample, got []token.Kind, fused string) string {
 	switch {

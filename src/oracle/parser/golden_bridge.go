@@ -12,12 +12,12 @@ import (
 //
 // What it buys until then: a golden's expectation came from grammar.md itself, so turning that
 // derivation into the events the parser *will* emit exercises build, splice, the spans and the
-// navigation API over thirty real files with real trivia. The first golden to fail once `parse`
+// navigation API over every golden, on real files with real trivia. The first golden to fail once `parse`
 // lands is then unambiguously the parser's fault.
 //
-// The elision therefore happens on the emit side — these are the events the parser is expected to
-// produce, not a rendering convenience — and the tables below die with the file, since a
-// recursive-descent parser opens a tier only when it fires.
+// The elision therefore happens on the emit side, since these are the events the parser is
+// expected to produce rather than a rendering convenience. The tables below die with the file,
+// a recursive-descent parser opening a tier only when it fires.
 
 // The tiers are listed where the pure alternations are computed, because no shape distinguishes
 // them. golden.md §2 has the reasoning and the hazard.
@@ -107,8 +107,8 @@ func runGolden(g *ebnf.Grammar, c *Golden) (*goldenRun, error) {
 // runSource derives one source and runs it through the parser's own stages. The error is the
 // interesting half: a source that does not derive, or derives twice, has no tree to build.
 //
-// It takes bare source because the spec corpus is not a golden — 431 blocks the parser must
-// handle and nobody wrote expectations for.
+// It takes bare source because the spec corpus is not a golden: blocks the parser must handle
+// that nobody wrote expectations for.
 func runSource(g *ebnf.Grammar, name, src string) (*goldenRun, error) {
 	lexed, err := LexGolden(name, src)
 	if err != nil {

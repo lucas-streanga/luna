@@ -14,7 +14,7 @@ import (
 
 // TestEveryKindHasAClass is the totality pin. §0's inventory is the set of things that can
 // appear in a rendered page, so a kind missing from the table is a construct that would
-// render uncoloured — or, since classOf panics, not at all. Walking token.All means adding
+// render uncoloured, or, since classOf panics, not at all. Walking token.All means adding
 // a kind to §0 fails here rather than in a docs build.
 func TestEveryKindHasAClass(t *testing.T) {
 	for _, k := range token.All() {
@@ -31,7 +31,7 @@ func TestEveryKindHasAClass(t *testing.T) {
 }
 
 // TestUnknownKindPanics confirms the assert classOf's doc claims. The branch is unreachable
-// for every kind §0 defines — TestEveryKindHasAClass is what makes it so — and an
+// for every kind §0 defines (TestEveryKindHasAClass is what makes it so) and an
 // unreachable branch that silently returns something plausible is how a gap gets shipped.
 func TestUnknownKindPanics(t *testing.T) {
 	defer func() {
@@ -64,7 +64,7 @@ func TestEveryClassIsStyled(t *testing.T) {
 // TestRenderIsLossless is the property a regex grammar cannot offer.
 //
 // Tokens tile the input (R242), so the rendering is a partition of the source: stripping
-// the markup must give back exactly the bytes that went in — not merely something that
+// the markup must give back exactly the bytes that went in, not merely something that
 // looks the same, and with no allowance for a dropped byte in a construct the renderer
 // mishandled. Run over the whole spec corpus it covers every construct anyone has written
 // down, which is a wider net than any set of cases written here.

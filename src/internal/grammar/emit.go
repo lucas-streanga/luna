@@ -20,7 +20,7 @@ const (
 // TmLanguage is the VSCode grammar, tmLanguage JSON.
 func (g *Grammar) TmLanguage() ([]byte, error) {
 	// The tmLanguage schema has nowhere for a comment, so the banner rides in as a key. It
-	// sorts to the front of the object because encoding/json orders map keys — but this is a
+	// sorts to the front of the object because encoding/json orders map keys, but this is a
 	// struct field, so its position is the struct's.
 	doc := struct {
 		Comment string `json:"_generated"`
@@ -30,7 +30,7 @@ func (g *Grammar) TmLanguage() ([]byte, error) {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetIndent("", "  ")
-	// Without this every `<` and `>` in a pattern becomes < — RANGE_EXCL is `\.\.<` and
+	// Without this every `<` and `>` in a pattern becomes <, and RANGE_EXCL is `\.\.<` while
 	// ARROW is `->`, so the file would be correct, unreadable, and impossible to review.
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(doc); err != nil {
@@ -41,12 +41,12 @@ func (g *Grammar) TmLanguage() ([]byte, error) {
 
 // ShikiTS is the same grammar as a TypeScript module.
 //
-// Shiki accepts a grammar structurally, so the object is the tmLanguage verbatim — JSON is
+// Shiki accepts a grammar structurally, so the object is the tmLanguage verbatim. JSON is
 // a subset of TS object syntax and needs no translation.
 //
 // The type declares _generated alongside the five real fields. TypeScript's excess property
 // check rejects an object literal carrying a key its annotation does not name, so omitting
-// it would make the file a compile error on any site that actually type-checks — which is
+// it would make the file a compile error on any site that actually type-checks, which is
 // the one failure mode nothing in this repo can catch, there being no tsc here.
 func (g *Grammar) ShikiTS() ([]byte, error) {
 	body, err := g.TmLanguage()
@@ -91,7 +91,7 @@ export const lunaGrammar: LunaGrammar = `, bannerLine1, bannerLine2)
 }
 
 // treeSitterCaptures maps highlight's classes to tree-sitter's capture vocabulary, which is
-// a third naming scheme again — Zed and Neovim key on these, not on TextMate scopes.
+// a third naming scheme again: Zed and Neovim key on these, not on TextMate scopes.
 var treeSitterCaptures = map[string]string{
 	"tok-decl":  "@keyword",
 	"tok-kw":    "@keyword.control",
@@ -101,7 +101,7 @@ var treeSitterCaptures = map[string]string{
 
 // nodeCaptures are grammar.js's node types and the capture each takes, in emission order.
 //
-// Every one is gated on the *committed* parser producing it — see HighlightsSCM.
+// Every one is gated on the *committed* parser producing it (see HighlightsSCM).
 var nodeCaptures = []struct{ node, capture string }{
 	{"comment", "@comment"},
 	{"string", "@string"},
@@ -116,11 +116,11 @@ var nodeCaptures = []struct{ node, capture string }{
 //
 // Only the vocabulary is generated. The node captures name grammar.js's own node types, and
 // grammar.js stays hand-written because changing it means regenerating parser.c through the
-// container — see tooling/generate-grammar.sh.
+// container (see tooling/generate-grammar.sh).
 //
 // That two-step is why `have` exists. A query naming a node type the parser does not produce
 // does not degrade gracefully: tree-sitter fails the whole query with TSQueryErrorNodeType,
-// and Zed loses highlighting for the language entirely — not just for that pattern. So a
+// and Zed loses highlighting for the language entirely, not just for that pattern. So a
 // capture is emitted only once src/node-types.json says the committed parser can produce it.
 //
 // The sequencing falls out of that. Adding a rule to grammar.js changes nothing here; running
@@ -166,7 +166,7 @@ func (g *Grammar) HighlightsSCM(p *patterns, have map[string]bool) []byte {
 //
 // A #match? predicate tests one (identifier) node, so a lexeme containing a space cannot be
 // expressed: `yield from` is one token to the lexer (R223) and two identifiers to
-// tree-sitter. It is dropped, which leaves `yield` coloured and `from` bare — the same
+// tree-sitter. It is dropped, which leaves `yield` coloured and `from` bare, the same
 // degradation the hand-written file had, now deliberate rather than incidental. `match!`
 // survives because grammar.js's identifier rule admits a trailing `!`.
 func keywordLexemes(p *patterns) map[string][]string {

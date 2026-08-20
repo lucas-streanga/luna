@@ -1,13 +1,13 @@
 // Package token defines Luna's token inventory: the kinds the lexer emits and the
 // categories that group them.
 //
-// The inventory is lexer §0's table, and nothing here may drift from it —
+// The inventory is lexer §0's table, and nothing here may drift from it:
 // inventory_test.go pins the names, the categories, and the counts against the spec
 // itself. Names returned by Kind.String are §0's names, not Go's, so token dumps and
 // golden files stay reviewable against the spec.
 //
 // §0 has 137 rows and 133 tokens: DOUBLE and BYTES each own two rows, and INVALID owns
-// three — the two error productions and the catch-all (R242). Every row names a token.
+// three, the two error productions and the catch-all (R242). Every row names a token.
 package token
 
 // Category groups kinds as §0's category column does. The zero value is invalid.
@@ -50,7 +50,7 @@ func (c Category) String() string {
 
 // Kind identifies a token class. The zero value, Unset, is not a token: it is what an
 // unassigned Kind reports, so an uninitialized token never masquerades as a real one. It is
-// distinct from Invalid, which IS emitted — for bytes no real production claims (R242).
+// distinct from Invalid, which IS emitted, for bytes no real production claims (R242).
 type Kind uint8
 
 const (
@@ -379,7 +379,7 @@ func (k Kind) Category() Category {
 // dropped by everything else.
 func (k Kind) IsTrivia() bool { return k.Category() == Trivia }
 
-// All returns every kind in §0's order, excluding only Unset — the zero value, which
+// All returns every kind in §0's order, excluding only Unset, the zero value, which
 // names no token. Invalid is included: since R242 it is a token like any other, and §10's
 // counts are what this feeds.
 func All() []Kind {

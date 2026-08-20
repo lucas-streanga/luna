@@ -1,7 +1,7 @@
 // The golden gate: every `.parse` case, against grammar.md and against the parser.
 //
 // Three checks per case, and they are different in kind. The **grammar** must derive the source
-// exactly once — the ambiguity stress test these cases were written for. The **golden** must
+// exactly once, the ambiguity stress test these cases were written for. The **golden** must
 // match what §0's own productions yield, so a grammar change that moves a tree shows up as a
 // reviewable diff. And the **parser** must produce that same tree, raise no diagnostic, and
 // reconstruct the source (golden.md §0's parser row).
@@ -90,7 +90,7 @@ func TestGoldens(t *testing.T) {
 			}
 
 			// And the parser must produce that same tree. The two assertions are different
-			// claims — that the golden still tracks §0, and that the parser implements §0 — so
+			// claims, that the golden still tracks §0 and that the parser implements §0, so
 			// keeping both means a disagreement names which of the two is wrong, and together
 			// they compare the parser against the grammar through the committed tree.
 			assertParserAgrees(t, c, lexed)
@@ -143,7 +143,7 @@ func TestGoldenFilesRoundTrip(t *testing.T) {
 }
 
 // assertParserAgrees is golden.md §0's parser row: **the tree matches, no diagnostics are raised,
-// and the CST reconstructs the source.** All three, because they fail differently — a wrong Kind
+// and the CST reconstructs the source.** All three, because they fail differently: a wrong Kind
 // shows in the tree, a spurious recovery shows in the diagnostics, and a dropped token shows only
 // in the reconstruction.
 //

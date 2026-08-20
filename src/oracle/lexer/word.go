@@ -9,8 +9,8 @@ import (
 
 // lexWord scans `[A-Za-z_][A-Za-z0-9_]*` and then decides what it was: the wildcard, one
 // of the two compound keywords, an ordinary keyword, or an identifier. This is §3's
-// recommended implementation — one scan and a lookup, plus the peeks the compounds need —
-// rather than 49 patterns attempted in order.
+// recommended implementation, one scan and a lookup plus the peeks the compounds need,
+// rather than every keyword pattern attempted in order.
 func (s *Scanner) lexWord() token.Kind {
 	start := s.pos
 	s.pos++

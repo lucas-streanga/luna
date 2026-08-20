@@ -3,7 +3,7 @@
 //
 // The three shipping grammars under tooling/ each re-derive §0 by hand, and cmd/grammarcheck
 // exists because they drift. This is the other half of that answer: for a consumer with no
-// latency budget — documentation, rendered at build time — there is no reason to approximate
+// latency budget (documentation, rendered at build time) there is no reason to approximate
 // the lexer when the lexer is right there.
 //
 // Two properties the oracle has and a TextMate grammar cannot promise make this almost
@@ -19,8 +19,8 @@
 //
 // The map from token to class is pure, one kind to one class, plus the builtin type names
 // §0 cannot distinguish from any other identifier. Nothing here looks at neighbouring
-// tokens. A TextMate grammar fakes shallow parsing with lookahead — colouring `foo` as a
-// function because a `(` follows, or a name as a type because it sits after `:` — and gets
+// tokens. A TextMate grammar fakes shallow parsing with lookahead, colouring `foo` as a
+// function because a `(` follows, or a name as a type because it sits after `:`, and gets
 // it wrong exactly as often as the heuristic is wrong.
 //
 // That line is drawn on purpose. The lexer knows what it knows; the rest waits for a
@@ -40,7 +40,7 @@ import (
 	"luna/oracle/token"
 )
 
-// The CSS classes emitted. Short and few — a docs theme has to style all of them, and a
+// The CSS classes emitted. Short and few, because a docs theme has to style all of them and a
 // class per token kind would be 133 rules describing a dozen real distinctions.
 //
 // classPlain is the empty class, meaning no span at all: whitespace and ordinary
@@ -200,7 +200,7 @@ var classes = map[token.Kind]string{
 	token.Colon:     classPunct,
 
 	// Delimiters (§0). Coloured as the literal they bound, which is what every theme does
-	// with a quote — the delimiter is part of the string to a reader, whatever §0 says.
+	// with a quote: the delimiter is part of the string to a reader, whatever §0 says.
 	token.TripleDqOpen:  classString,
 	token.TripleSqOpen:  classString,
 	token.DqOpen:        classString,
@@ -228,7 +228,7 @@ var classes = map[token.Kind]string{
 	token.RegexText:  classRegex,
 	token.CmdText:    classCommand,
 
-	// Identifiers (§7). Bare, unless the name is one types.md lists — see builtins.
+	// Identifiers (§7). Bare, unless the name is one types.md lists (see builtins).
 	token.Ident:    classPlain,
 	token.Wildcard: classVar,
 
@@ -239,7 +239,7 @@ var classes = map[token.Kind]string{
 //
 // An unmapped kind panics rather than falling back to plain. The totality test makes that
 // unreachable for every kind §0 defines, so reaching it means a kind was added to the
-// inventory and not to the table — a gap that would otherwise show up as one silently
+// inventory and not to the table, a gap that would otherwise show up as one silently
 // uncoloured construct in the rendered docs, which is precisely the class of drift this
 // package exists to end.
 func classOf(k token.Kind, text string) string {
@@ -261,7 +261,7 @@ func classOf(k token.Kind, text string) string {
 // reading it is how the docs and the editors end up agreeing about `spawn` by construction
 // instead of by two people making the same call twice.
 //
-// The builtin type names are not visible through this — they refine an IDENT by spelling,
+// The builtin type names are not visible through this: they refine an IDENT by spelling,
 // not by kind, so a caller wanting them asks BuiltinTypes.
 func Class(k token.Kind) string { return classOf(k, "") }
 
@@ -295,8 +295,8 @@ func RenderTokens(f *source.File, toks []token.Token) string {
 
 	b.WriteString(`<pre class="luna"><code>`)
 	// Runs of one class become one span. Adjacent tokens sharing a colour are the common
-	// case rather than the exception — a string is its two delimiters plus its text, an
-	// operator often abuts another — so emitting per token would roughly triple the markup
+	// case rather than the exception. A string is its two delimiters plus its text and an
+	// operator often abuts another, so emitting per token would roughly triple the markup
 	// for every literal in the document while rendering identically.
 	//
 	// Slicing the run as start..end rather than concatenating each token's text is only

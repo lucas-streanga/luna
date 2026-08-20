@@ -34,7 +34,7 @@ import (
 	"luna/oracle/token"
 )
 
-// unit is one file's accumulating state — the driver's bookkeeping, and deliberately not a
+// unit is one file's accumulating state, the driver's bookkeeping and deliberately not a
 // parameter to anything (driver.md §5).
 //
 // No pass takes a *unit. A pass takes what it needs, so the formatter can lex one file without
@@ -90,7 +90,7 @@ type Result struct {
 	// Reached is the last phase that completed.
 	//
 	// It is here because no other field answers the question. An empty Graph.Layers looks like
-	// "§1.2 never ran", but a graph whose every module sits in a cycle is also empty — so
+	// "§1.2 never ran", but a graph whose every module sits in a cycle is also empty, so
 	// inferring the phase from the graph would be a fact derived from something not
 	// authoritative for it, and would read wrong exactly when a cycle is what went wrong.
 	Reached Phase
@@ -104,14 +104,14 @@ type Result struct {
 // The two returns are two different kinds of news, and the split is the same one discovery
 // already makes. The **list** is what the program got wrong, ordered by file and within a
 // file by the order its phase produced them. The **error** is that the compile could not be
-// run at all — a malformed entry path, or a file that vanished mid-build — which modules §12
+// run at all (a malformed entry path, or a file that vanished mid-build), which modules §12
 // deliberately allocates no code for, since it is not a claim about the program.
 //
 // A non-nil error means the list is not a verdict. It is the whole result for now: with no
 // parser there is nothing further to hand back, and a caller wanting the graph calls the
 // passes directly.
 func Build(fsys fs.FS, entry string) (Result, error) {
-	// §1.0 — discovery, which raises no diagnostics of its own (R250). M0005 is the one code
+	// §1.0, discovery, which raises no diagnostics of its own (R250). M0005 is the one code
 	// that reaches here, carried on the error; everything else it can fail with is uncoded.
 	found, err := modules.Discover(fsys, entry)
 	if err != nil {
@@ -124,7 +124,7 @@ func Build(fsys fs.FS, entry string) (Result, error) {
 	}
 	res := Result{Files: found.Files, Reached: PhaseDiscover}
 
-	// §1.1 — lex, all files in parallel (§2: no symbol knowledge exists, so nothing orders it).
+	// §1.1, lex, all files in parallel (§2: no symbol knowledge exists, so nothing orders it).
 	units := lexAll(fsys, found.Files)
 	for _, u := range units {
 		if u.err != nil {
@@ -134,13 +134,13 @@ func Build(fsys fs.FS, entry string) (Result, error) {
 	}
 	if !res.Diagnostics.Empty() {
 		// §3: a phase cannot meaningfully consume the broken output of the previous one. This
-		// is also what makes R251's ingress hole sound — a file whose imports went unread
+		// is also what makes R251's ingress hole sound: a file whose imports went unread
 		// cannot reach a phase that would miss them.
 		return res, nil
 	}
 	res.Reached = PhaseLex
 
-	// §1.2 — import validation.
+	// §1.2, import validation.
 	toks := make(map[string][]token.Token, len(units))
 	for _, u := range units {
 		toks[u.file.Path] = u.tokens
@@ -156,8 +156,8 @@ func Build(fsys fs.FS, entry string) (Result, error) {
 // rather than by whichever goroutine finished first. Determinism is structural here, not
 // something a test has to notice.
 //
-// Bounded to one worker per CPU. Unbounded would also work — Go schedules blocked goroutines
-// fine — but the bound is the driver making the fan-out decision §3 says is its to make,
+// Bounded to one worker per CPU. Unbounded would also work, Go scheduling blocked goroutines
+// fine, but the bound is the driver making the fan-out decision §3 says is its to make,
 // rather than leaving it to the size of the file set.
 func lexAll(fsys fs.FS, files []modules.File) []*unit {
 	units := make([]*unit, len(files))
@@ -181,7 +181,7 @@ func lexAll(fsys fs.FS, files []modules.File) []*unit {
 //
 // Ingress happens here, and it has to: lexer.Lex takes a *source.File, which for rejected
 // bytes never exists, so oracle/lexer structurally cannot raise L0001 or L0002. compiler §1.1
-// is the *phase* that reports them and the driver is what implements that half of it — which
+// is the *phase* that reports them and the driver is what implements that half of it, which
 // is also why discovery listing an ingress-rejected file (R251) is what puts it in front of
 // this function at all.
 func lexOne(fsys fs.FS, f modules.File) *unit {
@@ -206,8 +206,8 @@ func lexOne(fsys fs.FS, f modules.File) *unit {
 
 // fromSourceError converts an ingress failure into a diagnostic.
 //
-// source.Error carries the code and the offset but no filename — package source has no *File
-// to name, having refused to build one — so the caller supplies it, which is the conversion
+// source.Error carries the code and the offset but no filename, package source having no *File
+// to name after refusing to build one. So the caller supplies it, which is the conversion
 // its doc describes and nothing had performed until now.
 func fromSourceError(err error, path string) *diagnostic.Diagnostic {
 	var se *source.Error

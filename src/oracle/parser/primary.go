@@ -1,16 +1,16 @@
 package parser
 
-// grammar.md **§0.4 — Primary expressions**.
+// grammar.md **§0.4: Primary expressions**.
 //
 // `FnBody`, `ArmBody` and `MatchKw` are pure alternations and never reach a tree (§5): a block
 // body shows a `Block`, an expression body shows the expression, and `match` against `match!` is
-// the token. `Primary` is a tier, kept only when it fires — for `LPAREN Expr RPAREN`.
+// the token. `Primary` is a tier, kept only when it fires, for `LPAREN Expr RPAREN`.
 //
 // **Patterns land before match**: a `MatchArm` begins with a `Pattern`, so `matchExpr` has
 // nothing to parse until pattern.go exists.
 
 // primary is the spine's widest dispatch, and one junction needs a token of lookahead: **`error`
-// has three roles** — a `Primary`, a `PrimaryType`, and the head of an `ErrorLit`. In expression
+// has three roles**: a `Primary`, a `PrimaryType`, and the head of an `ErrorLit`. In expression
 // position `LBRACE` or `COLON` after it opens the literal, anything else is the root error type
 // as a value or callee (`error-three-roles.parse`). Nothing collides, a named argument's head
 // being an `IDENT` and `KW_ERROR` not being one.
@@ -26,7 +26,7 @@ func (p *parser) tableLit() {
 
 // variantLit opens `DOT LBRACE`, and that leading dot is the whole of R272: sharing no first token
 // with `Block`, it needs no parentheses in a body position and no guard anywhere. It took three
-// rulings — `FnBody ::= Block | Expr` was prose-annotated as an ordered choice a CFG cannot
+// rulings. `FnBody ::= Block | Expr` was prose-annotated as an ordered choice a CFG cannot
 // express, R268 ruled for the block and parenthesized the literal, R270 stated that in §0 with a
 // guard, and R272 removed the collision instead.
 func (p *parser) variantLit() {

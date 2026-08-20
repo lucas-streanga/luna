@@ -1,8 +1,8 @@
 // The trivia tokens (§2): whitespace, both comment forms, and the shebang.
 //
 // All are emitted rather than skipped (R236). They carry no meaning, so every consumer
-// but the formatter drops them — but the formatter cannot reproduce what the lexer
-// discarded, and it is the only component that needs them.
+// but the formatter drops them. The formatter cannot reproduce what the lexer discarded, and
+// it is the only component that needs them.
 package lexer
 
 import (
@@ -27,7 +27,7 @@ func (s *Scanner) lexComment() token.Kind {
 	if s.has("//") {
 		return s.lexLine(token.LineComment)
 	}
-	// `(?s)/\*.*?\*/` — the *first* `*/` closes it, block comments not nesting (F4),
+	// `(?s)/\*.*?\*/`: the *first* `*/` closes it, block comments not nesting (F4),
 	// which is exactly what the spec's lazy quantifier means.
 	if i := strings.Index(s.src[s.pos+2:], "*/"); i >= 0 {
 		s.pos += 2 + i + 2
@@ -40,7 +40,7 @@ func (s *Scanner) lexComment() token.Kind {
 	return token.Invalid
 }
 
-// lexLine consumes through the byte before the next newline — the shape both `#!…` and
+// lexLine consumes through the byte before the next newline, the shape both `#!…` and
 // `//…` have. The newline itself stays outside, to be picked up as WHITESPACE, which is
 // what §0's two `[^\n]*`-tailed patterns mean and what §9 gives the reason for.
 func (s *Scanner) lexLine(kind token.Kind) token.Kind {

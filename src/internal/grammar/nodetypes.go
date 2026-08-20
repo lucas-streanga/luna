@@ -18,7 +18,7 @@ const nodeTypesPath = "tooling/tree-sitter-luna/src/node-types.json"
 // is the input to a generation step this repo runs by hand, so the two disagree for exactly
 // as long as it takes someone to run tooling/generate-grammar.sh. A query built from
 // grammar.js would be correct about the intent and wrong about the parser, which is the
-// direction that breaks — see HighlightsSCM.
+// direction that breaks (see HighlightsSCM).
 func loadNodeTypes(root string) (map[string]bool, error) {
 	raw, err := os.ReadFile(filepath.Join(root, nodeTypesPath))
 	if err != nil {

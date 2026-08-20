@@ -4,7 +4,7 @@
 // Lex drains a whole file, which is what the compiler wants. Scanner exists for the one
 // consumer that must stop early: discovery (§1.0, R190) reads a file's import prelude and
 // halts at the first non-import declaration, making that stage O(file head) rather than
-// O(file). Everything below is about that difference — nothing else in the package would
+// O(file). Everything below is about that difference; nothing else in the package would
 // notice if the incremental path broke.
 package lexer_test
 
@@ -74,7 +74,7 @@ func TestScannerMatchesLex(t *testing.T) {
 // TestScannerStopsEarly is discovery's case, and the reason this API exists.
 //
 // A caller that halts at the first non-import declaration must not be charged for what
-// follows it — not in time, and not in diagnostics. The broken literal below is real, and
+// follows it, not in time and not in diagnostics. The broken literal below is real, and
 // Lex reports it; a scanner that stopped before reaching it must not, because it never
 // read those bytes and has no business having an opinion about them.
 func TestScannerStopsEarly(t *testing.T) {
@@ -107,7 +107,7 @@ func TestScannerStopsEarly(t *testing.T) {
 }
 
 // TestScannerErrorsAccumulate checks that Errors grows during a scan rather than only at
-// the end — a caller that stops early reads it mid-flight, which is the only way it ever
+// the end: a caller that stops early reads it mid-flight, which is the only way it ever
 // sees anything.
 func TestScannerErrorsAccumulate(t *testing.T) {
 	s := lexer.New(newFile(t, "let a = 0755; let b = 0X1F;\n"))
@@ -143,7 +143,7 @@ func TestScannerErrorsIsACopy(t *testing.T) {
 		t.Fatalf("got %d diagnostics, want 1", len(got))
 	}
 	// Writing an element is the test that means something: it reaches the scanner exactly
-	// when the backing array is shared. Appending would not, copy or no — it acts on the
+	// when the backing array is shared. Appending would not, copy or no; it acts on the
 	// caller's own slice header.
 	got[0] = nil
 
@@ -154,7 +154,7 @@ func TestScannerErrorsIsACopy(t *testing.T) {
 }
 
 // TestScannerNextAfterEnd pins the idempotence finish's guard exists for. A caller that
-// keeps calling past the end — a loop written the other way round, say — must not
+// keeps calling past the end, a loop written the other way round say, must not
 // accumulate a fresh unterminated-literal diagnostic on every call.
 func TestScannerNextAfterEnd(t *testing.T) {
 	s := lexer.New(newFile(t, "let s = \"a${x\n"))
